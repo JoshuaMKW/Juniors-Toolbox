@@ -1,0 +1,4 @@
+Male Pianta (Round Collar Shirt) Manager
+Character STRING
+MaxObjs INT
+MActorSets INT

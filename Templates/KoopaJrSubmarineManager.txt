@@ -1,0 +1,4 @@
+Jr.'s Bathtub Submarine Manager
+Character STRING
+MaxObjs INT
+MActorSets INT

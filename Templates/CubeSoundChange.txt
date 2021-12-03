@@ -1,0 +1,2 @@
+Sound Switching Cube Manager
+Default COMMENT true

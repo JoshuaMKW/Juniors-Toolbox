@@ -1,0 +1,2 @@
+Object Character
+Path STRING

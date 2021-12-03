@@ -1,0 +1,4 @@
+Coo Coo Manager
+Character STRING
+MaxObjs INT
+MActorSets INT

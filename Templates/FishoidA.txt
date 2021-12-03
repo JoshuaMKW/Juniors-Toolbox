@@ -1,0 +1,18 @@
+Fish A
+X FLOAT
+Y FLOAT
+Z FLOAT
+Pitch FLOAT
+Yaw FLOAT
+Roll FLOAT
+ScaleX FLOAT
+ScaleY FLOAT
+ScaleZ FLOAT
+Character STRING
+!!! INT
+Manager STRING
+Rail STRING
+ObjCount INT
+FollowObjID INT
+DisplayModel COMMENT fish/fisha.bmd
+ForceDrawMode COMMENT Both

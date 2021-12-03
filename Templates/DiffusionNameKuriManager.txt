@@ -1,0 +1,4 @@
+Spreading Swoopin' Stu Manager
+Character STRING
+MaxObjs INT
+MActorSets INT

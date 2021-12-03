@@ -1,0 +1,4 @@
+Jumping Blooper Manager
+Character STRING
+MaxObjs INT
+MActorSets INT

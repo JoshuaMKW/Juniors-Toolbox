@@ -1,0 +1,3 @@
+Sound Group
+SoundName STRING
+Default COMMENT true

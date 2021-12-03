@@ -1,0 +1,15 @@
+Goop Portal
+X FLOAT
+Y FLOAT
+Z FLOAT
+Pitch FLOAT
+Yaw FLOAT
+Roll FLOAT
+ScaleX FLOAT
+ScaleY FLOAT
+ScaleZ FLOAT
+Character STRING
+!!! INT
+DisplayModel COMMENT map/map/gate/05_gate01.bmd
+DisplayColor COMMENT Green
+ForceDrawMode COMMENT Both

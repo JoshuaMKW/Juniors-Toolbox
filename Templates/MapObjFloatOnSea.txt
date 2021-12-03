@@ -1,0 +1,16 @@
+Sea Floating Map Object
+X FLOAT
+Y FLOAT
+Z FLOAT
+Pitch FLOAT
+Yaw FLOAT
+Roll FLOAT
+ScaleX FLOAT
+ScaleY FLOAT
+ScaleZ FLOAT
+Character STRING
+!!! INT
+Model STRING
+riccoShipLog_tex COMMENT mapobj/riccoship.bmt
+riccoShipDol_tex COMMENT mapobj/riccoship.bmt
+ForceDrawMode COMMENT mapobj/riccoship.bmt

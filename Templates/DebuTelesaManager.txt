@@ -1,0 +1,4 @@
+Sleepy Boo Manager
+Character STRING
+MaxObjs INT
+MActorSets INT

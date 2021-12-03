@@ -1,0 +1,16 @@
+Fluff Manager
+X FLOAT
+Y FLOAT
+Z FLOAT
+Pitch FLOAT
+Yaw FLOAT
+Roll FLOAT
+ScaleX FLOAT
+ScaleY FLOAT
+ScaleZ FLOAT
+Character STRING
+!!! INT
+Model STRING
+WindTime FLOAT
+Unknown FLOAT
+WindForce INT

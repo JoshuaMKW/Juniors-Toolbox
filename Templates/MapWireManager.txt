@@ -1,0 +1,13 @@
+Wire Manager
+Character STRING
+MaxObjs INT
+Unknown INT
+TopWidth FLOAT
+BottomWidth FLOAT
+TopR INT
+TopG INT
+TopB INT
+BottomR INT
+BottomG INT
+BottomB INT
+Default COMMENT true

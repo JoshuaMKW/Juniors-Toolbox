@@ -1,0 +1,4 @@
+Male Pianta (Tropical Shirt) Manager
+Character STRING
+MaxObjs INT
+MActorSets INT

@@ -1,0 +1,23 @@
+Twin Graffiti
+X FLOAT
+Y FLOAT
+Z FLOAT
+Pitch FLOAT
+Yaw FLOAT
+Roll FLOAT
+ScaleX FLOAT
+ScaleY FLOAT
+ScaleZ FLOAT
+Character STRING
+!!! INT
+Model STRING
+SpawnObjID INT
+SpawnLength FLOAT
+SpawnHeight FLOAT
+SpawnDuration INT
+R INT
+G INT
+B INT
+SignCross COMMENT mapobj/batu_sign.bmd
+SignCircle COMMENT mapobj/maru_sign.bmd
+SignTriangle COMMENT mapobj/3kaku_sign.bmd

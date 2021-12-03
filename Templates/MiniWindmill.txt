@@ -1,0 +1,18 @@
+Mini Windmill
+X FLOAT
+Y FLOAT
+Z FLOAT
+Pitch FLOAT
+Yaw FLOAT
+Roll FLOAT
+ScaleX FLOAT
+ScaleY FLOAT
+ScaleZ FLOAT
+Character STRING
+!!! INT
+Model STRING
+SpawnObjID INT
+SpawnLength FLOAT
+SpawnHeight FLOAT
+SpawnDuration INT
+DisplayTexture COMMENT mapobj/bianco.bmt

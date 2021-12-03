@@ -1,0 +1,4 @@
+Hula Dancer Pianta Manager
+Character STRING
+MaxObjs INT
+MActorSets INT

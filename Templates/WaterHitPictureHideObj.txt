@@ -1,0 +1,22 @@
+Graffiti
+X FLOAT
+Y FLOAT
+Z FLOAT
+Pitch FLOAT
+Yaw FLOAT
+Roll FLOAT
+ScaleX FLOAT
+ScaleY FLOAT
+ScaleZ FLOAT
+Character STRING
+!!! INT
+Model STRING
+SpawnObjID INT
+SpawnLength FLOAT
+SpawnHeight FLOAT
+SpawnDuration INT
+R INT
+G INT
+B INT
+KoopaJrSignM COMMENT mapobj/koopa_jr_sign.bmd
+ChipShine COMMENT mapobj/chip_shine_model1.bmd

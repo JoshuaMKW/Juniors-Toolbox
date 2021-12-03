@@ -1,0 +1,18 @@
+Barrel
+X FLOAT
+Y FLOAT
+Z FLOAT
+Pitch FLOAT
+Yaw FLOAT
+Roll FLOAT
+ScaleX FLOAT
+ScaleY FLOAT
+ScaleZ FLOAT
+Character STRING
+!!! INT
+Model STRING
+wood_barrel COMMENT mapobj/barrel_normal.bmd
+wood_barrel_tex COMMENT mapobj/barrel.bmt
+wood_barrel_once COMMENT mapobj/barrel_normal.bmd
+wood_barrel_once_tex COMMENT mapobj/barrel.bmt
+drum_can COMMENT mapobj/drum_can_model.bmd

@@ -1,0 +1,4 @@
+Pinna Park Director Manager
+Character STRING
+MaxObjs INT
+MActorSets INT

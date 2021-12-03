@@ -1,0 +1,15 @@
+Territorial Petey Piranha
+X FLOAT
+Y FLOAT
+Z FLOAT
+Pitch FLOAT
+Yaw FLOAT
+Roll FLOAT
+ScaleX FLOAT
+ScaleY FLOAT
+ScaleZ FLOAT
+Character STRING
+!!! INT
+Manager STRING
+Rail STRING
+DisplayModel COMMENT kbosspakkun/bosspaku_model.bmd

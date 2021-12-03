@@ -1,0 +1,2 @@
+High Speed A Cube Manager
+Default COMMENT true

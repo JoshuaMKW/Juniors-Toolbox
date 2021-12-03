@@ -1,0 +1,18 @@
+Nozzle Box
+X FLOAT
+Y FLOAT
+Z FLOAT
+Pitch FLOAT
+Yaw FLOAT
+Roll FLOAT
+ScaleX FLOAT
+ScaleY FLOAT
+ScaleZ FLOAT
+Character STRING
+!!! INT
+Model STRING
+Spawn STRING
+Type STRING
+SpawnLength FLOAT
+SpawnHeight FLOAT
+DisplayTexture COMMENT mapobj/nozzlebox.bmt

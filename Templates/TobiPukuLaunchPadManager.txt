@@ -1,0 +1,4 @@
+Jumping Cheep-Cheep Manager
+Character STRING
+MaxObjs INT
+MActorSets INT

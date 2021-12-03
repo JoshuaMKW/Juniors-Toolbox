@@ -1,0 +1,22 @@
+EMario (Shadow Mario/Il Piantissimo)
+X FLOAT
+Y FLOAT
+Z FLOAT
+Pitch FLOAT
+Yaw FLOAT
+Roll FLOAT
+ScaleX FLOAT
+ScaleY FLOAT
+ScaleZ FLOAT
+Character STRING
+!!! INT
+Manager STRING
+Rail STRING
+Behavior INT
+Rail0Node INT
+Rail1Node INT
+Rail2Node INT
+Rail3Node INT
+Rail4Node INT
+DisplayModel COMMENT mapobj/mariocap.bmd
+DisplayColor COMMENT Blue

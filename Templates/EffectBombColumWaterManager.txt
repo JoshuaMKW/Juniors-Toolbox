@@ -1,0 +1,4 @@
+Bomb Water Column Explosion Effect Manager
+Character STRING
+MaxObjs INT
+MActorSets INT

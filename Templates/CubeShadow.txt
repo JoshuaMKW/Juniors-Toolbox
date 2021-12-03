@@ -1,0 +1,2 @@
+Shadow Cube Manager
+Default COMMENT true

@@ -1,0 +1,28 @@
+Base Map Object
+X FLOAT
+Y FLOAT
+Z FLOAT
+Pitch FLOAT
+Yaw FLOAT
+Roll FLOAT
+ScaleX FLOAT
+ScaleY FLOAT
+ScaleZ FLOAT
+Character STRING
+!!! INT
+Model STRING
+ArrowBoardLR_tex COMMENT mapobj/arrowboard.bmt
+ArrowBoardUp_tex COMMENT mapobj/arrowboard.bmt
+ArrowBoardDown_tex COMMENT mapobj/arrowboard.bmt
+monte_chair COMMENT mapobj/monte_chair_model.bmd
+DokanGate COMMENT mapobj/efdokangate.bmd
+BiaDoor_tex COMMENT mapobj/bianco.bmt
+MapObjPachinkoNail COMMENT mapobj/pachinkokugi.bmd
+WatermelonStatic COMMENT mapobj/watermelon.bmd
+flowerOrange_tex COMMENT mapobj/flower.bmt
+flowerPink_tex COMMENT mapobj/flower.bmt
+flowerPurple_tex COMMENT mapobj/flower.bmt
+flowerRed_tex COMMENT mapobj/flower.bmt
+flowerYellow_tex COMMENT mapobj/flower.bmt
+flowerSunflower_tex COMMENT mapobj/flower.bmt
+ForceDrawMode COMMENT Both

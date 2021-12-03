@@ -1,0 +1,4 @@
+Pole Manager
+Character STRING
+MaxObjs INT
+Default COMMENT true

@@ -1,0 +1,17 @@
+Event Handler (Road to the Big Windmill Sink)
+Unknown INT
+Unknown INT
+Unknown INT
+Unknown INT
+Unknown INT
+Unknown INT
+Warp STRING
+X FLOAT
+Y FLOAT
+Z FLOAT
+Pitch FLOAT
+Yaw FLOAT
+Roll FLOAT
+ScaleX FLOAT
+ScaleY FLOAT
+ScaleZ FLOAT

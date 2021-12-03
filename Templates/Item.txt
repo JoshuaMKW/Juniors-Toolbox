@@ -1,0 +1,18 @@
+Item
+X FLOAT
+Y FLOAT
+Z FLOAT
+Pitch FLOAT
+Yaw FLOAT
+Roll FLOAT
+ScaleX FLOAT
+ScaleY FLOAT
+ScaleZ FLOAT
+Character STRING
+!!! INT
+Model STRING
+mario_cap COMMENT mapobj/mariocap.bmd
+normal_nozzle_item_tex COMMENT mapobj/nozzleitem.bmt
+rocket_nozzle_item_tex COMMENT mapobj/nozzleitem.bmt
+back_nozzle_item_tex COMMENT mapobj/nozzleitem.bmt
+ForceDrawMode COMMENT Both

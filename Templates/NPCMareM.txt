@@ -1,0 +1,29 @@
+Male Noki
+X FLOAT
+Y FLOAT
+Z FLOAT
+Pitch FLOAT
+Yaw FLOAT
+Roll FLOAT
+ScaleX FLOAT
+ScaleY FLOAT
+ScaleZ FLOAT
+Character STRING
+!!! INT
+Manager STRING
+Rail STRING
+BodyColor INT
+ClothesColor INT
+PolluteState INT
+Acc1Color INT
+Acc2Color INT
+Acc3Color INT
+Accessory INT
+Idle INT
+Chucking INT
+ThrowLength INT
+ThrowHeight INT
+RewardObjID INT
+DisplayModel COMMENT marem/marem.bmd
+DisplayTexture COMMENT marecommon/mare.bmt
+ForceDrawMode COMMENT Both

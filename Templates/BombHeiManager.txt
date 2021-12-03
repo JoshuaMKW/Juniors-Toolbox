@@ -1,0 +1,4 @@
+Bob-Omb Manager
+Character STRING
+MaxObjs INT
+MActorSets INT

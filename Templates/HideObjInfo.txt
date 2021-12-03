@@ -1,0 +1,16 @@
+Hidden Object (Switch)
+X FLOAT
+Y FLOAT
+Z FLOAT
+Pitch FLOAT
+Yaw FLOAT
+Roll FLOAT
+ScaleX FLOAT
+ScaleY FLOAT
+ScaleZ FLOAT
+Character STRING
+!!! INT
+SpawnObjID INT
+SpawnLength INT
+SpawnHeight FLOAT
+SpawnDuration INT

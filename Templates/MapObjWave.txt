@@ -1,0 +1,3 @@
+Ocean Wave Effect
+Character STRING
+Default COMMENT true

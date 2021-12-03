@@ -81,22 +81,26 @@ def write_bool(f: BinaryIO, val: bool, vSize=1):
 
 def read_string(
     f: BinaryIO,
-    offset: int = 0,
-    maxlen: int = 0,
+    offset: Optional[int] = None,
+    maxlen: Optional[int] = None,
     encoding: Optional[str] = None
 ) -> str:
     """ Reads a null terminated string from the specified address """
-    f.seek(offset)
+    if offset is not None:
+        f.seek(offset)
+
+    if maxlen is None:
+        maxlen = 0
 
     length = 0
-    binary: bytes = f.read(1)
+    binary = f.read(1)
     while binary[-1]:
         if length >= maxlen > 0:
             break
         binary += f.read(1)
         length += 1
-
-    binary = binary[:-1]
+    else:
+        binary = binary[:-1]
 
     if encoding is None:
         encoder = UniversalDetector()

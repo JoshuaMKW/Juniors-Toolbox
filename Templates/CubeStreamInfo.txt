@@ -1,0 +1,15 @@
+Flow Cube
+X FLOAT
+Y FLOAT
+Z FLOAT
+Pitch FLOAT
+Yaw FLOAT
+Roll FLOAT
+ScaleX FLOAT
+ScaleY FLOAT
+ScaleZ FLOAT
+vvvv INT
+!!! INT
+vvvv INT
+Power INT
+State INT

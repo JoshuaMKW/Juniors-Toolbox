@@ -1,0 +1,9 @@
+Stage Event Info
+Unknown FLOAT
+Unknown STRING
+Unknown STRING
+Unknown STRING
+Unknown STRING
+Unknown STRING
+Unknown STRING
+Unknown INT

@@ -1,0 +1,16 @@
+Puncher
+X FLOAT
+Y FLOAT
+Z FLOAT
+Pitch FLOAT
+Yaw FLOAT
+Roll FLOAT
+ScaleX FLOAT
+ScaleY FLOAT
+ScaleZ FLOAT
+Character STRING
+!!! INT
+Model STRING
+Power INT
+Puncher COMMENT mapobj/puncher_model1.bmd
+HatoPop COMMENT mapobj/hatopop_model1.bmd

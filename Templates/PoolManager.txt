@@ -1,0 +1,6 @@
+Pool Manager
+Character STRING
+MaxObjs INT
+ClipRadius FLOAT
+FarClip FLOAT
+Default COMMENT true

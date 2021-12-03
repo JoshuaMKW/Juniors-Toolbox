@@ -1,0 +1,6 @@
+Ambient Color
+R BYTE
+G BYTE
+B BYTE
+Alpha BYTE
+Default COMMENT true
