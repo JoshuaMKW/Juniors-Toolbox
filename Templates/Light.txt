@@ -2,9 +2,6 @@ Light
 X FLOAT
 Y FLOAT
 Z FLOAT
-R BYTE
-G BYTE
-B BYTE
-Alpha BYTE
+Color RGBA
 Intensity FLOAT
 Default COMMENT true

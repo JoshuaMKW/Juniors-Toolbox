@@ -1,194 +1,27 @@
 Map
-Unknown INT
+XluJointCount INT
 XBorder INT
 ZBorder INT
-Unknown INT
-Unknown INT
-Unknown INT
+BGCheckDataCount INT
+BGCheckListCount INT
+BGCheckListWarpCount INT
 WarpCount INT
-Unknown INT
-Unknown INT
-Unknown INT
-Unknown INT
-Unknown INT
-WarpA0 STRING
-X FLOAT
-Y FLOAT
-Z FLOAT
-Pitch FLOAT
-Yaw FLOAT
-Roll FLOAT
-ScaleX FLOAT
-ScaleY FLOAT
-ScaleZ FLOAT
-WarpA1 STRING
-X FLOAT
-Y FLOAT
-Z FLOAT
-Pitch FLOAT
-Yaw FLOAT
-Roll FLOAT
-ScaleX FLOAT
-ScaleY FLOAT
-ScaleZ FLOAT
-WarpB0 STRING
-X FLOAT
-Y FLOAT
-Z FLOAT
-Pitch FLOAT
-Yaw FLOAT
-Roll FLOAT
-ScaleX FLOAT
-ScaleY FLOAT
-ScaleZ FLOAT
-WarpB1 STRING
-X FLOAT
-Y FLOAT
-Z FLOAT
-Pitch FLOAT
-Yaw FLOAT
-Roll FLOAT
-ScaleX FLOAT
-ScaleY FLOAT
-ScaleZ FLOAT
-// WarpC0 STRING
-// X FLOAT
-// Y FLOAT
-// Z FLOAT
-// Pitch FLOAT
-// Yaw FLOAT
-// Roll FLOAT
-// ScaleX FLOAT
-// ScaleY FLOAT
-// ScaleZ FLOAT
-// WarpC1 STRING
-// X FLOAT
-// Y FLOAT
-// Z FLOAT
-// Pitch FLOAT
-// Yaw FLOAT
-// Roll FLOAT
-// ScaleX FLOAT
-// ScaleY FLOAT
-// ScaleZ FLOAT
-// WarpD0 STRING
-// X FLOAT
-// Y FLOAT
-// Z FLOAT
-// Pitch FLOAT
-// Yaw FLOAT
-// Roll FLOAT
-// ScaleX FLOAT
-// ScaleY FLOAT
-// ScaleZ FLOAT
-// WarpD1 STRING
-// X FLOAT
-// Y FLOAT
-// Z FLOAT
-// Pitch FLOAT
-// Yaw FLOAT
-// Roll FLOAT
-// ScaleX FLOAT
-// ScaleY FLOAT
-// ScaleZ FLOAT
-// WarpE0 STRING
-// X FLOAT
-// Y FLOAT
-// Z FLOAT
-// Pitch FLOAT
-// Yaw FLOAT
-// Roll FLOAT
-// ScaleX FLOAT
-// ScaleY FLOAT
-// ScaleZ FLOAT
-// WarpE1 STRING
-// X FLOAT
-// Y FLOAT
-// Z FLOAT
-// Pitch FLOAT
-// Yaw FLOAT
-// Roll FLOAT
-// ScaleX FLOAT
-// ScaleY FLOAT
-// ScaleZ FLOAT
-// WarpF0 STRING
-// X FLOAT
-// Y FLOAT
-// Z FLOAT
-// Pitch FLOAT
-// Yaw FLOAT
-// Roll FLOAT
-// ScaleX FLOAT
-// ScaleY FLOAT
-// ScaleZ FLOAT
-// WarpF1 STRING
-// X FLOAT
-// Y FLOAT
-// Z FLOAT
-// Pitch FLOAT
-// Yaw FLOAT
-// Roll FLOAT
-// ScaleX FLOAT
-// ScaleY FLOAT
-// ScaleZ FLOAT
-// WarpG0 STRING
-// X FLOAT
-// Y FLOAT
-// Z FLOAT
-// Pitch FLOAT
-// Yaw FLOAT
-// Roll FLOAT
-// ScaleX FLOAT
-// ScaleY FLOAT
-// ScaleZ FLOAT
-// WarpG1 STRING
-// X FLOAT
-// Y FLOAT
-// Z FLOAT
-// Pitch FLOAT
-// Yaw FLOAT
-// Roll FLOAT
-// ScaleX FLOAT
-// ScaleY FLOAT
-// ScaleZ FLOAT
-// WarpH0 STRING
-// X FLOAT
-// Y FLOAT
-// Z FLOAT
-// Pitch FLOAT
-// Yaw FLOAT
-// Roll FLOAT
-// ScaleX FLOAT
-// ScaleY FLOAT
-// ScaleZ FLOAT
-// WarpH1 STRING
-// X FLOAT
-// Y FLOAT
-// Z FLOAT
-// Pitch FLOAT
-// Yaw FLOAT
-// Roll FLOAT
-// ScaleX FLOAT
-// ScaleY FLOAT
-// ScaleZ FLOAT
-// WarpI0 STRING
-// X FLOAT
-// Y FLOAT
-// Z FLOAT
-// Pitch FLOAT
-// Yaw FLOAT
-// Roll FLOAT
-// ScaleX FLOAT
-// ScaleY FLOAT
-// ScaleZ FLOAT
-// WarpI1 STRING
-// X FLOAT
-// Y FLOAT
-// Z FLOAT
-// Pitch FLOAT
-// Yaw FLOAT
-// Roll FLOAT
-// ScaleX FLOAT
-// ScaleY FLOAT
-// ScaleZ FLOAT
+InitWarpID INT
+VertexRender{C} TEMPLATE [WarpCount] {
+  VertexRender{i} INT [2]
+}
+Warp{C} TEMPLATE [WarpCount] {
+    Warp{i} TEMPLATE [2] {
+        Name STRING
+        X FLOAT
+        Y FLOAT
+        Z FLOAT
+        Pitch FLOAT
+        Yaw FLOAT
+        Roll FLOAT
+        ScaleX FLOAT
+        ScaleY FLOAT
+        ScaleZ FLOAT
+    }
+}
 Default COMMENT true

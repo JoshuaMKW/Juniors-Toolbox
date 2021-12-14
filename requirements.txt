@@ -1,2 +1,4 @@
 oead
-PyQt5
+PySide2
+numpy
+pillow

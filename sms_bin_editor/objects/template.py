@@ -1,9 +1,10 @@
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from io import BytesIO
 from pathlib import Path
-from typing import BinaryIO, Iterable, Iterator, Tuple, Union
+from typing import (BinaryIO, Dict, Iterable, Iterator, List, TextIO, Tuple,
+                    Union)
 
 from sms_bin_editor.utils.iohelper import (read_bool, read_double, read_float,
                                            read_sbyte, read_sint16,
@@ -15,6 +16,12 @@ from sms_bin_editor.utils.iohelper import (read_bool, read_double, read_float,
                                            write_sint32, write_string,
                                            write_ubyte, write_uint16,
                                            write_uint32)
+
+from sms_bin_editor.objects.types import ColorRGBA
+
+
+class AttributeInvalidError(Exception):
+    ...
 
 
 class AttributeType(str, Enum):
@@ -32,8 +39,12 @@ class AttributeType(str, Enum):
     FLOAT = "FLOAT"
     F64 = "F64"
     DOUBLE = "DOUBLE"
+    STR = "STR"
     STRING = "STRING"
+    RGBA = "RGBA"
+    C_RGBA = "COLORRGBA"
     COMMENT = "COMMENT"
+    TEMPLATE = "TEMPLATE"
 
     __ENUM_TO_TYPE_TABLE = {
         BOOL: bool,
@@ -50,22 +61,61 @@ class AttributeType(str, Enum):
         FLOAT: float,
         F64: float,
         DOUBLE: float,
+        STR: str,
         STRING: str,
-        COMMENT: str
+        RGBA: ColorRGBA,
+        C_RGBA: ColorRGBA,
+        COMMENT: str,
+        TEMPLATE: None
+    }
+
+    __ENUM_TO_SIZE_TABLE = {
+        BOOL: 1,
+        BYTE: 1,
+        CHAR: 1,
+        S8: 1,
+        U8: 1,
+        S16: 2,
+        U16: 2,
+        S32: 4,
+        INT: 4,
+        U32: 4,
+        F32: 4,
+        FLOAT: 4,
+        F64: 8,
+        DOUBLE: 8,
+        STR: None,
+        STRING: None,
+        RGBA: 4,
+        COMMENT: None,
+        TEMPLATE: None
     }
 
     @staticmethod
     def type_to_enum(_ty: type):
+        """
+        Convert a type to the Enum equivalent
+        """
         return AttributeType(_ty.__name__.upper())
 
     def enum_to_type(self) -> type:
+        """
+        Convert this to a type
+        """
         return self.__ENUM_TO_TYPE_TABLE[self]
+
+    def get_size(self) -> int:
+        """
+        Return the physical size of the data type
+        """
+        return self.__ENUM_TO_SIZE_TABLE[self]
 
 def __read_bin_string(f: BinaryIO) -> str:
     len = read_uint16(f)
     if len == 0:
         return ""
     return read_string(f, maxlen=len-1)
+
 
 def __write_bin_string(f: BinaryIO, val: str):
     raw = val.encode()
@@ -87,8 +137,12 @@ TEMPLATE_TYPE_READ_TABLE = {
     AttributeType.FLOAT: read_float,
     AttributeType.F64: read_double,
     AttributeType.DOUBLE: read_double,
+    AttributeType.STR: __read_bin_string,
     AttributeType.STRING: __read_bin_string,
-    AttributeType.COMMENT: lambda f: None
+    AttributeType.RGBA: lambda f: ColorRGBA(read_uint32(f)),
+    AttributeType.C_RGBA: lambda f: ColorRGBA(read_uint32(f)),
+    AttributeType.COMMENT: lambda f: None,
+    AttributeType.TEMPLATE: lambda f: None
 }
 
 
@@ -107,85 +161,294 @@ TEMPLATE_TYPE_WRITE_TABLE = {
     AttributeType.FLOAT: write_float,
     AttributeType.F64: write_double,
     AttributeType.DOUBLE: write_double,
+    AttributeType.STR: __write_bin_string,
     AttributeType.STRING: __write_bin_string,
-    AttributeType.COMMENT: lambda f, val: None
+    AttributeType.RGBA: write_uint32,
+    AttributeType.C_RGBA: write_uint32,
+    AttributeType.COMMENT: lambda f, val: None,
+    AttributeType.TEMPLATE: lambda f, val: None
 }
 
 
 @dataclass
 class ObjectAttribute():
+    """
+    Class representing a single attribute in an object template
+    """
     name: str
     type: AttributeType
     comment: str = ""
+    countRef: Union["ObjectAttribute", int] = 1
+
+    # -- TEMPLATE SPECIFIC -- #
+    _subattrs: List["ObjectAttribute"] = field(default_factory=lambda: [])
+
+    @staticmethod
+    def get_formatted_name(name: str, char: str, num: int) -> str:
+        """
+        Get this attribute's name formatted
+        """
+        templateName = name.replace("{c}", char[0])
+        templateName = templateName.replace("{C}", char[0].upper())
+        templateName = templateName.replace("{i}", str(num))
+        return templateName
+
+    def is_struct(self) -> bool:
+        """
+        Return if this attribute is a struct type
+        """
+        return self.type == AttributeType.TEMPLATE
+
+    def is_count_referenced(self) -> bool:
+        """
+        Return if this attribute's count is referenced from another object attribute
+        """
+        return isinstance(self.countRef, ObjectAttribute)
+
+    def get_attribute(self, name: str) -> "ObjectAttribute":
+        if not self.is_struct():
+            raise AttributeInvalidError("Can't get attributes of a non struct!")
+        for attribute in self._subattrs:
+            if attribute.name == name:
+                return attribute
+
+    def add_attribute(self, attribute: "ObjectAttribute") -> bool:
+        if not self.is_struct():
+            raise AttributeInvalidError("Can't add attributes of a non struct!")
+        if attribute in self:
+            return False
+        self._subattrs.append(attribute)
+        return True
+
+    def remove_attribute(self, name: str) -> bool:
+        if not self.is_struct():
+            raise AttributeInvalidError("Can't remove attributes of a non struct!")
+        for attribute in self._subattrs:
+            if attribute.name == name:
+                self._subattrs.remove(attribute)
+                return True
+        return False
+
+    def iter_attributes(self) -> Iterable["ObjectAttribute"]:
+        """
+        Iterate through the object attributes of thie object template
+        """
+        if not self.is_struct():
+            raise AttributeInvalidError("Can't iterate on attributes of a non struct!")
+        for attribute in self._subattrs:
+            yield attribute
+
+    def get_size(self) -> int:
+        """
+        Return the data size of this object template, as represented by file structure
+        """
+        if self.is_struct():
+            return sum([a.get_size() for a in self._subattrs])
+        return self.type.get_size()
+
+    def read_from(self, f: BinaryIO) -> Union[int, float, str, bytes, list]:
+        """
+        Read data from a stream following the map of this template attribute
+        """
+        if self.is_struct():
+            return [attr.read_from(f) for attr in self.iter_attributes()]
+        return TEMPLATE_TYPE_READ_TABLE[self.type](f)
+
+    def write_to(self, f: BinaryIO, data: Union[int, float, str, bytes, list]):
+        """
+        Write data to a stream following the map of this template attribute
+        """
+        if self.is_struct():
+            for v in data:
+                ty = AttributeType.type_to_enum(v.__class__)
+                TEMPLATE_TYPE_WRITE_TABLE[ty](f, v)
+        else:
+            TEMPLATE_TYPE_WRITE_TABLE[self.type](f, data)
 
     def __str__(self):
         if self.type == AttributeType.COMMENT:
             return f"{self.name} {self.type.upper()} {self.comment}"
-        return f"{self.name} {self.type.upper()}"
+        return f"{self.name} {self.type.upper()}" + f"[{self.countRef.name}]" if isinstance(self.countRef, ObjectAttribute) else F"[{self.countRef}]"
 
-    def read_from(self, f: BinaryIO) -> Union[int, float, str, bytes]:
-        return TEMPLATE_TYPE_READ_TABLE[self.type](f)
+    def __contains__(self, attr: Union["ObjectAttribute", str]) -> bool:
+        if isinstance(attr, ObjectAttribute):
+            return attr in self._subattrs
+        return any([a.name == attr for a in self._subattrs])
 
-    def write_to(self, f: BinaryIO, data: Union[int, float, str, bytes]):
-        TEMPLATE_TYPE_WRITE_TABLE[self.type](f, data)
 
-
-class ObjectTemplate(list):
+class ObjectTemplate():
     """
-    Template representing the layout of object parameters in a bin
+    Class representing a whole object template
     """
     TEMPLATE_PATH = Path("Templates")
 
-    def __init__(self, __iterable: Iterable[ObjectAttribute] = None):
-        if __iterable is None:
-            __iterable = []
-        super().__init__(__iterable)
+    def __init__(self):
         self.name = ""
+        self._attrs: List[ObjectAttribute] = []
+        self._counts: Dict[str, int] = {}
 
-    def __iter__(self) -> Iterator[ObjectAttribute]:
-        return super().__iter__()
+        self.__eof = 0
 
     @classmethod
     def from_template(cls, file: Path) -> "ObjectTemplate":
+        """
+        Create an instance from a template file
+        """
         if not file.is_file():
             return None
 
         this = cls()
         with file.open("r") as f:
-            i = 0
-            for entry in f.readlines():
-                entry = entry.strip()
-                if entry == "" or entry.startswith(("//", "#")):
-                    continue
-
-                if i > 0:
-                    info = entry.split()
-                    if len(info) > 2:
-                        this.append(ObjectAttribute(
-                            info[0], AttributeType(info[1]), info[2]))
-                    else:
-                        this.append(ObjectAttribute(info[0], AttributeType(info[1])))
-                else:
-                    this.name = entry.strip()
-                
-                i += 1
+            this.parse(f)
 
         return this
 
     def to_template(self, file: Path):
+        """
+        Create a template file from this instance
+        """
         file.parent.mkdir(parents=True, exist_ok=True)
         with file.open("w") as f:
             for attribute in self:
                 f.write(f"{attribute}\n")
 
-    def iter_data(self, data: BinaryIO) -> Iterable[Tuple[ObjectAttribute, Union[int, float, str, bytes]]]:
+    def get_attribute(self, name: str) -> ObjectAttribute:
+        for attr in self._attrs:
+            if attr.name == name:
+                return attr
+
+    def add_attribute(self, attribute: ObjectAttribute, index: int = -1):
         """
-        Iterate through raw data, setting attributes and yielding them
+        Add an attribute to this object template
         """
-        for attribute in self:
-            yield attribute, attribute.read_from(data)
+        if index == -1:
+            self._attrs.append(attribute)
+        else:
+            self._attrs.insert(index, attribute)
+
+    def remove_attribute(self, attribute: Union[ObjectAttribute, str]) -> bool:
+        """
+        Remove an attribute from this object instance
+        
+        Returns True if successful
+        """
+        if not attribute in self:
+            return False
+
+        if isinstance(attribute, ObjectAttribute):
+            self._attrs.remove(attribute)
+        else:
+            for attr in self._attrs:
+                if attr.name == attribute:
+                    self._attrs.remove(attr)
+        return True
+
+    def iter_attributes(self, deep: bool = False) -> Iterable[ObjectAttribute]:
+        """
+        Iterate through this object template's attributes
+
+        `deep`: When true, also iterate through all subattributes of structs
+        """
+        for attribute in self._attrs:
+            yield attribute
+            if deep and attribute.is_struct():
+                yield from attribute.iter_attributes()
+
+    def get_count(self, attribute: Union[ObjectAttribute, str]) -> int:
+        """
+        Return the instance count this template has of an attribute
+        """
+        if isinstance(attribute, ObjectAttribute):
+            attribute = attribute.name
+
+        try:
+            return self._counts[attribute]
+        except KeyError:
+            return 0
+
+    def set_count(self, attribute: Union[ObjectAttribute, str], count: int) -> bool:
+        """
+        Set the instance count of an attribute, returns `True` if successful
+        """
+        if isinstance(attribute, ObjectAttribute):
+            attribute = attribute.name
+
+        if attribute in self:
+            self._counts[attribute] = count
+            return True
+        return False
 
     def copy(self) -> "ObjectTemplate":
+        """
+        Return a copy of this template instance
+        """
         new = ObjectTemplate(self)
         new.name = self.name
         return new
+
+    # -- TEMPLATE PARSING -- #
+
+    def parse(self, f: TextIO):
+        """
+        Fills this object template with the contents of a template file stream
+        """
+        oldpos = f.tell()
+        f.seek(0, 2)
+        self.__eof = f.tell()
+        f.seek(oldpos, 0)
+
+        self.name = f.readline().strip()
+        while (entry := f.readline()) != "":
+            attr = self.parse_attr(f, entry)
+            if attr is None:
+                continue
+            self._attrs.append(attr)
+
+    def parse_attr(self, f: TextIO, entry: str) -> ObjectAttribute:
+        """
+        Parse an attribute entry from an object template file
+        """
+        entry = entry.strip()
+        if entry == "" or entry.startswith(("//", "#")):
+            return None
+
+        info = entry.split()
+
+        name = info[0]
+        attrtype = AttributeType(info[1])
+        this = ObjectAttribute(name, attrtype)
+
+        if attrtype == AttributeType.COMMENT:
+            this.comment = info[2]
+        elif attrtype == AttributeType.TEMPLATE:
+            countRefName = info[2][1:-1]
+            if countRefName.isnumeric():
+                this.countRef = int(countRefName)
+            else:
+                for attribute in self._attrs:
+                    if attribute.name == countRefName:
+                        this.countRef = attribute
+                        break
+            while (next := f.readline()).strip() != "}":
+                if f.tell() >= self.__eof:
+                    raise AttributeInvalidError("Parser found EOF during struct generation!")
+                this._subattrs.append(self.parse_attr(f, next))
+        elif len(info) == 3:
+            countRefName = info[2][1:-1]
+            if countRefName.isnumeric():
+                this.countRef = int(countRefName)
+            else:
+                for attribute in self._attrs:
+                    if attribute.name == countRefName:
+                        this.countRef = attribute
+                        break
+
+        return this
+
+    def __len__(self) -> int:
+        return len(self._attrs)
+
+    def __contains__(self, attr: Union[ObjectAttribute, str]) -> bool:
+        if isinstance(attr, ObjectAttribute):
+            return attr in self._attrs
+        return any([a.name == attr for a in self._attrs])

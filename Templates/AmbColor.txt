@@ -1,6 +1,3 @@
 Ambient Color
-R BYTE
-G BYTE
-B BYTE
-Alpha BYTE
+Color RGBA
 Default COMMENT true

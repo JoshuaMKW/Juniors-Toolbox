@@ -8,7 +8,10 @@
             "name": "Python: Module",
             "type": "python",
             "request": "launch",
-            "module": "sms_bin_editor"
+            "module": "sms_bin_editor",
+            "args": [
+                "C:/Users/Kyler-Josh/3D Objects/SMSSceneReader/Scenes/dolpic_10_new/scene/map/scene.bin"
+            ],
         }
     ]
 }
