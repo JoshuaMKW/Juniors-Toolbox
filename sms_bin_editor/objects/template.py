@@ -10,14 +10,14 @@ from sms_bin_editor.utils.iohelper import (read_bool, read_double, read_float,
                                            read_sbyte, read_sint16,
                                            read_sint32, read_string,
                                            read_ubyte, read_uint16,
-                                           read_uint32, write_bool,
+                                           read_uint32, read_vec3f, write_bool,
                                            write_double, write_float,
                                            write_sbyte, write_sint16,
                                            write_sint32, write_string,
                                            write_ubyte, write_uint16,
-                                           write_uint32)
+                                           write_uint32, write_vec3f)
 
-from sms_bin_editor.objects.types import ColorRGBA
+from sms_bin_editor.objects.types import RGBA, Vec3f
 
 
 class AttributeInvalidError(Exception):
@@ -43,6 +43,7 @@ class AttributeType(str, Enum):
     STRING = "STRING"
     RGBA = "RGBA"
     C_RGBA = "COLORRGBA"
+    VECTOR3 = "VEC3F"
     COMMENT = "COMMENT"
     TEMPLATE = "TEMPLATE"
 
@@ -63,8 +64,9 @@ class AttributeType(str, Enum):
         DOUBLE: float,
         STR: str,
         STRING: str,
-        RGBA: ColorRGBA,
-        C_RGBA: ColorRGBA,
+        RGBA: RGBA,
+        C_RGBA: RGBA,
+        VECTOR3: Vec3f,
         COMMENT: str,
         TEMPLATE: None
     }
@@ -87,6 +89,7 @@ class AttributeType(str, Enum):
         STR: None,
         STRING: None,
         RGBA: 4,
+        VECTOR3: 12,
         COMMENT: None,
         TEMPLATE: None
     }
@@ -110,6 +113,7 @@ class AttributeType(str, Enum):
         """
         return self.__ENUM_TO_SIZE_TABLE[self]
 
+
 def __read_bin_string(f: BinaryIO) -> str:
     len = read_uint16(f)
     if len == 0:
@@ -121,6 +125,7 @@ def __write_bin_string(f: BinaryIO, val: str):
     raw = val.encode()
     write_uint16(f, len(raw))
     f.write(raw)
+
 
 TEMPLATE_TYPE_READ_TABLE = {
     AttributeType.BOOL: read_bool,
@@ -139,8 +144,9 @@ TEMPLATE_TYPE_READ_TABLE = {
     AttributeType.DOUBLE: read_double,
     AttributeType.STR: __read_bin_string,
     AttributeType.STRING: __read_bin_string,
-    AttributeType.RGBA: lambda f: ColorRGBA(read_uint32(f)),
-    AttributeType.C_RGBA: lambda f: ColorRGBA(read_uint32(f)),
+    AttributeType.RGBA: lambda f: RGBA(read_uint32(f)),
+    AttributeType.C_RGBA: lambda f: RGBA(read_uint32(f)),
+    AttributeType.VECTOR3: lambda f: Vec3f(*read_vec3f(f)),
     AttributeType.COMMENT: lambda f: None,
     AttributeType.TEMPLATE: lambda f: None
 }
@@ -165,6 +171,7 @@ TEMPLATE_TYPE_WRITE_TABLE = {
     AttributeType.STRING: __write_bin_string,
     AttributeType.RGBA: write_uint32,
     AttributeType.C_RGBA: write_uint32,
+    AttributeType.VECTOR3: write_vec3f,
     AttributeType.COMMENT: lambda f, val: None,
     AttributeType.TEMPLATE: lambda f, val: None
 }
@@ -207,14 +214,16 @@ class ObjectAttribute():
 
     def get_attribute(self, name: str) -> "ObjectAttribute":
         if not self.is_struct():
-            raise AttributeInvalidError("Can't get attributes of a non struct!")
+            raise AttributeInvalidError(
+                "Can't get attributes of a non struct!")
         for attribute in self._subattrs:
             if attribute.name == name:
                 return attribute
 
     def add_attribute(self, attribute: "ObjectAttribute") -> bool:
         if not self.is_struct():
-            raise AttributeInvalidError("Can't add attributes of a non struct!")
+            raise AttributeInvalidError(
+                "Can't add attributes of a non struct!")
         if attribute in self:
             return False
         self._subattrs.append(attribute)
@@ -222,7 +231,8 @@ class ObjectAttribute():
 
     def remove_attribute(self, name: str) -> bool:
         if not self.is_struct():
-            raise AttributeInvalidError("Can't remove attributes of a non struct!")
+            raise AttributeInvalidError(
+                "Can't remove attributes of a non struct!")
         for attribute in self._subattrs:
             if attribute.name == name:
                 self._subattrs.remove(attribute)
@@ -234,7 +244,8 @@ class ObjectAttribute():
         Iterate through the object attributes of thie object template
         """
         if not self.is_struct():
-            raise AttributeInvalidError("Can't iterate on attributes of a non struct!")
+            raise AttributeInvalidError(
+                "Can't iterate on attributes of a non struct!")
         for attribute in self._subattrs:
             yield attribute
 
@@ -246,7 +257,7 @@ class ObjectAttribute():
             return sum([a.get_size() for a in self._subattrs])
         return self.type.get_size()
 
-    def read_from(self, f: BinaryIO) -> Union[int, float, str, bytes, list]:
+    def read_from(self, f: BinaryIO) -> Union[int, float, str, bytes, list, RGBA, Vec3f]:
         """
         Read data from a stream following the map of this template attribute
         """
@@ -254,7 +265,7 @@ class ObjectAttribute():
             return [attr.read_from(f) for attr in self.iter_attributes()]
         return TEMPLATE_TYPE_READ_TABLE[self.type](f)
 
-    def write_to(self, f: BinaryIO, data: Union[int, float, str, bytes, list]):
+    def write_to(self, f: BinaryIO, data: Union[int, float, str, bytes, list, RGBA, Vec3f]):
         """
         Write data to a stream following the map of this template attribute
         """
@@ -329,7 +340,7 @@ class ObjectTemplate():
     def remove_attribute(self, attribute: Union[ObjectAttribute, str]) -> bool:
         """
         Remove an attribute from this object instance
-        
+
         Returns True if successful
         """
         if not attribute in self:
@@ -418,30 +429,26 @@ class ObjectTemplate():
         attrtype = AttributeType(info[1])
         this = ObjectAttribute(name, attrtype)
 
+        if len(info) >= 3:
+            countRefName = info[2][1:-1]
+            if countRefName.isnumeric():
+                this.countRef = int(countRefName)
+            elif countRefName == "*":
+                this.countRef = -1
+            else:
+                for attribute in self._attrs:
+                    if attribute.name == countRefName:
+                        this.countRef = attribute
+                        break
+                    
         if attrtype == AttributeType.COMMENT:
             this.comment = info[2]
         elif attrtype == AttributeType.TEMPLATE:
-            countRefName = info[2][1:-1]
-            if countRefName.isnumeric():
-                this.countRef = int(countRefName)
-            else:
-                for attribute in self._attrs:
-                    if attribute.name == countRefName:
-                        this.countRef = attribute
-                        break
             while (next := f.readline()).strip() != "}":
                 if f.tell() >= self.__eof:
-                    raise AttributeInvalidError("Parser found EOF during struct generation!")
+                    raise AttributeInvalidError(
+                        "Parser found EOF during struct generation!")
                 this._subattrs.append(self.parse_attr(f, next))
-        elif len(info) == 3:
-            countRefName = info[2][1:-1]
-            if countRefName.isnumeric():
-                this.countRef = int(countRefName)
-            else:
-                for attribute in self._attrs:
-                    if attribute.name == countRefName:
-                        this.countRef = attribute
-                        break
 
         return this
 

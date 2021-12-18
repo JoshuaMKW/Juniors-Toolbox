@@ -4,17 +4,17 @@ from PySide2.QtWidgets import (QDialog, QGraphicsDropShadowEffect, QWidget)
 from sms_bin_editor.gui.commoncursor import CommonCursor, get_common_cursor
 from sms_bin_editor.gui.tools import get_screen_pixel_color
 
-from sms_bin_editor.objects.types import BasicColors, ColorRGBA
+from sms_bin_editor.objects.types import BasicColors, RGBA
 
 class ColorPickerDialog(QDialog):
-    colorChanged = Signal(ColorRGBA)
-    colorPicked = Signal(ColorRGBA)
-    colorDismissed = Signal(ColorRGBA)
+    colorChanged = Signal(RGBA)
+    colorPicked = Signal(RGBA)
+    colorDismissed = Signal(RGBA)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.curColor = ColorRGBA(BasicColors.BLACK)
-        self.dismissColor = ColorRGBA(BasicColors.BLACK)
+        self.curColor = RGBA(BasicColors.BLACK)
+        self.dismissColor = RGBA(BasicColors.BLACK)
         self.mousePos = QPoint(0, 0)
         self.pickReady = False
         
@@ -55,5 +55,5 @@ class ColorPickerDialog(QDialog):
             self.colorPicked.emit(self.curColor)
             self.close()
 
-    def setDismissColor(self, color: ColorRGBA):
+    def setDismissColor(self, color: RGBA):
         self.dismissColor = color

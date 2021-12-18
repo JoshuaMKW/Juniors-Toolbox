@@ -8,8 +8,8 @@
 
 import colorsys
 
-from PySide2.QtCore import (QPoint, Qt, QSize)
-from PySide2.QtGui import QColor, QDragLeaveEvent
+from PySide2.QtCore import (QPoint, QRegExp, Qt, QSize)
+from PySide2.QtGui import QColor, QDragLeaveEvent, QIntValidator, QRegExpValidator
 from PySide2.QtWidgets import (QDialog, QGraphicsDropShadowEffect, QWidget)
 from sms_bin_editor.gui.widgets.colorgrabber import ColorPickerDialog
 
@@ -19,7 +19,7 @@ from sms_bin_editor.gui.widgets.ui.ui_dark import Ui_ColorPicker as Ui_Dark
 from sms_bin_editor.gui.widgets.ui.ui_dark_alpha import Ui_ColorPicker as Ui_Dark_Alpha
 from sms_bin_editor.gui.widgets.ui.ui_light import Ui_ColorPicker as Ui_Light
 from sms_bin_editor.gui.widgets.ui.ui_light_alpha import Ui_ColorPicker as Ui_Light_Alpha
-from sms_bin_editor.objects.types import ColorRGBA
+from sms_bin_editor.objects.types import RGBA
 
 
 class ColorPicker(QDialog):
@@ -66,11 +66,19 @@ class ColorPicker(QDialog):
             self.dismiss_display_color)
 
         # Connect update functions
+        intValidator = QIntValidator()
+        intValidator.setRange(0, 255)
+        hexRegexp = QRegExp("#[0-9a-fA-F]{0,8}")
+        hexValidator = QRegExpValidator(hexRegexp)
         self.ui.hue.mouseMoveEvent = self.moveHueSelector
         self.ui.red.textEdited.connect(self.rgbChanged)
+        self.ui.red.setValidator(intValidator)
         self.ui.green.textEdited.connect(self.rgbChanged)
+        self.ui.green.setValidator(intValidator)
         self.ui.blue.textEdited.connect(self.rgbChanged)
+        self.ui.blue.setValidator(intValidator)
         self.ui.hex.textEdited.connect(self.hexChanged)
+        self.ui.hex.setValidator(hexValidator)
         if self.usingAlpha:
             self.ui.alpha.textEdited.connect(self.alphaChanged)
 
@@ -93,7 +101,7 @@ class ColorPicker(QDialog):
 
         self.lastcolor = (0, 0, 0)
         self.color = (0, 0, 0)
-        self.alpha = 100
+        self.alpha = 255
 
     # Main Function
 
@@ -112,11 +120,11 @@ class ColorPicker(QDialog):
         self.rgbChanged()
         r, g, b = lc
         self.ui.lastcolor_vis.setStyleSheet(
-            f"background-color: rgb({r},{g},{b})")
+            f"background-color: rgba({r},{g},{b},{self.alpha})")
 
         if self.exec_():
             r, g, b = self.hsv2rgb(self.color)
-            self.lastcolor = (r, g, b)
+            self.lastcolor = (r, g, b, self.alpha)
             if self.usingAlpha:
                 return (r, g, b, self.alpha)
             return (r, g, b)
@@ -157,60 +165,66 @@ class ColorPicker(QDialog):
             self.ui.blue.selectAll()
 
         self.color = self.rgb2hsv(r, g, b)
+        self.alpha = self.i(self.ui.alpha.text())
         self.setHSV(self.color)
-        self.setHex(self.rgb2hex((r, g, b)))
-        self.ui.color_vis.setStyleSheet(f"background-color: rgb({r},{g},{b})")
+        
+        if self.usingAlpha:
+            self.setHex(self.rgb2hex((r, g, b)) +
+                            f"{int(self.ui.alpha.text()):02X}")
+        else:
+            self.setHex(self.rgb2hex((r, g, b)))
+        self.ui.color_vis.setStyleSheet(f"background-color: rgba({r},{g},{b},{self.alpha})")
 
     def hexChanged(self):
         hex = self.ui.hex.text()
+        if len(hex) != 8:
+            return
         r, g, b = self.hex2rgb(hex)
         self.color = self.hex2hsv(hex)
+        if self.usingAlpha:
+            self.alpha = int(hex[7:], 16)
         self.setHSV(self.color)
         self.setRGB((r, g, b))
-        self.ui.color_vis.setStyleSheet(f"background-color: rgb({r},{g},{b})")
+        self.ui.color_vis.setStyleSheet(f"background-color: rgba({r},{g},{b},{self.alpha})")
 
     def alphaChanged(self):
         alpha = self.i(self.ui.alpha.text())
         oldalpha = alpha
         if alpha < 0:
             alpha = 0
-        if alpha > 100:
-            alpha = 100
+        if alpha > 255:
+            alpha = 255
         if alpha != oldalpha or alpha == 0:
             self.ui.alpha.setText(str(alpha))
             self.ui.alpha.selectAll()
         self.alpha = alpha
 
     def useScreenCapture(self):
-        self.color_grabber_screen.setDismissColor(ColorRGBA.from_tuple(
+        self.color_grabber_screen.setDismissColor(RGBA.from_tuple(
             [*self.hsv2rgb(self.color), int(self.ui.alpha.text())]))
-        print("showing screen")
         self.color_grabber_screen.reset()
         self.color_grabber_screen.show()
         self.color_grabber_screen.showFullScreen()
 
-    def update_display_color(self, color: ColorRGBA):
+    def update_display_color(self, color: RGBA):
         self.ui.red.setText(str(color.red))
         self.ui.green.setText(str(color.green))
         self.ui.blue.setText(str(color.blue))
         self.ui.alpha.setText("255")
-        print("changing color")
         self.rgbChanged()
 
-    def finalize_display_color(self, color: ColorRGBA):
+    def finalize_display_color(self, color: RGBA):
         self.ui.red.setText(str(color.red))
         self.ui.green.setText(str(color.green))
         self.ui.blue.setText(str(color.blue))
         self.ui.alpha.setText("255")
-        print("finalizing color", color)
         self.rgbChanged()
 
-    def dismiss_display_color(self, color: ColorRGBA):
+    def dismiss_display_color(self, color: RGBA):
         self.ui.red.setText(str(color.red))
         self.ui.green.setText(str(color.green))
         self.ui.blue.setText(str(color.blue))
         self.ui.alpha.setText("255")
-        print("dismissing color", color)
         self.rgbChanged()
 
     # Internal setting functions
@@ -227,7 +241,7 @@ class ColorPicker(QDialog):
         self.ui.selector.move(c[1] * 2 - 6, (200 - c[2] * 2) - 6)
 
     def setHex(self, c):
-        self.ui.hex.setText(c)
+        self.ui.hex.setText(c.upper())
 
     def setAlpha(self, a):
         self.ui.alpha.setText(str(a))

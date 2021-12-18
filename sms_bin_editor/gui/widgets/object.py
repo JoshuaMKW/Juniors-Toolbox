@@ -1,14 +1,18 @@
-from typing import List, Tuple, Union
-from PySide2.QtCore import QLine, QObject, Qt
+from os import walk
+from typing import Dict, List, Tuple, Union
+from PySide2.QtCore import QLine, QObject, QTimer, Qt
 from PySide2.QtGui import QColor, QCursor
-from PySide2.QtWidgets import QBoxLayout, QFormLayout, QFrame, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QLayout, QLineEdit, QListWidget, QPushButton, QScrollArea, QSizePolicy, QSpacerItem, QStyle, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
+from PySide2.QtWidgets import QBoxLayout, QFormLayout, QFrame, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QLayout, QLineEdit, QListWidget, QPushButton, QScrollArea, QSizePolicy, QSpacerItem, QStyle, QTreeWidget, QTreeWidgetItem, QUndoStack, QVBoxLayout, QWidget
+from sms_bin_editor.gui.layouts.entrylayout import EntryLayout
 
 from sms_bin_editor.gui.widgets.colorbutton import ColorButton
 from sms_bin_editor.gui.widgets.dynamictab import DynamicTabWidget
-from sms_bin_editor.gui.tools import clear_layout
+from sms_bin_editor.gui.tools import clear_layout, walk_layout
+from sms_bin_editor.gui.layouts.framelayout import FrameLayout
+from sms_bin_editor.gui.widgets.explicitlineedit import ExplicitLineEdit
 from sms_bin_editor.objects.template import ObjectAttribute
 from sms_bin_editor.objects.object import GameObject
-from sms_bin_editor.objects.types import ColorRGBA
+from sms_bin_editor.objects.types import RGBA, Vec3f
 from sms_bin_editor.scene import SMSScene
 
 
@@ -49,57 +53,131 @@ class ObjectHierarchyWidget(QTreeWidget):
 class ObjectPropertiesWidget(QScrollArea):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.object = None
         self.centralWidget = QWidget()
         self.setWidgetResizable(True)
         self.setWidget(self.centralWidget)
 
         self.gridLayout = QGridLayout()
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.centralWidget.setLayout(self.gridLayout)
+
+        self.updateTimer = QTimer(self.centralWidget)
+        self.updateTimer.timeout.connect(self.checkVerticalIndents)
+        self.updateTimer.start(10)
+
 
     def reset(self):
         clear_layout(self.gridLayout)
+        self.object = None
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 
     
     def populate_attributes_from_object(self, obj: GameObject):
         self.reset()
+        self.object = obj
 
-        row = -1
-        def inner_struct_populate(parent: QGridLayout, attribute: Tuple[str, Union[int, float, str, bytes, list, ColorRGBA]]):
+        row = 0
+        indentWidth = 25
+        self._structs: Dict[str, QWidget] = {}
+        def inner_struct_populate(parent: QGridLayout, attribute: Tuple[str, Union[int, float, str, bytes, list, RGBA]], nestedDepth: int = 0):
             nonlocal row
-            row += 1
-            print(attribute)
-            if isinstance(attribute[1], ColorRGBA):
+            scopeNames = attribute[0].split(".")
+            parentScopes = scopeNames[:nestedDepth]
+            thisScope = scopeNames[nestedDepth]
+            childScopes = scopeNames[nestedDepth+1:]
+            prefixQual = "" if len(parentScopes) == 0 else ".".join(parentScopes) + "."
+            qualname = f"{prefixQual}{thisScope}"
+            if len(childScopes) > 0:
+                prefix = "" if len(parentScopes) == 0 else ".".join(parentScopes) + "."
+                container = self._structs.setdefault(qualname, QWidget())
+                firstPass = container.layout() is None
+                if firstPass:
+                    container.setLayout(QGridLayout())
+                layout = container.layout()
+                layout.setContentsMargins(0, 0, 0, 10)
+                inner_struct_populate(layout, [attribute[0], attribute[1]], nestedDepth+1)
+                if firstPass:
+                    child = FrameLayout(title=thisScope)
+                    child.addWidget(container)
+                    child.setObjectName(qualname)
+                    child._main_v_layout.setContentsMargins(0, 0, 0, 0)
+                    child._main_v_layout.setAlignment(container, Qt.AlignRight)
+                    child._content_layout.setContentsMargins(indentWidth, 0, 0, 0)
+                    parent.addWidget(child, row, 0, 1, 1)
+                    row += 1
+                return
+                
+            if isinstance(attribute[1], RGBA):
                 layout = QFormLayout()
-                colorbutton = ColorButton("", self, color=attribute[1])
+                label = QLabel(attribute[0].split(".")[-1])
+                label.setFixedWidth(100 - (indentWidth * nestedDepth))
+                colorbutton = ColorButton("", color=attribute[1])
                 colorbutton.setColor(attribute[1])
                 colorbutton.setFrameStyle(QFrame.Box)
                 colorbutton.setMinimumHeight(20)
-                layout.addRow(QLabel(attribute[0].split(".")[-1], self), colorbutton)
-                parent.setRowStretch(row, 1)
-                parent.setColumnStretch(0, 1)
+                colorbutton.setObjectName(qualname)
+                colorbutton.colorChanged.connect(self.updateObjectValue)
+                layout.addRow(label, colorbutton)
                 parent.addLayout(layout, row, 0, 1, 1)
-            elif isinstance(attribute[1], list):
-                print("sys")
-                child = QGroupBox(attribute[0].split(".")[-1], self)
-                layout = QGridLayout()
-                child.setLayout(layout)
-                for membername in attribute[1]:
-                    inner_struct_populate(layout, obj.get_value(f"{attribute[0]}.{membername}"))
-                parent.addWidget(child, row, 0, 1, 1)
+                row += 1
+            elif isinstance(attribute[1], Vec3f):
+                layout = QFormLayout()
+                widget = QWidget()
+                containerLayout = QGridLayout()
+                containerLayout.setContentsMargins(0, 0, 0, 0)
+                containerLayout.setRowStretch(0, 0)
+                containerLayout.setRowStretch(1, 0)
+                container = EntryLayout(thisScope, widget, Vec3f, [], labelWidth=100 - (indentWidth * nestedDepth))
+                container.setObjectName(qualname)
+                for i, component in enumerate(attribute[1]):
+                    axis = "XYZ"[i]
+                    lineEdit = ExplicitLineEdit(f"{attribute[0]}.{axis}", ExplicitLineEdit.FilterKind.FLOAT)
+                    lineEdit.setText(str(component))
+                    lineEdit.setCursorPosition(0)
+                    entry = EntryLayout(axis, lineEdit, float, [], labelWidth=6, newlining=False)
+                    entry.setExpandFactor(0.7)
+                    entry.entryModified.connect(self.updateObjectValue)
+                    lineEdit.textChangedNamed.connect(container.updateFromChild)
+                    containerLayout.addLayout(entry, 0, i, 1, 1)
+                    containerLayout.setColumnStretch(i, 0)
+                    container.addDirectChild(lineEdit)
+                container.entryModified.connect(self.updateObjectValue)
+                widget.setLayout(containerLayout)
+                layout.addRow(container)
+                parent.addLayout(layout, row, 0, 1, 1)
+                row += 1
             else:
                 layout = QFormLayout()
-                lineEdit = QLineEdit()
+                layout.setObjectName("EntryForm " + attribute[0])
+                lineEdit = ExplicitLineEdit(attribute[0], ExplicitLineEdit.FilterKind.type_to_filter(attribute[1].__class__))
                 lineEdit.setText(str(attribute[1]))
-                layout.addRow(QLabel(attribute[0].split(".")[-1], self), lineEdit)
-                #layout.setSpacing(20)
-                parent.setRowStretch(row, 1)
-                parent.setColumnStretch(0, 1)
+                lineEdit.setCursorPosition(0)
+                entry = EntryLayout(thisScope, lineEdit, attribute[1].__class__, [lineEdit], labelWidth=100 - (indentWidth * nestedDepth))
+                entry.setObjectName(qualname)
+                entry.entryModified.connect(self.updateObjectValue)
+                lineEdit.textChangedNamed.connect(entry.updateFromChild)
+                layout.addRow(entry)
                 parent.addLayout(layout, row, 0, 1, 1)
+                row += 1
 
         for attr in obj.iter_values():
-            print(attr)
             inner_struct_populate(self.gridLayout, attr)
-            
-        verticalSpacer = QSpacerItem(20, 40)
-        self.gridLayout.addItem(verticalSpacer, row+1, 0, 1, 1)
+
+        for i in range(row):
+            self.gridLayout.setRowStretch(i, 0)
+        self.gridLayout.setRowStretch(row+1, 1)
+
+    def checkVerticalIndents(self):
+        for item in walk_layout(self.gridLayout):
+            layout = item.layout()
+            if layout and isinstance(layout, EntryLayout):
+                layout.checkNewLine(self.geometry())
+
+    def updateObjectValue(self, qualname: str, value: object):
+        print(value)
+        if value.__class__ == RGBA:
+            print(value.value)
+        self.object.set_value(qualname, value)
+        

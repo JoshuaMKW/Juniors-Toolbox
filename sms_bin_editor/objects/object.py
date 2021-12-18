@@ -4,7 +4,7 @@ from typing import Any, BinaryIO, Iterable, List, Optional, TextIO, Tuple, Union
 
 from numpy import array
 from sms_bin_editor.objects.template import AttributeType, ObjectAttribute, ObjectTemplate
-from sms_bin_editor.objects.types import ColorRGBA
+from sms_bin_editor.objects.types import RGBA, Vec3f
 from sms_bin_editor.utils import jdrama
 from sms_bin_editor.utils.iohelper import read_string, read_uint16, read_uint32, write_string, write_uint16, write_uint32
 
@@ -88,14 +88,7 @@ class GameObject():
                 "Grouped", AttributeType.U32), int(nameHash in {15406, 9858}))
 
         def gen_attr(t: ObjectAttribute, nestedNamePrefix: str = "") -> dict:
-            isStruct = t.is_struct()
-            if t.is_count_referenced():
-                count = this.get_value(t.countRef.name)
-            else:
-                count = t.countRef
-
-            instances = []
-            for i in range(count):
+            def construct(index: int) -> dict:
                 char = "abcdefghijklmnopqrstuvwxyz"[i]
                 if isStruct:
                     parentName = ObjectAttribute.get_formatted_name(
@@ -117,6 +110,24 @@ class GameObject():
                         "value": t.read_from(data),
                         "comment": t.comment
                     })
+            isStruct = t.is_struct()
+            if t.is_count_referenced():
+                count = this.get_value(t.countRef.name)
+            else:
+                count = t.countRef
+
+            instances = []
+            if count == -1:
+                i = 0
+                while True:
+                    if data.tell() >= objEndPos:
+                        return instances
+                    print(data.tell(), objEndPos)
+                    construct(i)
+                    i += 1
+
+            for i in range(count):
+                construct(i)
             return instances
 
         for attribute in template.iter_attributes():
@@ -205,7 +216,7 @@ class GameObject():
         """
         return hash(self.name) in KNOWN_GROUP_HASHES  # and self.is_value("Grouped")
 
-    def get_value(self, attrname: str) -> Union[int, float, str, bytes, ColorRGBA]:
+    def get_value(self, attrname: str) -> Union[int, float, str, bytes, RGBA]:
         """
         Get a value by name from this object
         """
@@ -218,36 +229,45 @@ class GameObject():
             if value[0] == attrname:
                 return value[1]
 
-    def get_value_pair_by_index(self, index: int) -> Tuple[str, Union[int, float, str, bytes, ColorRGBA]]:
+    def get_value_pair_by_index(self, index: int) -> Tuple[str, Union[int, float, str, bytes, RGBA]]:
         """
         Return a tuple containing the name and value at the specified index
         """
         return self._values[index]
 
-    def set_value(self, attrname: str, value: Union[int, float, str, bytes, ColorRGBA]) -> bool:
+    def set_value(self, attrname: str, value: Union[int, float, str, bytes, RGBA, Vec3f]) -> bool:
         """
         Set a value by name if it exists in this object
 
         Returns `True` if successful
         """
+
         attrname = attrname.strip()
 
         if not self.is_value(attrname):
             return False
 
         for val in self._values:
+            print(val)
             if val[0] == attrname:
-                val[1] = value
+                if isinstance(val[1], Vec3f):
+                    val[1] = value
+                else:
+                    print(val[1])
+                    print(value)
+                    print(val[1].__class__)
+                    val[1] = val[1].__class__(value)
+                    #print(val[0], val[1].value)
                 return True
         return False
 
-    def set_value_by_index(self, index: int, value: Union[int, float, str, bytes, ColorRGBA]):
+    def set_value_by_index(self, index: int, value: Union[int, float, str, bytes, RGBA, Vec3f]):
         """
         Set a value by index if it exists in this object
         """
         self._values[index][1] = value
 
-    def create_value(self, index: int, attrname: str, value: Union[int, float, str, bytes, ColorRGBA], comment: str = "", strict: bool = False) -> bool:
+    def create_value(self, index: int, attrname: str, value: Union[int, float, str, bytes, RGBA, Vec3f], comment: str = "", strict: bool = False) -> bool:
         """
         Create a named value for this object if it doesn't exist
 
@@ -275,7 +295,7 @@ class GameObject():
                 easyname = f"{attrname}{i}"
 
         attrname = easyname
-        if isinstance(value, ColorRGBA):
+        if isinstance(value, RGBA):
             print(attrname, isVeryUnique)
 
         if isVeryUnique:
@@ -320,7 +340,7 @@ class GameObject():
             self._values.append([attrname, value])
         return True
 
-    def iter_values(self) -> Iterable[Tuple[str, Union[int, float, str, bytes, list, ColorRGBA]]]:
+    def iter_values(self) -> Iterable[Tuple[str, Union[int, float, str, bytes, list, RGBA]]]:
         """
         Yield all of this object's values
         """

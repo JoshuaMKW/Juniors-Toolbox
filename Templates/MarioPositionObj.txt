@@ -1,81 +1,9 @@
 Mario Return Point Position Object
-Warp STRING
-X FLOAT
-Y FLOAT
-Z FLOAT
-Pitch FLOAT
-Yaw FLOAT
-Roll FLOAT
-ScaleX FLOAT
-ScaleY FLOAT
-ScaleZ FLOAT
-Warp STRING
-X FLOAT
-Y FLOAT
-Z FLOAT
-Pitch FLOAT
-Yaw FLOAT
-Roll FLOAT
-ScaleX FLOAT
-ScaleY FLOAT
-ScaleZ FLOAT
-Warp STRING
-X FLOAT
-Y FLOAT
-Z FLOAT
-Pitch FLOAT
-Yaw FLOAT
-Roll FLOAT
-ScaleX FLOAT
-ScaleY FLOAT
-ScaleZ FLOAT
-Warp STRING
-X FLOAT
-Y FLOAT
-Z FLOAT
-Pitch FLOAT
-Yaw FLOAT
-Roll FLOAT
-ScaleX FLOAT
-ScaleY FLOAT
-ScaleZ FLOAT
-Warp STRING
-X FLOAT
-Y FLOAT
-Z FLOAT
-Pitch FLOAT
-Yaw FLOAT
-Roll FLOAT
-ScaleX FLOAT
-ScaleY FLOAT
-ScaleZ FLOAT
-Warp STRING
-X FLOAT
-Y FLOAT
-Z FLOAT
-Pitch FLOAT
-Yaw FLOAT
-Roll FLOAT
-ScaleX FLOAT
-ScaleY FLOAT
-ScaleZ FLOAT
-Warp STRING
-X FLOAT
-Y FLOAT
-Z FLOAT
-Pitch FLOAT
-Yaw FLOAT
-Roll FLOAT
-ScaleX FLOAT
-ScaleY FLOAT
-ScaleZ FLOAT
-Warp STRING
-X FLOAT
-Y FLOAT
-Z FLOAT
-Pitch FLOAT
-Yaw FLOAT
-Roll FLOAT
-ScaleX FLOAT
-ScaleY FLOAT
-ScaleZ FLOAT
+WarpPoint{i} TEMPLATE [*] {
+    Warp STRING
+    Transform TEMPLATE {
+        Position VEC3F
+        Rotation VEC3F
+        Scale VEC3F
+    }
+}

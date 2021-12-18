@@ -1,8 +1,9 @@
+from typing import Iterable, Union
 from PySide2.QtCore import QPoint
 from PySide2.QtGui import QScreen
-from PySide2.QtWidgets import QLayout
+from PySide2.QtWidgets import QLayout, QLayoutItem, QWidget
 
-from sms_bin_editor.objects.types import ColorRGBA
+from sms_bin_editor.objects.types import RGBA
 
 def clear_layout(layout: QLayout):
     if layout is not None:
@@ -13,9 +14,18 @@ def clear_layout(layout: QLayout):
             elif child.layout() is not None:
                 clear_layout(child.layout())
 
-def get_screen_pixel_color(pos: QPoint) -> ColorRGBA:
+def walk_layout(layout: QLayout) -> Iterable[QLayoutItem]:
+    if layout is not None:
+        for i in range(layout.count()):
+            child = layout.itemAt(i)
+            yield child
+            _widget = child.widget()
+            _layout = child.layout()
+            child = _widget.layout() if _widget is not None else _layout
+            yield from walk_layout(child)
+
+def get_screen_pixel_color(pos: QPoint) -> RGBA:
     from PIL import ImageGrab
 
     px = ImageGrab.grab().load()
-    print(pos)
-    return ColorRGBA.from_tuple(px[pos.x(), pos.y()])
+    return RGBA.from_tuple(px[pos.x(), pos.y()])
