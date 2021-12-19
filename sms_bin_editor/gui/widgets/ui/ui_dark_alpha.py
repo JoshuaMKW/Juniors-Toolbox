@@ -359,6 +359,6 @@ class Ui_ColorPicker(object):
         self.lbl_blue.setText(_translate("ColorPicker", "B"))
         self.blue.setText(_translate("ColorPicker", "255"))
         self.lbl_hex.setText(_translate("ColorPicker", "#"))
-        self.hex.setText(_translate("ColorPicker", "ffffff"))
+        self.hex.setText(_translate("ColorPicker", "000000FF"))
         self.lbl_alpha.setText(_translate("ColorPicker", "A"))
         self.alpha.setText(_translate("ColorPicker", "100"))

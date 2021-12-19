@@ -77,7 +77,6 @@ class DetachableTabWidget(QTabWidget):
     #  @param    point    the screen position for creating the new DetachedTab window
     @Slot(int, QPoint)
     def detachTab(self, index: int, point: QPoint):
-
         # Get the tab content
         name = self.tabText(index)
         icon = self.tabIcon(index)
@@ -114,14 +113,11 @@ class DetachableTabWidget(QTabWidget):
     #  @param    icon             the window icon for the detached tab
     #  @param    insertAt         insert the re-attached tab at the given index
     def attachTab(self, contentWidget, name, icon, insertAt=None):
-
         # Make the content widget a child of this widget
         contentWidget.setParent(self)
 
-
         # Remove the reference
         del self.detachedTabs[name]
-
 
         # Create an image from the given icon (for comparison)
         if not icon.isNull():
@@ -169,7 +165,6 @@ class DetachableTabWidget(QTabWidget):
     #
     #  @param    name    the name of the tab to be removed
     def removeTabByName(self, name):
-
         # Remove the tab if it is attached
         attached = False
         for index in range(self.count()):
@@ -200,11 +195,9 @@ class DetachableTabWidget(QTabWidget):
     #  @param    dropPos  the mouse cursor position when the drop occurred
     @Slot(str, int, QPoint)
     def detachedTabDrop(self, name, index, dropPos):
-
         # If the drop occurred on an existing tab, insert the detached
         # tab at the existing tab's location
         if index > -1:
-
             # Create references to the detached tab's content and icon
             contentWidget = self.detachedTabs[name].contentWidget
             icon = self.detachedTabs[name].windowIcon()
@@ -223,18 +216,15 @@ class DetachableTabWidget(QTabWidget):
         # If the drop did not occur on an existing tab, determine if the drop
         # occurred in the tab bar area (the area to the side of the QTabBar)
         else:
-
             # Find the drop position relative to the DetachableTabWidget
             tabDropPos = self.mapFromGlobal(dropPos)
 
             # If the drop position is inside the DetachableTabWidget...
             if self.rect().contains(tabDropPos):
-
                 # If the drop position is inside the tab bar area (the
                 # area to the side of the QTabBar) or there are not tabs
                 # currently attached...
                 if tabDropPos.y() < self.tabBar.height() or self.count() == 0:
-
                     # Close the detached tab and allow it to re-attach
                     # automatically
                     self.detachedTabs[name].close()
@@ -444,12 +434,9 @@ class DetachableTabWidget(QTabWidget):
         def dragEnterEvent(self, event):
             mimeData = event.mimeData()
             formats = mimeData.formats()
-
-       #     if formats.contains('action') and mimeData.data('action') == 'application/tab-detach':
-       #       event.acceptProposedAction()
-
+        #     if formats.contains('action') and mimeData.data('action') == 'application/tab-detach':
+        #       event.acceptProposedAction()
             QTabBar.dragMoveEvent(self, event)
-
 
         ##
         #  Get the position of the end of the drag
@@ -459,17 +446,14 @@ class DetachableTabWidget(QTabWidget):
             self.dragDropedPos = event.pos()
             QTabBar.dropEvent(self, event)
 
-
         ##
         #  Determine if the detached tab drop event occurred on an existing tab,
         #  then send the event to the DetachableTabWidget
         def detachedTabDrop(self, name, dropPos):
-
             tabDropPos = self.mapFromGlobal(dropPos)
-
             index = self.tabAt(tabDropPos)
-
             self.detachedTabDropSignal.emit(name, index, dropPos)
+
 
 class DynamicTabBar(QTabBar):
     becameEmpty: SignalInstance = Signal()

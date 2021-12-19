@@ -1,7 +1,7 @@
 from os import walk
 from typing import Dict, List, Tuple, Union
 from PySide2.QtCore import QLine, QObject, QTimer, Qt
-from PySide2.QtGui import QColor, QCursor
+from PySide2.QtGui import QColor, QCursor, QDragEnterEvent, QDropEvent
 from PySide2.QtWidgets import QBoxLayout, QFormLayout, QFrame, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QLayout, QLineEdit, QListWidget, QPushButton, QScrollArea, QSizePolicy, QSpacerItem, QStyle, QTreeWidget, QTreeWidgetItem, QUndoStack, QVBoxLayout, QWidget
 from sms_bin_editor.gui.layouts.entrylayout import EntryLayout
 
@@ -20,6 +20,10 @@ class ObjectHierarchyWidgetItem(QTreeWidgetItem):
     def __init__(self, obj: GameObject, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.object = obj
+        flags = Qt.ItemIsSelectable | Qt.ItemIsDragEnabled | Qt.ItemIsEnabled
+        if obj.is_group():
+            flags |= Qt.ItemIsDropEnabled
+        self.setFlags(flags)
 
 
 class ObjectHierarchyWidget(QTreeWidget):
@@ -29,7 +33,13 @@ class ObjectHierarchyWidget(QTreeWidget):
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.setAlternatingRowColors(False)
         self.setRootIsDecorated(True)
+        self.setAcceptDrops(True)
+        self.setDragEnabled(True)
         self.setHeaderHidden(True)
+        self.setDragDropMode(self.InternalMove)
+        self.setDefaultDropAction(Qt.MoveAction)
+
+        self.draggedObject = None
 
     def populate_objects_from_scene(self, scene: SMSScene):
         def inner_populate(obj: GameObject, parentNode: ObjectHierarchyWidgetItem) -> List[ObjectHierarchyWidgetItem]:
@@ -48,6 +58,46 @@ class ObjectHierarchyWidget(QTreeWidget):
                 inner_populate(obj, node)
 
         self.expandAll()
+
+    def dragEnterEvent(self, event: QDragEnterEvent):
+        print(event.pos(), event.source())
+        draggedObj: ObjectHierarchyWidgetItem = self.itemAt(event.pos())
+        self.draggedObject = draggedObj
+        self.draggedIndex = draggedObj.parent().indexOfChild(draggedObj)
+        print(draggedObj, self.draggedIndex)
+        return super().dragEnterEvent(event)
+
+    def dropEvent(self, event: QDropEvent):
+        if True:
+            super().dropEvent(event)
+            return
+
+        if self.indexFromItem(self.draggedObject, 0) != -1:
+            swappedObject: ObjectHierarchyWidgetItem = self.itemAt(event.pos())
+            destParent = swappedObject.parent()
+            srcParent = self.draggedObject.parent()
+            swappedIndex = destParent.indexOfChild(swappedObject)
+            if swappedIndex == self.draggedObject.parent().indexOfChild(self.draggedObject):
+                return
+            self.setItemSelected(self.draggedObject, False)
+            srcParent.removeChild(self.draggedObject)
+            destParent.insertChild(swappedIndex, self.draggedObject)
+            self.setItemSelected(self.draggedObject, True)
+            event.accept()
+            """
+            print("item in self")
+            swappedObject: ObjectHierarchyWidgetItem = self.itemAt(event.pos())
+            destParent = swappedObject.parent()
+            swappedIndex = destParent.indexOfChild(swappedObject)
+            destParent.removeChild(swappedObject)
+            destParent.insertChild(swappedIndex, self.draggedObject)
+
+            srcParent = self.draggedObject.parent()
+            swappedIndex = srcParent.indexOfChild(self.draggedObject)
+            srcParent.removeChild(self.draggedObject)
+            srcParent.insertChild(swappedIndex, swappedObject)
+            event.accept()
+            """
 
 
 class ObjectPropertiesWidget(QScrollArea):
