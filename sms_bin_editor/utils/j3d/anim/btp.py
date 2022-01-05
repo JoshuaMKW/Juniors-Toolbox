@@ -25,7 +25,7 @@ class btp(j3d.basic_animation):
         
     
     @classmethod
-    def from_anim(cls, f):
+    def from_data(cls, f):
         #at this point, f is at 0x09
         size = j3d.read_uint32(f)
 
@@ -40,8 +40,8 @@ class btp(j3d.basic_animation):
 
         tpt_sectionsize = j3d.read_uint32(f)
 
-        flag = j3d.read_uint8(f)
-        j3d.read_uint8(f)
+        flag = j3d.read_ubyte(f)
+        j3d.read_ubyte(f)
 
         anim_length = j3d.read_uint16(f)
         num_entries = j3d.read_uint16(f) #also known as "keyframe count in the documentation"
@@ -276,8 +276,8 @@ class btp(j3d.basic_animation):
         tpt1_size_offset = f.tell()
         f.write(b"EFGH")  # Placeholder for tpt1 size
                     
-        j3d.write_uint8(f, self.flag)
-        j3d.write_uint8(f, 0xff)
+        j3d.write_ubyte(f, self.flag)
+        j3d.write_ubyte(f, 0xff)
         j3d.write_uint16(f, self.largest_duration)
         j3d.write_uint16(f, len(self.animations) )
         j3d.write_uint16(f, self.unknown_address)

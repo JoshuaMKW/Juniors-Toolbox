@@ -2,25 +2,29 @@ import pickle
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Dict, Iterable, Optional, Tuple
+from PySide2.QtCore import QPoint, Slot
+from PySide2.QtGui import Qt
 
-from PySide2.QtWidgets import QApplication
+from PySide2.QtWidgets import QApplication, QDockWidget, QMainWindow, QSizePolicy, QWidget
 from sms_bin_editor import __version__
-from sms_bin_editor.gui.widgets.object import ObjectHierarchyWidgetItem
+from sms_bin_editor.gui.tabs import TabWidgetManager
+from sms_bin_editor.gui.tabs.object import ObjectHierarchyWidget, ObjectHierarchyWidgetItem, ObjectPropertiesWidget
+from sms_bin_editor.gui.widgets.synceddock import SyncedDockWidget
 from sms_bin_editor.gui.windows.mainwindow import MainWindow
 from sms_bin_editor.scene import SMSScene
 from sms_bin_editor.utils.filesystem import get_program_folder
 from sms_bin_editor.gui.settings import SMSBinEditorSettings
 
 
-class SMSBinEditor(QApplication):
+class JuniorsToolbox(QApplication):
     """
-    Bin Editor application
+    Junior's Toolbox Application
     """
-    __SINGLE_INSTANCE: "SMSBinEditor" = None
+    __SINGLE_INSTANCE: "JuniorsToolbox" = None
     __SINGLE_INITIALIZED = False
     
-    def __new__(cls, *args, **kwargs) -> "SMSBinEditor":
+    def __new__(cls, *args, **kwargs) -> "JuniorsToolbox":
         if cls.__SINGLE_INSTANCE is None:
             cls.__SINGLE_INSTANCE = super().__new__(cls, *args, **kwargs)
         return cls.__SINGLE_INSTANCE
@@ -31,31 +35,57 @@ class SMSBinEditor(QApplication):
 
         super().__init__()
 
+
         self.gui = MainWindow()
-        self._scene: SMSScene = None
         self.settings: SMSBinEditorSettings = None
 
+        TabWidgetManager.init(self.gui)
+
         self.gui.setWindowTitle(self.get_window_title())
+        #self.gui.setCentralWidget(None)
+        self.gui.centralWidget().setMaximumSize(5, 5)
+        self.gui.layout().setContentsMargins(0,0,0,0)
         self.update_theme(MainWindow.Themes.LIGHT)
 
-        self.gui.objectHierarchyView.currentItemChanged.connect(
-            lambda cur, prev: self.set_object_properties_tab(cur, prev))
+        # Set up tab spawning
+        self.gui.tabActionRequested.connect(self.openDockerTab)
+
+        self._tabGroups: Dict[str, QDockWidget] = {}
+        self._openTabs: Dict[str, QDockWidget.DetachedTab] = {}
+
+        # Set up tab syncing
+        objectPropertyTab = TabWidgetManager.get_tab(ObjectPropertiesWidget)
+        objectHierarchyTab = TabWidgetManager.get_tab(ObjectHierarchyWidget)
+        objectHierarchyTab.currentItemChanged.connect(
+            lambda cur, prev: objectPropertyTab.populate(cur.object, self.scenePath))
+
+        self.__scene = SMSScene()
+        self.__scenePath = None
 
         self.__SINGLE_INITIALIZED = True
 
     # --- GETTER / SETTER --- #
 
-    def get_instance(self) -> "SMSBinEditor":
+    def get_instance(self) -> "JuniorsToolbox":
         return self.__SINGLE_INSTANCE
 
     @property
     def scene(self) -> SMSScene:
-        return self._scene
+        return self.__scene
+        # return self.construct_scene_from_elements()
 
     @scene.setter
     def scene(self, scene: SMSScene):
-        self._scene = scene
-        self.update_elements()
+        self.__scene = scene
+        self.update_elements(scene)
+
+    @property
+    def scenePath(self) -> Path:
+        return self.__scenePath
+
+    @scenePath.setter
+    def scenePath(self, path: Path):
+        self.__scenePath = path
 
     # --- GUI --- #
 
@@ -115,22 +145,57 @@ class SMSBinEditor(QApplication):
             self.theme = MainWindow.Themes.DARK
             self.setStyleSheet(load_stylesheet())
 
-    def update_elements(self):
+    def update_elements(self, scene: SMSScene):
         """
         Hard update the elements
         """
-        self.gui.objectHierarchyView.populate_objects_from_scene(self._scene)
-        self.gui.railListView.populate_rails_from_scene(self._scene)
+        for tab in TabWidgetManager.iter_tabs():
+            tab.populate(scene, self.scenePath)
 
-    def set_object_properties_tab(self, current: ObjectHierarchyWidgetItem, previous: ObjectHierarchyWidgetItem):
-        focusedObj = current.object
-        self.gui.objectPropertyView.populate_attributes_from_object(focusedObj)
+    def construct_scene_from_elements(self) -> SMSScene:
+        ...
 
     def show(self):
         """
         Show the GUI
         """
-        self.gui.show()
+        self.gui.show()  
+
+    def iter_tab_groups(self) -> Iterable[QDockWidget]:
+        for value in self._tabGroups.values():
+            yield value
+
+    def get_tab_group(self, name: str) -> QDockWidget:
+        for group in self.iter_tab_groups():
+            if group.objectName() == name:
+                return group
+        return None
+
+    def embed_tab(self, tab: QDockWidget, pos: QPoint):
+        for tabGroup in self.iter_tab_groups():
+            ...
+
+
+    @Slot(str)
+    def openDockerTab(self, name: str):
+        tab = TabWidgetManager.get_tab(name)
+        if name in self._openTabs:
+            return
+        deTab = SyncedDockWidget(name)
+        deTab.setWidget(tab)
+        deTab.setFloating(False)
+        self.gui.addDockWidget(Qt.LeftDockWidgetArea, deTab)
+
+        deTab.closed.connect(self.closeDockerTab)
+        deTab.show()
+        self._openTabs[name] = deTab
+        
+    @Slot(str)
+    def closeDockerTab(self, tab: SyncedDockWidget):
+        print(tab.windowTitle())
+        if tab.windowTitle() not in self._openTabs:
+            return
+        self._openTabs.pop(tab.windowTitle())
 
     # --- LOGIC --- #
 
@@ -139,4 +204,5 @@ class SMSBinEditor(QApplication):
         Load a scene into the GUI
         """
         self.scene = SMSScene.from_path(scene)
+        self.scenePath = scene
         return self.scene is not None

@@ -17,7 +17,7 @@ from sms_bin_editor.utils.iohelper import (read_bool, read_double, read_float,
                                            write_ubyte, write_uint16,
                                            write_uint32, write_vec3f)
 
-from sms_bin_editor.objects.types import RGBA, Vec3f
+from sms_bin_editor.objects._unity_types import RGBA, Vec3f
 
 
 class AttributeInvalidError(Exception):

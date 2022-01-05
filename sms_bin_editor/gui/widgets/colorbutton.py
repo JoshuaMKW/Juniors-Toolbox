@@ -6,9 +6,8 @@ from numpy.lib.arraysetops import isin
 from sms_bin_editor.gui.commoncursor import CommonCursor, get_common_cursor
 
 from sms_bin_editor.gui.widgets.colorpicker import ColorPicker
-from sms_bin_editor.gui.widgets.dynamictab import DynamicTabWidget
 from sms_bin_editor.objects.object import GameObject
-from sms_bin_editor.objects.types import BasicColors, RGBA
+from sms_bin_editor.objects._unity_types import BasicColors, RGBA
 from sms_bin_editor.scene import SMSScene
 from sms_bin_editor.utils.filesystem import resource_path
 

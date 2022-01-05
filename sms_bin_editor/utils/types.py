@@ -3,7 +3,10 @@ from typing import Optional, Tuple, Union
 from enum import Enum, IntEnum
 
 from math import acos, asin, atan2, cos, degrees, pi, radians, sin, sqrt
+
+from pyrr.objects import quaternion
 from sms_bin_editor.utils import clamp, clamp01, classproperty, sign
+from pyrr import Vector3, Vector4, Matrix33, Matrix44, Quaternion
 
 
 class BasicColors(IntEnum):
@@ -104,13 +107,13 @@ class RGBA():
     def __getitem__(self, index: int) -> int:
         if index not in range(4):
             raise IndexError(
-                f"Index into {self.__class__.__name__} is out of range ([0-2])")
+                f"Index into {self.__class__.__name__} is out of range ([0-3])")
         return self.tuple()[index]
 
     def __setitem__(self, index: int, value: int) -> int:
         if index not in range(4):
             raise IndexError(
-                f"Index into {self.__class__.__name__} is out of range ([0-2])")
+                f"Index into {self.__class__.__name__} is out of range ([0-3])")
         if index == 0:
             self.red = value
         elif index == 1:
@@ -135,7 +138,11 @@ class RGBA():
         return self.value != other
 
     def __repr__(self) -> str:
-        return f"{self.red = }, {self.green = }, {self.blue = }, {self.alpha = }"
+        red = self.red
+        green = self.green
+        blue = self.blue
+        alpha = self.alpha
+        return f"{self.__class__.__name__}({red=}, {green=}, {blue=}, {alpha=})"
 
     def __str__(self) -> str:
         return self.hex()
@@ -144,7 +151,252 @@ class RGBA():
         return self.value
 
 
-class Vec3f(list):
+class Vec2f(list):
+    """
+    Class representing a Vector of 3 floats useful for geometric math
+    """
+    Epsilon = 0.00001
+    EpsilonNormalSqrt = 1e-15
+
+    def __init__(self, x: float = 0, y: float = 0):
+        self.append(float(x))
+        self.append(float(y))
+        self.__iteridx = 0
+
+    @classproperty
+    def zero(cls) -> "Vec2f":
+        """
+        A null Vector3f
+        """
+        return cls(0, 0)
+
+    @classproperty
+    def one(cls) -> "Vec2f":
+        """
+        A Vector3f of one
+        """
+        return cls(1, 1)
+
+    @classproperty
+    def left(cls) -> "Vec2f":
+        """
+        A Vector3f pointed left
+        """
+        return cls(-1, 0)
+
+    @classproperty
+    def right(cls) -> "Vec2f":
+        """
+        A Vector3f pointed right
+        """
+        return cls(1, 0)
+
+    @classproperty
+    def up(cls) -> "Vec2f":
+        """
+        A Vector3f pointed up
+        """
+        return cls(0, 1)
+
+    @classproperty
+    def down(cls) -> "Vec2f":
+        """
+        A Vector3f pointed down
+        """
+        return cls(0, -1)
+
+    @staticmethod
+    def lerp(a: "Vec2f", b: "Vec2f", t: float, clamp: bool = True) -> "Vec2f":
+        """
+        Lerp between `a` and `b` using `t`
+        """
+        if clamp:
+            t = clamp01(t)
+
+        return Vec2f(
+            a.x + (b.x - a.x) * t,
+            a.y + (b.y - a.y) * t
+        )
+
+    @property
+    def x(self) -> float:
+        return self.x
+
+    @x.setter
+    def x(self, x: float):
+        self.x = float(x)
+
+    @property
+    def y(self) -> float:
+        return self.y
+
+    @y.setter
+    def y(self, y: float):
+        self.y = float(y)
+
+    @property
+    def sqrMagnitude(self) -> float:
+        return self.dot(self)
+        
+    @property
+    def magnitude(self) -> float:
+        return sqrt(self.dot(self))
+
+    @property
+    def normalized(self) -> "Vec3f":
+        magnitude = self.magnitude
+        if magnitude > self.Epsilon:
+            return self / magnitude
+        return Vec3f.zero
+
+    @property
+    def components(self) -> Tuple[float, float]:
+        return self.x, self.y
+
+    def set(self, x: float, y: float):
+        """
+        Set all the components of this Vector2f
+        """
+        self.x = float(x)
+        self.y = float(y)
+
+    def scale(self, scale: Union[float, "Vec2f"]):
+        """
+        Scale all the components of this Vector2f by `scale`
+
+        If `scale` is a float, scale all components uniformly with `scale`\n
+        If `scale` is a Vector2f, scale the corrisponding components against `scale`
+        """
+        if isinstance(scale, float):
+            self.x *= scale
+            self.y *= scale
+        else:
+            self.x *= scale.x
+            self.y *= scale.y
+
+    def dot(self, other: "Vec2f") -> float:
+        """
+        Returns the dot product of this Vector2f and `other`
+        """
+        return self.x*other.x + self.y*other.y
+
+    def reflect(self, normal: "Vec2f") -> "Vec2f":
+        """
+        Reflects this Vector2f off the plane defined by `normal`
+        """
+        factor = -2.0 * normal.dot(self)
+        return Vec2f(
+            factor*normal.x + self.x,
+            factor*normal.y + self.y
+        )
+
+    def normalize(self):
+        """
+        Normalizes this Vector2f to a magnitude of 1
+        """
+        normalized = self.normalized
+        self.x = normalized.x
+        self.y = normalized.y
+
+    def angle(self, to: "Vec2f") -> float:
+        """
+        Returns the smallest angle in degrees between this Vector2f and `to`
+        """
+        denominator = sqrt(self.sqrMagnitude * to.sqrMagnitude)
+        if denominator < self.EpsilonNormalSqrt:
+            return 0.0
+
+        dot = clamp(self.dot(to) / denominator, -1.0, 1.0)
+        return degrees(acos(dot))
+
+    def distance(self, other: "Vec2f") -> float:
+        """
+        Returns the distance between this Vector2f and `other`
+        """
+        diff = self - other
+        return diff.magnitude
+
+    def min(self, other: "Vec2f") -> "Vec2f":
+        """
+        Returns a vector made from the smallest components of this Vector2f and `other`
+        """
+        return Vec2f(
+            min(self.x, other.x),
+            min(self.y, other.y),
+        )
+
+    def max(self, other: "Vec2f") -> "Vec2f":
+        """
+        Returns a vector made from the largest components of this Vector2f and `other`
+        """
+        return Vec2f(
+            max(self.x, other.x),
+            max(self.y, other.y),
+        )
+
+    def __add__(self, other: "Vec2f") -> "Vec2f":
+        return Vec2f(
+            self.x + other.x,
+            self.y + other.y,
+        )
+
+    def __sub__(self, other: "Vec2f") -> "Vec2f":
+        return Vec2f(
+            self.x - other.x,
+            self.y - other.y,
+        )
+
+    def __mul__(self, other: Union[float, "Vec2f"]) -> "Vec2f":
+        if isinstance(other, Vec2f):
+            return Vec2f(
+                self.x * other.x,
+                self.y * other.y
+            )
+        return Vec2f(
+            self.x * other,
+            self.y * other
+        )
+
+    def __truediv__(self, other: Union[float, "Vec2f"]) -> "Vec2f":
+        if isinstance(other, Vec2f):
+            return Vec2f(
+                self.x / other.x,
+                self.y / other.y
+            )
+        return Vec2f(
+            self.x / other,
+            self.y / other
+        )
+
+    def __next__(self) -> float:
+        if self.__iteridx > 1:
+            self.__iteridx = 0
+            raise StopIteration
+        self.__iteridx += 1
+        return self[self.__iteridx-1]
+
+    def __getitem__(self, index: int) -> float:
+        if index not in range(2):
+            raise IndexError(
+                f"Index into {self.__class__.__name__} is out of range ([0-1])")
+        return super().__getitem__(index)
+
+    def __setitem__(self, index: int, value: float):
+        if index not in range(2):
+            raise IndexError(
+                f"Index into {self.__class__.__name__} is out of range ([0-1])")
+        super().__setitem__(index, value)
+
+    def __len__(self) -> float:
+        return self.magnitude
+
+    def __str__(self) -> str:
+        x = self.x
+        y = self.y
+        return f"{self.__class__.__name__}({x=}, {y=})"
+
+
+class Vec3f(Vector3):
     """
     Class representing a Vector of 3 floats useful for geometric math
     """
@@ -152,15 +404,13 @@ class Vec3f(list):
     EpsilonNormalSqrt = 1e-15
 
     def __init__(self, x: float = 0, y: float = 0, z: float = 0):
-        self.append(float(x))
-        self.append(float(y))
-        self.append(float(z))
+        super().__init__([float(x), float(y), float(z)], dtype=float)
         self.__iteridx = 0
 
     @classproperty
     def zero(cls) -> "Vec3f":
         """
-        A null Vector3f
+        A null Vecto3f
         """
         return cls(0, 0, 0)
 
@@ -213,58 +463,41 @@ class Vec3f(list):
         """
         return cls(0, 0, -1)
 
-    @staticmethod
-    def lerp(a: "Vec3f", b: "Vec3f", t: float, clamp: bool = True) -> "Vec3f":
-        """
-        Lerp between `a` and `b` using `t`
-        """
-        if clamp:
-            t = clamp01(t)
-
-        return Vec3f(
-            a.x + (b.x - a.x) * t,
-            a.y + (b.y - a.y) * t,
-            a.z + (b.z - a.z) * t
-        )
-
     @property
     def x(self) -> float:
-        return self[0]
+        return self.x
 
     @x.setter
     def x(self, x: float):
-        self[0] = x
+        self.x = float(x)
 
     @property
     def y(self) -> float:
-        return self[1]
+        return self.y
 
     @y.setter
     def y(self, y: float):
-        self[1] = y
+        self.y = float(y)
 
     @property
     def z(self) -> float:
-        return self[2]
+        return self.z
 
     @z.setter
     def z(self, z: float):
-        self[2] = z
+        self.z = float(z)
 
     @property
     def sqrMagnitude(self) -> float:
-        return self.dot(self)
+        return super().squared_length
 
     @property
     def magnitude(self) -> float:
-        return sqrt(self.dot(self))
+        return self.length
 
     @property
     def normalized(self) -> "Vec3f":
-        magnitude = self.magnitude
-        if magnitude > self.Epsilon:
-            return self / magnitude
-        return Vec3f.zero
+        return super().normalized
 
     @property
     def components(self) -> Tuple[float, float, float]:
@@ -274,9 +507,7 @@ class Vec3f(list):
         """
         Set all the components of this Vector3f
         """
-        self.x = float(x)
-        self.y = float(y)
-        self.z = float(z)
+        self.xyz = [float(x), float(y), float(z)]
 
     def scale(self, scale: Union[float, "Vec3f"]):
         """
@@ -298,17 +529,13 @@ class Vec3f(list):
         """
         Returns the dot product of this Vector3f and `other`
         """
-        return self.x*other.x + self.y*other.y + self.z*other.z
+        return super().dot(other)
 
     def cross(self, other: "Vec3f") -> "Vec3f":
         """
         Returns the cross product of this Vector3f and `other`
         """
-        return Vec3f(
-            self.y*other.z - self.z*other.y,
-            self.z*other.x - self.x*other.z,
-            self.x*other.y - self.y*other.x
-        )
+        return super().cross(other)
 
     def reflect(self, normal: "Vec3f") -> "Vec3f":
         """
@@ -325,10 +552,7 @@ class Vec3f(list):
         """
         Normalizes this Vector3f to a magnitude of 1
         """
-        normalized = self.normalized
-        self.x = normalized.x
-        self.y = normalized.y
-        self.z = normalized.z
+        super().normalize()
 
     def project(self, normal: "Vec3f") -> "Vec3f":
         """
@@ -409,45 +633,8 @@ class Vec3f(list):
             max(self.z, other.z)
         )
 
-    def __add__(self, other: "Vec3f") -> "Vec3f":
-        return Vec3f(
-            self.x + other.x,
-            self.y + other.y,
-            self.z + other.z
-        )
-
-    def __sub__(self, other: "Vec3f") -> "Vec3f":
-        return Vec3f(
-            self.x - other.x,
-            self.y - other.y,
-            self.z - other.z
-        )
-
-    def __mul__(self, other: Union[float, "Vec3f"]) -> "Vec3f":
-        if isinstance(other, Vec3f):
-            return Vec3f(
-                self.x * other.x,
-                self.y * other.y,
-                self.z * other.z
-            )
-        return Vec3f(
-            self.x * other,
-            self.y * other,
-            self.z * other
-        )
-
-    def __truediv__(self, other: Union[float, "Vec3f"]) -> "Vec3f":
-        if isinstance(other, Vec3f):
-            return Vec3f(
-                self.x / other.x,
-                self.y / other.y,
-                self.z / other.z
-            )
-        return Vec3f(
-            self.x / other,
-            self.y / other,
-            self.z / other
-        )
+    def __iter__(self):
+        super().__iter__()
 
     def __next__(self) -> float:
         if self.__iteridx > 2:
@@ -478,7 +665,7 @@ class Vec3f(list):
         return f"{self.__class__.__name__}({x=}, {y=}, {z=})"
 
 
-class Quaternion():
+class Quaternion(Quaternion):
     """
     Class representing a quaternion rotation
     """
@@ -596,10 +783,12 @@ class Quaternion():
         return Quaternion.identity
 
     @classmethod
-    def from_euler(cls, euler: Vec3f) -> "Quaternion":
+    def from_euler(cls, euler: Vec3f, unityStyle: bool = False) -> "Quaternion":
         """
         Create a rotation from `euler` (Unity style)
         """
+        if not unityStyle:
+            return cls.from_eulers(euler.xyz, dtype=float)
         halfYaw = radians(euler.x) * 0.5
         halfPitch = radians(euler.y) * 0.5
         halfRoll = radians(euler.z) * 0.5
@@ -924,6 +1113,13 @@ class Transform():
     @eulerRotation.setter
     def eulerRotation(self, rot: Vec3f):
         self.rotation = Quaternion.from_euler(rot)
+
+    def to_matrix(self) -> glm.mat4:
+        mtx = glm.mat4()
+        glm.translate(mtx, self.position.to_glm_type())
+        glm.rotate(mtx, self.rotation.to_euler().to_glm_type())
+        glm.scale(mtx, self.scale.to_glm_type())
+        return mtx
 
     def translate(self, translation: Union[Vec3f, Tuple[float, float, float]]):
         """

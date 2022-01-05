@@ -5,7 +5,7 @@ from enum import Enum, IntEnum
 from pathlib import Path
 from typing import IO, Callable, Optional
 
-from sms_bin_editor.gui.widgets.dynamictab import DetachableTabWidget
+from sms_bin_editor.gui.widgets.synceddock import QDockWidget
 
 
 class SMSBinEditorSettings():
@@ -35,7 +35,7 @@ class SMSBinEditorSettings():
     def set_updates_enabled(self, enabled: bool):
         self.settings["Update"] = enabled
 
-    def is_widget_enabled(self, widget: DetachableTabWidget) -> bool:
+    def is_widget_enabled(self, widget: QDockWidget) -> bool:
         widgetName = widget.objectName()
         if widgetName not in self.settings["Layout"]:
             return False
@@ -43,7 +43,7 @@ class SMSBinEditorSettings():
         widgetLayout = self.settings["Layout"][widgetName]
         return widgetLayout["Enabled"]
 
-    def set_widget_enabled(self, widget: DetachableTabWidget, enabled: bool):
+    def set_widget_enabled(self, widget: QDockWidget, enabled: bool):
         widgetName = widget.objectName()
         if widgetName not in self.settings["Layout"]:
             return
@@ -51,7 +51,7 @@ class SMSBinEditorSettings():
         widgetLayout = self.settings["Layout"][widgetName]
         widgetLayout["Enabled"] = enabled
 
-    def get_widget_placement(self, widget: DetachableTabWidget) -> dict:
+    def get_widget_placement(self, widget: QDockWidget) -> dict:
         widgetName = widget.objectName()
         if widgetName not in self.settings["Layout"]:
             return False
@@ -59,7 +59,7 @@ class SMSBinEditorSettings():
         widgetLayout = self.settings["Layout"][widgetName]
         return widgetLayout["Placement"]
 
-    def set_widget_placement(self, widget: DetachableTabWidget):
+    def set_widget_placement(self, widget: QDockWidget):
         ...
 
     def save(self, config: Path, dump: Callable[[dict, IO], None] = json_dump):

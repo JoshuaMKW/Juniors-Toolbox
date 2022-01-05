@@ -5,7 +5,7 @@ from PySide2.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QLayout,
 from build.lib.sms_bin_editor.objects.object import GameObject
 
 from sms_bin_editor.gui.tools import walk_layout
-from sms_bin_editor.objects.types import Vec3f
+from sms_bin_editor.objects._unity_types import Vec3f
 
 
 class EntryLayout(QGridLayout):

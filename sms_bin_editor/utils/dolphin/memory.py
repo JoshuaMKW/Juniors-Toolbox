@@ -144,7 +144,7 @@ class Dolphin(object):
 
         return struct.unpack(">?", value)[0]
     
-    def read_sint8(self, addr: int) -> int:
+    def read_sbyte(self, addr: int) -> int:
         assert addr >= 0x80000000
         value = self.read_ram(addr-0x80000000, 1)
 
@@ -162,7 +162,7 @@ class Dolphin(object):
 
         return struct.unpack(">i", value)[0]
 
-    def read_uint8(self, addr: int) -> int:
+    def read_ubyte(self, addr: int) -> int:
         assert addr >= 0x80000000
         value = self.read_ram(addr-0x80000000, 1)
 
@@ -196,7 +196,7 @@ class Dolphin(object):
         assert addr >= 0x80000000
         self.write_ram(addr - 0x80000000, struct.pack(">?", val))
 
-    def write_sint8(self, addr: int, val: int):
+    def write_sbyte(self, addr: int, val: int):
         assert addr >= 0x80000000
         self.write_ram(addr - 0x80000000, struct.pack(">b", val))
 
@@ -208,7 +208,7 @@ class Dolphin(object):
         assert addr >= 0x80000000
         self.write_ram(addr - 0x80000000, struct.pack(">i", val))
 
-    def write_uint8(self, addr: int, val: int):
+    def write_ubyte(self, addr: int, val: int):
         assert addr >= 0x80000000
         self.write_ram(addr - 0x80000000, struct.pack(">B", val))
 

@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from enum import IntEnum, auto
 from typing import List, Tuple
 
-from sms_bin_editor.objects.types import  Vec3f
+from sms_bin_editor.objects._unity_types import  Vec3f
 
 class ShapeData():
     class Mode(IntEnum):

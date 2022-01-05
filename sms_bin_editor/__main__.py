@@ -2,14 +2,14 @@ import sys
 from pathlib import Path
 from typing import Optional, Tuple
 
-from sms_bin_editor.gui.application import SMSBinEditor
+from sms_bin_editor.gui.application import JuniorsToolbox
 from sms_bin_editor import __version__
 
 def main(argv: Optional[Tuple] = None):
     if argv is None:
         argv = sys.argv[1:]
 
-    app = SMSBinEditor()
+    app = JuniorsToolbox()
 
     if len(argv) == 1:
         scenePath = Path(argv[0])

@@ -2,3 +2,5 @@ oead
 PySide2
 numpy
 pillow
+PyGLM
+PyOpenGL

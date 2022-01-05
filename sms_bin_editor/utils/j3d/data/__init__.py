@@ -1,3 +1,3 @@
 ###
-# This module is ported from RiiStudio, huge thanks to Riidefi
+# This module is referenced from RiiStudio and BinEditor, huge thanks to those involved
 ###

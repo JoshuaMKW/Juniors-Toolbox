@@ -69,7 +69,7 @@ class bca(j3d.basic_animation):
         self.animations = []
     
     @classmethod
-    def from_anim(cls, f):
+    def from_data(cls, f):
 
         size = read_uint32(f)
         #print("Size of btk: {} bytes".format(size))
@@ -83,8 +83,8 @@ class bca(j3d.basic_animation):
         anf_magic = f.read(4)
         anf_sectionsize = read_uint32(f)
 
-        loop_mode = read_uint8(f)
-        filler = read_sint8(f)
+        loop_mode = read_ubyte(f)
+        filler = read_sbyte(f)
         anglescale = 0
         rotScale = (2.0**anglescale) * (180.0 / 32768.0);
         #rotScale = 1
@@ -339,9 +339,9 @@ class bca(j3d.basic_animation):
         
         anf1_size_offset = f.tell()
         f.write(b"EFGH")  # Placeholder for anf1 size
-        j3d.write_uint8(f, self.loop_mode)
-        #j3d.write_sint8(f, self.anglescale)
-        j3d.write_sint8(f, -1)
+        j3d.write_ubyte(f, self.loop_mode)
+        #j3d.write_sbyte(f, self.anglescale)
+        j3d.write_sbyte(f, -1)
         
         rotscale = (2.0**self.anglescale)*(180.0 / 32768.0)
         

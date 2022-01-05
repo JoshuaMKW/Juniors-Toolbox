@@ -1,9 +1,20 @@
-import struct 
+import struct
+from typing import BinaryIO 
 #from collections import OrderedDict
 
-from animations.general_animation import *
-from animations.general_animation import basic_animation
-import animations.general_animation as j3d
+from sms_bin_editor.utils.iohelper import (read_sint16, read_ubyte,
+                                           read_uint16, read_uint32,
+                                           write_sint16, write_ubyte,
+                                           write_uint16, write_uint32)
+from sms_bin_editor.utils.j3d.anim import general_animation as j3d
+from sms_bin_editor.utils.j3d.anim.general_animation import (AnimComponent,
+                                                             StringTable,
+                                                             BasicAnimation,
+                                                             combine_dicts,
+                                                             find_sequence,
+                                                             make_tangents,
+                                                             write_padding,
+                                                             write_values)
 
 BRKFILEMAGIC = b"J3D1brk1"
 
@@ -29,10 +40,10 @@ class ColorAnimation(object):
             count, offset, tangent_type = struct.unpack(">HHH", f.read(6)) 
             
             for j in range(count):
-                animcomp = j3d.AnimComponent.from_array(offset, j, count, rgba_arrays[i], tangent_type)
+                animcomp = AnimComponent.from_array(offset, j, count, rgba_arrays[i], tangent_type)
                 coloranim.add_component(comp, animcomp)
         
-        unknown = read_uint8(f)
+        unknown = read_ubyte(f)
         coloranim.unknown = unknown
         assert f.read(3) == b"\xFF\xFF\xFF"
         
@@ -44,7 +55,7 @@ class ColorAnimation(object):
         self._component_offsets[colorcomp] = val
 
 
-class brk(j3d.basic_animation):
+class BRK(BasicAnimation):
     def __init__(self, loop_mode, duration, tantype = 0):
         self.register_animations = []
         self.constant_animations = []
@@ -59,7 +70,7 @@ class brk(j3d.basic_animation):
         #self.unknown_address = unknown_address
 
     @classmethod
-    def from_anim(cls, f):
+    def from_data(cls, f: BinaryIO):
 
         size = read_uint32(f)
         #print("Size of brk: {} bytes".format(size))
@@ -73,7 +84,7 @@ class brk(j3d.basic_animation):
         trk_magic = f.read(4)
         trk_sectionsize = read_uint32(f)
 
-        loop_mode = read_uint8(f)
+        loop_mode = read_ubyte(f)
         padd = f.read(1)
         assert padd == b"\xFF"
         duration = read_uint16(f)
@@ -236,7 +247,7 @@ class brk(j3d.basic_animation):
             
                 
                 array = anim.component[comp[0:1]]
-                keyframes_dictionary = j3d.combine_dicts(array, keyframes_dictionary)
+                keyframes_dictionary = combine_dicts(array, keyframes_dictionary)
                 """
                 #print (array)
                 thismat_kf = {}
@@ -320,10 +331,10 @@ class brk(j3d.basic_animation):
                 rgba = rgba[j: j+1]
                 for k in range(3, len( info[curr_line + j] ) ):
                     if info[curr_line + j][k] != "":
-                        anim_comp = j3d.AnimComponent(keyframes[k - 3], int(info[curr_line + j][k]) )
+                        anim_comp = AnimComponent(keyframes[k - 3], int(info[curr_line + j][k]) )
                         color_anim.add_component(rgba, anim_comp)                 
                                            
-                color_anim.component[rgba] = j3d.make_tangents(color_anim.component[rgba])
+                color_anim.component[rgba] = make_tangents(color_anim.component[rgba])
             
             if info[curr_line + 1][0].startswith("Reg"):        
                 brk.register_animations.append(color_anim)
@@ -340,7 +351,7 @@ class brk(j3d.basic_animation):
                 f.close()
 
     
-    def write_brk(self, f):
+    def write_brk(self, f: BinaryIO):
         f.write(BRKFILEMAGIC)
         filesize_offset = f.tell()
         f.write(b"ABCD") # Placeholder for file size
@@ -352,8 +363,8 @@ class brk(j3d.basic_animation):
 
         trk1_size_offset = f.tell()
         f.write(b"EFGH")  # Placeholder for trk1 size
-        write_uint8(f, self.loop_mode)
-        write_uint8(f, 0xFF)
+        write_ubyte(f, self.loop_mode)
+        write_ubyte(f, 0xFF)
         
         write_uint16(f, self.duration)
         write_uint16(f, len(self.register_animations))
@@ -414,7 +425,7 @@ class brk(j3d.basic_animation):
                                 sequence.append( int(comp.tangentOut) )
                     
                     
-                    offset = j3d.find_sequence(all_values[animtype][colorcomp],sequence)
+                    offset = find_sequence(all_values[animtype][colorcomp],sequence)
 
                     if offset == -1:
                         offset = len(all_values[animtype][colorcomp])
@@ -445,13 +456,13 @@ class brk(j3d.basic_animation):
         
         
         # Create string table of material names for register color animations
-        register_stringtable = j3d.StringTable()
+        register_stringtable = StringTable()
 
         for anim in self.register_animations:
             register_stringtable.strings.append(anim.name)
         
         # Create string table of material names for constant color animations
-        constant_stringtable = j3d.StringTable()
+        constant_stringtable = StringTable()
 
         for anim in self.constant_animations:
             constant_stringtable.strings.append(anim.name)
@@ -474,7 +485,7 @@ class brk(j3d.basic_animation):
                 write_uint16(f, anim._component_offsets[comp]) # Offset into scales
                 write_uint16(f, self.tan_type) # Tangent type, 0 = only TangentIn; 1 = TangentIn and TangentOut
 
-            write_uint8(f, anim.unknown)
+            write_ubyte(f, anim.unknown)
             f.write(b"\xFF\xFF\xFF")
         
         f.seek(constant_anim_start)
@@ -484,7 +495,7 @@ class brk(j3d.basic_animation):
                 write_uint16(f, anim._component_offsets[comp]) # Offset into scales
                 write_uint16(f, self.tan_type) # Tangent type, 0 = only TangentIn; 1 = TangentIn and TangentOut
 
-            write_uint8(f, anim.unknown)
+            write_ubyte(f, anim.unknown)
             f.write(b"\xFF\xFF\xFF")
         
         
@@ -515,5 +526,5 @@ class brk(j3d.basic_animation):
     @classmethod
     def match_bmd(cls, info, strings):
         bfk = cls.from_table("", info)
-        j3d.basic_animation.match_bmd(bfk, strings)
-        return brk.get_loading_information()
+        BasicAnimation.match_bmd(bfk, strings)
+        return BRK.get_loading_information()

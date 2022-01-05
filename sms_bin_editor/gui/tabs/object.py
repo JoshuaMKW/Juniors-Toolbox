@@ -1,18 +1,26 @@
 from os import walk
+from pathlib import Path
+from threading import Event
 from typing import Dict, List, Tuple, Union
-from PySide2.QtCore import QLine, QObject, QTimer, Qt
-from PySide2.QtGui import QColor, QCursor, QDragEnterEvent, QDropEvent
-from PySide2.QtWidgets import QBoxLayout, QFormLayout, QFrame, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QLayout, QLineEdit, QListWidget, QPushButton, QScrollArea, QSizePolicy, QSpacerItem, QStyle, QTreeWidget, QTreeWidgetItem, QUndoStack, QVBoxLayout, QWidget
-from sms_bin_editor.gui.layouts.entrylayout import EntryLayout
+from queue import LifoQueue
 
-from sms_bin_editor.gui.widgets.colorbutton import ColorButton
-from sms_bin_editor.gui.widgets.dynamictab import DynamicTabWidget
-from sms_bin_editor.gui.tools import clear_layout, walk_layout
+from PySide2.QtCore import QLine, QModelIndex, QObject, Qt, QTimer
+from PySide2.QtGui import QColor, QCursor, QDragEnterEvent, QDropEvent, QKeyEvent
+from PySide2.QtWidgets import (QBoxLayout, QFormLayout, QFrame, QGridLayout,
+                               QGroupBox, QHBoxLayout, QLabel, QLayout,
+                               QLineEdit, QListWidget, QPushButton,
+                               QScrollArea, QSizePolicy, QSpacerItem, QStyle,
+                               QTreeWidget, QTreeWidgetItem, QUndoCommand, QUndoStack,
+                               QVBoxLayout, QWidget)
+from sms_bin_editor.gui.layouts.entrylayout import EntryLayout
 from sms_bin_editor.gui.layouts.framelayout import FrameLayout
+from sms_bin_editor.gui.tabs.generic import GenericTabWidget
+from sms_bin_editor.gui.tools import clear_layout, walk_layout
+from sms_bin_editor.gui.widgets.colorbutton import ColorButton
 from sms_bin_editor.gui.widgets.explicitlineedit import ExplicitLineEdit
-from sms_bin_editor.objects.template import ObjectAttribute
 from sms_bin_editor.objects.object import GameObject
-from sms_bin_editor.objects.types import RGBA, Vec3f
+from sms_bin_editor.objects.template import ObjectAttribute
+from sms_bin_editor.objects._unity_types import RGBA, Vec3f
 from sms_bin_editor.scene import SMSScene
 
 
@@ -26,7 +34,55 @@ class ObjectHierarchyWidgetItem(QTreeWidgetItem):
         self.setFlags(flags)
 
 
-class ObjectHierarchyWidget(QTreeWidget):
+class ObjectHierarchyWidget(QTreeWidget, GenericTabWidget):
+    class UndoCommand(QUndoCommand):
+        def __init__(self, target: "ObjectHierarchyWidget"):
+            super().__init__("Cmd")
+            self.prevparent = None
+            self.prevgblindex = None
+            self.previndex = None
+            self.dropevent = None
+            self.target = target
+            self.droppeditem = target.draggedItem
+            self.droppedExpanded = self.droppeditem.isExpanded()
+
+            self.__initialized = False
+
+        def set_prev(self, prev: "ObjectHierarchyWidget"):
+            self.prevgblindex = prev.currentIndex()
+            self.prevparent = prev.currentItem().parent()
+            self.previndex = self.prevparent.indexOfChild(prev.currentItem())
+
+        def set_current(self, cur: "ObjectHierarchyWidget", event: QDropEvent):
+            self.dropevent = QDropEvent(
+                event.pos(),
+                event.possibleActions(),
+                event.mimeData(),
+                event.mouseButtons(),
+                event.keyboardModifiers(),
+                event.type()
+            )
+
+        def redo(self):
+            if not self.__initialized:
+                QTreeWidget.dropEvent(self.target, self.dropevent)
+                self.target.setCurrentItem(self.droppeditem)
+                self.curgblindex = self.target.currentIndex()
+                self.curparent = self.target.currentItem().parent()
+                self.curindex = self.curparent.indexOfChild(self.target.currentItem())
+                self.__initialized = True
+            else:
+                self.prevparent.removeChild(self.droppeditem)
+                self.curparent.insertChild(self.curindex, self.droppeditem)
+                self.target.setCurrentIndex(self.curgblindex)
+            
+        def undo(self):
+            item = self.curparent.child(self.curindex)
+            item.setExpanded(self.droppedExpanded)
+            self.curparent.removeChild(item)
+            self.prevparent.insertChild(self.previndex, item)
+            self.target.setCurrentIndex(self.prevgblindex)
+
     def __init__(self, parent=None):
         super().__init__(parent)
 
@@ -39,9 +95,10 @@ class ObjectHierarchyWidget(QTreeWidget):
         self.setDragDropMode(self.InternalMove)
         self.setDefaultDropAction(Qt.MoveAction)
 
-        self.draggedObject = None
+        self.undoStack = QUndoStack(self)
+        self.undoStack.setUndoLimit(32)
 
-    def populate_objects_from_scene(self, scene: SMSScene):
+    def populate(self, data: SMSScene, scenePath: Path):
         def inner_populate(obj: GameObject, parentNode: ObjectHierarchyWidgetItem) -> List[ObjectHierarchyWidgetItem]:
             for g in obj.iter_grouped():
                 childNode = ObjectHierarchyWidgetItem(g)
@@ -50,7 +107,7 @@ class ObjectHierarchyWidget(QTreeWidget):
                 if g.is_group():
                     inner_populate(g, childNode)
 
-        for obj in scene.iter_objects():
+        for obj in data.iter_objects():
             node = ObjectHierarchyWidgetItem(obj)
             node.setText(0, obj.get_explicit_name())
             self.addTopLevelItem(node)
@@ -60,47 +117,26 @@ class ObjectHierarchyWidget(QTreeWidget):
         self.expandAll()
 
     def dragEnterEvent(self, event: QDragEnterEvent):
-        print(event.pos(), event.source())
-        draggedObj: ObjectHierarchyWidgetItem = self.itemAt(event.pos())
-        self.draggedObject = draggedObj
-        self.draggedIndex = draggedObj.parent().indexOfChild(draggedObj)
-        print(draggedObj, self.draggedIndex)
-        return super().dragEnterEvent(event)
+        self.draggedItem = self.currentItem()
+        super().dragEnterEvent(event)
 
     def dropEvent(self, event: QDropEvent):
-        if True:
-            super().dropEvent(event)
+        command = ObjectHierarchyWidget.UndoCommand(self)
+        command.set_prev(self)
+        command.set_current(self, event)
+        self.undoStack.push(command)
+
+    def keyPressEvent(self, event: QKeyEvent):
+        if not (event.modifiers() & Qt.CTRL):
             return
 
-        if self.indexFromItem(self.draggedObject, 0) != -1:
-            swappedObject: ObjectHierarchyWidgetItem = self.itemAt(event.pos())
-            destParent = swappedObject.parent()
-            srcParent = self.draggedObject.parent()
-            swappedIndex = destParent.indexOfChild(swappedObject)
-            if swappedIndex == self.draggedObject.parent().indexOfChild(self.draggedObject):
-                return
-            self.setItemSelected(self.draggedObject, False)
-            srcParent.removeChild(self.draggedObject)
-            destParent.insertChild(swappedIndex, self.draggedObject)
-            self.setItemSelected(self.draggedObject, True)
-            event.accept()
-            """
-            print("item in self")
-            swappedObject: ObjectHierarchyWidgetItem = self.itemAt(event.pos())
-            destParent = swappedObject.parent()
-            swappedIndex = destParent.indexOfChild(swappedObject)
-            destParent.removeChild(swappedObject)
-            destParent.insertChild(swappedIndex, self.draggedObject)
-
-            srcParent = self.draggedObject.parent()
-            swappedIndex = srcParent.indexOfChild(self.draggedObject)
-            srcParent.removeChild(self.draggedObject)
-            srcParent.insertChild(swappedIndex, swappedObject)
-            event.accept()
-            """
+        if event.key() == Qt.Key_Y:
+            self.undoStack.redo()
+        elif event.key() == Qt.Key_Z:
+            self.undoStack.undo()
 
 
-class ObjectPropertiesWidget(QScrollArea):
+class ObjectPropertiesWidget(QScrollArea, GenericTabWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.object = None
@@ -124,9 +160,12 @@ class ObjectPropertiesWidget(QScrollArea):
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 
     
-    def populate_attributes_from_object(self, obj: GameObject):
+    def populate(self, data: Union[SMSScene, GameObject], scenePath: Path):
         self.reset()
-        self.object = obj
+        if not isinstance(data, GameObject):
+            return
+            
+        self.object = data
 
         row = 0
         indentWidth = 25
@@ -139,8 +178,8 @@ class ObjectPropertiesWidget(QScrollArea):
             childScopes = scopeNames[nestedDepth+1:]
             prefixQual = "" if len(parentScopes) == 0 else ".".join(parentScopes) + "."
             qualname = f"{prefixQual}{thisScope}"
+
             if len(childScopes) > 0:
-                prefix = "" if len(parentScopes) == 0 else ".".join(parentScopes) + "."
                 container = self._structs.setdefault(qualname, QWidget())
                 firstPass = container.layout() is None
                 if firstPass:
@@ -212,7 +251,7 @@ class ObjectPropertiesWidget(QScrollArea):
                 parent.addLayout(layout, row, 0, 1, 1)
                 row += 1
 
-        for attr in obj.iter_values():
+        for attr in data.iter_values():
             inner_struct_populate(self.gridLayout, attr)
 
         for i in range(row):
@@ -226,8 +265,14 @@ class ObjectPropertiesWidget(QScrollArea):
                 layout.checkNewLine(self.geometry())
 
     def updateObjectValue(self, qualname: str, value: object):
-        print(value)
-        if value.__class__ == RGBA:
-            print(value.value)
         self.object.set_value(qualname, value)
-        
+
+
+    def keyPressEvent(self, event: QKeyEvent):
+        if not (event.modifiers() & Qt.CTRL):
+            return
+
+        if event.key() == Qt.Key_Y:
+            self.undoStack.redo()
+        elif event.key() == Qt.Key_Z:
+            self.undoStack.undo()

@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from enum import IntEnum, auto
 from typing import List
 
-from sms_bin_editor.objects.types import RGBA, BasicColors, Vec3f
+from sms_bin_editor.objects._unity_types import RGBA, BasicColors, Vec3f
 
 
 class MatrixType(IntEnum):
@@ -40,3 +40,5 @@ class Fog:
 class NBTScale:
     enable: bool = False
     scale: Vec3f = Vec3f.zero
+
+

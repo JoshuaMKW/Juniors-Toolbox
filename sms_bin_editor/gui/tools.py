@@ -3,7 +3,7 @@ from PySide2.QtCore import QPoint
 from PySide2.QtGui import QScreen
 from PySide2.QtWidgets import QLayout, QLayoutItem, QWidget
 
-from sms_bin_editor.objects.types import RGBA
+from sms_bin_editor.objects._unity_types import RGBA
 
 def clear_layout(layout: QLayout):
     if layout is not None:

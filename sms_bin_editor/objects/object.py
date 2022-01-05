@@ -4,7 +4,7 @@ from typing import Any, BinaryIO, Iterable, List, Optional, TextIO, Tuple, Union
 
 from numpy import array
 from sms_bin_editor.objects.template import AttributeType, ObjectAttribute, ObjectTemplate
-from sms_bin_editor.objects.types import RGBA, Vec3f
+from sms_bin_editor.objects._unity_types import RGBA, Vec3f
 from sms_bin_editor.utils import jdrama
 from sms_bin_editor.utils.iohelper import read_string, read_uint16, read_uint32, write_string, write_uint16, write_uint32
 

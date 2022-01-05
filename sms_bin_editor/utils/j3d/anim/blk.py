@@ -26,7 +26,7 @@ class blk(j3d.basic_animation):
             self.tan_type = 1
     
     @classmethod
-    def from_anim(cls, f):
+    def from_data(cls, f):
         size = j3d.read_uint32(f)
         
         sectioncount = j3d.read_uint32(f)
@@ -38,8 +38,8 @@ class blk(j3d.basic_animation):
         clk_magic = f.read(4) #clk1
         clk_size = j3d.read_uint32(f)
         
-        loop_mode = j3d.read_uint8(f)
-        j3d.read_uint8(f)
+        loop_mode = j3d.read_ubyte(f)
+        j3d.read_ubyte(f)
         
         duration = j3d.read_uint16(f)
         blk = cls(loop_mode, duration)
@@ -191,8 +191,8 @@ class blk(j3d.basic_animation):
         
         ttk1_size_offset = f.tell()
         f.write(b"EFGH")  # Placeholder for clk1 size
-        j3d.write_uint8(f, self.loop_mode)
-        j3d.write_sint8(f, self.anglescale)        
+        j3d.write_ubyte(f, self.loop_mode)
+        j3d.write_sbyte(f, self.anglescale)        
         j3d.write_uint16(f, self.duration)
         
         #0x30        

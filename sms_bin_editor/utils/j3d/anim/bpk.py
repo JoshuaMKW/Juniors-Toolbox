@@ -52,7 +52,7 @@ class bpk(j3d.basic_animation):
             self.tan_type = 1
 
     @classmethod
-    def from_anim(cls, f):
+    def from_data(cls, f):
 
         size = read_uint32(f)
        
@@ -65,7 +65,7 @@ class bpk(j3d.basic_animation):
         pak_magic = f.read(4)
         pak_sectionsize = read_uint32(f)
 
-        loop_mode = read_uint8(f)
+        loop_mode = read_ubyte(f)
         padd = f.read(3)
         #assert padd == b"\xFF"
         #now at 0x2c
@@ -248,11 +248,11 @@ class bpk(j3d.basic_animation):
 
         pak1_size_offset = f.tell()
         f.write(b"EFGH")  # Placeholder for pak1 size
-        write_uint8(f, self.loop_mode)
+        write_ubyte(f, self.loop_mode)
         
-        write_uint8(f, 0xFF)
-        write_uint8(f, 0xFF)
-        write_uint8(f, 0xFF)
+        write_ubyte(f, 0xFF)
+        write_ubyte(f, 0xFF)
+        write_ubyte(f, 0xFF)
         
         write_uint16(f, self.duration)
         write_uint16(f, len(self.animations))

@@ -20,7 +20,7 @@ class bla(j3d.basic_animation):
         self.animations = []
     
     @classmethod
-    def from_anim(cls, f):
+    def from_data(cls, f):
         size = j3d.read_uint32(f)
         
         sectioncount = j3d.read_uint32(f)
@@ -32,8 +32,8 @@ class bla(j3d.basic_animation):
         clf_magic = f.read(4) #clf1
         clf_size = j3d.read_uint32(f)
         
-        loop_mode = j3d.read_uint8(f)
-        j3d.read_uint8(f)
+        loop_mode = j3d.read_ubyte(f)
+        j3d.read_ubyte(f)
         
         duration = j3d.read_uint16(f)
         bla = cls(loop_mode, duration)
@@ -129,8 +129,8 @@ class bla(j3d.basic_animation):
         
         clf1_size_offset = f.tell()
         f.write(b"EFGH")  # Placeholder for clf1 size
-        j3d.write_uint8(f, self.loop_mode)
-        j3d.write_sint8(f, self.anglescale)    
+        j3d.write_ubyte(f, self.loop_mode)
+        j3d.write_sbyte(f, self.anglescale)    
         j3d.write_uint16(f, self.duration)
         
         #0x30        

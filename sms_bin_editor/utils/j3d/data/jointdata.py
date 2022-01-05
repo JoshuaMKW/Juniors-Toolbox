@@ -2,8 +2,8 @@ from dataclasses import dataclass
 from enum import IntEnum
 from typing import List
 
-import numpy
-from sms_bin_editor.objects.types import Vec3f
+import glm
+from sms_bin_editor.objects._unity_types import Vec3f
 
 
 class MatrixType(IntEnum):
@@ -28,9 +28,4 @@ class JointData():
         self.parentID = -1
         self.children: List[int] = []
         self.displays: List[JointData.Display] = []
-        self.inverseBinPoseMtx = numpy.array(
-            [1, 0, 0, 0],
-            [0, 1, 0, 0],
-            [0, 0, 1, 0],
-            [0, 0, 0, 1]
-        )
+        self.inverseBinPoseMtx = glm.mtx4x4()

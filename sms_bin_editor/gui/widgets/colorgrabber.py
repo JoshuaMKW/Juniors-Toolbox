@@ -4,7 +4,7 @@ from PySide2.QtWidgets import (QDialog, QGraphicsDropShadowEffect, QWidget)
 from sms_bin_editor.gui.commoncursor import CommonCursor, get_common_cursor
 from sms_bin_editor.gui.tools import get_screen_pixel_color
 
-from sms_bin_editor.objects.types import BasicColors, RGBA
+from sms_bin_editor.objects._unity_types import BasicColors, RGBA
 
 class ColorPickerDialog(QDialog):
     colorChanged = Signal(RGBA)

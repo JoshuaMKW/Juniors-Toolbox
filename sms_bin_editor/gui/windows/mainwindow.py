@@ -3,23 +3,41 @@ import subprocess
 import sys
 from enum import Enum, IntEnum
 from pathlib import Path
+from typing import Dict, Iterable, List, Union
 
-from PySide2.QtCore import QCoreApplication, QEvent, QMetaObject, QMimeData, QObject, QRect, QSize, Qt
+from PySide2.QtCore import QCoreApplication, QEvent, QMetaObject, QMimeData, QObject, QRect, QSize, Qt, Signal, SignalInstance
 from PySide2.QtGui import QDrag, QDragEnterEvent, QDragLeaveEvent, QDropEvent, QFont, QIcon, QMouseEvent
 from PySide2.QtWidgets import (QAction, QApplication, QDialog, QFileDialog,
                                QFrame, QGridLayout, QHBoxLayout, QMainWindow, QMenu, QMenuBar, QMessageBox, QScrollArea, QSizePolicy,
                                QTabWidget, QVBoxLayout, QWidget)
 from sms_bin_editor import __name__, __version__
-from sms_bin_editor.gui.widgets.dynamictab import DetachableTabWidget, DynamicTabWidget
-from sms_bin_editor.gui.widgets.object import (ObjectHierarchyWidget, ObjectPropertiesWidget,
+from sms_bin_editor.gui.tabs import TabWidgetManager
+from sms_bin_editor.gui.tabs.object import (ObjectHierarchyWidget, ObjectPropertiesWidget,
                                                ObjectHierarchyWidgetItem)
-from sms_bin_editor.gui.widgets.rail import RailListWidget
+from sms_bin_editor.gui.tabs.rail import RailListWidget
 from sms_bin_editor.utils.filesystem import get_program_folder
+
+class ExplicitMenuAction(QAction):
+    clicked: SignalInstance = Signal(str, bool)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.triggered.connect(self._named_trigger)
+        self.toggled.connect(self._named_toggle)
+
+    def _named_trigger(self):
+        self.clicked.emit(self.text(), self.isChecked() if self.isCheckable() else True)
+
+    def _named_toggle(self):
+        self.clicked.emit(self.text(), self.isChecked())
+
 
 class MainWindow(QMainWindow):
     class Themes(IntEnum):
         LIGHT = 0
         DARK = 1
+
+    tabActionRequested: SignalInstance = Signal(str, bool)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -74,23 +92,23 @@ class MainWindow(QMainWindow):
         self.actionSaveAs.setObjectName(u"actionSaveAs")
         self.actionClose = QAction(self)
         self.actionClose.setObjectName(u"actionClose")
-        self.actionObjectHierarchy = QAction(self)
+        self.actionObjectHierarchy = ExplicitMenuAction(self)
         self.actionObjectHierarchy.setObjectName(u"actionObjectHierarchy")
-        self.actionObjectProperties = QAction(self)
+        self.actionObjectProperties = ExplicitMenuAction(self)
         self.actionObjectProperties.setObjectName(u"actionObjectProperties")
-        self.actionRailList = QAction(self)
+        self.actionRailList = ExplicitMenuAction(self)
         self.actionRailList.setObjectName(u"actionRailList")
-        self.actionRailEditor = QAction(self)
+        self.actionRailEditor = ExplicitMenuAction(self)
         self.actionRailEditor.setObjectName(u"actionRailEditor")
-        self.actionBMGEditor = QAction(self)
+        self.actionBMGEditor = ExplicitMenuAction(self)
         self.actionBMGEditor.setObjectName(u"actionBMGEditor")
-        self.actionPRMEditor = QAction(self)
+        self.actionPRMEditor = ExplicitMenuAction(self)
         self.actionPRMEditor.setObjectName(u"actionPRMEditor")
-        self.actionDemoEditor = QAction(self)
+        self.actionDemoEditor = ExplicitMenuAction(self)
         self.actionDemoEditor.setObjectName(u"actionDemoEditor")
-        self.actionRawDataViewer = QAction(self)
+        self.actionRawDataViewer = ExplicitMenuAction(self)
         self.actionRawDataViewer.setObjectName(u"actionRawDataViewer")
-        self.actionSceneRenderer = QAction(self)
+        self.actionSceneRenderer = ExplicitMenuAction(self)
         self.actionSceneRenderer.setObjectName(u"actionSceneRenderer")
         self.actionCheckUpdate = QAction(self)
         self.actionCheckUpdate.setObjectName(u"actionCheckUpdate")
@@ -159,37 +177,10 @@ class MainWindow(QMainWindow):
         self.menuWindow.addAction(self.actionRawDataViewer)
         self.menuWindow.addAction(self.actionSceneRenderer)
 
-        # -- WIDGETS AND VIEWS -- #
-
-        self.projectAssetsView = None
-        self.sceneRenderView = None
-
-        self.mainTabView = DetachableTabWidget(self.centerWidget)
-        self.otherTabView = DetachableTabWidget(self.centerWidget)
-        self.tabViews = [self.mainTabView]
-
-        self.objectHierarchyView = ObjectHierarchyWidget(self.centerWidget)
-        self.objectHierarchyView.setObjectName("objectHierarchyView")
-        self.objectHierarchyView.setEnabled(True)
-        self.mainTabView.addTab(self.objectHierarchyView, "Objects")
-
-        self.objectPropertyView = ObjectPropertiesWidget(self.centerWidget)
-        self.objectPropertyView.setObjectName("objectPropertyView")
-        self.objectPropertyView.setEnabled(True)
-        self.objectPropertyWidget = QWidget()
-        self.objectPropertyWidget.setLayout(QVBoxLayout())
-        self.objectPropertyWidget.layout().addWidget(self.objectPropertyView)
-        self.otherTabView.addTab(self.objectPropertyWidget, "Properties")
-        #self.objectPropertyView.setGeometry(310, 10, 300, 600)
-
-        self.railListView = RailListWidget(self.centerWidget)
-        self.railListView.setVisible(False)
-        self.mainTabView.addTab(self.railListView, "Rails")
-        self.mainLayout.addWidget(self.mainTabView, 1, 0, 1, 1)
-        self.mainLayout.addWidget(self.otherTabView, 1, 1, 1, 1)
-
+        for action in self.menuWindow.actions():
+            action.clicked.connect(self.tabActionRequested)
+        
         self.retranslateUi()
-
         QMetaObject.connectSlotsByName(self)
 
     def eventFilter(self, watched, event: QEvent):

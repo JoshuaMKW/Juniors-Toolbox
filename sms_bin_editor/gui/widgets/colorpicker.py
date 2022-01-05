@@ -19,7 +19,7 @@ from sms_bin_editor.gui.widgets.ui.ui_dark import Ui_ColorPicker as Ui_Dark
 from sms_bin_editor.gui.widgets.ui.ui_dark_alpha import Ui_ColorPicker as Ui_Dark_Alpha
 from sms_bin_editor.gui.widgets.ui.ui_light import Ui_ColorPicker as Ui_Light
 from sms_bin_editor.gui.widgets.ui.ui_light_alpha import Ui_ColorPicker as Ui_Light_Alpha
-from sms_bin_editor.objects.types import RGBA
+from sms_bin_editor.objects._unity_types import RGBA
 from sms_bin_editor.utils.filesystem import resource_path
 
 

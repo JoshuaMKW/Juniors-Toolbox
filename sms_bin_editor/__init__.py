@@ -4,5 +4,6 @@ __credits__ = {
     "Augs": "https://github.com/AugsEU",
     "Yoshi2": "https://github.com/RenolY2",
     "tarsa129": "https://github.com/tarsa129",
-    "riidefi": "https://github.com/riidefi"
+    "riidefi": "https://github.com/riidefi",
+    "LordNed": "https://github.com/LordNed"
 }

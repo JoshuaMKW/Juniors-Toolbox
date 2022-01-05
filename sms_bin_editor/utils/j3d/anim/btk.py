@@ -1,9 +1,22 @@
-import struct 
+import struct
 from collections import OrderedDict
+from typing import BinaryIO
 
-from animations.general_animation import *
-from animations.general_animation import basic_animation
-import animations.general_animation as j3d
+from build.lib.sms_bin_editor.utils.iohelper import read_sbyte
+from sms_bin_editor.utils.iohelper import (read_float, read_sint16, read_ubyte,
+                                           read_uint16, read_uint32,
+                                           write_float, write_sbyte,
+                                           write_sint16, write_ubyte,
+                                           write_uint16, write_uint32)
+from sms_bin_editor.utils.j3d.anim import general_animation as j3d
+from sms_bin_editor.utils.j3d.anim.general_animation import (AnimComponent,
+                                                             StringTable,
+                                                             BasicAnimation,
+                                                             combine_dicts,
+                                                             find_sequence,
+                                                             make_tangents,
+                                                             write_padding,
+                                                             write_values)
 
 BTKFILEMAGIC = b"J3D1btk1"
        
@@ -42,16 +55,17 @@ class MatrixAnimation(object):
 
     def _set_translation_offsets(self, axis, val):
         self._translation_offsets[axis] = val
-    def has_components(self):
-        size = len( scale["U"] ) + len( scale["V"] ) + len( scale["W"] )
-        size += len( rotation["U"] ) + len( rotation["V"] ) + len( rotation["W"] )
-        size += len( translation["U"] ) + len( translation["V"] ) + len( translation["W"] )
+
+    def has_components(self: BinaryIO):
+        size = len( self.scale["U"] ) + len( self.scale["V"] ) + len( self.scale["W"] )
+        size += len( self.rotation["U"] ) + len( self.rotation["V"] ) + len( self.rotation["W"] )
+        size += len( self.translation["U"] ) + len( self.translation["V"] ) + len( self.translation["W"] )
         
         return size
     
     
     
-class btk(j3d.basic_animation):
+class BTK(BasicAnimation):
     def __init__(self, loop_mode, anglescale, duration, unknown_address=0, tantype = 1):
         self.animations = []
         self.loop_mode = loop_mode
@@ -64,8 +78,7 @@ class btk(j3d.basic_animation):
             self.tan_type = 1
 
     @classmethod
-    def from_anim(cls, f):
-
+    def from_data(cls, f: BinaryIO):
         size = read_uint32(f)
         #print("Size of btk: {} bytes".format(size))
         sectioncount = read_uint32(f)
@@ -76,12 +89,12 @@ class btk(j3d.basic_animation):
         ttk_start = f.tell()
         
         ttk_magic = f.read(4)
-        ttk_sectionsize = j3d.read_uint32(f)
+        ttk_sectionsize = read_uint32(f)
 
-        loop_mode = j3d.read_uint8(f)
-        angle_scale = j3d.read_sint8(f) 
-        rotscale = (2.0**angle_scale) * (180.0 / 32768.0);
-        duration = j3d.read_uint16(f)
+        loop_mode = read_ubyte(f)
+        angle_scale = read_sbyte(f) 
+        rotscale = (2.0**angle_scale) * (180.0 / 32768.0)
+        duration = read_sint16(f)
         btk = cls(loop_mode, angle_scale, duration)
 
 
@@ -133,7 +146,7 @@ class btk(j3d.basic_animation):
         mat_indices = []
         f.seek(texmat_index_offset)
         for i in range(anim_count):
-            mat_indices.append(read_uint8(f))
+            mat_indices.append(read_ubyte(f))
         
         # Read stringtable 
         f.seek(stringtable_offset)
@@ -191,7 +204,7 @@ class btk(j3d.basic_animation):
                 tan_inter = 0
                 tangent_type = max(tan_type, tangent_type)
                 for j in range(count):
-                    comp = j3d.AnimComponent.from_array(offset, j, count, scales, tan_type)
+                    comp = AnimComponent.from_array(offset, j, count, scales, tan_type)
                    
                     if comp.tangentIn == 0:
                         matrix_animation.tan_inter[inter_count] = 1
@@ -204,7 +217,7 @@ class btk(j3d.basic_animation):
                 
                 tangent_type = max(tan_type, tangent_type)
                 for j in range(count):
-                    comp = j3d.AnimComponent.from_array(offset, j, count, rotations, tan_type)
+                    comp = AnimComponent.from_array(offset, j, count, rotations, tan_type)
                     comp.convert_rotation(rotscale)
                     
                     if comp.tangentIn != 0:
@@ -218,7 +231,7 @@ class btk(j3d.basic_animation):
                
                 tangent_type = max(tan_type, tangent_type)
                 for j in range(count):
-                    comp = j3d.AnimComponent.from_array(offset, j, count, translations, tan_type)
+                    comp = AnimComponent.from_array(offset, j, count, translations, tan_type)
                     if comp.tangentIn != 0:
                         matrix_animation.tan_inter[inter_count] = 0
                     matrix_animation.add_translation(axis, comp)        
@@ -295,7 +308,7 @@ class btk(j3d.basic_animation):
                 #print(array)                          
                 
                 
-                keyframes_dictionary = j3d.combine_dicts(array, keyframes_dictionary) 
+                keyframes_dictionary = combine_dicts(array, keyframes_dictionary) 
             i = len(info)
         
         write_values(info, keyframes_dictionary, 1)
@@ -368,7 +381,7 @@ class btk(j3d.basic_animation):
                               
                 for k in range(3, len(info[line + j])): #for each keyframe
                     if info[line + j][k] != "":
-                        comp = j3d.AnimComponent( keyframes[k-3], float(info[line + j][k]))
+                        comp = AnimComponent( keyframes[k-3], float(info[line + j][k]))
                         if info[line + j][1].startswith("S"):
                             current_anim.tan_inter[j] = 1
                         else:
@@ -390,11 +403,11 @@ class btk(j3d.basic_animation):
                 uvw = uvw[j%3: j%3 + 1]
                 
                 if j < 3:
-                    current_anim.scale[uvw] = j3d.make_tangents(current_anim.scale[uvw], current_anim.tan_inter[j])
+                    current_anim.scale[uvw] = make_tangents(current_anim.scale[uvw], current_anim.tan_inter[j])
                 if j < 6:
-                    current_anim.rotation[uvw] = j3d.make_tangents(current_anim.rotation[uvw], current_anim.tan_inter[j])
+                    current_anim.rotation[uvw] = make_tangents(current_anim.rotation[uvw], current_anim.tan_inter[j])
                 else:
-                    current_anim.translation[uvw] = j3d.make_tangents(current_anim.translation[uvw], current_anim.tan_inter[j])
+                    current_anim.translation[uvw] = make_tangents(current_anim.translation[uvw], current_anim.tan_inter[j])
             
             
             btk.animations.append(current_anim)
@@ -406,12 +419,11 @@ class btk(j3d.basic_animation):
                 btk.write_btk(f)
                 f.close()
   
-    def write_btk(self, f):
-        
+    def write_btk(self, f: BinaryIO):
         f.write(BTKFILEMAGIC)
         filesize_offset = f.tell()
         f.write(b"ABCD") # Placeholder for file size
-        j3d.write_uint32(f, 1) # Always a section count of 1
+        write_uint32(f, 1) # Always a section count of 1
         f.write(b"SVR1" + b"\xFF"*12)
 
         ttk1_start = f.tell()
@@ -419,20 +431,20 @@ class btk(j3d.basic_animation):
 
         ttk1_size_offset = f.tell()
         f.write(b"EFGH")  # Placeholder for ttk1 size
-        j3d.write_uint8(f, self.loop_mode)
-        j3d.write_sint8(f, self.anglescale)
+        write_ubyte(f, self.loop_mode)
+        write_sbyte(f, self.anglescale)
         
         rotscale = (2.0**self.anglescale)*(180.0 / 32768.0)
         
-        j3d.write_uint16(f, self.duration)
-        j3d.write_uint16(f, len(self.animations)*3) # Three times the matrix animations
+        write_uint16(f, self.duration)
+        write_sint16(f, len(self.animations)*3) # Three times the matrix animations
         count_offset = f.tell()
         f.write(b"1+1=11")  # Placeholder for scale, rotation and translation count
         data_offsets = f.tell()
         f.write(b"--OnceUponATimeInALandFarAway---")
         f.write(b"\x00"*(0x7C - f.tell()))
 
-        j3d.write_uint32(f, self.unknown_address)
+        write_uint32(f, self.unknown_address)
 
         matrix_anim_start = f.tell()
         f.write(b"\x00"*(0x36*len(self.animations)))
@@ -440,11 +452,11 @@ class btk(j3d.basic_animation):
 
         index_start = f.tell()
         for i in range(len(self.animations)):
-            j3d.write_uint16(f, i)
+            write_uint16(f, i)
 
-        j3d.write_padding(f, multiple=4)
+        write_padding(f, multiple=4)
 
-        stringtable = j3d.StringTable()
+        stringtable = StringTable()
 
         for anim in self.animations:
             stringtable.strings.append(anim.name)
@@ -452,20 +464,20 @@ class btk(j3d.basic_animation):
         stringtable_start = f.tell()
         stringtable.write(f, stringtable.strings)
 
-        j3d.write_padding(f, multiple=4)
+        write_padding(f, multiple=4)
 
         matindex_start = f.tell()
         for anim in self.animations:
-            j3d.write_uint8(f, anim.matindex)
+            write_ubyte(f, anim.matindex)
 
-        j3d.write_padding(f, multiple=4)
+        write_padding(f, multiple=4)
 
         center_start = f.tell()
         for anim in self.animations:
             for val in anim.center:
                 write_float(f, val)
 
-        j3d.write_padding(f, multiple=4)
+        write_padding(f, multiple=4)
 
 
         all_scales = []
@@ -485,7 +497,7 @@ class btk(j3d.basic_animation):
                         if self.tan_type == 1 :
                             sequence.append(comp.tangentOut)
                     
-                offset = j3d.find_sequence(all_scales,sequence)
+                offset = find_sequence(all_scales,sequence)
                 if offset == -1:
                     offset = len(all_scales)
                     all_scales.extend(sequence)
@@ -508,7 +520,7 @@ class btk(j3d.basic_animation):
                         if self.tan_type == 1 :
                             sequence.append(comp.tangentOut/rotscale)
                     #print("seq", sequence)
-                offset = j3d.find_sequence(all_rotations, sequence)
+                offset = find_sequence(all_rotations, sequence)
                 if offset == -1:
                     offset = len(all_rotations)
                     all_rotations.extend(sequence)
@@ -533,7 +545,7 @@ class btk(j3d.basic_animation):
                         if self.tan_type == 1 :
                             sequence.append(comp.tangentOut)
                     
-                offset = j3d.find_sequence(all_translations, sequence)
+                offset = find_sequence(all_translations, sequence)
                 if offset == -1:
                     offset = len(all_translations)
                     all_translations.extend(sequence)
@@ -552,7 +564,7 @@ class btk(j3d.basic_animation):
         for val in all_scales:
             write_float(f, val)
 
-        j3d.write_padding(f, 4)
+        write_padding(f, 4)
 
         rotations_start = f.tell()
         for val in all_rotations:
@@ -562,61 +574,61 @@ class btk(j3d.basic_animation):
                 angle = (angle/180.0)*(2**15-1)
             else:
                 angle = (angle/180.0)*(2**15)"""
-            j3d.write_sint16(f, int(val))
+            write_sint16(f, int(val))
 
-        j3d.write_padding(f, 4)
+        write_padding(f, 4)
 
         translations_start = f.tell()
         for val in all_translations:
             #print(val)
             write_float(f, val)
 
-        j3d.write_padding(f, 32)
+        write_padding(f, 32)
 
         total_size = f.tell()
 
         f.seek(matrix_anim_start)
         for anim in self.animations:
             for axis in "UVW":
-                j3d.write_uint16(f, len(anim.scale[axis])) # Scale count for this animation
-                j3d.write_uint16(f, anim._scale_offsets[axis]) # Offset into scales
-                j3d.write_uint16(f, self.tan_type) # Tangent type, 0 = only TangentIn; 1 = TangentIn and TangentOut
+                write_uint16(f, len(anim.scale[axis])) # Scale count for this animation
+                write_uint16(f, anim._scale_offsets[axis]) # Offset into scales
+                write_uint16(f, self.tan_type) # Tangent type, 0 = only TangentIn; 1 = TangentIn and TangentOut
 
 
-                j3d.write_uint16(f, len(anim.rotation[axis])) # Rotation count for this animation
-                j3d.write_uint16(f, anim._rot_offsets[axis]) # Offset into rotations
-                j3d.write_uint16(f, self.tan_type) # Tangent type, 0 = only TangentIn; 1 = TangentIn and TangentOut
+                write_uint16(f, len(anim.rotation[axis])) # Rotation count for this animation
+                write_uint16(f, anim._rot_offsets[axis]) # Offset into rotations
+                write_uint16(f, self.tan_type) # Tangent type, 0 = only TangentIn; 1 = TangentIn and TangentOut
 
 
-                j3d.write_uint16(f, len(anim.translation[axis])) # Translation count for this animation
-                j3d.write_uint16(f, anim._translation_offsets[axis])# offset into translations
-                j3d.write_uint16(f, self.tan_type) # Tangent type, 0 = only TangentIn; 1 = TangentIn and TangentOut
+                write_uint16(f, len(anim.translation[axis])) # Translation count for this animation
+                write_uint16(f, anim._translation_offsets[axis])# offset into translations
+                write_uint16(f, self.tan_type) # Tangent type, 0 = only TangentIn; 1 = TangentIn and TangentOut
 
         # Fill in all the placeholder values
         f.seek(filesize_offset)
-        j3d.write_uint32(f, total_size)
+        write_uint32(f, total_size)
 
         f.seek(ttk1_size_offset)
-        j3d.write_uint32(f, total_size - ttk1_start)
+        write_uint32(f, total_size - ttk1_start)
 
         f.seek(count_offset)
-        j3d.write_uint16(f, len(all_scales))
-        j3d.write_uint16(f, len(all_rotations))
-        j3d.write_uint16(f, len(all_translations))
+        write_uint16(f, len(all_scales))
+        write_uint16(f, len(all_rotations))
+        write_uint16(f, len(all_translations))
         # Next come the section offsets
 
-        j3d.write_uint32(f, matrix_anim_start   - ttk1_start)
-        j3d.write_uint32(f, index_start         - ttk1_start)
-        j3d.write_uint32(f, stringtable_start   - ttk1_start)
-        j3d.write_uint32(f, matindex_start      - ttk1_start)
-        j3d.write_uint32(f, center_start        - ttk1_start)
-        j3d.write_uint32(f, scale_start         - ttk1_start)
-        j3d.write_uint32(f, rotations_start     - ttk1_start)
-        j3d.write_uint32(f, translations_start  - ttk1_start)
+        write_uint32(f, matrix_anim_start   - ttk1_start)
+        write_uint32(f, index_start         - ttk1_start)
+        write_uint32(f, stringtable_start   - ttk1_start)
+        write_uint32(f, matindex_start      - ttk1_start)
+        write_uint32(f, center_start        - ttk1_start)
+        write_uint32(f, scale_start         - ttk1_start)
+        write_uint32(f, rotations_start     - ttk1_start)
+        write_uint32(f, translations_start  - ttk1_start)
     
     @classmethod
     def match_bmd(cls, info, strings):
         btk = cls.from_table("", info)
-        j3d.basic_animation.match_bmd(btk, strings)
+        BasicAnimation.match_bmd(btk, strings)
         return btk.get_loading_information()
         

@@ -1,8 +1,10 @@
+from dataclasses import dataclass
 from enum import IntEnum, auto
 from typing import List, Tuple
 from io import BytesIO
 
-from sms_bin_editor.objects.types import Vec3f
+from sms_bin_editor.objects._unity_types import Vec3f
+from sms_bin_editor.utils.j3d.data.materialdata import MatrixType
 
 
 class JUTTransparency(IntEnum):
@@ -36,3 +38,10 @@ class TextureData():
         self.paletteOfs = 0
 
         self.data = BytesIO()
+
+
+@dataclass
+class TexGenInfo:
+    type: int = 0
+    src: int = 0
+    matrix: MatrixType = 0
