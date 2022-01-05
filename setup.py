@@ -1,4 +1,4 @@
-import sms_bin_editor
+import juniors_toolbox
 import setuptools
 
 with open("README.md", "r", encoding="utf-8") as fh:
@@ -9,7 +9,7 @@ with open("requirements.txt", "r", encoding="utf-8") as r:
 
 setuptools.setup(
     name='sms_bin_editor',
-    version=sms_bin_editor.__version__,    
+    version=juniors_toolbox.__version__,    
     description='Simple python library for extracting and rebuilding ISOs',
     long_description=longDescription,
     long_description_content_type="text/markdown",
