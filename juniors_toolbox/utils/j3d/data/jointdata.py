@@ -3,7 +3,7 @@ from enum import IntEnum
 from typing import List
 
 import glm
-from juniors_toolbox.objects._unity_types import Vec3f
+from juniors_toolbox.utils.types import Vec3f
 
 
 class MatrixType(IntEnum):

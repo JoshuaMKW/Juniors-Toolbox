@@ -8,12 +8,12 @@ with open("requirements.txt", "r", encoding="utf-8") as r:
     requires = [x for x in r]
 
 setuptools.setup(
-    name='sms_bin_editor',
+    name='juniors_toolbox',
     version=juniors_toolbox.__version__,    
     description='Simple python library for extracting and rebuilding ISOs',
     long_description=longDescription,
     long_description_content_type="text/markdown",
-    url='https://github.com/JoshuaMKW/sms_bin_editor',
+    url='https://github.com/JoshuaMKW/juniors_toolbox',
     author='JoshuaMK',
     author_email='joshuamkw2002@gmail.com',
     license='GNU General Public License v3.0',

@@ -585,7 +585,7 @@ def import_bvh_file(filepath, as_bca=False):
 
 
 def import_fbx_file(filepath):
-    from sms_bin_editor.utils.j3d.anim.fbx_scripts import import_fbx_file
+    from juniors_toolbox.utils.j3d.anim.fbx_scripts import import_fbx_file
     animations = import_fbx_file(filepath)
 
     return animations

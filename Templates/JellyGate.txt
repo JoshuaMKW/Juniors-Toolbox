@@ -1,13 +1,9 @@
 Goop Portal
-X FLOAT
-Y FLOAT
-Z FLOAT
-Pitch FLOAT
-Yaw FLOAT
-Roll FLOAT
-ScaleX FLOAT
-ScaleY FLOAT
-ScaleZ FLOAT
+Transform TEMPLATE {
+    Position VEC3F
+    Rotation VEC3F
+    Scale VEC3F
+}
 Character STRING
 !!! INT
 DisplayModel COMMENT map/map/gate/05_gate01.bmd

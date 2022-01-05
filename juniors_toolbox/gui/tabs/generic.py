@@ -1,8 +1,8 @@
 from pathlib import Path
 from typing import Union
-from build.lib.sms_bin_editor.objects.object import GameObject
+from juniors_toolbox.objects.object import GameObject
 
-from build.lib.sms_bin_editor.scene import SMSScene
+from juniors_toolbox.scene import SMSScene
 
 
 class GenericTabWidget():

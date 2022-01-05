@@ -17,7 +17,7 @@ from juniors_toolbox.utils.iohelper import (read_bool, read_double, read_float,
                                            write_ubyte, write_uint16,
                                            write_uint32, write_vec3f)
 
-from juniors_toolbox.objects._unity_types import RGBA, Vec3f
+from juniors_toolbox.utils.types import RGBA, Vec3f
 
 
 class AttributeInvalidError(Exception):

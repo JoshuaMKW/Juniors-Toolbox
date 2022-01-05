@@ -23,7 +23,7 @@ class JuniorsToolbox(QApplication):
     """
     __SINGLE_INSTANCE: "JuniorsToolbox" = None
     __SINGLE_INITIALIZED = False
-    
+
     def __new__(cls, *args, **kwargs) -> "JuniorsToolbox":
         if cls.__SINGLE_INSTANCE is None:
             cls.__SINGLE_INSTANCE = super().__new__(cls, *args, **kwargs)
@@ -35,6 +35,11 @@ class JuniorsToolbox(QApplication):
 
         super().__init__()
 
+        # Force Windows Taskbar Icon
+        if sys.platform in {"win32", "cygwin", "msys"}:
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+                self.get_window_title())
 
         self.gui = MainWindow()
         self.settings: SMSBinEditorSettings = None
@@ -42,9 +47,9 @@ class JuniorsToolbox(QApplication):
         TabWidgetManager.init(self.gui)
 
         self.gui.setWindowTitle(self.get_window_title())
-        #self.gui.setCentralWidget(None)
+        # self.gui.setCentralWidget(None)
         self.gui.centralWidget().setMaximumSize(5, 5)
-        self.gui.layout().setContentsMargins(0,0,0,0)
+        self.gui.layout().setContentsMargins(0, 0, 0, 0)
         self.update_theme(MainWindow.Themes.LIGHT)
 
         # Set up tab spawning
@@ -96,7 +101,7 @@ class JuniorsToolbox(QApplication):
 
     @staticmethod
     def get_window_title():
-        return f"{__class__.__name__} v{__version__}"
+        return f"Junior's Toolbox v{__version__}"
 
     @staticmethod
     def open_path_in_explorer(path: Path):
@@ -159,7 +164,7 @@ class JuniorsToolbox(QApplication):
         """
         Show the GUI
         """
-        self.gui.show()  
+        self.gui.show()
 
     def iter_tab_groups(self) -> Iterable[QDockWidget]:
         for value in self._tabGroups.values():
@@ -175,7 +180,6 @@ class JuniorsToolbox(QApplication):
         for tabGroup in self.iter_tab_groups():
             ...
 
-
     @Slot(str)
     def openDockerTab(self, name: str):
         tab = TabWidgetManager.get_tab(name)
@@ -189,13 +193,13 @@ class JuniorsToolbox(QApplication):
         deTab.closed.connect(self.closeDockerTab)
         deTab.show()
         self._openTabs[name] = deTab
-        
+
     @Slot(str)
     def closeDockerTab(self, tab: SyncedDockWidget):
         print(tab.windowTitle())
         if tab.windowTitle() not in self._openTabs:
             return
-        self._openTabs.pop(tab.windowTitle())
+        self.gui.removeDockWidget(self._openTabs.pop(tab.windowTitle()))
 
     # --- LOGIC --- #
 

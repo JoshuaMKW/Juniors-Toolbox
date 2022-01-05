@@ -3,7 +3,7 @@ from PySide2.QtCore import QPoint
 from PySide2.QtGui import QScreen
 from PySide2.QtWidgets import QLayout, QLayoutItem, QWidget
 
-from juniors_toolbox.objects._unity_types import RGBA
+from juniors_toolbox.utils.types import RGBA
 
 def clear_layout(layout: QLayout):
     if layout is not None:

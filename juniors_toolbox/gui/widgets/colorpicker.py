@@ -19,7 +19,7 @@ from juniors_toolbox.gui.widgets.ui.ui_dark import Ui_ColorPicker as Ui_Dark
 from juniors_toolbox.gui.widgets.ui.ui_dark_alpha import Ui_ColorPicker as Ui_Dark_Alpha
 from juniors_toolbox.gui.widgets.ui.ui_light import Ui_ColorPicker as Ui_Light
 from juniors_toolbox.gui.widgets.ui.ui_light_alpha import Ui_ColorPicker as Ui_Light_Alpha
-from juniors_toolbox.objects._unity_types import RGBA
+from juniors_toolbox.utils.types import RGBA
 from juniors_toolbox.utils.filesystem import resource_path
 
 

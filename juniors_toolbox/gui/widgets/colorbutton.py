@@ -7,7 +7,7 @@ from juniors_toolbox.gui.commoncursor import CommonCursor, get_common_cursor
 
 from juniors_toolbox.gui.widgets.colorpicker import ColorPicker
 from juniors_toolbox.objects.object import GameObject
-from juniors_toolbox.objects._unity_types import BasicColors, RGBA
+from juniors_toolbox.utils.types import BasicColors, RGBA
 from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.utils.filesystem import resource_path
 

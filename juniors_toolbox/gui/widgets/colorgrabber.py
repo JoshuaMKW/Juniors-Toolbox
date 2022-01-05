@@ -4,7 +4,7 @@ from PySide2.QtWidgets import (QDialog, QGraphicsDropShadowEffect, QWidget)
 from juniors_toolbox.gui.commoncursor import CommonCursor, get_common_cursor
 from juniors_toolbox.gui.tools import get_screen_pixel_color
 
-from juniors_toolbox.objects._unity_types import BasicColors, RGBA
+from juniors_toolbox.utils.types import BasicColors, RGBA
 
 class ColorPickerDialog(QDialog):
     colorChanged = Signal(RGBA)

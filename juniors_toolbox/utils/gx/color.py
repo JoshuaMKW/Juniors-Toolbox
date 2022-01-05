@@ -1,6 +1,6 @@
 from typing import Optional, Tuple, Union
 
-from juniors_toolbox.objects._unity_types import RGBA as Color
+from juniors_toolbox.utils.types import RGBA as Color
 from juniors_toolbox.utils import clamp01
 
 class ColorS10(Color):

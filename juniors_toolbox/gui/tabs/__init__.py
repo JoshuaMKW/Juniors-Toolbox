@@ -3,7 +3,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, Union
 from PySide2.QtWidgets import QGridLayout, QMainWindow, QWidget
-from build.lib.sms_bin_editor.scene import SMSScene
+from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.gui.tabs.renderer import SceneRendererWidget
 from juniors_toolbox.gui.tabs.object import ObjectHierarchyWidget, ObjectPropertiesWidget
 from juniors_toolbox.gui.tabs.rail import RailListWidget

@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from enum import IntEnum, auto
 from typing import List
 
-from juniors_toolbox.objects._unity_types import RGBA, BasicColors, Vec3f
+from juniors_toolbox.utils.types import RGBA, BasicColors, Vec3f
 
 
 class MatrixType(IntEnum):

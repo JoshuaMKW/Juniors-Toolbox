@@ -2,7 +2,7 @@ import struct
 from collections import OrderedDict
 from typing import BinaryIO
 
-from build.lib.sms_bin_editor.utils.iohelper import read_sbyte
+from juniors_toolbox.utils.iohelper import read_sbyte
 from juniors_toolbox.utils.iohelper import (read_float, read_sint16, read_ubyte,
                                            read_uint16, read_uint32,
                                            write_float, write_sbyte,

@@ -13,15 +13,11 @@ VertexRender{C} TEMPLATE [WarpCount] {
 Warp{C} TEMPLATE [WarpCount] {
     Warp{i} TEMPLATE [2] {
         Name STRING
-        X FLOAT
-        Y FLOAT
-        Z FLOAT
-        Pitch FLOAT
-        Yaw FLOAT
-        Roll FLOAT
-        ScaleX FLOAT
-        ScaleY FLOAT
-        ScaleZ FLOAT
+        Transform TEMPLATE {
+            Position VEC3F
+            Rotation VEC3F
+            Scale VEC3F
+        }
     }
 }
 Default COMMENT true

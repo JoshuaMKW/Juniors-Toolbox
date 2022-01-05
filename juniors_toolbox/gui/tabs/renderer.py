@@ -15,7 +15,7 @@ from PySide2.QtWidgets import QDialog, QOpenGLWidget
 from pyrr.objects.matrix44 import Matrix44
 from juniors_toolbox.utils.gx.color import ColorF32, Color
 from juniors_toolbox.gui.tabs.generic import GenericTabWidget
-from juniors_toolbox.objects._unity_types import Transform, Vec2f, Vec3f
+from juniors_toolbox.utils.types import Transform, Vec2f, Vec3f
 from juniors_toolbox.objects.object import GameObject
 from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.utils.filesystem import resource_path

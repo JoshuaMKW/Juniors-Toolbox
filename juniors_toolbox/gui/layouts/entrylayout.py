@@ -2,10 +2,10 @@ from typing import List
 from PySide2.QtCore import QPoint, QPointF, QRect, QSize, Qt, Signal
 from PySide2.QtGui import QColor, QCursor, QMouseEvent, QPaintEvent, QPainter, QPolygonF
 from PySide2.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QLayout, QLineEdit, QSizePolicy, QSpacerItem, QVBoxLayout, QWidget
-from build.lib.sms_bin_editor.objects.object import GameObject
+from juniors_toolbox.objects.object import GameObject
 
 from juniors_toolbox.gui.tools import walk_layout
-from juniors_toolbox.objects._unity_types import Vec3f
+from juniors_toolbox.utils.types import Vec3f
 
 
 class EntryLayout(QGridLayout):

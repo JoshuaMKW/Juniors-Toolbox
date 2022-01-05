@@ -1,25 +1,17 @@
 Tilting Mirror
-X FLOAT
-Y FLOAT
-Z FLOAT
-Pitch FLOAT
-Yaw FLOAT
-Roll FLOAT
-ScaleX FLOAT
-ScaleY FLOAT
-ScaleZ FLOAT
+Transform TEMPLATE {
+    Position VEC3F
+    Rotation VEC3F
+    Scale VEC3F
+}
 Character STRING
 !!! INT
 Model STRING
 TiltWeight FLOAT
 Warp STRING
-X FLOAT
-Y FLOAT
-Z FLOAT
-Pitch FLOAT
-Yaw FLOAT
-Roll FLOAT
-ScaleX FLOAT
-ScaleY FLOAT
-ScaleZ FLOAT
+Transform TEMPLATE {
+    Position VEC3F
+    Rotation VEC3F
+    Scale VEC3F
+}
 DisplayTexture COMMENT mapobj/mirror.bmt

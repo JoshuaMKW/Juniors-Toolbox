@@ -3,7 +3,7 @@ from enum import IntEnum, auto
 from typing import List, Tuple
 from io import BytesIO
 
-from juniors_toolbox.objects._unity_types import Vec3f
+from juniors_toolbox.utils.types import Vec3f
 from juniors_toolbox.utils.j3d.data.materialdata import MatrixType
 
 

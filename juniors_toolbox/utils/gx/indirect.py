@@ -3,7 +3,7 @@ from enum import IntEnum, auto
 from math import cos, pi, sin
 
 from numpy import ndarray, array
-from juniors_toolbox.objects._unity_types import Vec2f
+from juniors_toolbox.utils.types import Vec2f
 
 
 class IndTexFormat(IntEnum):

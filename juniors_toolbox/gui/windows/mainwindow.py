@@ -15,7 +15,7 @@ from juniors_toolbox.gui.tabs import TabWidgetManager
 from juniors_toolbox.gui.tabs.object import (ObjectHierarchyWidget, ObjectPropertiesWidget,
                                                ObjectHierarchyWidgetItem)
 from juniors_toolbox.gui.tabs.rail import RailListWidget
-from juniors_toolbox.utils.filesystem import get_program_folder
+from juniors_toolbox.utils.filesystem import get_program_folder, resource_path
 
 class ExplicitMenuAction(QAction):
     clicked: SignalInstance = Signal(str, bool)
@@ -66,6 +66,8 @@ class MainWindow(QMainWindow):
 
         self.mainLayout = QGridLayout()
         self.centerWidget.setLayout(self.mainLayout)
+
+        self.setWindowIcon(QIcon(str(resource_path("gui/icons/program.ico"))))
 
         # -- MENUBAR -- #
         self.actionEmptyMap = QAction(self)

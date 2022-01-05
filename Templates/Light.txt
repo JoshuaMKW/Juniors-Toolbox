@@ -1,7 +1,5 @@
 Light
-X FLOAT
-Y FLOAT
-Z FLOAT
+Position VEC3F
 Color RGBA
 Intensity FLOAT
 Default COMMENT true

@@ -3,6 +3,7 @@ from typing import Optional, Tuple, Union
 from enum import Enum, IntEnum
 
 from math import acos, asin, atan2, cos, degrees, pi, radians, sin, sqrt
+from numpy import array
 
 from pyrr.objects import quaternion
 from juniors_toolbox.utils import clamp, clamp01, classproperty, sign
@@ -403,8 +404,10 @@ class Vec3f(Vector3):
     Epsilon = 0.00001
     EpsilonNormalSqrt = 1e-15
 
+    def __new__(cls, x: float = 0, y: float = 0, z: float = 0):
+        return super().__new__(cls, value=[float(x), float(y), float(z)], dtype=float)
+
     def __init__(self, x: float = 0, y: float = 0, z: float = 0):
-        super().__init__([float(x), float(y), float(z)], dtype=float)
         self.__iteridx = 0
 
     @classproperty
@@ -634,11 +637,11 @@ class Vec3f(Vector3):
         )
 
     def __iter__(self):
-        super().__iter__()
+        self.__iteridx = 0
+        return super().__iter__()
 
     def __next__(self) -> float:
         if self.__iteridx > 2:
-            self.__iteridx = 0
             raise StopIteration
         self.__iteridx += 1
         return self[self.__iteridx-1]
@@ -1114,12 +1117,12 @@ class Transform():
     def eulerRotation(self, rot: Vec3f):
         self.rotation = Quaternion.from_euler(rot)
 
-    def to_matrix(self) -> glm.mat4:
-        mtx = glm.mat4()
-        glm.translate(mtx, self.position.to_glm_type())
-        glm.rotate(mtx, self.rotation.to_euler().to_glm_type())
-        glm.scale(mtx, self.scale.to_glm_type())
-        return mtx
+    def to_matrix(self) -> Matrix44:
+        mtx = Matrix44()
+        translate = Matrix44.from_translation(self.position)
+        rotate = Matrix44.from_quaternion(self.rotation)
+        scale = Matrix44.from_scale(self.scale)
+        return mtx * translate * rotate * scale
 
     def translate(self, translation: Union[Vec3f, Tuple[float, float, float]]):
         """

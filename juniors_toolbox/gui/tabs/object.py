@@ -20,7 +20,7 @@ from juniors_toolbox.gui.widgets.colorbutton import ColorButton
 from juniors_toolbox.gui.widgets.explicitlineedit import ExplicitLineEdit
 from juniors_toolbox.objects.object import GameObject
 from juniors_toolbox.objects.template import ObjectAttribute
-from juniors_toolbox.objects._unity_types import RGBA, Vec3f
+from juniors_toolbox.utils.types import RGBA, Vec3f
 from juniors_toolbox.scene import SMSScene
 
 
