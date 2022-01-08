@@ -7,7 +7,7 @@ from juniors_toolbox.gui.commoncursor import CommonCursor, get_common_cursor
 
 from juniors_toolbox.gui.widgets.colorpicker import ColorPicker
 from juniors_toolbox.objects.object import GameObject
-from juniors_toolbox.utils.types import BasicColors, RGBA
+from juniors_toolbox.utils.types import BasicColors, RGBA8
 from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.utils.filesystem import resource_path
 
@@ -22,13 +22,13 @@ class ColorButton(QLabel):
     colorChanged = Signal(str, object)
     pressed = Signal()
 
-    def __init__(self, *args, color: RGBA = None, **kwargs):
+    def __init__(self, *args, color: RGBA8 = None, **kwargs):
         super().__init__(*args, **kwargs)
         self.press = False
 
         if color is None:
             self._color = None
-            self._default = RGBA(BasicColors.RED)
+            self._default = RGBA8(BasicColors.RED)
         else:
             self._color = color
             self._default = color
@@ -40,7 +40,7 @@ class ColorButton(QLabel):
         # Set the initial/default state.
         self.setColor(self._default)
 
-    def setColor(self, color: RGBA):
+    def setColor(self, color: RGBA8):
         if color != self._color:
             self._color = color
             self.colorChanged.emit(self.objectName(), color)
@@ -54,7 +54,7 @@ class ColorButton(QLabel):
 
         self.setText(color.hex())
 
-    def color(self) -> RGBA:
+    def color(self) -> RGBA8:
         return self._color
 
     def onColorPicker(self):
@@ -65,9 +65,9 @@ class ColorButton(QLabel):
         """
         dlg = ColorPicker(False, True)
         if self._color:
-            self.setColor(RGBA.from_tuple(dlg.getColor(self._color.tuple())))
+            self.setColor(RGBA8.from_tuple(dlg.getColor(self._color.tuple())))
         else:
-            self.setColor(RGBA.from_tuple(dlg.getColor(self._default.tuple())))
+            self.setColor(RGBA8.from_tuple(dlg.getColor(self._default.tuple())))
 
     def paintEvent(self, event: QPaintEvent):
         fillpattern = QPixmap(str(resource_path("gui/backgrounds/transparent.png")))

@@ -11,7 +11,7 @@ from OpenGL.GL import *
 from OpenGL.GLU import *
 from OpenGL.GLUT import *
 from PySide2.QtCore import Qt
-from PySide2.QtWidgets import QDialog, QOpenGLWidget
+from PySide2.QtWidgets import QDialog, QOpenGLWidget, QSizePolicy
 from pyrr.objects.matrix44 import Matrix44
 from juniors_toolbox.utils.gx.color import ColorF32, Color
 from juniors_toolbox.gui.tabs.generic import GenericTabWidget
@@ -251,8 +251,8 @@ class SceneRendererWidget(QOpenGLWidget, GenericTabWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName(self.__class__.__name__)
-        self.setWindowFlag(Qt.FramelessWindowHint)
-        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setMinimumSize(640, 480)
+        #self.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
         self.reset_shaders()
 
         self.camera = SceneCamera(

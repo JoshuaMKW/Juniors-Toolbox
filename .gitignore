@@ -130,3 +130,6 @@ dmypy.json
 
 # test scene
 scene.bin
+
+#Binary Messages
+*.bmg

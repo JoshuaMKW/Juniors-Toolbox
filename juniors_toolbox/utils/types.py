@@ -22,16 +22,16 @@ class BasicColors(IntEnum):
     TRANSPARENT = 0x00000000
 
 
-class RGBA():
+class RGBA8():
     """
-    Class representing 32bit RGBA
+    Class representing 8bit RGBA
     """
 
-    def __init__(self, value: Union[int, "RGBA"]):
+    def __init__(self, value: Union[int, "RGBA8"]):
         self.value = int(value)
 
     @classmethod
-    def from_tuple(cls, rgba: Tuple[int, int, int, Optional[int]]) -> "RGBA":
+    def from_tuple(cls, rgba: Tuple[int, int, int, Optional[int]]) -> "RGBA8":
         color = cls(0)
         color.red = rgba[0]
         color.green = rgba[1]
@@ -40,7 +40,7 @@ class RGBA():
         return color
 
     @classmethod
-    def from_hex(cls, rgba: str) -> "RGBA":
+    def from_hex(cls, rgba: str) -> "RGBA8":
         rgba = rgba.replace("#", "", 1)
         rgba = rgba.replace("0x", "", 1)
         if len(rgba) == 8:
@@ -85,8 +85,8 @@ class RGBA():
     def tuple(self) -> Tuple[int, int, int, int]:
         return self.red, self.green, self.blue, self.alpha
 
-    def inverse(self, preserveAlpha: bool = True) -> "RGBA":
-        color = RGBA(0)
+    def inverse(self, preserveAlpha: bool = True) -> "RGBA8":
+        color = RGBA8(0)
         color.red = 255 - self.red
         color.green = 255 - self.green
         color.blue = 255 - self.blue
@@ -96,11 +96,11 @@ class RGBA():
             color.alpha = 255 - self.alpha
         return color
 
-    def chooseContrastBW(self) -> "RGBA":
+    def chooseContrastBW(self) -> "RGBA8":
         if self.saturation() > (0.6 * (self.alpha / 255)):
-            return RGBA(BasicColors.BLACK)
+            return RGBA8(BasicColors.BLACK)
         else:
-            return RGBA(BasicColors.WHITE)
+            return RGBA8(BasicColors.WHITE)
 
     def saturation(self) -> float:
         return ((self.red + self.green + self.blue) / 3) / 255
@@ -124,15 +124,15 @@ class RGBA():
         else:
             self.alpha = value
 
-    def __eq__(self, other: Union["RGBA", int, Tuple[int, int, int, int]]) -> bool:
-        if isinstance(other, RGBA):
+    def __eq__(self, other: Union["RGBA8", int, Tuple[int, int, int, int]]) -> bool:
+        if isinstance(other, RGBA8):
             return self.value == other.value
         if isinstance(other, list):
             return self.tuple() == other
         return self.value == other
 
-    def __ne__(self, other: Union["RGBA", int, Tuple[int, int, int, int]]) -> bool:
-        if isinstance(other, RGBA):
+    def __ne__(self, other: Union["RGBA8", int, Tuple[int, int, int, int]]) -> bool:
+        if isinstance(other, RGBA8):
             return self.value != other.value
         if isinstance(other, list):
             return self.tuple() != other
@@ -150,6 +150,151 @@ class RGBA():
 
     def __int__(self) -> int:
         return self.value
+
+
+class RGB8():
+    """
+    Class representing 8bit RGB
+    """
+
+    def __init__(self, value: Union[int, "RGB8"]):
+        self.value = int(value)
+
+    @classmethod
+    def from_tuple(cls, rgba: Tuple[int, int, int]) -> "RGB8":
+        color = cls(0)
+        color.red = rgba[0]
+        color.green = rgba[1]
+        color.blue = rgba[2]
+        return color
+
+    @classmethod
+    def from_hex(cls, rgb: str) -> "RGB8":
+        rgb = rgb.replace("#", "", 1)
+        rgb = rgb.replace("0x", "", 1)
+        return cls(int(rgb, 16))
+
+    @property
+    def red(self) -> int:
+        return (self.value >> 16) & 0xFF
+
+    @red.setter
+    def red(self, value: int):
+        self.value = ((int(value) & 0xFF) << 16) | (self.value & 0x00FFFF)
+
+    @property
+    def green(self) -> int:
+        return (self.value >> 8) & 0xFF
+
+    @green.setter
+    def green(self, value: int):
+        self.value = ((int(value) & 0xFF) << 8) | (self.value & 0xFF00FF)
+
+    @property
+    def blue(self) -> int:
+        return self.value & 0xFF
+
+    @blue.setter
+    def blue(self, value: int):
+        self.value = (int(value) & 0xFF) | (self.value & 0xFFFF00)
+
+    def hex(self) -> str:
+        return f"#{self.value:06X}"
+
+    def tuple(self) -> Tuple[int, int, int]:
+        return self.red, self.green, self.blue
+
+    def inverse(self) -> "RGB8":
+        color = RGB8(0)
+        color.red = 255 - self.red
+        color.green = 255 - self.green
+        color.blue = 255 - self.blue
+        return color
+
+    def chooseContrastBW(self) -> "RGB8":
+        if self.saturation() > 0.6:
+            return RGB8(BasicColors.BLACK)
+        else:
+            return RGB8(BasicColors.WHITE)
+
+    def saturation(self) -> float:
+        return ((self.red + self.green + self.blue) / 3) / 255
+
+    def __getitem__(self, index: int) -> int:
+        if index not in range(3):
+            raise IndexError(
+                f"Index into {self.__class__.__name__} is out of range ([0-2])")
+        return self.tuple()[index]
+
+    def __setitem__(self, index: int, value: int) -> int:
+        if index not in range(3):
+            raise IndexError(
+                f"Index into {self.__class__.__name__} is out of range ([0-2])")
+        if index == 0:
+            self.red = value
+        elif index == 1:
+            self.green = value
+        else:
+            self.blue = value
+
+    def __eq__(self, other: Union["RGB8", int, Tuple[int, int, int]]) -> bool:
+        if isinstance(other, RGB8):
+            return self.value == other.value
+        if isinstance(other, list):
+            return self.tuple() == other
+        return self.value == other
+
+    def __ne__(self, other: Union["RGB8", int, Tuple[int, int, int]]) -> bool:
+        if isinstance(other, RGB8):
+            return self.value != other.value
+        if isinstance(other, list):
+            return self.tuple() != other
+        return self.value != other
+
+    def __repr__(self) -> str:
+        red = self.red
+        green = self.green
+        blue = self.blue
+        return f"{self.__class__.__name__}({red=}, {green=}, {blue=})"
+
+    def __str__(self) -> str:
+        return self.hex()
+
+    def __int__(self) -> int:
+        return self.value
+
+
+class RGB32(RGB8):
+    """
+    Clamps to 256, but represented by int sized data
+    """
+
+    @property
+    def red(self) -> int:
+        return (self.value >> 64) & 0xFF
+
+    @red.setter
+    def red(self, value: int):
+        self.value = ((int(value) & 0xFF) << 64) | (
+            self.value & 0x00000000FFFFFFFFFFFFFFFF)
+
+    @property
+    def green(self) -> int:
+        return (self.value >> 32) & 0xFF
+
+    @green.setter
+    def green(self, value: int):
+        self.value = ((int(value) & 0xFF) << 32) | (
+            self.value & 0xFFFFFFFF00000000FFFFFFFF)
+
+    @property
+    def blue(self) -> int:
+        return self.value & 0xFF
+
+    @blue.setter
+    def blue(self, value: int):
+        self.value = (int(value) & 0xFF) | (
+            self.value & 0xFFFFFFFFFFFFFFFF00000000)
 
 
 class Vec2f(list):
@@ -238,7 +383,7 @@ class Vec2f(list):
     @property
     def sqrMagnitude(self) -> float:
         return self.dot(self)
-        
+
     @property
     def magnitude(self) -> float:
         return sqrt(self.dot(self))
@@ -840,9 +985,11 @@ class Quaternion(Quaternion):
         )
         return Quaternion.normalize_angles(
             Vec3f(
-                degrees(atan2(2*quat.x*quat.w + 2*quat.y*quat.z, 1 - 2*(quat.z*quat.z+quat.w*quat.w))),
+                degrees(atan2(2*quat.x*quat.w + 2*quat.y*quat.z,
+                              1 - 2*(quat.z*quat.z+quat.w*quat.w))),
                 degrees(asin(2*(quat.x*quat.z - quat.w*quat.y))),
-                degrees(atan2(2*quat.x*quat.y + 2*quat.z*quat.w, 1 - 2*(quat.yz*quat.y+quat.z*quat.z)))
+                degrees(atan2(2*quat.x*quat.y + 2*quat.z*quat.w,
+                              1 - 2*(quat.yz*quat.y+quat.z*quat.z)))
             )
         )
 

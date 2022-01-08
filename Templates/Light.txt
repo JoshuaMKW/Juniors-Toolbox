@@ -1,5 +1,5 @@
 Light
 Position VEC3F
-Color RGBA
+Color RGBA8
 Intensity FLOAT
 Default COMMENT true

@@ -9,6 +9,4 @@ Character STRING
 Model STRING
 Rail STRING
 Bounce FLOAT
-R INT
-G INT
-B INT
+Color RGB32

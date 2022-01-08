@@ -2,11 +2,11 @@ import pickle
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, Iterable, Optional, Tuple
-from PySide2.QtCore import QPoint, Slot
-from PySide2.QtGui import Qt
+from typing import Dict, Iterable, List, Optional, Tuple
+from PySide2.QtCore import QPoint, QSize, Slot
+from PySide2.QtGui import QResizeEvent, Qt
 
-from PySide2.QtWidgets import QApplication, QDockWidget, QMainWindow, QSizePolicy, QWidget
+from PySide2.QtWidgets import QApplication, QDockWidget, QLabel, QMainWindow, QSizePolicy, QStyleFactory, QWidget
 from juniors_toolbox import __version__
 from juniors_toolbox.gui.tabs import TabWidgetManager
 from juniors_toolbox.gui.tabs.object import ObjectHierarchyWidget, ObjectHierarchyWidgetItem, ObjectPropertiesWidget
@@ -21,19 +21,22 @@ class JuniorsToolbox(QApplication):
     """
     Junior's Toolbox Application
     """
-    __SINGLE_INSTANCE: "JuniorsToolbox" = None
-    __SINGLE_INITIALIZED = False
+    __singleton: "JuniorsToolbox" = None
+    __singleton_ready = False
 
     def __new__(cls, *args, **kwargs) -> "JuniorsToolbox":
-        if cls.__SINGLE_INSTANCE is None:
-            cls.__SINGLE_INSTANCE = super().__new__(cls, *args, **kwargs)
-        return cls.__SINGLE_INSTANCE
+        if cls.__singleton is None:
+            cls.__singleton = super().__new__(cls, *args, **kwargs)
+        return cls.__singleton
 
     def __init__(self):
-        if self.__SINGLE_INITIALIZED:
+        if self.__singleton_ready:
             return
 
         super().__init__()
+        TabWidgetManager.init()
+
+        self.__singleton_ready = True
 
         # Force Windows Taskbar Icon
         if sys.platform in {"win32", "cygwin", "msys"}:
@@ -44,19 +47,9 @@ class JuniorsToolbox(QApplication):
         self.gui = MainWindow()
         self.settings: SMSBinEditorSettings = None
 
-        TabWidgetManager.init(self.gui)
-
-        self.gui.setWindowTitle(self.get_window_title())
-        # self.gui.setCentralWidget(None)
-        self.gui.centralWidget().setMaximumSize(5, 5)
-        self.gui.layout().setContentsMargins(0, 0, 0, 0)
-        self.update_theme(MainWindow.Themes.LIGHT)
-
-        # Set up tab spawning
-        self.gui.tabActionRequested.connect(self.openDockerTab)
-
-        self._tabGroups: Dict[str, QDockWidget] = {}
-        self._openTabs: Dict[str, QDockWidget.DetachedTab] = {}
+        self.__scene = SMSScene()
+        self.__scenePath = None
+        self.__openTabs: Dict[str, SyncedDockWidget] = {}
 
         # Set up tab syncing
         objectPropertyTab = TabWidgetManager.get_tab(ObjectPropertiesWidget)
@@ -64,20 +57,22 @@ class JuniorsToolbox(QApplication):
         objectHierarchyTab.currentItemChanged.connect(
             lambda cur, prev: objectPropertyTab.populate(cur.object, self.scenePath))
 
-        self.__scene = SMSScene()
-        self.__scenePath = None
+        self.gui.setWindowTitle(self.get_window_title())
+        self.update_theme(MainWindow.Themes.LIGHT)
+        self.set_central_status(self.is_docker_empty())
 
-        self.__SINGLE_INITIALIZED = True
+        # Set up tab spawning
+        self.gui.tabActionRequested.connect(self.openDockerTab)
+        self.gui.resized.connect(self.force_minimum_size)
 
     # --- GETTER / SETTER --- #
 
     def get_instance(self) -> "JuniorsToolbox":
-        return self.__SINGLE_INSTANCE
+        return self.__singleton
 
     @property
     def scene(self) -> SMSScene:
         return self.__scene
-        # return self.construct_scene_from_elements()
 
     @scene.setter
     def scene(self, scene: SMSScene):
@@ -166,40 +161,111 @@ class JuniorsToolbox(QApplication):
         """
         self.gui.show()
 
-    def iter_tab_groups(self) -> Iterable[QDockWidget]:
-        for value in self._tabGroups.values():
-            yield value
-
-    def get_tab_group(self, name: str) -> QDockWidget:
-        for group in self.iter_tab_groups():
-            if group.objectName() == name:
-                return group
-        return None
-
-    def embed_tab(self, tab: QDockWidget, pos: QPoint):
-        for tabGroup in self.iter_tab_groups():
-            ...
-
     @Slot(str)
     def openDockerTab(self, name: str):
         tab = TabWidgetManager.get_tab(name)
-        if name in self._openTabs:
+        if name in self.__openTabs:
             return
         deTab = SyncedDockWidget(name)
+        deTab.setObjectName(name)
         deTab.setWidget(tab)
-        deTab.setFloating(False)
-        self.gui.addDockWidget(Qt.LeftDockWidgetArea, deTab)
+        deTab.setFloating(len(self.__openTabs) > 0)
+        deTab.setAllowedAreas(Qt.AllDockWidgetAreas)
+        deTab.resized.connect(self.force_minimum_size)
+        deTab.topLevelChanged.connect(lambda _: self.set_central_status(self.is_docker_empty()))
+        areas = [Qt.LeftDockWidgetArea, Qt.RightDockWidgetArea]
+        self.gui.addDockWidget(areas[len(self.__openTabs) % 2], deTab)
 
         deTab.closed.connect(self.closeDockerTab)
         deTab.show()
-        self._openTabs[name] = deTab
+        self.__openTabs[name] = deTab
+        
+        self.set_central_status(self.is_docker_empty())
+
 
     @Slot(str)
     def closeDockerTab(self, tab: SyncedDockWidget):
-        print(tab.windowTitle())
-        if tab.windowTitle() not in self._openTabs:
+        if tab.windowTitle() not in self.__openTabs:
             return
-        self.gui.removeDockWidget(self._openTabs.pop(tab.windowTitle()))
+        tab = self.__openTabs.pop(tab.windowTitle())
+        tab.setWidget(None)
+        self.gui.removeDockWidget(tab)
+        self.set_central_status(self.is_docker_empty())
+
+    def is_docker_empty(self) -> bool:
+        return len(self.__openTabs) == 0
+        #print([w.isFloating() for w in self.__openTabs.values()])
+        #print([w.isWindowType() for w in self.__openTabs.values()])
+        return all([w.isFloating() for w in self.__openTabs.values()])
+
+    def get_min_hw(self) -> QSize:
+        htabs = {}
+        wtabs = {}
+
+        tabs = self.__openTabs.values()
+        if len(tabs) == 0:
+            return self.gui.minimumSize()
+
+        for i, tab in enumerate(tabs):
+            htabs[tab] = []
+            wtabs[tab] = []
+            for innertab in tabs:
+                if innertab.objectName() == tab.objectName():
+                    continue
+                if innertab.isFloating():
+                    continue
+                #print(f"{tab.objectName()} -> {innertab.objectName()}", tab.y_contains(innertab.pos().y(), innertab.size().height()), tab.x_contains(innertab.pos().x(), innertab.size().width()), ":")
+                if tab.y_contains(innertab.pos().y(), innertab.size().height()):
+                    if innertab.pos().x() <= tab.pos().x():
+                        continue
+                    wtabs[tab].append(innertab)
+                elif tab.x_contains(innertab.pos().x(), innertab.size().width()):
+                    if innertab.pos().y() <= tab.pos().y():
+                        continue
+                    htabs[tab].append(innertab)
+
+        def recursive_sum_w(connections: dict, node: SyncedDockWidget) -> QSize:
+            _width = node.minimumSize().width()
+            if len(connections[node]) == 0:
+                return _width
+            #print([recursive_sum_w(connections, tab) for tab in connections[node]])
+            _width += max([recursive_sum_w(connections, tab) for tab in connections[node]])
+            return _width + 16
+
+        def recursive_sum_h(connections: dict, node: SyncedDockWidget) -> QSize:
+            _height = node.minimumSize().height()
+            if len(connections[node]) == 0:
+                return _height
+            #print([recursive_sum_h(connections, tab) for tab in connections[node]])
+            _height += max([recursive_sum_h(connections, tab) for tab in connections[node]])
+            return _height + 16
+                
+
+        width = max([recursive_sum_w(wtabs, tab) for tab in wtabs]) if len(wtabs) > 0 else self.gui.minimumSize().width() + self.gui.centralWidget().minimumSize().width()
+        height = max([recursive_sum_h(htabs, tab) for tab in htabs]) if len(htabs) > 0 else self.gui.minimumSize().height() + self.gui.centralWidget().minimumSize().height()
+        return QSize(width, height)
+    
+    @Slot(QResizeEvent)
+    def force_minimum_size(self, event: QResizeEvent):
+        size = self.get_min_hw()
+        self.gui.setMinimumSize(size)
+        if event.size().height() > size.height():
+            size.setHeight(event.size().height())
+        if event.size().width() > size.width():
+            size.setWidth(event.size().width())
+
+    def set_central_status(self, empty: bool):
+        if empty:
+            center = QLabel()
+            center.setText("No tabs open\n(Open tabs using the Window menu)")
+            center.setEnabled(False)
+            center.setAlignment(Qt.AlignCenter)
+        else:
+            center = QWidget()
+            center.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
+            #center.setFixedSize(8, 8)
+        self.gui.setCentralWidget(center)
+        
 
     # --- LOGIC --- #
 

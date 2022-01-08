@@ -1,6 +1,6 @@
-oead
 PySide2
+PyOpenGL
+oead
 numpy
 pillow
-PyGLM
-PyOpenGL
+nodeeditor

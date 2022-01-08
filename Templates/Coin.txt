@@ -1,13 +1,9 @@
 Coin
-X FLOAT (null)
-Y FLOAT (null)
-Z FLOAT (null)
-Pitch FLOAT (null)
-Yaw FLOAT (null)
-Roll FLOAT (null)
-ScaleX FLOAT (null)
-ScaleY FLOAT (null)
-ScaleZ FLOAT (null)
+Transform TEMPLATE {
+    Position VEC3F
+    Rotation VEC3F
+    Scale VEC3F
+}
 Character STRING (null)
 !!! INT (null)
 Model STRING (null)

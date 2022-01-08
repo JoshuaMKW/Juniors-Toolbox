@@ -27,17 +27,17 @@ class TabWidgetManager():
     _TAB_WIDGETS: Dict[type, QWidget] = None
 
     @staticmethod
-    def init(parent: QMainWindow = None):
+    def init():
         TabWidgetManager._TAB_WIDGETS = {
-            ObjectHierarchyWidget: ObjectHierarchyWidget(parent),
-            ObjectPropertiesWidget: ObjectPropertiesWidget(parent),
-            RailListWidget: RailListWidget(parent),
+            ObjectHierarchyWidget: ObjectHierarchyWidget(),
+            ObjectPropertiesWidget: ObjectPropertiesWidget(),
+            RailListWidget: RailListWidget(),
             "Rail Editor": None,
             "BMG Editor": None,
             "PRM Editor": None,
             "Demo Editor": None,
             "Data Viewer": None,
-            SceneRendererWidget: SceneRendererWidget(parent)
+            SceneRendererWidget: SceneRendererWidget()
         }
         for tab in TabWidgetManager.iter_tabs():
             tab.setVisible(False)

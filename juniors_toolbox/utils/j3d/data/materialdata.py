@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from enum import IntEnum, auto
 from typing import List
 
-from juniors_toolbox.utils.types import RGBA, BasicColors, Vec3f
+from juniors_toolbox.utils.types import RGBA8, BasicColors, Vec3f
 
 
 class MatrixType(IntEnum):
@@ -33,7 +33,7 @@ class Fog:
     endZ: float = 0.0
     nearZ: float = 0.0
     farZ: float = 0.0
-    color: RGBA = RGBA(BasicColors.WHITE)
+    color: RGBA8 = RGBA8(BasicColors.WHITE)
     inverseBinPoseMtx: List[int] = field(default_factory=lambda: [])
 
 @dataclass

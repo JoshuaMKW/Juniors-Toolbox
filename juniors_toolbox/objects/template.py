@@ -17,7 +17,7 @@ from juniors_toolbox.utils.iohelper import (read_bool, read_double, read_float,
                                            write_ubyte, write_uint16,
                                            write_uint32, write_vec3f)
 
-from juniors_toolbox.utils.types import RGBA, Vec3f
+from juniors_toolbox.utils.types import RGB32, RGB8, RGBA8, Vec3f
 
 
 class AttributeInvalidError(Exception):
@@ -41,8 +41,10 @@ class AttributeType(str, Enum):
     DOUBLE = "DOUBLE"
     STR = "STR"
     STRING = "STRING"
-    RGBA = "RGBA"
-    C_RGBA = "COLORRGBA"
+    C_RGB8 = "RGB8"
+    C_RGBA8 = "RGBA8"
+    C_RGB32 = "RGB32"
+    C_RGBA = "COLOR"
     VECTOR3 = "VEC3F"
     COMMENT = "COMMENT"
     TEMPLATE = "TEMPLATE"
@@ -64,8 +66,10 @@ class AttributeType(str, Enum):
         DOUBLE: float,
         STR: str,
         STRING: str,
-        RGBA: RGBA,
-        C_RGBA: RGBA,
+        C_RGB8: RGB8,
+        C_RGBA8: RGBA8,
+        C_RGB32: RGB8,
+        C_RGBA: RGBA8,
         VECTOR3: Vec3f,
         COMMENT: str,
         TEMPLATE: None
@@ -88,7 +92,10 @@ class AttributeType(str, Enum):
         DOUBLE: 8,
         STR: None,
         STRING: None,
-        RGBA: 4,
+        C_RGB8: 3,
+        C_RGBA8: 4,
+        C_RGB32: 12,
+        C_RGBA: 4,
         VECTOR3: 12,
         COMMENT: None,
         TEMPLATE: None
@@ -144,8 +151,10 @@ TEMPLATE_TYPE_READ_TABLE = {
     AttributeType.DOUBLE: read_double,
     AttributeType.STR: __read_bin_string,
     AttributeType.STRING: __read_bin_string,
-    AttributeType.RGBA: lambda f: RGBA(read_uint32(f)),
-    AttributeType.C_RGBA: lambda f: RGBA(read_uint32(f)),
+    AttributeType.C_RGB8: lambda f: RGB8.from_tuple([read_ubyte(f), read_ubyte(f), read_ubyte(f)]),
+    AttributeType.C_RGBA8: lambda f: RGBA8(read_uint32(f)),
+    AttributeType.C_RGB32: lambda f: RGB32.from_tuple([read_uint32(f), read_uint32(f), read_uint32(f)]),
+    AttributeType.C_RGBA: lambda f: RGBA8(read_uint32(f)),
     AttributeType.VECTOR3: lambda f: Vec3f(*read_vec3f(f)),
     AttributeType.COMMENT: lambda f: None,
     AttributeType.TEMPLATE: lambda f: None
@@ -169,7 +178,9 @@ TEMPLATE_TYPE_WRITE_TABLE = {
     AttributeType.DOUBLE: write_double,
     AttributeType.STR: __write_bin_string,
     AttributeType.STRING: __write_bin_string,
-    AttributeType.RGBA: write_uint32,
+    AttributeType.C_RGB8: lambda f, val: write_ubyte(f, val.tuple()), #val = RGB8
+    AttributeType.C_RGBA8: write_uint32,
+    AttributeType.C_RGB32: lambda f, val: write_uint32(f, val.tuple()), #val = RGB8
     AttributeType.C_RGBA: write_uint32,
     AttributeType.VECTOR3: write_vec3f,
     AttributeType.COMMENT: lambda f, val: None,
@@ -257,7 +268,7 @@ class ObjectAttribute():
             return sum([a.get_size() for a in self._subattrs])
         return self.type.get_size()
 
-    def read_from(self, f: BinaryIO) -> Union[int, float, str, bytes, list, RGBA, Vec3f]:
+    def read_from(self, f: BinaryIO) -> Union[int, float, str, bytes, RGBA8, RGB8, RGB32, Vec3f]:
         """
         Read data from a stream following the map of this template attribute
         """
@@ -265,7 +276,7 @@ class ObjectAttribute():
             return [attr.read_from(f) for attr in self.iter_attributes()]
         return TEMPLATE_TYPE_READ_TABLE[self.type](f)
 
-    def write_to(self, f: BinaryIO, data: Union[int, float, str, bytes, list, RGBA, Vec3f]):
+    def write_to(self, f: BinaryIO, data: Union[int, float, str, bytes, RGBA8, RGB8, RGB32, Vec3f]):
         """
         Write data to a stream following the map of this template attribute
         """

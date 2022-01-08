@@ -1,7 +1,7 @@
 from os import walk
 from pathlib import Path
 from threading import Event
-from typing import Dict, List, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union
 from queue import LifoQueue
 
 from PySide2.QtCore import QLine, QModelIndex, QObject, Qt, QTimer
@@ -20,7 +20,7 @@ from juniors_toolbox.gui.widgets.colorbutton import ColorButton
 from juniors_toolbox.gui.widgets.explicitlineedit import ExplicitLineEdit
 from juniors_toolbox.objects.object import GameObject
 from juniors_toolbox.objects.template import ObjectAttribute
-from juniors_toolbox.utils.types import RGBA, Vec3f
+from juniors_toolbox.utils.types import RGB32, RGB8, RGBA8, Vec3f
 from juniors_toolbox.scene import SMSScene
 
 
@@ -94,6 +94,8 @@ class ObjectHierarchyWidget(QTreeWidget, GenericTabWidget):
         self.setHeaderHidden(True)
         self.setDragDropMode(self.InternalMove)
         self.setDefaultDropAction(Qt.MoveAction)
+        self.setMinimumSize(300, 80)
+        #self.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
 
         self.undoStack = QUndoStack(self)
         self.undoStack.setUndoLimit(32)
@@ -153,14 +155,14 @@ class ObjectPropertiesWidget(QScrollArea, GenericTabWidget):
         self.updateTimer.timeout.connect(self.checkVerticalIndents)
         self.updateTimer.start(10)
 
+        self.setMinimumSize(300, 80)
 
     def reset(self):
         clear_layout(self.gridLayout)
         self.object = None
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-
     
-    def populate(self, data: Union[SMSScene, GameObject], scenePath: Path):
+    def populate(self, data: Any, scenePath: Path):
         self.reset()
         if not isinstance(data, GameObject):
             return
@@ -170,7 +172,7 @@ class ObjectPropertiesWidget(QScrollArea, GenericTabWidget):
         row = 0
         indentWidth = 25
         self._structs: Dict[str, QWidget] = {}
-        def inner_struct_populate(parent: QGridLayout, attribute: Tuple[str, Union[int, float, str, bytes, list, RGBA]], nestedDepth: int = 0):
+        def inner_struct_populate(parent: QGridLayout, attribute: Tuple[str, Union[int, float, str, bytes, RGBA8, RGB8, RGB32, Vec3f]], nestedDepth: int = 0):
             nonlocal row
             scopeNames = attribute[0].split(".")
             parentScopes = scopeNames[:nestedDepth]
@@ -198,7 +200,7 @@ class ObjectPropertiesWidget(QScrollArea, GenericTabWidget):
                     row += 1
                 return
                 
-            if isinstance(attribute[1], RGBA):
+            if isinstance(attribute[1], RGBA8):
                 layout = QFormLayout()
                 label = QLabel(attribute[0].split(".")[-1])
                 label.setFixedWidth(100 - (indentWidth * nestedDepth))
@@ -208,7 +210,15 @@ class ObjectPropertiesWidget(QScrollArea, GenericTabWidget):
                 colorbutton.setMinimumHeight(20)
                 colorbutton.setObjectName(qualname)
                 colorbutton.colorChanged.connect(self.updateObjectValue)
-                layout.addRow(label, colorbutton)
+                container = EntryLayout(
+                    thisScope, 
+                    colorbutton, 
+                    Vec3f, 
+                    [],
+                    labelWidth=100 - (indentWidth * nestedDepth),
+                    minEntryWidth=180 + (indentWidth * nestedDepth)
+                )
+                layout.addRow(container)
                 parent.addLayout(layout, row, 0, 1, 1)
                 row += 1
             elif isinstance(attribute[1], Vec3f):
@@ -218,15 +228,30 @@ class ObjectPropertiesWidget(QScrollArea, GenericTabWidget):
                 containerLayout.setContentsMargins(0, 0, 0, 0)
                 containerLayout.setRowStretch(0, 0)
                 containerLayout.setRowStretch(1, 0)
-                container = EntryLayout(thisScope, widget, Vec3f, [], labelWidth=100 - (indentWidth * nestedDepth))
+                container = EntryLayout(
+                    thisScope, 
+                    widget, 
+                    Vec3f, 
+                    [], 
+                    labelWidth=100 - (indentWidth * nestedDepth),
+                    minEntryWidth=260# + (indentWidth * nestedDepth)
+                )
                 container.setObjectName(qualname)
                 for i, component in enumerate(attribute[1]):
                     axis = "XYZ"[i]
                     lineEdit = ExplicitLineEdit(f"{attribute[0]}.{axis}", ExplicitLineEdit.FilterKind.FLOAT)
+                    lineEdit.setMinimumWidth(20)
                     lineEdit.setText(str(component))
                     lineEdit.setCursorPosition(0)
-                    entry = EntryLayout(axis, lineEdit, float, [], labelWidth=6, newlining=False)
-                    entry.setExpandFactor(0.7)
+                    entry = EntryLayout(
+                        axis, 
+                        lineEdit, 
+                        float, 
+                        [], 
+                        labelWidth=6, 
+                        newlining=False, 
+                        labelFixed=True
+                    )
                     entry.entryModified.connect(self.updateObjectValue)
                     lineEdit.textChangedNamed.connect(container.updateFromChild)
                     containerLayout.addLayout(entry, 0, i, 1, 1)
@@ -243,7 +268,14 @@ class ObjectPropertiesWidget(QScrollArea, GenericTabWidget):
                 lineEdit = ExplicitLineEdit(attribute[0], ExplicitLineEdit.FilterKind.type_to_filter(attribute[1].__class__))
                 lineEdit.setText(str(attribute[1]))
                 lineEdit.setCursorPosition(0)
-                entry = EntryLayout(thisScope, lineEdit, attribute[1].__class__, [lineEdit], labelWidth=100 - (indentWidth * nestedDepth))
+                entry = EntryLayout(
+                    thisScope,
+                    lineEdit,
+                    attribute[1].__class__,
+                    [lineEdit],
+                    labelWidth=100 - (indentWidth * nestedDepth),
+                    minEntryWidth=180 + (indentWidth * nestedDepth)
+                )
                 entry.setObjectName(qualname)
                 entry.entryModified.connect(self.updateObjectValue)
                 lineEdit.textChangedNamed.connect(entry.updateFromChild)
@@ -266,7 +298,6 @@ class ObjectPropertiesWidget(QScrollArea, GenericTabWidget):
 
     def updateObjectValue(self, qualname: str, value: object):
         self.object.set_value(qualname, value)
-
 
     def keyPressEvent(self, event: QKeyEvent):
         if not (event.modifiers() & Qt.CTRL):

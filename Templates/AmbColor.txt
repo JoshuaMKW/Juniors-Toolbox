@@ -1,3 +1,3 @@
 Ambient Color
-Color RGBA
+Color RGBA8
 Default COMMENT true

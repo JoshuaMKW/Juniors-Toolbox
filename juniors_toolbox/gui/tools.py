@@ -3,7 +3,7 @@ from PySide2.QtCore import QPoint
 from PySide2.QtGui import QScreen
 from PySide2.QtWidgets import QLayout, QLayoutItem, QWidget
 
-from juniors_toolbox.utils.types import RGBA
+from juniors_toolbox.utils.types import RGBA8
 
 def clear_layout(layout: QLayout):
     if layout is not None:
@@ -24,8 +24,8 @@ def walk_layout(layout: QLayout) -> Iterable[QLayoutItem]:
             child = _widget.layout() if _widget is not None else _layout
             yield from walk_layout(child)
 
-def get_screen_pixel_color(pos: QPoint) -> RGBA:
+def get_screen_pixel_color(pos: QPoint) -> RGBA8:
     from PIL import ImageGrab
 
     px = ImageGrab.grab().load()
-    return RGBA.from_tuple(px[pos.x(), pos.y()])
+    return RGBA8.from_tuple(px[pos.x(), pos.y()])

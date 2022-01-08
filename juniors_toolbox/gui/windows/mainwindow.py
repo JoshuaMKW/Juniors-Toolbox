@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Union
 
 from PySide2.QtCore import QCoreApplication, QEvent, QMetaObject, QMimeData, QObject, QRect, QSize, Qt, Signal, SignalInstance
-from PySide2.QtGui import QDrag, QDragEnterEvent, QDragLeaveEvent, QDropEvent, QFont, QIcon, QMouseEvent
+from PySide2.QtGui import QDrag, QDragEnterEvent, QDragLeaveEvent, QDropEvent, QFont, QIcon, QMouseEvent, QResizeEvent
 from PySide2.QtWidgets import (QAction, QApplication, QDialog, QFileDialog,
                                QFrame, QGridLayout, QHBoxLayout, QMainWindow, QMenu, QMenuBar, QMessageBox, QScrollArea, QSizePolicy,
                                QTabWidget, QVBoxLayout, QWidget)
@@ -38,6 +38,7 @@ class MainWindow(QMainWindow):
         DARK = 1
 
     tabActionRequested: SignalInstance = Signal(str, bool)
+    resized: SignalInstance = Signal(QResizeEvent)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -45,29 +46,16 @@ class MainWindow(QMainWindow):
         self.setAnimated(True)
         self.setTabShape(QTabWidget.Rounded)
 
-        self.resize(494, 575)
-        sizePolicy = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
-        self.setSizePolicy(sizePolicy)
-        self.setMinimumSize(QSize(694, 675))
+        self.resize(400, 500)
 
         self.target = None
         self.setAcceptDrops(True)
+        self.setDockNestingEnabled(True)
 
         self.reset_ui()
 
     def reset_ui(self):
-        self.centerWidget = QWidget(self)
-        self.centerWidget.setObjectName("centerWidget")
-
-        self.setCentralWidget(self.centerWidget)
-
-        self.mainLayout = QGridLayout()
-        self.centerWidget.setLayout(self.mainLayout)
-
-        self.setWindowIcon(QIcon(str(resource_path("gui/icons/program.ico"))))
+        self.setWindowIcon(QIcon(str(resource_path("gui/icons/program.png"))))
 
         # -- MENUBAR -- #
         self.actionEmptyMap = QAction(self)
@@ -185,57 +173,9 @@ class MainWindow(QMainWindow):
         self.retranslateUi()
         QMetaObject.connectSlotsByName(self)
 
-    def eventFilter(self, watched, event: QEvent):
-        if event.type() == QEvent.MouseButtonPress:
-            self.mousePressEvent(event)
-        elif event.type() == QEvent.MouseMove:
-            self.mouseMoveEvent(event)
-        elif event.type() == QEvent.MouseButtonRelease:
-            self.mouseReleaseEvent(event)
-        return super().eventFilter(watched, event)
-
-    def get_index(self, pos):
-        for i in range(self.mainLayout.count()):
-            if self.mainLayout.itemAt(i).geometry().contains(pos) and i != self.target:
-                return i
-
-    def mousePressEvent(self, event: QMouseEvent):
-        if event.button() == Qt.LeftButton:
-            self.target = self.get_index(event.windowPos().toPoint())
-        else:
-            self.target = None
-
-    def mouseMoveEvent(self, event: QMouseEvent):
-        if event.buttons() & Qt.LeftButton and issubclass(self.target.__class__, QObject):
-            drag = QDrag(self.mainLayout.itemAt(self.target))
-            pix = self.mainLayout.itemAt(self.target).itemAt(0).widget().grab()
-            mimedata = QMimeData()
-            mimedata.setImageData(pix)
-            drag.setMimeData(mimedata)
-            drag.setPixmap(pix)
-            drag.setHotSpot(event.pos())
-            drag.exec_()
-
-    def mouseReleaseEvent(self, event: QMouseEvent):
-        self.target = None
-
-    def dragEnterEvent(self, event: QDragEnterEvent):
-        if event.mimeData().hasImage():
-            event.accept()
-        else:
-            event.ignore()
-
-    def dropEvent(self, event: QDropEvent):
-        if not event.source().geometry().contains(event.pos()):
-            source = self.get_index(event.pos())
-            if source is None:
-                return
-
-            i, j = max(self.target, source), min(self.target, source)
-            p1, p2 = self.mainLayout.getItemPosition(i), self.mainLayout.getItemPosition(j)
-
-            self.mainLayout.addItem(self.mainLayout.takeAt(i), *p2)
-            self.mainLayout.addItem(self.mainLayout.takeAt(j), *p1)
+    def resizeEvent(self, event: QResizeEvent):
+        super().resizeEvent(event)
+        self.resized.emit(event)
 
     def retranslateUi(self):
         self.setWindowTitle(QCoreApplication.translate("MainWindow", u"MainWindow", None))

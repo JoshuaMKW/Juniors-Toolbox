@@ -2,7 +2,7 @@
 #                                       #
 # Modern Color Picker by Tom F.         #
 # Version 1.3.0                         #
-# made with Qt Creator & PySide2          #
+# made with Qt Creator & qtpy          #
 #                                       #
 # ------------------------------------- #
 
@@ -19,7 +19,7 @@ from juniors_toolbox.gui.widgets.ui.ui_dark import Ui_ColorPicker as Ui_Dark
 from juniors_toolbox.gui.widgets.ui.ui_dark_alpha import Ui_ColorPicker as Ui_Dark_Alpha
 from juniors_toolbox.gui.widgets.ui.ui_light import Ui_ColorPicker as Ui_Light
 from juniors_toolbox.gui.widgets.ui.ui_light_alpha import Ui_ColorPicker as Ui_Light_Alpha
-from juniors_toolbox.utils.types import RGBA
+from juniors_toolbox.utils.types import RGBA8
 from juniors_toolbox.utils.filesystem import resource_path
 
 
@@ -212,27 +212,27 @@ class ColorPicker(QDialog):
         self.setHex(self.rgba2hex(self.hsv2rgba(self.color)))
 
     def useScreenCapture(self):
-        self.color_grabber_screen.setDismissColor(RGBA.from_tuple(
+        self.color_grabber_screen.setDismissColor(RGBA8.from_tuple(
             [*self.hsv2rgba(self.color), int(self.ui.alpha.text())]))
         self.color_grabber_screen.reset()
         self.color_grabber_screen.show()
         self.color_grabber_screen.showFullScreen()
 
-    def update_display_color(self, color: RGBA):
+    def update_display_color(self, color: RGBA8):
         self.ui.red.setText(str(color.red))
         self.ui.green.setText(str(color.green))
         self.ui.blue.setText(str(color.blue))
         self.ui.alpha.setText("255")
         self.rgbChanged()
 
-    def finalize_display_color(self, color: RGBA):
+    def finalize_display_color(self, color: RGBA8):
         self.ui.red.setText(str(color.red))
         self.ui.green.setText(str(color.green))
         self.ui.blue.setText(str(color.blue))
         self.ui.alpha.setText("255")
         self.rgbChanged()
 
-    def dismiss_display_color(self, color: RGBA):
+    def dismiss_display_color(self, color: RGBA8):
         self.ui.red.setText(str(color.red))
         self.ui.green.setText(str(color.green))
         self.ui.blue.setText(str(color.blue))

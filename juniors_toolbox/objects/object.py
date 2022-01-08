@@ -4,7 +4,7 @@ from typing import Any, BinaryIO, Iterable, List, Optional, TextIO, Tuple, Union
 
 from numpy import array
 from juniors_toolbox.objects.template import AttributeType, ObjectAttribute, ObjectTemplate
-from juniors_toolbox.utils.types import RGBA, Vec3f
+from juniors_toolbox.utils.types import RGB32, RGB8, RGBA8, Vec3f
 from juniors_toolbox.utils import jdrama
 from juniors_toolbox.utils.iohelper import read_string, read_uint16, read_uint32, write_string, write_uint16, write_uint32
 
@@ -216,7 +216,7 @@ class GameObject():
         """
         return hash(self.name) in KNOWN_GROUP_HASHES  # and self.is_value("Grouped")
 
-    def get_value(self, attrname: str) -> Union[int, float, str, bytes, RGBA]:
+    def get_value(self, attrname: str) -> Union[int, float, str, bytes, RGBA8, RGB8, RGB32, Vec3f]:
         """
         Get a value by name from this object
         """
@@ -229,13 +229,13 @@ class GameObject():
             if value[0] == attrname:
                 return value[1]
 
-    def get_value_pair_by_index(self, index: int) -> Tuple[str, Union[int, float, str, bytes, RGBA]]:
+    def get_value_pair_by_index(self, index: int) -> Tuple[str, Union[int, float, str, bytes, RGBA8, RGB8, RGB32, Vec3f]]:
         """
         Return a tuple containing the name and value at the specified index
         """
         return self._values[index]
 
-    def set_value(self, attrname: str, value: Union[int, float, str, bytes, RGBA, Vec3f]) -> bool:
+    def set_value(self, attrname: str, value: Union[int, float, str, bytes, RGBA8, RGB8, RGB32, Vec3f]) -> bool:
         """
         Set a value by name if it exists in this object
 
@@ -261,13 +261,13 @@ class GameObject():
                 return True
         return False
 
-    def set_value_by_index(self, index: int, value: Union[int, float, str, bytes, RGBA, Vec3f]):
+    def set_value_by_index(self, index: int, value: Union[int, float, str, bytes, RGBA8, RGB8, RGB32, Vec3f]):
         """
         Set a value by index if it exists in this object
         """
         self._values[index][1] = value
 
-    def create_value(self, index: int, attrname: str, value: Union[int, float, str, bytes, RGBA, Vec3f], comment: str = "", strict: bool = False) -> bool:
+    def create_value(self, index: int, attrname: str, value: Union[int, float, str, bytes, RGBA8, RGB8, RGB32, Vec3f], comment: str = "", strict: bool = False) -> bool:
         """
         Create a named value for this object if it doesn't exist
 
@@ -295,8 +295,7 @@ class GameObject():
                 easyname = f"{attrname}{i}"
 
         attrname = easyname
-        if isinstance(value, RGBA):
-            print(attrname, isVeryUnique)
+        print(attrname, isVeryUnique)
 
         if isVeryUnique:
             try:
@@ -331,16 +330,13 @@ class GameObject():
                 val[1] = value
                 return True
 
-        if isinstance(value, list):
-            print("asuhsauhsuh")
-
         if index != -1:
             self._values.insert(index, [attrname, value])
         else:
             self._values.append([attrname, value])
         return True
 
-    def iter_values(self) -> Iterable[Tuple[str, Union[int, float, str, bytes, list, RGBA]]]:
+    def iter_values(self) -> Iterable[Tuple[str, Union[int, float, str, bytes, RGBA8, RGB8, RGB32, Vec3f]]]:
         """
         Yield all of this object's values
         """

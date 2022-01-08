@@ -14,13 +14,27 @@ class EntryLayout(QGridLayout):
 
     entryModified = Signal(str, object)
 
-    def __init__(self, name: str, entry: QWidget, entryKind: type, directChildren: List[QLineEdit], labelWidth: int = 100, parent=None, newlining: bool = True):
+    def __init__(
+        self, 
+        name: str, 
+        entry: QWidget, 
+        entryKind: type, 
+        directChildren: List[QLineEdit], 
+        labelWidth: int = 100,
+        minEntryWidth: int = 100, 
+        parent=None, 
+        newlining: bool = True,
+        labelFixed: bool = True
+    ):
         super().__init__(parent)
         self.entryLabelWidth = labelWidth
         self.entryLabel = QLabel(name, parent)
-        self.entryLabel.setSizePolicy(
-            QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
-        self.entryLabel.setFixedWidth(labelWidth)
+        if labelFixed:
+            self.entryLabel.setFixedWidth(labelWidth)
+        else:
+            self.entryLabel.setMinimumWidth(labelWidth)
+            #self.entryLabel.setSizePolicy(
+            #    QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
         self.entryLabel.setObjectName(name + " (Label)")
         self.entrySpacer = QSpacerItem(
             self.SpacerWidth, 20, QSizePolicy.Fixed, QSizePolicy.Expanding)
@@ -28,13 +42,17 @@ class EntryLayout(QGridLayout):
         self.entryKind = entryKind
         self.directChildren = directChildren
         self.newLineActive = False
-        self.expandFactor = 1.4
+        self.minEntryWidth = minEntryWidth
         self.recordedFlagSize = QRect(QPoint(0, 0), QSize(0, 0))
 
         self.addWidget(self.entryLabel, 0, 0, 1, 1)
         self.addWidget(self.entryWidget, 0, 1, 1, 1)
-        self.setColumnStretch(0, 0)
-        self.setColumnStretch(1, 1)
+        if labelFixed:
+            self.setColumnStretch(0, 0)
+            self.setColumnStretch(1, 1)
+        else:
+            self.setColumnStretch(0, 1)
+            self.setColumnStretch(1, 2)
         self.setNewLining(newlining)
 
     def setFieldSizePolicy(self, policy: QSizePolicy):
@@ -61,16 +79,16 @@ class EntryLayout(QGridLayout):
 
         textRect: QRect = self.entryLabel.fontMetrics().boundingRect(self.entryLabel.text())
         isTextTooLong = textRect.width() > self.entryLabelWidth
-        isWidgetTooSmall = False
         """
+        isWidgetTooSmall = False
         if not _out:
             for item in walk_layout(self):
                 widget = item.widget()
                 if widget is None:
                     continue
                 if isinstance(widget, QLineEdit):
-                    print(bounds, self.recordedFlagSize)
-                    print(widget.width(), widget.minimumSizeHint().width(), widget.objectName())
+                    #print(bounds, self.recordedFlagSize)
+                    #print(widget.width(), widget.minimumSizeHint().width(), widget.objectName())
                     if widget.width() <= widget.minimumSizeHint().width():
                         isWidgetTooSmall = True
                         self.recordedFlagSize = bounds
@@ -79,24 +97,21 @@ class EntryLayout(QGridLayout):
             isWidgetTooSmall = bounds.width() <= self.recordedFlagSize.width()
         """
 
+        minpos = 0
+        maxpos = 0
         for item in walk_layout(self):
             widget = item.widget()
             if widget is None:
                 continue
-            if isinstance(widget, QLineEdit):
-                if _out:
-                    check = widget.width() <= widget.minimumSizeHint().width() * self.expandFactor
-                else:
-                    check = widget.width() <= widget.minimumSizeHint().width()
-                if check:
-                    isWidgetTooSmall = True
-                    self.recordedFlagSize = bounds
-                    break
-
+            minpos = min(minpos, widget.pos().x())
+            maxpos = max(maxpos, widget.pos().x() + widget.size().width())
+                
+        #print(self.objectName(), (maxpos - minpos) - textRect.width(), self.minEntryWidth)
+        isWidgetTooSmall = (maxpos - minpos) < self.minEntryWidth
         return isTextTooLong or isWidgetTooSmall
 
-        #print(bounds.width() - textRect.width())
-        #print(self.entryWidget.pos(), self.entryWidget.sizeHint(),
+        ##print(bounds.width() - textRect.width())
+        ##print(self.entryWidget.pos(), self.entryWidget.sizeHint(),
         #      self.entryWidget.size())
         #if not _out:
         #    return (textRect.width() + self.SpacerWidth) >= self.entryWidget.pos().x()
@@ -105,7 +120,7 @@ class EntryLayout(QGridLayout):
 
     def checkNewLine(self, bounds: QSize):
         newLineReady = self.isNewLineReady(bounds, self.newLineActive)
-        #print(newLineReady, self.newLineActive)
+        ##print(newLineReady, self.newLineActive)
         if newLineReady and not self.newLineActive:
             self.entryLabel.setSizePolicy(
                 QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -117,8 +132,6 @@ class EntryLayout(QGridLayout):
             self.addWidget(self.entryLabel, 0, 0, 1, 2)
             self.addItem(self.entrySpacer, 1, 0, 1, 1)
             self.addWidget(self.entryWidget, 1, 1, 1, 1)
-            self.setColumnStretch(0, 0)
-            self.setColumnStretch(1, 1)
             self.newLineActive = True
         elif newLineReady is False and self.newLineActive:
             self.entryLabel.setSizePolicy(
@@ -129,8 +142,6 @@ class EntryLayout(QGridLayout):
             self.removeItem(self.entrySpacer)
             self.addWidget(self.entryLabel, 0, 0, 1, 1)
             self.addWidget(self.entryWidget, 0, 1, 1, 1)
-            self.setColumnStretch(0, 0)
-            self.setColumnStretch(1, 1)
             self.newLineActive = False
 
     def updateFromChild(self, child: QLineEdit):
