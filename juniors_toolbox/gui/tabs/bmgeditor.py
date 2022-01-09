@@ -60,5 +60,6 @@ class BMGNodeEditorWidget(NodeEditorWidget, GenericTabWidget):
         if not isinstance(data, BMG):
             return
 
+        scene = Scene()
         for message in data.iter_messages():
-            ...
+            self.scene

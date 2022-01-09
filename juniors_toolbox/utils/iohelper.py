@@ -135,20 +135,33 @@ def read_string(
         binary = binary[:-1]
 
     if encoding is None:
-        encoder = UniversalDetector()
-        encoder.feed(binary)
-        encoding = encoder.close()["encoding"]
+        return decode_raw_string(binary)
+    return binary.decode(encoding)
 
+
+def write_string(f: BinaryIO, val: str, encoding: Optional[str] = None):
+    if encoding is None:
+        f.write(val.encode() + b"\x00")
+    else:
+        f.write(val.encode(encoding) + b"\x00")
+
+
+def get_likely_encoding(data: bytes) -> str:
+    encoder = UniversalDetector()
+    encoder.feed(data)
+    encoding = encoder.close()["encoding"]
     try:
         if not encoding or encoding.lower() not in {"ascii", "utf-8", "shift-jis", "iso-8859-1"}:
             encoding = "shift-jis"
-        return binary.decode(encoding)
+        return encoding
     except UnicodeDecodeError:
-        return ""
+        return None
 
 
-def write_string(f: BinaryIO, val: str):
-    f.write(val.encode())
+def decode_raw_string(data: bytes, encoding: Optional[str] = None) -> str:
+    if encoding is None:
+        return data.decode(get_likely_encoding(data))
+    return data.decode(encoding)
 
 
 def align_int(num: int, alignment: int) -> int:

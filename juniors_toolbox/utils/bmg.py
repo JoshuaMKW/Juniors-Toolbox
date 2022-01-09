@@ -1,33 +1,44 @@
 from dataclasses import dataclass, field
 from enum import Enum, IntEnum
 from io import BytesIO
+from os import write
 from pathlib import Path
 import struct
-from typing import Iterable, List, Tuple, Union
+import sys
+from typing import Iterable, List, Optional, Tuple, Union
 
-from juniors_toolbox.utils.iohelper import align_int, read_string, read_ubyte, read_uint16, read_uint32
-from juniors_toolbox.utils.j3d import data
+from numpy import inf
+
+from juniors_toolbox.utils.iohelper import align_int, decode_raw_string, get_likely_encoding, read_string, read_ubyte, read_uint16, read_uint32, write_string, write_ubyte, write_uint16, write_uint32
 
 
 @dataclass
 class RichMessage:
     components: list = field(default_factory=lambda: [])
-
-    def get_string(self) -> str:
-        string = ""
-        for cmp in self.components:
-            if isinstance(cmp, str):
-                string += cmp
-        return string
+    encoding: str = None
 
     @classmethod
-    def from_bytes(cls, f: BytesIO, encoding: str = "latin-1") -> "BMG.RichMessage":
+    def from_bytes(cls, f: BytesIO, encoding: Optional[str] = None):
+        TERMINATING_CHARS = {b"",}
+
         string = b""
         components = []
+        _encodingGuess = encoding
+        _nullCount = 0
         while (char := f.read(1)) != b"":
+            if char == b"\x00":
+                _nullCount += 1
+            else:
+                _nullCount = 0
+
+            if _nullCount > 1:
+                break
+
             if char == b"\x1A":
-                if string != b"":
-                    components.append(string.decode(encoding))
+                if string not in TERMINATING_CHARS:
+                    if _encodingGuess is None:
+                        _encodingGuess = get_likely_encoding(string)
+                    components.append(decode_raw_string(string, encoding))
                     string = b""
 
                 subChar = f.read(1)
@@ -50,31 +61,52 @@ class RichMessage:
                         f"Unknown escape code {char + subChar + flags[:2]}")
             else:
                 string += char
-        if string != b"":
-            components.append(string.decode(encoding))
-        print(components)
-        return cls(components)
+        if string not in TERMINATING_CHARS:
+            if _encodingGuess is None:
+                _encodingGuess = get_likely_encoding(string)
+            components.append(decode_raw_string(string, encoding))
+        return cls(components, _encodingGuess)
 
     def to_bytes(self) -> bytes:
-        ...
+        data = b""
+        for cmp in self.components:
+            if isinstance(cmp, str):
+                if self.encoding:
+                    data += cmp.encode(self.encoding)
+                else:
+                    data += cmp.encode()
+            else:
+                data += cmp
+        return data
+
+    def get_string(self) -> str:
+        string = ""
+        for cmp in self.components:
+            if isinstance(cmp, str):
+                string += cmp
+        return string
+
+    def get_raw_size(self) -> int:
+        size = 0
+        for cmp in self.components:
+            if isinstance(cmp, str):
+                if self.encoding:
+                    size += len(cmp.encode(self.encoding))
+                else:
+                    size += len(cmp.encode())
+            else:
+                size += len(cmp)
+        return size
+
+
+class SoundID(IntEnum):
+    ...
 
 
 class BMG():
     """
     Class representing the Nintendo Binary Message Format
     """
-
-    class EscapeCode:
-        def __init__(self, escape: int):
-            self.escapeCode = escape
-
-    class Encoding(str, Enum):
-        SHIFT_JIS = "shift-jis"
-        LATIN_1 = "latin-1"
-
-    class SoundID(IntEnum):
-        ...
-
     @dataclass
     class MessageEntry:
         name: str
@@ -92,7 +124,6 @@ class BMG():
         self.flagSize = flagSize
 
         self.__messages: List[BMG.MessageEntry] = []
-        self.__encoding = BMG.Encoding.SHIFT_JIS
         self.__isPal = isPal
 
     @staticmethod
@@ -109,15 +140,15 @@ class BMG():
     def from_bytes(cls, f: BytesIO):
         assert f.read(8) == BMG.MAGIC, "File is invalid!"
 
-        size = read_uint32(f)
+        size = read_uint32(f) * 32
+        f.seek(0, 2)
+        assert size == f.tell(), "File size marker doesn't match file size"
+
+        f.seek(12, 0)
         sectionNum = read_uint32(f)
         isPal = sectionNum == 3
-        if read_uint32(f) == 0x03000000:
-            encoding = BMG.Encoding.SHIFT_JIS
-        else:
-            encoding = BMG.Encoding.LATIN_1
 
-        f.seek(12, 1)  # Padding
+        f.seek(16, 1)  # Padding
 
         for i in range(sectionNum):
             f.seek(align_int(f.tell(), 32))  # 32 bit section alignment
@@ -127,7 +158,7 @@ class BMG():
                 assert i == 0, f"INF1 found at incorrect section index {i}!"
                 messageNum = read_uint16(f)
                 packetSize = read_uint16(f)
-                f.seek(4, 1) # unknown values
+                f.seek(4, 1)  # unknown values
 
                 dataOffsets = []
                 strIDOffsets = []
@@ -140,7 +171,6 @@ class BMG():
                         fStart = read_uint16(f)
                         fEnd = read_uint16(f)
                         if isPal:
-                            print(hex(f.tell()))
                             strIDOffsets.append(read_uint16(f))
                         soundID = read_ubyte(f)  # BMG.SoundID(read_ubyte(f))
                         messageMetaDatas.append([fStart, fEnd, soundID])
@@ -160,18 +190,16 @@ class BMG():
                     else:
                         rawMsg = data[offset:]
                     messages.append(
-                        RichMessage.from_bytes(BytesIO(rawMsg), encoding.value)
+                        RichMessage.from_bytes(BytesIO(rawMsg))
                     )
             elif sectionMagic == b"STR1":
                 assert i > 0, f"STR1 found before INF1!"
                 relOfs = f.tell()
                 for i, offset in enumerate(strIDOffsets):
-                    names.append(read_string(f, offset+relOfs, encoding=encoding.value))
-
+                    names.append(read_string(
+                        f, offset+relOfs))
 
         bmg = cls(isPal, packetSize)
-        bmg.encoding = encoding
-
         for i in range(len(messages)):
             bmg.add_message(
                 BMG.MessageEntry(
@@ -183,31 +211,86 @@ class BMG():
                 )
             )
 
-        for message in bmg.iter_messages():
-            print(message)
+        return bmg
 
-    def to_bytes(self, isPal: bool) -> bytes:
-        stream = BytesIO(b"\x00" * self.data_size())
+    def to_bytes(self) -> bytes:
+        header = BytesIO(self.MAGIC)
+        header.seek(len(self.MAGIC))
+        write_uint32(header, self.get_data_size() // 32)
+        write_uint32(header, 3 if self.is_pal() else 2)
+        header.write(b"\x00" * 16)  # padding
+
+        inf1Size = self.get_inf1_size()
+        dat1Size = self.get_dat1_size()
+        str1Size = self.get_str1_size()
+        inf1 = BytesIO(b"INF1" + b"\x00"*(inf1Size-4))
+        dat1 = BytesIO(b"DAT1" + b"\x00"*(dat1Size-4))
+        str1 = BytesIO(b"STR1" + b"\x00"*(str1Size-4))
+        inf1.seek(4)
+        dat1.seek(4)
+        str1.seek(4)
+        write_uint32(inf1, inf1Size)
+        write_uint32(dat1, dat1Size)
+        write_uint32(str1, str1Size)
+
+        write_uint16(inf1, len(self.__messages))
+        write_uint16(inf1, self.flagSize)
+        write_uint32(inf1, 0x00000100)  # unknown value
+        dat1.seek(1, 1)  # idk weird offset thing
+        str1.seek(1, 1)  # same here
+
         for msg in self.__messages:
-            ...
+            # INF1
+            write_uint32(inf1, dat1.tell() - 8)
+            write_uint16(inf1, msg.startFrame)
+            write_uint16(inf1, msg.endFrame)
+            if self.is_pal():
+                write_uint16(inf1, str1.tell() - 8)
+                write_ubyte(inf1, msg.soundID)
+                inf1.seek(1, 1)
+            else:
+                write_ubyte(inf1, msg.soundID)
+                inf1.seek(3, 1)
 
-    @property
-    def dataSize(self) -> int:
-        size = 0x30 if self.__isPal else 0x28
-        for msg in self.__messages:
-            size += self.flagSize
-            if self.__isPal:
-                size += len(msg.name)
-            size += len(msg.message)
-        return align_int(size, 32)
+            # DAT1
+            dat1.write(msg.message.to_bytes())
 
-    @property
-    def encoding(self) -> Encoding:
-        return self.__encoding
+            # STR1
+            write_string(str1, msg.name)
 
-    @encoding.setter
-    def encoding(self, encoding: Encoding):
-        self.__encoding = encoding
+        data = inf1.getvalue() + dat1.getvalue()
+        if self.is_pal():
+            data += str1.getvalue()
+
+        return header.getvalue() + data
+
+    def get_data_size(self) -> int:
+        if self.is_pal():
+            return 0x20 + self.get_inf1_size() + self.get_dat1_size() + self.get_str1_size()
+        else:
+            return 0x20 + self.get_inf1_size() + self.get_dat1_size()
+
+    def get_inf1_size(self) -> int:
+        return align_int(0x10 + (len(self.__messages) * self.flagSize), 32)
+
+    def get_dat1_size(self) -> int:
+        return align_int(
+            0x9 + sum(
+                [msg.message.get_raw_size()
+                 for msg in self.__messages]
+            ), 32
+        )
+
+    def get_str1_size(self) -> int:
+        return align_int(
+            0x9 + sum(
+                [len(msg.name.encode())+1
+                 for msg in self.__messages]
+            ), 32
+        )
+
+    def set_pal(self, isPal: bool):
+        self.__isPal = isPal
 
     def is_pal(self) -> bool:
         return self.__isPal
