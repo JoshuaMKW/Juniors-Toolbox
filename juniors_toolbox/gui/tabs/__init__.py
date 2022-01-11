@@ -7,6 +7,7 @@ from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.gui.tabs.renderer import SceneRendererWidget
 from juniors_toolbox.gui.tabs.object import ObjectHierarchyWidget, ObjectPropertiesWidget
 from juniors_toolbox.gui.tabs.rail import RailListWidget
+from juniors_toolbox.gui.tabs.bmgeditor import BMGMessageEditor
 from juniors_toolbox.gui.tabs.generic import GenericTabWidget
 from juniors_toolbox.gui.widgets.synceddock import QDockWidget
 
@@ -17,7 +18,7 @@ class TabWidgetManager():
         "Object Properties": ObjectPropertiesWidget,
         "Rail List": RailListWidget,
         "Rail Editor": None,
-        "BMG Editor": None,
+        "BMG Editor": BMGMessageEditor,
         "PRM Editor": None,
         "Demo Editor": None,
         "Data Viewer": None,
@@ -33,7 +34,7 @@ class TabWidgetManager():
             ObjectPropertiesWidget: ObjectPropertiesWidget(),
             RailListWidget: RailListWidget(),
             "Rail Editor": None,
-            "BMG Editor": None,
+            BMGMessageEditor: BMGMessageEditor(),
             "PRM Editor": None,
             "Demo Editor": None,
             "Data Viewer": None,
@@ -44,6 +45,7 @@ class TabWidgetManager():
 
     @staticmethod
     def get_tab(key: Union[str, type]) -> Union[QWidget, GenericTabWidget]:
+        print(key)
         if isinstance(key, str):
             key = TabWidgetManager._STR_TO_TYPE[key]
         if key in TabWidgetManager._TAB_WIDGETS:

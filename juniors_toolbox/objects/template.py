@@ -455,7 +455,7 @@ class ObjectTemplate():
         if attrtype == AttributeType.COMMENT:
             this.comment = info[2]
         elif attrtype == AttributeType.TEMPLATE:
-            while (next := f.readline()).strip() != "}":
+            while (next := f.readline().strip()) != "}":
                 if f.tell() >= self.__eof:
                     raise AttributeInvalidError(
                         "Parser found EOF during struct generation!")

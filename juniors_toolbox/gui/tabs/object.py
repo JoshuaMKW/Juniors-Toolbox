@@ -180,6 +180,7 @@ class ObjectPropertiesWidget(QScrollArea, GenericTabWidget):
             childScopes = scopeNames[nestedDepth+1:]
             prefixQual = "" if len(parentScopes) == 0 else ".".join(parentScopes) + "."
             qualname = f"{prefixQual}{thisScope}"
+            print(scopeNames)
 
             if len(childScopes) > 0:
                 container = self._structs.setdefault(qualname, QWidget())

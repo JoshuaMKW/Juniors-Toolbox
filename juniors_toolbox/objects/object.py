@@ -90,9 +90,9 @@ class GameObject():
         def gen_attr(t: ObjectAttribute, nestedNamePrefix: str = "") -> dict:
             def construct(index: int) -> dict:
                 char = "abcdefghijklmnopqrstuvwxyz"[i]
+                parentName = ObjectAttribute.get_formatted_name(
+                    t.name, char, i)
                 if isStruct:
-                    parentName = ObjectAttribute.get_formatted_name(
-                        t.name, char, i)
                     for attr in t.iter_attributes():
                         for attrdata in gen_attr(attr, parentName + "."):
                             this.create_value(
@@ -105,11 +105,11 @@ class GameObject():
                 else:
                     instances.append({
                         "index": -1,
-                        "name": ObjectAttribute.get_formatted_name(
-                            t.name, char, i),
+                        "name": parentName,
                         "value": t.read_from(data),
                         "comment": t.comment
                     })
+
             isStruct = t.is_struct()
             if t.is_count_referenced():
                 count = this.get_value(t.countRef.name)

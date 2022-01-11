@@ -262,8 +262,7 @@ class JuniorsToolbox(QApplication):
             center.setAlignment(Qt.AlignCenter)
         else:
             center = QWidget()
-            center.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
-            #center.setFixedSize(8, 8)
+            center.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
         self.gui.setCentralWidget(center)
         
 
