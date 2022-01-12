@@ -197,19 +197,27 @@ class ObjectAttribute():
     type: AttributeType
     comment: str = ""
     countRef: Union["ObjectAttribute", int] = 1
+    parent: "ObjectAttribute" = None
 
-    # -- TEMPLATE SPECIFIC -- #
+    # -- STRUCT SPECIFIC -- #
     _subattrs: List["ObjectAttribute"] = field(default_factory=lambda: [])
 
-    @staticmethod
-    def get_formatted_name(name: str, char: str, num: int) -> str:
+    def get_formatted_name(self, char: str, num: int) -> str:
         """
         Get this attribute's name formatted
         """
-        templateName = name.replace("{c}", char[0])
+        templateName = self.name.replace("{c}", char[0])
         templateName = templateName.replace("{C}", char[0].upper())
         templateName = templateName.replace("{i}", str(num))
         return templateName
+
+    def get_scoped_name(self, char: str, num: int) -> str:
+        name = self.get_formatted_name(char, num)
+        parent = self.parent
+        while parent:
+            name = f"{parent.name}.{name}"
+            parent = parent.parent
+        return name
 
     def is_struct(self) -> bool:
         """
@@ -237,6 +245,7 @@ class ObjectAttribute():
                 "Can't add attributes of a non struct!")
         if attribute in self:
             return False
+        attribute.parent = self
         self._subattrs.append(attribute)
         return True
 
@@ -246,6 +255,7 @@ class ObjectAttribute():
                 "Can't remove attributes of a non struct!")
         for attribute in self._subattrs:
             if attribute.name == name:
+                attribute.parent = None
                 self._subattrs.remove(attribute)
                 return True
         return False
@@ -459,7 +469,7 @@ class ObjectTemplate():
                 if f.tell() >= self.__eof:
                     raise AttributeInvalidError(
                         "Parser found EOF during struct generation!")
-                this._subattrs.append(self.parse_attr(f, next))
+                this.add_attribute(self.parse_attr(f, next))
 
         return this
 

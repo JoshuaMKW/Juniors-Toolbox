@@ -90,14 +90,15 @@ class GameObject():
         def gen_attr(t: ObjectAttribute, nestedNamePrefix: str = "") -> dict:
             def construct(index: int) -> dict:
                 char = "abcdefghijklmnopqrstuvwxyz"[i]
-                parentName = ObjectAttribute.get_formatted_name(
-                    t.name, char, i)
+                parentName = t.get_formatted_name(char, i)
                 if isStruct:
+                    print(t.get_scoped_name(char, i), f"{nestedNamePrefix}{parentName}")
                     for attr in t.iter_attributes():
-                        for attrdata in gen_attr(attr, parentName + "."):
+                        for attrdata in gen_attr(attr, f"{nestedNamePrefix}{parentName}."):
+                            print(f"{attrdata['name']}")
                             this.create_value(
                                 attrdata["index"],
-                                f"{nestedNamePrefix}{parentName}.{attrdata['name']}",
+                                attrdata['name'],
                                 attrdata["value"],
                                 attrdata["comment"]
                             )
@@ -105,7 +106,7 @@ class GameObject():
                 else:
                     instances.append({
                         "index": -1,
-                        "name": parentName,
+                        "name": f"{nestedNamePrefix}{parentName}",
                         "value": t.read_from(data),
                         "comment": t.comment
                     })
