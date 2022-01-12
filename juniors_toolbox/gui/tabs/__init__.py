@@ -3,6 +3,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, Union
 from PySide2.QtWidgets import QGridLayout, QMainWindow, QWidget
+from juniors_toolbox.gui.tabs.projectviewer import ProjectViewerWidget
 from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.gui.tabs.renderer import SceneRendererWidget
 from juniors_toolbox.gui.tabs.object import ObjectHierarchyWidget, ObjectPropertiesWidget
@@ -14,6 +15,7 @@ from juniors_toolbox.gui.widgets.synceddock import QDockWidget
 
 class TabWidgetManager():
     _STR_TO_TYPE = {
+        "Project Viewer": ProjectViewerWidget,
         "Object Hierarchy": ObjectHierarchyWidget,
         "Object Properties": ObjectPropertiesWidget,
         "Rail List": RailListWidget,
@@ -30,6 +32,7 @@ class TabWidgetManager():
     @staticmethod
     def init():
         TabWidgetManager._TAB_WIDGETS = {
+            ProjectViewerWidget: ProjectViewerWidget(),
             ObjectHierarchyWidget: ObjectHierarchyWidget(),
             ObjectPropertiesWidget: ObjectPropertiesWidget(),
             RailListWidget: RailListWidget(),

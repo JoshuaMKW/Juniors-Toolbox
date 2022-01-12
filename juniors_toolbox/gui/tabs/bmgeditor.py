@@ -3,7 +3,7 @@ import math
 from pathlib import Path
 from typing import Any, List, Union
 from enum import IntEnum
-from PySide2.QtWidgets import QPlainTextEdit
+from PySide2.QtWidgets import QPlainTextEdit, QSplitter
 from PySide2.QtCore import QLine, QModelIndex, QObject, Qt, QTimer
 from PySide2.QtGui import QColor, QCursor, QDragEnterEvent, QDropEvent, QImage, QKeyEvent, QPaintEvent, QPainter
 from PySide2.QtWidgets import (QBoxLayout, QFormLayout, QFrame, QGridLayout,
@@ -225,10 +225,13 @@ class BMGMessageEditor(QWidget, GenericTabWidget):
         #self.messageListBox.setMaximumWidth(180)
         self.messageListBox.setObjectName("Message List")
 
-        self.mainLayout.addWidget(self.messageListBox)
-        self.mainLayout.addWidget(self.textEdit)
-        self.mainLayout.setStretch(1, 2)
-        self.mainLayout.setStretch(0, 1)
+        splitter = QSplitter()
+        splitter.setChildrenCollapsible(False)
+        splitter.addWidget(self.messageListBox)
+        splitter.addWidget(self.textEdit)
+        self.splitter = splitter
+
+        self.mainLayout.addWidget(self.splitter)
 
         self.setLayout(self.mainLayout)
 

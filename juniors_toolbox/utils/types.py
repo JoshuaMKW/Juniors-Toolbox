@@ -791,18 +791,6 @@ class Vec3f(Vector3):
         self.__iteridx += 1
         return self[self.__iteridx-1]
 
-    def __getitem__(self, index: int) -> float:
-        if index not in range(3):
-            raise IndexError(
-                f"Index into {self.__class__.__name__} is out of range ([0-2])")
-        return super().__getitem__(index)
-
-    def __setitem__(self, index: int, value: float):
-        if index not in range(3):
-            raise IndexError(
-                f"Index into {self.__class__.__name__} is out of range ([0-2])")
-        super().__setitem__(index, value)
-
     def __len__(self) -> float:
         return self.magnitude
 
