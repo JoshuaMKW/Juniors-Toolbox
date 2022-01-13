@@ -1,7 +1,7 @@
 from enum import Enum
-from PySide2.QtCore import Signal
-from PySide2.QtGui import QDoubleValidator, QIntValidator
-from PySide2.QtWidgets import QLineEdit
+from PySide6.QtCore import Signal
+from PySide6.QtGui import QDoubleValidator, QIntValidator
+from PySide6.QtWidgets import QLineEdit
 
 class ExplicitLineEdit(QLineEdit):
     textChangedNamed = Signal(QLineEdit)

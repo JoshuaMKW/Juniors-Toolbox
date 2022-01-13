@@ -1,6 +1,6 @@
-from PySide2.QtCore import QPoint, QPointF, Signal
-from PySide2.QtGui import QColor, QMouseEvent, QPaintEvent, QPainter, QPolygonF
-from PySide2.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtCore import QPoint, QPointF, Signal
+from PySide6.QtGui import QColor, QMouseEvent, QPaintEvent, QPainter, QPolygonF
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 class FrameLayout(QFrame):
     def __init__(self, parent=None, title=None):

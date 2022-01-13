@@ -1,4 +1,4 @@
-import glm
+from pyrr.aabb import create_from_bounds
 from dataclasses import dataclass, field
 
 class BMD():
@@ -33,4 +33,4 @@ class BMD():
     
     def __init__(self):
         self.sectionCount = 0
-        self.boundingBox = glm.AABB()
+        self.boundingBox = create_from_bounds(-1000, 1000)

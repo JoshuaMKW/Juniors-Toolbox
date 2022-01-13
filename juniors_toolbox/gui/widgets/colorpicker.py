@@ -8,9 +8,9 @@
 
 import colorsys
 
-from PySide2.QtCore import (QPoint, QRegExp, Qt, QSize)
-from PySide2.QtGui import QColor, QDragLeaveEvent, QIntValidator, QKeyEvent, QPaintEvent, QPainter, QPixmap, QRegExpValidator
-from PySide2.QtWidgets import (QDialog, QGraphicsDropShadowEffect, QLabel, QWidget)
+from PySide6.QtCore import (QPoint, QRegularExpression, Qt, QSize)
+from PySide6.QtGui import QColor, QDragLeaveEvent, QIntValidator, QKeyEvent, QPaintEvent, QPainter, QPixmap, QRegularExpressionValidator
+from PySide6.QtWidgets import (QDialog, QGraphicsDropShadowEffect, QLabel, QWidget)
 from juniors_toolbox.gui.widgets.colorgrabber import ColorPickerDialog
 
 from juniors_toolbox.gui.widgets.ui.img import *

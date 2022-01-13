@@ -2,17 +2,17 @@ from enum import Enum, IntEnum, auto
 from math import pi
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from PySide2.QtGui import QCursor
+from PySide6.QtGui import QCursor
 
 import numpy
-import glm
 from dataclasses import dataclass
 from OpenGL.GL import *
 from OpenGL.GLU import *
 from OpenGL.GLUT import *
-from PySide2.QtCore import Qt
-from PySide2.QtWidgets import QDialog, QOpenGLWidget, QSizePolicy
-from pyrr.objects.matrix44 import Matrix44
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QDialog, QSizePolicy
+from PySide6.QtOpenGLWidgets import QOpenGLWidget
+from pyrr import Vector3, Vector4, Matrix33, Matrix44
 from juniors_toolbox.utils.gx.color import ColorF32, Color
 from juniors_toolbox.gui.tabs.generic import GenericTabWidget
 from juniors_toolbox.utils.types import Transform, Vec2f, Vec3f
@@ -89,21 +89,17 @@ class Shader():
     def setVec3f(self, name: str, x: float, y: float, z: float):
         glUniform3f(glGetUniformLocation(self.__id, name), x, y, z)
 
-    def setVec4(self, name: str, value: glm.vec4):
+    def setVec4(self, name: str, value: Vector4):
         glUniform4fv(glGetUniformLocation(self.__id, name), 1, value)
 
     def setVec4f(self, name: str, x: float, y: float, z: float, w: float):
         glUniform4f(glGetUniformLocation(self.__id, name), x, y, z, w)
 
-    def setMat2(self, name: str, mat: glm.mat2):
-        glUniformMatrix2fv(glGetUniformLocation(
-            self.__id, name), 1, GL_FALSE, mat)
-
-    def setMat3(self, name: str, mat: glm.mat3):
+    def setMat3(self, name: str, mat: Matrix33):
         glUniformMatrix3fv(glGetUniformLocation(
             self.__id, name), 1, GL_FALSE, mat)
 
-    def setMat4(self, name: str, mat: glm.mat4):
+    def setMat4(self, name: str, mat: Matrix44):
         glUniformMatrix4fv(glGetUniformLocation(
             self.__id, name), 1, GL_FALSE, mat)
 
@@ -187,8 +183,8 @@ class SceneCamera():
         self.renderWidth = 640.0
         self.renderHeight = self.renderWidth * 0.5625
 
-        self._camMatrix = glm.mat4()
-        self._skyMatrix = glm.mat4()
+        self._camMatrix = Matrix44.identity()
+        self._skyMatrix = Matrix44.identity()
         self._orthoGraphic = False
         self._orthoZoom = 1.0
 
@@ -206,20 +202,32 @@ class SceneCamera():
     def set_orthographic(self, ortho: bool):
         self._orthoGraphic = ortho
 
-    def get_view_matrix(self) -> glm.mat4:
-        return glm.lookat(
+    def get_view_matrix(self) -> Matrix44:
+        return Matrix44.look_at(
             self.transform.position,
             self.transform.position + self.transform.forward,
             self.transform.up
         )
 
-    def get_projection_matrix(self) -> glm.mat4:
+    def get_projection_matrix(self) -> Matrix44:
         if self._orthoGraphic:
-            return glm.ortho(0, self.renderWidth, 0, self.renderHeight, self.zNearOrtho, self.zFarOrtho)
+            return Matrix44.orthogonal_projection(
+                0,
+                self.renderWidth,
+                0,
+                self.renderHeight,
+                self.zNearOrtho,
+                self.zFarOrtho
+            )
         else:
-            return glm.perspective(self.fov, self.renderWidth / self.renderHeight, self.zNear, self.zFar)
+            return Matrix44.perspective_projection(
+                self.fov,
+                self.renderWidth / self.renderHeight,
+                self.zNear,
+                self.zFar
+            )
 
-    def get_sky_matrix(self) -> glm.mat4:
+    def get_sky_matrix(self) -> Matrix44:
         return self._skyMatrix
 
     def apply_render_settings(self):

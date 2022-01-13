@@ -1,7 +1,7 @@
-from PySide2.QtCore import (QObject, QPoint, QTimer, Qt, QSize, Signal)
-from PySide2.QtGui import QColor, QCursor, QDragLeaveEvent, QMouseEvent
-from PySide2.QtWidgets import (QDialog, QGraphicsDropShadowEffect, QWidget)
-from juniors_toolbox.gui.commoncursor import CommonCursor, get_common_cursor
+from PySide6.QtCore import (QObject, QPoint, QTimer, Qt, QSize, Signal)
+from PySide6.QtGui import QColor, QCursor, QDragLeaveEvent, QMouseEvent
+from PySide6.QtWidgets import (QDialog, QGraphicsDropShadowEffect, QWidget)
+from juniors_toolbox.gui.images import CommonCursor, get_common_cursor
 from juniors_toolbox.gui.tools import get_screen_pixel_color
 
 from juniors_toolbox.utils.types import BasicColors, RGBA8

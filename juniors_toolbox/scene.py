@@ -63,7 +63,6 @@ class SMSScene():
 
     def get_object(self, name: str, desc: str) -> GameObject:
         for obj in self.iter_objects(True):
-            print(obj.name, name)
             if obj.name == name and obj.desc == desc:
                 return obj
         

@@ -1,24 +1,33 @@
-from PySide2.QtCore import QSize, Signal, SignalInstance
-from PySide2.QtGui import QCloseEvent, QHideEvent, QResizeEvent
-from PySide2.QtWidgets import QDockWidget
+from PySide6.QtCore import QSize, Signal, SignalInstance
+from PySide6.QtGui import QCloseEvent, QHideEvent, QResizeEvent
+from PySide6.QtWidgets import QDockWidget
+
 
 class SyncedDockWidget(QDockWidget):
     closed: SignalInstance = Signal(QDockWidget)
     hidden: SignalInstance = Signal(QDockWidget)
     resized: SignalInstance = Signal(QResizeEvent)
 
+    def __init__(self, title, parent=None):
+        super().__init__(title, parent)
+
     def closeEvent(self, event: QCloseEvent):
         super().closeEvent(event)
         self.closed.emit(self)
+        # self.closed.emit(self)
 
     def hideEvent(self, event: QHideEvent):
         super().hideEvent(event)
-        self.hidden.emit(self)
+        # self.hidden.emit(self)
 
     def minimumSizeHint(self) -> QSize:
         titleSize = self.titleBarWidget().minimumSize()
         widgetSize = self.widget().minimumSize()
-        return QSize(widgetSize.width(), titleSize.height() + widgetSize.height())
+        margins = self.contentsMargins()
+        return QSize(
+            widgetSize.width() + margins.left() + margins.right(),
+            titleSize.height() + widgetSize.height() + margins.top() + margins.bottom()
+        )
 
     def resizeEvent(self, event: QResizeEvent):
         super().resizeEvent(event)

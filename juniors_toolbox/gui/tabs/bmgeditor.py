@@ -3,14 +3,14 @@ import math
 from pathlib import Path
 from typing import Any, List, Union
 from enum import IntEnum
-from PySide2.QtWidgets import QPlainTextEdit, QSplitter
-from PySide2.QtCore import QLine, QModelIndex, QObject, Qt, QTimer
-from PySide2.QtGui import QColor, QCursor, QDragEnterEvent, QDropEvent, QImage, QKeyEvent, QPaintEvent, QPainter
-from PySide2.QtWidgets import (QBoxLayout, QFormLayout, QFrame, QGridLayout,
+from PySide6.QtWidgets import QPlainTextEdit, QSplitter
+from PySide6.QtCore import QLine, QModelIndex, QObject, Qt, QTimer
+from PySide6.QtGui import QColor, QCursor, QDragEnterEvent, QDropEvent, QImage, QKeyEvent, QPaintEvent, QPainter
+from PySide6.QtWidgets import (QBoxLayout, QFormLayout, QFrame, QGridLayout,
                                QGroupBox, QHBoxLayout, QLabel, QLayout,
                                QLineEdit, QListWidget, QListWidgetItem, QPushButton,
                                QScrollArea, QSizePolicy, QSpacerItem, QStyle, QTextEdit,
-                               QTreeWidget, QTreeWidgetItem, QUndoCommand, QUndoStack,
+                               QTreeWidget, QTreeWidgetItem,
                                QVBoxLayout, QWidget)
 
 from nodeeditor.node_scene import Scene

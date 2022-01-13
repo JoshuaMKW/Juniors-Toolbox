@@ -1,8 +1,8 @@
 from pathlib import Path
 from typing import List
 
-from PySide2.QtCore import Qt
-from PySide2.QtWidgets import QFrame, QListWidget, QSizePolicy, QTreeWidget, QTreeWidgetItem
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QFrame, QListWidget, QSizePolicy, QTreeWidget, QTreeWidgetItem
 from juniors_toolbox.gui.tabs.generic import GenericTabWidget
 from juniors_toolbox.objects.object import GameObject
 from juniors_toolbox.scene import SMSScene

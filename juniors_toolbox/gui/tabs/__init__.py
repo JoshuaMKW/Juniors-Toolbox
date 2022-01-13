@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, Union
-from PySide2.QtWidgets import QGridLayout, QMainWindow, QWidget
+from PySide6.QtWidgets import QGridLayout, QMainWindow, QWidget
 from juniors_toolbox.gui.tabs.projectviewer import ProjectViewerWidget
 from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.gui.tabs.renderer import SceneRendererWidget
@@ -10,7 +10,7 @@ from juniors_toolbox.gui.tabs.object import ObjectHierarchyWidget, ObjectPropert
 from juniors_toolbox.gui.tabs.rail import RailListWidget
 from juniors_toolbox.gui.tabs.bmgeditor import BMGMessageEditor
 from juniors_toolbox.gui.tabs.generic import GenericTabWidget
-from juniors_toolbox.gui.widgets.synceddock import QDockWidget
+from juniors_toolbox.gui.widgets.synceddock import SyncedDockWidget
 
 
 class TabWidgetManager():
@@ -48,7 +48,6 @@ class TabWidgetManager():
 
     @staticmethod
     def get_tab(key: Union[str, type]) -> Union[QWidget, GenericTabWidget]:
-        print(key)
         if isinstance(key, str):
             key = TabWidgetManager._STR_TO_TYPE[key]
         if key in TabWidgetManager._TAB_WIDGETS:

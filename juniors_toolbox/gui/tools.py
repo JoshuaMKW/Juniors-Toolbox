@@ -1,7 +1,7 @@
 from typing import Iterable, Union
-from PySide2.QtCore import QPoint
-from PySide2.QtGui import QScreen
-from PySide2.QtWidgets import QLayout, QLayoutItem, QWidget
+from PySide6.QtCore import QPoint
+from PySide6.QtGui import QScreen
+from PySide6.QtWidgets import QLayout, QLayoutItem, QWidget
 
 from juniors_toolbox.utils.types import RGBA8
 

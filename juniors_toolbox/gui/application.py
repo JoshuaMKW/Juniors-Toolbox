@@ -3,10 +3,10 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
-from PySide2.QtCore import QPoint, QSize, Slot
-from PySide2.QtGui import QResizeEvent, Qt
+from PySide6.QtCore import QPoint, QSize, Slot
+from PySide6.QtGui import QResizeEvent, Qt
 
-from PySide2.QtWidgets import QApplication, QDockWidget, QLabel, QMainWindow, QSizePolicy, QStyleFactory, QWidget
+from PySide6.QtWidgets import QApplication, QDockWidget, QFileDialog, QLabel, QMainWindow, QSizePolicy, QStyleFactory, QWidget
 from juniors_toolbox import __version__
 from juniors_toolbox.gui.tabs import TabWidgetManager
 from juniors_toolbox.gui.tabs.object import ObjectHierarchyWidget, ObjectHierarchyWidgetItem, ObjectPropertiesWidget
@@ -34,7 +34,6 @@ class JuniorsToolbox(QApplication):
             return
 
         super().__init__()
-        TabWidgetManager.init()
 
         self.__singleton_ready = True
 
@@ -50,6 +49,9 @@ class JuniorsToolbox(QApplication):
         self.__scene = SMSScene()
         self.__scenePath = None
         self.__openTabs: Dict[str, SyncedDockWidget] = {}
+        self.__tabs: Dict[str, SyncedDockWidget] = {}
+
+        TabWidgetManager.init()
 
         # Set up tab syncing
         objectPropertyTab = TabWidgetManager.get_tab(ObjectPropertiesWidget)
@@ -58,17 +60,38 @@ class JuniorsToolbox(QApplication):
             lambda cur, prev: objectPropertyTab.populate(cur.object, self.scenePath))
 
         self.gui.setWindowTitle(self.get_window_title())
-        self.update_theme(MainWindow.Themes.LIGHT)
+        self.update_theme(MainWindow.Theme.LIGHT)
         self.set_central_status(self.is_docker_empty())
 
         # Set up tab spawning
         self.gui.tabActionRequested.connect(self.openDockerTab)
         self.gui.resized.connect(self.force_minimum_size)
 
+        # Set up file dialogs
+        self.gui.actionNew.triggered.connect(
+            lambda _: self.reset()
+        )  # throw away checked flag
+        self.gui.actionClose.triggered.connect(
+            lambda _: self.reset()
+        )  # throw away checked flag
+        self.gui.actionOpen.triggered.connect(
+            lambda _: self.open_scene()
+        )  # throw away checked flag
+        self.gui.actionSave.triggered.connect(
+            lambda _: self.save_scene(self.scenePath)
+        )  # throw away checked flag
+        self.gui.actionSaveAs.triggered.connect(
+            lambda _: self.save_scene()
+        )  # throw away checked flag
+
+        # Set up theme toggle
+        self.gui.themeChanged.connect(self.update_theme)
+
     # --- GETTER / SETTER --- #
 
-    def get_instance(self) -> "JuniorsToolbox":
-        return self.__singleton
+    @staticmethod
+    def get_instance() -> "JuniorsToolbox":
+        return JuniorsToolbox.__singleton
 
     @property
     def scene(self) -> SMSScene:
@@ -86,6 +109,10 @@ class JuniorsToolbox(QApplication):
     @scenePath.setter
     def scenePath(self, path: Path):
         self.__scenePath = path
+        self.scene = SMSScene.from_path(path)
+        projectViewer = TabWidgetManager.get_tab("Project Viewer")
+        projectViewer.scenePath = path
+        self.update_elements(self.scene)
 
     # --- GUI --- #
 
@@ -108,6 +135,15 @@ class JuniorsToolbox(QApplication):
         elif sys.platform == "darwin":
             subprocess.Popen(['open', '--', path.resolve()])
 
+    # --- LOGIC --- #
+
+    def load_scene(self, scene: Path) -> bool:
+        """
+        Load a scene into the GUI
+        """
+        self.scenePath = scene
+        return self.scene is not None
+
     def load_program_config(self):
         """
         Load the program config for further use
@@ -115,7 +151,7 @@ class JuniorsToolbox(QApplication):
         self.settings = SMSBinEditorSettings()
 
         if not self.get_config_path().exists():
-            self.theme = MainWindow.Themes.LIGHT
+            self.theme = MainWindow.Theme.LIGHT
             return
 
         self.settings.load(self.get_config_path())
@@ -133,16 +169,16 @@ class JuniorsToolbox(QApplication):
         """
         config = self.settings
 
-    def update_theme(self, theme: "MainWindow.Themes"):
+    def update_theme(self, theme: "MainWindow.Theme"):
         """
         Update the UI theme to the specified theme
         """
         from qdarkstyle import load_stylesheet
-        if theme == MainWindow.Themes.LIGHT:
-            self.theme = MainWindow.Themes.LIGHT
+        if theme == MainWindow.Theme.LIGHT:
+            self.theme = MainWindow.Theme.LIGHT
             self.setStyleSheet("")
         else:
-            self.theme = MainWindow.Themes.DARK
+            self.theme = MainWindow.Theme.DARK
             self.setStyleSheet(load_stylesheet())
 
     def update_elements(self, scene: SMSScene):
@@ -161,36 +197,8 @@ class JuniorsToolbox(QApplication):
         """
         self.gui.show()
 
-    @Slot(str)
-    def openDockerTab(self, name: str):
-        tab = TabWidgetManager.get_tab(name)
-        if name in self.__openTabs:
-            return
-        deTab = SyncedDockWidget(name)
-        deTab.setObjectName(name)
-        deTab.setWidget(tab)
-        deTab.setFloating(len(self.__openTabs) > 0)
-        deTab.setAllowedAreas(Qt.AllDockWidgetAreas)
-        deTab.resized.connect(self.force_minimum_size)
-        deTab.topLevelChanged.connect(lambda _: self.set_central_status(self.is_docker_empty()))
-        areas = [Qt.LeftDockWidgetArea, Qt.RightDockWidgetArea]
-        self.gui.addDockWidget(areas[len(self.__openTabs) % 2], deTab)
-
-        deTab.closed.connect(self.closeDockerTab)
-        deTab.show()
-        self.__openTabs[name] = deTab
-        
-        self.set_central_status(self.is_docker_empty())
-
-
-    @Slot(str)
-    def closeDockerTab(self, tab: SyncedDockWidget):
-        if tab.windowTitle() not in self.__openTabs:
-            return
-        tab = self.__openTabs.pop(tab.windowTitle())
-        tab.setWidget(None)
-        self.gui.removeDockWidget(tab)
-        self.set_central_status(self.is_docker_empty())
+    def reset(self):
+        self.scene = SMSScene()
 
     def is_docker_empty(self) -> bool:
         return len(self.__openTabs) == 0
@@ -219,7 +227,7 @@ class JuniorsToolbox(QApplication):
                     if innertab.pos().x() <= tab.pos().x():
                         continue
                     wtabs[tab].append(innertab)
-                elif tab.x_contains(innertab.pos().x(), innertab.size().width()):
+                if tab.x_contains(innertab.pos().x(), innertab.size().width()):
                     if innertab.pos().y() <= tab.pos().y():
                         continue
                     htabs[tab].append(innertab)
@@ -229,7 +237,8 @@ class JuniorsToolbox(QApplication):
             if len(connections[node]) == 0:
                 return _width
             #print([recursive_sum_w(connections, tab) for tab in connections[node]])
-            _width += max([recursive_sum_w(connections, tab) for tab in connections[node]])
+            _width += max([recursive_sum_w(connections, tab)
+                           for tab in connections[node]])
             return _width + 16
 
         def recursive_sum_h(connections: dict, node: SyncedDockWidget) -> QSize:
@@ -237,22 +246,15 @@ class JuniorsToolbox(QApplication):
             if len(connections[node]) == 0:
                 return _height
             #print([recursive_sum_h(connections, tab) for tab in connections[node]])
-            _height += max([recursive_sum_h(connections, tab) for tab in connections[node]])
+            _height += max([recursive_sum_h(connections, tab)
+                            for tab in connections[node]])
             return _height + 16
-                
 
-        width = max([recursive_sum_w(wtabs, tab) for tab in wtabs]) if len(wtabs) > 0 else self.gui.minimumSize().width() + self.gui.centralWidget().minimumSize().width()
-        height = max([recursive_sum_h(htabs, tab) for tab in htabs]) if len(htabs) > 0 else self.gui.minimumSize().height() + self.gui.centralWidget().minimumSize().height()
+        width = max([recursive_sum_w(wtabs, tab) for tab in wtabs]) if len(
+            wtabs) > 0 else self.gui.minimumSize().width() + self.gui.centralWidget().minimumSize().width()
+        height = max([recursive_sum_h(htabs, tab) for tab in htabs]) if len(
+            htabs) > 0 else self.gui.minimumSize().height() + self.gui.centralWidget().minimumSize().height()
         return QSize(width, height)
-    
-    @Slot(QResizeEvent)
-    def force_minimum_size(self, event: QResizeEvent):
-        size = self.get_min_hw()
-        self.gui.setMinimumSize(size)
-        if event.size().height() > size.height():
-            size.setHeight(event.size().height())
-        if event.size().width() > size.width():
-            size.setWidth(event.size().width())
 
     def set_central_status(self, empty: bool):
         if empty:
@@ -264,14 +266,70 @@ class JuniorsToolbox(QApplication):
             center = QWidget()
             center.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
         self.gui.setCentralWidget(center)
-        
 
-    # --- LOGIC --- #
+    # -- SLOTS -- #
 
-    def load_scene(self, scene: Path) -> bool:
-        """
-        Load a scene into the GUI
-        """
-        self.scene = SMSScene.from_path(scene)
-        self.scenePath = scene
-        return self.scene is not None
+    @Slot(Path)
+    def open_scene(self, path: Optional[Path] = None) -> bool:
+        if path is None:
+            dialog = QFileDialog(
+                parent=self.gui,
+                caption="Open Scene...",
+                directory=str(
+                    self.scenePath.parent if self.scenePath else Path.home()
+                )
+            )
+            # filter="Gamecube Image (*.iso *.gcm);;All files (*)")
+
+            dialog.setAcceptMode(QFileDialog.AcceptOpen)
+            dialog.setFileMode(QFileDialog.Directory)
+
+            if dialog.exec_() != QFileDialog.Accepted:
+                return False
+
+            path = Path(dialog.selectedFiles()[0]).resolve()
+        self.scenePath = path
+
+    @Slot(str)
+    def openDockerTab(self, name: str):
+        tab = TabWidgetManager.get_tab(name)
+        if name in self.__openTabs:
+            return
+        deTab = self.__tabs.setdefault(name, SyncedDockWidget(name))
+        deTab.setObjectName(name)
+        deTab.setWidget(tab)
+        deTab.setFloating(len(self.__openTabs) > 0)
+        deTab.setAllowedAreas(Qt.AllDockWidgetAreas)
+        deTab.resized.connect(self.force_minimum_size)
+            
+        areas = [Qt.LeftDockWidgetArea, Qt.RightDockWidgetArea]
+        self.gui.addDockWidget(areas[len(self.__openTabs) % 2], deTab)
+
+        deTab.topLevelChanged.connect(
+            lambda _: self.set_central_status(self.is_docker_empty()))
+        deTab.closed.connect(self.closeDockerTab)
+
+        deTab.show()
+        self.__openTabs[name] = deTab
+
+        self.set_central_status(self.is_docker_empty())
+
+    @Slot(str)
+    def closeDockerTab(self, tab: SyncedDockWidget):
+        if tab.windowTitle() not in self.__openTabs:
+            return
+        tab.setWidget(None)
+        tab.setParent(None)
+        self.gui.removeDockWidget(tab)
+        self.set_central_status(self.is_docker_empty())
+
+        self.__openTabs.pop(tab.windowTitle())
+
+    @Slot(QResizeEvent)
+    def force_minimum_size(self, event: QResizeEvent):
+        size = self.get_min_hw()
+        self.gui.setMinimumSize(size)
+        if event.size().height() > size.height():
+            size.setHeight(event.size().height())
+        if event.size().width() > size.width():
+            size.setWidth(event.size().width())

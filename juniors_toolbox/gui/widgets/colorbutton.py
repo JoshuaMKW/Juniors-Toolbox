@@ -1,9 +1,9 @@
 from typing import List
-from PySide2.QtCore import QSize, Qt, Signal
-from PySide2.QtGui import QBrush, QColor, QCursor, QImage, QMouseEvent, QPaintEvent, QPainter, QPalette, QPen, QPixmap
-from PySide2.QtWidgets import QColorDialog, QFrame, QLabel, QListWidget, QPushButton, QTreeWidget, QTreeWidgetItem
+from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtGui import QBrush, QColor, QCursor, QImage, QMouseEvent, QPaintEvent, QPainter, QPalette, QPen, QPixmap
+from PySide6.QtWidgets import QColorDialog, QFrame, QLabel, QListWidget, QPushButton, QTreeWidget, QTreeWidgetItem
 from numpy.lib.arraysetops import isin
-from juniors_toolbox.gui.commoncursor import CommonCursor, get_common_cursor
+from juniors_toolbox.gui.images import CommonCursor, get_common_cursor
 
 from juniors_toolbox.gui.widgets.colorpicker import ColorPicker
 from juniors_toolbox.objects.object import GameObject

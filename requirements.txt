@@ -1,6 +1,10 @@
-PySide2
+PySide6
 PyOpenGL
 oead
 numpy
 pillow
 nodeeditor
+watchdog
+chardet
+pyrr
+qdarkstyle

@@ -92,10 +92,8 @@ class GameObject():
                 char = "abcdefghijklmnopqrstuvwxyz"[i]
                 parentName = t.get_formatted_name(char, i)
                 if isStruct:
-                    print(t.get_scoped_name(char, i), f"{nestedNamePrefix}{parentName}")
                     for attr in t.iter_attributes():
                         for attrdata in gen_attr(attr, f"{nestedNamePrefix}{parentName}."):
-                            print(f"{attrdata['name']}")
                             this.create_value(
                                 attrdata["index"],
                                 attrdata['name'],
@@ -123,7 +121,6 @@ class GameObject():
                 while True:
                     if data.tell() >= objEndPos:
                         return instances
-                    print(data.tell(), objEndPos)
                     construct(i)
                     i += 1
 
@@ -249,16 +246,11 @@ class GameObject():
             return False
 
         for val in self._values:
-            print(val)
             if val[0] == attrname:
                 if isinstance(val[1], Vec3f):
                     val[1] = value
                 else:
-                    print(val[1])
-                    print(value)
-                    print(val[1].__class__)
                     val[1] = val[1].__class__(value)
-                    #print(val[0], val[1].value)
                 return True
         return False
 
@@ -296,7 +288,6 @@ class GameObject():
                 easyname = f"{attrname}{i}"
 
         attrname = easyname
-        print(attrname, isVeryUnique)
 
         if isVeryUnique:
             try:
@@ -310,7 +301,6 @@ class GameObject():
                 else:
                     attr = self._template.get_attribute(scopedNames[0])
                     for i, name in enumerate(scopedNames[1:], start=2):
-                        print(attr, name, i, nestingDepth)
                         if attr is None:
                             return False
 

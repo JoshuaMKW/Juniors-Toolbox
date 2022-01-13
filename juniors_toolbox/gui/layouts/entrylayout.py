@@ -1,7 +1,7 @@
 from typing import List
-from PySide2.QtCore import QPoint, QPointF, QRect, QSize, Qt, Signal
-from PySide2.QtGui import QColor, QCursor, QMouseEvent, QPaintEvent, QPainter, QPolygonF
-from PySide2.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QLayout, QLineEdit, QSizePolicy, QSpacerItem, QVBoxLayout, QWidget
+from PySide6.QtCore import QPoint, QPointF, QRect, QSize, Qt, Signal
+from PySide6.QtGui import QColor, QCursor, QMouseEvent, QPaintEvent, QPainter, QPolygonF
+from PySide6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QLayout, QLineEdit, QSizePolicy, QSpacerItem, QVBoxLayout, QWidget
 from juniors_toolbox.objects.object import GameObject
 
 from juniors_toolbox.gui.tools import walk_layout

@@ -4,13 +4,13 @@ from threading import Event
 from typing import Any, Dict, List, Tuple, Union
 from queue import LifoQueue
 
-from PySide2.QtCore import QLine, QModelIndex, QObject, Qt, QTimer
-from PySide2.QtGui import QColor, QCursor, QDragEnterEvent, QDropEvent, QKeyEvent
-from PySide2.QtWidgets import (QBoxLayout, QFormLayout, QFrame, QGridLayout,
+from PySide6.QtCore import QLine, QModelIndex, QObject, Qt, QTimer
+from PySide6.QtGui import QColor, QCursor, QDragEnterEvent, QDropEvent, QKeyEvent, QUndoCommand, QUndoStack
+from PySide6.QtWidgets import (QBoxLayout, QFormLayout, QFrame, QGridLayout,
                                QGroupBox, QHBoxLayout, QLabel, QLayout,
                                QLineEdit, QListWidget, QPushButton,
                                QScrollArea, QSizePolicy, QSpacerItem, QStyle,
-                               QTreeWidget, QTreeWidgetItem, QUndoCommand, QUndoStack,
+                               QTreeWidget, QTreeWidgetItem,
                                QVBoxLayout, QWidget)
 from juniors_toolbox.gui.layouts.entrylayout import EntryLayout
 from juniors_toolbox.gui.layouts.framelayout import FrameLayout
@@ -180,7 +180,6 @@ class ObjectPropertiesWidget(QScrollArea, GenericTabWidget):
             childScopes = scopeNames[nestedDepth+1:]
             prefixQual = "" if len(parentScopes) == 0 else ".".join(parentScopes) + "."
             qualname = f"{prefixQual}{thisScope}"
-            print(scopeNames)
 
             if len(childScopes) > 0:
                 container = self._structs.setdefault(qualname, QWidget())
