@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from queue import LifoQueue
 
 from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
+from watchdog.events import FileSystemEventHandler, FileSystemEvent
 
 from PySide6.QtCore import QLine, QModelIndex, QObject, QSize, Qt, QTimer, Signal, SignalInstance, QThread, Slot, QAbstractItemModel, QPoint
 from PySide6.QtGui import QColor, QCursor, QDragEnterEvent, QDropEvent, QIcon, QImage, QKeyEvent, QUndoCommand, QUndoStack, QPixmap, QAction
@@ -87,7 +87,7 @@ class ProjectHierarchyItem(QTreeWidgetItem):
     def get_path(self) -> Path:
         subPath = self.text(0)
         parent = self.parent()
-        while True:
+        while parent:
             next = parent.parent()
             if next is None and parent.text(0) == "scene":
                 break
@@ -106,22 +106,24 @@ class ProjectViewerWidget(QWidget, GenericTabWidget):
 
             self.__block = False
 
-        def on_closed(self, event):
+        def on_closed(self, event: FileSystemEvent):
             ...#self.__changed = True
 
-        def on_created(self, event):
-            self.signal_change()
+        def on_created(self, event: FileSystemEvent):
+            self.signal_change(event)
 
-        def on_deleted(self, event):
-            self.signal_change()
+        def on_deleted(self, event: FileSystemEvent):
+            self.signal_change(event)
 
-        def on_modified(self, event):
-            self.signal_change()
+        def on_modified(self, event: FileSystemEvent):
+            self.signal_change(event)
 
-        def on_moved(self, event):
-            ...#self.__changed = True
+        def on_moved(self, event: FileSystemEvent):
+            self.signal_change(event)
 
-        def signal_change(self):
+        def signal_change(self, event: FileSystemEvent):
+            if event.is_synthetic:
+                return
             if not self.__block:
                 self.fileSystemChanged.emit()
             self.__block = False
@@ -213,6 +215,7 @@ class ProjectViewerWidget(QWidget, GenericTabWidget):
     @Slot()
     def update_tree(self):
         print("Updating tree")
+        expandTree = self.__record_expand_tree()
         self.fsTreeWidget.clear()
 
         def __inner_recurse_tree(parent: ProjectHierarchyItem, path: Path):
@@ -230,6 +233,7 @@ class ProjectViewerWidget(QWidget, GenericTabWidget):
         self.fsTreeWidget.addTopLevelItem(self.rootFsItem)
         self.fsTreeWidget.setSortingEnabled(True)
         self.fsTreeWidget.sortItems(0, Qt.SortOrder.AscendingOrder)
+        self.__apply_expand_tree(expandTree)
 
         self.__populate_folder_view(self.focusedPath)
 
@@ -357,3 +361,29 @@ class ProjectViewerWidget(QWidget, GenericTabWidget):
             self.folderViewWidget.addItem(item)
         self.folderViewWidget.setSortingEnabled(True)
         self.folderViewWidget.sortItems(Qt.SortOrder.AscendingOrder)
+
+    def __record_expand_tree(self) -> dict:
+        tree = {}
+        def __inner_recurse(parent: ProjectHierarchyItem):
+            nonlocal tree
+            for i in range(parent.childCount()):
+                child: ProjectHierarchyItem = parent.child(i)
+                __inner_recurse(child)
+                tree[child.get_path()] = child.isExpanded()
+        for i in range(self.fsTreeWidget.topLevelItemCount()):
+            child: ProjectHierarchyItem = self.fsTreeWidget.topLevelItem(i)
+            __inner_recurse(child)
+            tree[child.get_path()] = child.isExpanded()
+        return tree
+
+    def __apply_expand_tree(self, tree: dict):
+        def __inner_recurse(parent: ProjectHierarchyItem):
+            nonlocal tree
+            for i in range(parent.childCount()):
+                child: ProjectHierarchyItem = parent.child(i)
+                __inner_recurse(child)
+                child.setExpanded(tree.setdefault(child.get_path(), False))
+        for i in range(self.fsTreeWidget.topLevelItemCount()):
+            child: ProjectHierarchyItem = self.fsTreeWidget.topLevelItem(i)
+            __inner_recurse(child)
+            child.setExpanded(tree.setdefault(child.get_path(), False))
