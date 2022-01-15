@@ -125,16 +125,6 @@ class JuniorsToolbox(QApplication):
     def get_window_title():
         return f"Junior's Toolbox v{__version__}"
 
-    @staticmethod
-    def open_path_in_explorer(path: Path):
-        if sys.platform == "win32":
-            subprocess.Popen(
-                f"explorer /select,\"{path.resolve()}\"", shell=True)
-        elif sys.platform == "linux":
-            subprocess.Popen(["xdg-open", path.resolve()])
-        elif sys.platform == "darwin":
-            subprocess.Popen(['open', '--', path.resolve()])
-
     # --- LOGIC --- #
 
     def load_scene(self, scene: Path) -> bool:

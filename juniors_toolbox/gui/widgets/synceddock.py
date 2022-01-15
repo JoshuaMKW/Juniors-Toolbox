@@ -20,7 +20,11 @@ class SyncedDockWidget(QDockWidget):
         super().hideEvent(event)
         # self.hidden.emit(self)
 
+    def sizeHint(self) -> QSize:
+        self.minimumSizeHint()
+
     def minimumSizeHint(self) -> QSize:
+        return super().minimumSizeHint()
         titleSize = self.titleBarWidget().minimumSize()
         widgetSize = self.widget().minimumSize()
         margins = self.contentsMargins()

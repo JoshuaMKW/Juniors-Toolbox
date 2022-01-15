@@ -1,4 +1,6 @@
 from pathlib import Path
+import subprocess
+import sys
 from juniors_toolbox import __file__ as _ModulePath
 
 def resource_path(relPath: str = "") -> Path:
@@ -40,6 +42,17 @@ def get_program_folder(folder: str = "") -> Path:
     else:
         raise NotImplementedError(f"{sys.platform} OS is unsupported")
     return datapath
+
+
+def open_path_in_explorer(path: Path):
+    if sys.platform == "win32":
+        subprocess.Popen(
+            f"explorer /select,\"{path.resolve()}\"", shell=True)
+    elif sys.platform == "linux":
+        subprocess.Popen(["xdg-open", path.resolve()])
+    elif sys.platform == "darwin":
+        subprocess.Popen(['open', '--', path.resolve()])
+
 
 # bytes pretty-printing
 UNITS_MAPPING = (
