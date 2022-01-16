@@ -66,14 +66,4 @@ class TabWidgetManager():
     def is_tab_open(key: Union[str, type]) -> bool:
         tab = TabWidgetManager.get_tab(key)
         return False if tab is None else tab.isVisible()
-
-    @staticmethod
-    def is_tab_nested(key: Union[str, type]) -> bool:
-        """
-        Return if the tab is nested in a parent space
-        """
-        tab = TabWidgetManager.get_tab(key)
-        if isinstance(tab.parent(), QDockWidget.DetachedTab):
-            return False
-        return True
     
