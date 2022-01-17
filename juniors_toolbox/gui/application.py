@@ -109,9 +109,9 @@ class JuniorsToolbox(QApplication):
     @scenePath.setter
     def scenePath(self, path: Path):
         self.__scenePath = path
-        self.scene = SMSScene.from_path(path)
         projectViewer = TabWidgetManager.get_tab("Project Viewer")
         projectViewer.scenePath = path
+        self.scene = SMSScene.from_path(path)
         self.update_elements(self.scene)
 
     # --- GUI --- #
@@ -192,59 +192,56 @@ class JuniorsToolbox(QApplication):
 
     def is_docker_empty(self) -> bool:
         return len(self.__openTabs) == 0
-        #print([w.isFloating() for w in self.__openTabs.values()])
-        #print([w.isWindowType() for w in self.__openTabs.values()])
-        return all([w.isFloating() for w in self.__openTabs.values()])
 
-    def get_min_hw(self) -> QSize:
-        htabs = {}
-        wtabs = {}
+    # def get_min_hw(self) -> QSize:
+    #     htabs = {}
+    #     wtabs = {}
 
-        tabs = self.__openTabs.values()
-        if len(tabs) == 0:
-            return self.gui.minimumSize()
+    #     tabs = self.__openTabs.values()
+    #     if len(tabs) == 0:
+    #         return self.gui.minimumSize()
 
-        for i, tab in enumerate(tabs):
-            htabs[tab] = []
-            wtabs[tab] = []
-            for innertab in tabs:
-                if innertab.objectName() == tab.objectName():
-                    continue
-                if innertab.isFloating():
-                    continue
-                #print(f"{tab.objectName()} -> {innertab.objectName()}", tab.y_contains(innertab.pos().y(), innertab.size().height()), tab.x_contains(innertab.pos().x(), innertab.size().width()), ":")
-                if tab.y_contains(innertab.pos().y(), innertab.size().height()):
-                    if innertab.pos().x() <= tab.pos().x():
-                        continue
-                    wtabs[tab].append(innertab)
-                if tab.x_contains(innertab.pos().x(), innertab.size().width()):
-                    if innertab.pos().y() <= tab.pos().y():
-                        continue
-                    htabs[tab].append(innertab)
+    #     for i, tab in enumerate(tabs):
+    #         htabs[tab] = []
+    #         wtabs[tab] = []
+    #         for innertab in tabs:
+    #             if innertab.objectName() == tab.objectName():
+    #                 continue
+    #             if innertab.isFloating():
+    #                 continue
+    #             #print(f"{tab.objectName()} -> {innertab.objectName()}", tab.y_contains(innertab.pos().y(), innertab.size().height()), tab.x_contains(innertab.pos().x(), innertab.size().width()), ":")
+    #             if tab.y_contains(innertab.pos().y(), innertab.size().height()):
+    #                 if innertab.pos().x() <= tab.pos().x():
+    #                     continue
+    #                 wtabs[tab].append(innertab)
+    #             if tab.x_contains(innertab.pos().x(), innertab.size().width()):
+    #                 if innertab.pos().y() <= tab.pos().y():
+    #                     continue
+    #                 htabs[tab].append(innertab)
 
-        def recursive_sum_w(connections: dict, node: SyncedDockWidget) -> QSize:
-            _width = node.minimumSize().width()
-            if len(connections[node]) == 0:
-                return _width
-            #print([recursive_sum_w(connections, tab) for tab in connections[node]])
-            _width += max([recursive_sum_w(connections, tab)
-                           for tab in connections[node]])
-            return _width + 16
+    #     def recursive_sum_w(connections: dict, node: SyncedDockWidget) -> QSize:
+    #         _width = node.minimumSize().width()
+    #         if len(connections[node]) == 0:
+    #             return _width
+    #         #print([recursive_sum_w(connections, tab) for tab in connections[node]])
+    #         _width += max([recursive_sum_w(connections, tab)
+    #                        for tab in connections[node]])
+    #         return _width + 16
 
-        def recursive_sum_h(connections: dict, node: SyncedDockWidget) -> QSize:
-            _height = node.minimumSize().height()
-            if len(connections[node]) == 0:
-                return _height
-            #print([recursive_sum_h(connections, tab) for tab in connections[node]])
-            _height += max([recursive_sum_h(connections, tab)
-                            for tab in connections[node]])
-            return _height + 16
+    #     def recursive_sum_h(connections: dict, node: SyncedDockWidget) -> QSize:
+    #         _height = node.minimumSize().height()
+    #         if len(connections[node]) == 0:
+    #             return _height
+    #         #print([recursive_sum_h(connections, tab) for tab in connections[node]])
+    #         _height += max([recursive_sum_h(connections, tab)
+    #                         for tab in connections[node]])
+    #         return _height + 16
 
-        width = max([recursive_sum_w(wtabs, tab) for tab in wtabs]) if len(
-            wtabs) > 0 else self.gui.minimumSize().width() + self.gui.centralWidget().minimumSize().width()
-        height = max([recursive_sum_h(htabs, tab) for tab in htabs]) if len(
-            htabs) > 0 else self.gui.minimumSize().height() + self.gui.centralWidget().minimumSize().height()
-        return QSize(width, height)
+    #     width = max([recursive_sum_w(wtabs, tab) for tab in wtabs]) if len(
+    #         wtabs) > 0 else self.gui.minimumSize().width() + self.gui.centralWidget().minimumSize().width()
+    #     height = max([recursive_sum_h(htabs, tab) for tab in htabs]) if len(
+    #         htabs) > 0 else self.gui.minimumSize().height() + self.gui.centralWidget().minimumSize().height()
+    #     return QSize(width, height)
 
     def set_central_status(self, empty: bool):
         if empty:
@@ -295,6 +292,7 @@ class JuniorsToolbox(QApplication):
         areas = [Qt.LeftDockWidgetArea, Qt.RightDockWidgetArea]
         self.gui.addDockWidget(areas[len(self.__openTabs) % 2], deTab)
 
+        deTab.setParent(self.gui)
         deTab.topLevelChanged.connect(
             lambda _: self.set_central_status(self.is_docker_empty()))
         deTab.closed.connect(self.closeDockerTab)
@@ -303,6 +301,9 @@ class JuniorsToolbox(QApplication):
         self.__openTabs[name] = deTab
 
         self.set_central_status(self.is_docker_empty())
+        
+        # size = self.get_min_hw()
+        # self.gui.setMinimumSize(size)
 
     @Slot(str)
     def closeDockerTab(self, tab: SyncedDockWidget):
@@ -311,15 +312,19 @@ class JuniorsToolbox(QApplication):
         tab.setWidget(None)
         tab.setParent(None)
         self.gui.removeDockWidget(tab)
-        self.set_central_status(self.is_docker_empty())
 
         self.__openTabs.pop(tab.windowTitle())
+        self.set_central_status(self.is_docker_empty())
 
     @Slot(QResizeEvent)
     def force_minimum_size(self, event: QResizeEvent):
-        size = self.get_min_hw()
-        self.gui.setMinimumSize(size)
-        if event.size().height() > size.height():
-            size.setHeight(event.size().height())
-        if event.size().width() > size.width():
-            size.setWidth(event.size().width())
+        return
+        # if len(self.__openTabs) == 0:
+        #     self.gui.setMinimumSize(400, 300)
+        #     return
+        # size = self.get_min_hw()
+        # self.gui.setMinimumSize(size)
+        # if event.size().height() > size.height():
+        #     size.setHeight(event.size().height())
+        # if event.size().width() > size.width():
+        #     size.setWidth(event.size().width())
