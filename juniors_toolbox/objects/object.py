@@ -42,7 +42,7 @@ class GameObject():
 
     @classmethod
     def from_bytes(cls, data: BinaryIO):
-        this = cls()
+        thisObj = cls()
 
         try:
             objLength = read_uint32(data)
@@ -61,7 +61,7 @@ class GameObject():
             raise ObjectCorruptedError(
                 f"Object name is corrupted! {hash(objName)} ({objName}) != {objNameHash}")
 
-        this.name = objName
+        thisObj.name = objName
 
         # -- Desc -- #
         objDescHash = read_uint16(data)
@@ -74,27 +74,32 @@ class GameObject():
             raise ObjectCorruptedError(
                 f"Object desc is corrupted! {hash(objDesc)} ({objDesc}) != {objDescHash}")
 
-        this.desc = objDesc
+        thisObj.desc = objDesc
 
         # -- Template Specific -- #
         template = ObjectTemplate.from_template(
-            ObjectTemplate.TEMPLATE_PATH / f"{this.name}.txt")
+            ObjectTemplate.TEMPLATE_PATH / f"{thisObj.name}.txt")
         if template is None:
             template = ObjectTemplate()
 
-        nameHash = hash(this.name)
+        nameHash = hash(thisObj.name)
         if nameHash in KNOWN_GROUP_HASHES:
             template.add_attribute(ObjectAttribute(
                 "Grouped", AttributeType.U32), int(nameHash in {15406, 9858}))
 
-        def gen_attr(t: ObjectAttribute, nestedNamePrefix: str = "") -> dict:
+        def gen_attr(attr: ObjectAttribute, nestedNamePrefix: str = "") -> dict:
             def construct(index: int) -> dict:
-                char = "abcdefghijklmnopqrstuvwxyz"[i]
-                parentName = t.get_formatted_name(char, i)
+                char = "abcdefghijklmnopqrstuvwxyz"[index]
+                name = attr.get_formatted_name(char, index)
+
+                if name == "PoleLength" and attr.type == AttributeType.FLOAT:
+                    if thisObj.get_value("Model") != "AirportPole":
+                        return
+
                 if isStruct:
-                    for attr in t.iter_attributes():
-                        for attrdata in gen_attr(attr, f"{nestedNamePrefix}{parentName}."):
-                            this.create_value(
+                    for subattr in attr.iter_attributes():
+                        for attrdata in gen_attr(subattr, f"{nestedNamePrefix}{name}."):
+                            thisObj.create_value(
                                 attrdata["index"],
                                 attrdata['name'],
                                 attrdata["value"],
@@ -104,25 +109,24 @@ class GameObject():
                 else:
                     instances.append({
                         "index": -1,
-                        "name": f"{nestedNamePrefix}{parentName}",
-                        "value": t.read_from(data),
-                        "comment": t.comment
+                        "name": f"{nestedNamePrefix}{name}",
+                        "value": attr.read_from(data),
+                        "comment": attr.comment
                     })
 
-            isStruct = t.is_struct()
-            if t.is_count_referenced():
-                count = this.get_value(t.countRef.name)
+            isStruct = attr.is_struct()
+            if attr.is_count_referenced():
+                count = thisObj.get_value(attr.countRef.name)
             else:
-                count = t.countRef
+                count = attr.countRef
 
             instances = []
             if count == -1:
                 i = 0
-                while True:
-                    if data.tell() >= objEndPos:
-                        return instances
+                while data.tell() < objEndPos:
                     construct(i)
                     i += 1
+                return instances
 
             for i in range(count):
                 construct(i)
@@ -130,20 +134,20 @@ class GameObject():
 
         for attribute in template.iter_attributes():
             for attrdata in gen_attr(attribute):
-                this.create_value(
+                thisObj.create_value(
                     attrdata["index"],
                     attrdata["name"],
                     attrdata["value"],
                     attrdata["comment"]
                 )
 
-        groupNum = this.get_value("Grouped")
+        groupNum = thisObj.get_value("Grouped")
         if nameHash in KNOWN_GROUP_HASHES and groupNum is not None:
             for _ in range(groupNum):
-                this.add_to_group(GameObject.from_bytes(data))
+                thisObj.add_to_group(GameObject.from_bytes(data))
 
-        this._parent = None
-        return this
+        thisObj._parent = None
+        return thisObj
 
     def to_bytes(self) -> bytes:
         """

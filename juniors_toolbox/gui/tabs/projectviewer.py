@@ -342,7 +342,8 @@ class ProjectHierarchyViewWidget(QTreeWidget, FileSystemViewer):
 
         self.__rootFsItem = ProjectHierarchyItem(path.name)
         self.__rootFsItem.setFlags(
-            Qt.ItemIsEnabled | Qt.ItemIsDropEnabled | Qt.ItemIsSelectable)
+            Qt.ItemIsEnabled | Qt.ItemIsDropEnabled | Qt.ItemIsSelectable
+        )
         __inner_recurse_tree(self.__rootFsItem, path)
 
         self.addTopLevelItem(self.__rootFsItem)
@@ -350,7 +351,7 @@ class ProjectHierarchyViewWidget(QTreeWidget, FileSystemViewer):
         self.sortItems(0, Qt.SortOrder.AscendingOrder)
 
         self.__apply_expand_tree(expandTree)
-        
+
         self.__rootFsItem.setExpanded(True)
 
     def editItem(self, item: ProjectHierarchyItem):

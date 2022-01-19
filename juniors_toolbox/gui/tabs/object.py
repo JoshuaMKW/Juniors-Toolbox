@@ -95,7 +95,6 @@ class ObjectHierarchyWidget(QTreeWidget, GenericTabWidget):
         self.setDragDropMode(self.InternalMove)
         self.setDefaultDropAction(Qt.MoveAction)
         self.setMinimumSize(300, 80)
-        #self.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
 
         self.undoStack = QUndoStack(self)
         self.undoStack.setUndoLimit(32)
@@ -108,6 +107,8 @@ class ObjectHierarchyWidget(QTreeWidget, GenericTabWidget):
                 parentNode.addChild(childNode)
                 if g.is_group():
                     inner_populate(g, childNode)
+
+        self.clear()
 
         for obj in data.iter_objects():
             node = ObjectHierarchyWidgetItem(obj)

@@ -133,3 +133,6 @@ scene.bin
 
 #Binary Messages
 *.bmg
+
+# Line counter
+getnumlines.py
