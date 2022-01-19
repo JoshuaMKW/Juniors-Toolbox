@@ -92,10 +92,6 @@ class GameObject():
                 char = "abcdefghijklmnopqrstuvwxyz"[index]
                 name = attr.get_formatted_name(char, index)
 
-                if name == "PoleLength" and attr.type == AttributeType.FLOAT:
-                    if thisObj.get_value("Model") != "AirportPole":
-                        return
-
                 if isStruct:
                     for subattr in attr.iter_attributes():
                         for attrdata in gen_attr(subattr, f"{nestedNamePrefix}{name}."):
@@ -124,11 +120,16 @@ class GameObject():
             if count == -1:
                 i = 0
                 while data.tell() < objEndPos:
+                    x = data.tell()
                     construct(i)
                     i += 1
                 return instances
 
             for i in range(count):
+                if data.tell() >= objEndPos:
+                    break
+                if thisObj.name == "MapObjFlag":
+                    ...
                 construct(i)
             return instances
 
