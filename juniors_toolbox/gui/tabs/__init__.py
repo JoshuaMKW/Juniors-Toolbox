@@ -7,7 +7,7 @@ from juniors_toolbox.gui.tabs.projectviewer import ProjectViewerWidget
 from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.gui.tabs.renderer import SceneRendererWidget
 from juniors_toolbox.gui.tabs.object import ObjectHierarchyWidget, ObjectPropertiesWidget
-from juniors_toolbox.gui.tabs.rail import RailListWidget
+from juniors_toolbox.gui.tabs.rail import RailViewerWidget
 from juniors_toolbox.gui.tabs.bmgeditor import BMGMessageEditor
 from juniors_toolbox.gui.tabs.generic import GenericTabWidget
 from juniors_toolbox.gui.widgets.synceddock import SyncedDockWidget
@@ -18,7 +18,7 @@ class TabWidgetManager():
         "Project Viewer": ProjectViewerWidget,
         "Object Hierarchy": ObjectHierarchyWidget,
         "Object Properties": ObjectPropertiesWidget,
-        "Rail List": RailListWidget,
+        "Rail List": RailViewerWidget,
         "Rail Editor": None,
         "BMG Editor": BMGMessageEditor,
         "PRM Editor": None,
@@ -35,7 +35,7 @@ class TabWidgetManager():
             ProjectViewerWidget: ProjectViewerWidget(),
             ObjectHierarchyWidget: ObjectHierarchyWidget(),
             ObjectPropertiesWidget: ObjectPropertiesWidget(),
-            RailListWidget: RailListWidget(),
+            RailViewerWidget: RailViewerWidget(),
             "Rail Editor": None,
             BMGMessageEditor: BMGMessageEditor(),
             "PRM Editor": None,

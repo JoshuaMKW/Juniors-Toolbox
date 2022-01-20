@@ -26,7 +26,7 @@ class ColorPickerDialog(QDialog):
         self.reset()
 
     def reset(self):
-        self.setAttribute(Qt.WA_NoBackground)
+        self.setAttribute(Qt.WA_NoSystemBackground)
         self.setWindowState(Qt.WindowMaximized)
         self.setWindowFlags(self.windowFlags() | Qt.FramelessWindowHint)
         self.setWindowOpacity(0.01)

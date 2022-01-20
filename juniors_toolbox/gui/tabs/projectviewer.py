@@ -104,7 +104,7 @@ class ProjectAssetListItem(QListWidgetItem):
         self.setFlags(flags)
 
         font = self.font()
-        font.setPointSizeF(7.4)
+        font.setPointSize(7)
         self.setFont(font)
 
     def is_folder(self) -> bool:
@@ -115,6 +115,14 @@ class ProjectAssetListItem(QListWidgetItem):
 
     def set_type(self, ty: ProjectAssetType):
         self.__typeID = ty
+
+    def __lt__(self, other: "ProjectAssetListItem"):
+        """ Used for sorting """
+        if self.is_folder() and not other.is_folder():
+            return True
+        if other.is_folder() and not self.is_folder():
+            return False
+        return self.text() < other.text()
 
 
 class ProjectHierarchyItem(QTreeWidgetItem):
@@ -733,6 +741,10 @@ class ProjectViewerWidget(QWidget, GenericTabWidget):
 
     @Slot(Path)
     def copy_path_to_focused(self, path: Path):
+        dest = self.scenePath / self.focusedPath / path.name
+        if dest == path:
+            return
+
         try:
             if path.is_file():
                 shutil.copy(path, self.scenePath / self.focusedPath / path.name)

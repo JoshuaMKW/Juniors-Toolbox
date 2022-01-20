@@ -20,23 +20,28 @@ class RailKeyFrame():
     periods: List[float] = field(default_factory=lambda: [0]*8)
 
     @classmethod
-    def from_bytes(self, data: BinaryIO) -> "RailKeyFrame":
-        self.position = array([read_sint16(data),
-                               read_sint16(data),
-                               read_sint16(data)])
-
-        self.unk = array([read_sint16(data),
-                          read_sint16(data),
-                          read_sint16(data)])
-
-        self.rotation = array([read_sint16(data),
-                               read_sint16(data),
-                               read_sint16(data)])
-
-        self.speed = read_sint16(data)
-
-        self.connections = [read_sint16(data) for _ in range(8)]
-        self.periods = [read_float(data) for _ in range(8)]
+    def from_bytes(cls, data: BinaryIO) -> "RailKeyFrame":
+        frame = cls(
+            position = array(
+                [read_sint16(data),
+                 read_sint16(data),
+                 read_sint16(data)]
+            ),
+            unk = array(
+                [read_sint16(data),
+                 read_sint16(data),
+                 read_sint16(data)]
+            ),
+            rotation = array(
+                [read_sint16(data),
+                 read_sint16(data),
+                 read_sint16(data)]
+            ),
+            speed = read_sint16(data),
+            connections = [read_sint16(data) for _ in range(8)],
+            periods = [read_float(data) for _ in range(8)],
+        )
+        return frame
 
     def to_bytes(self) -> bytes:
         stream = BytesIO()

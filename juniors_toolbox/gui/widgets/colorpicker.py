@@ -87,8 +87,8 @@ class ColorPicker(QDialog):
         # Connect update functions
         intValidator = QIntValidator()
         intValidator.setRange(0, 255)
-        hexRegexp = QRegExp("[0-9a-fA-F]{0,8}")
-        hexValidator = QRegExpValidator(hexRegexp)
+        hexRegexp = QRegularExpression("[0-9a-fA-F]{0,8}")
+        hexValidator = QRegularExpressionValidator(hexRegexp)
         self.ui.hue.mouseMoveEvent = self.moveHueSelector
         self.ui.red.textChanged.connect(self.rgbChanged)
         self.ui.red.setValidator(intValidator)

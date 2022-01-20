@@ -14,7 +14,7 @@ from juniors_toolbox import __name__, __version__
 from juniors_toolbox.gui.tabs import TabWidgetManager
 from juniors_toolbox.gui.tabs.object import (ObjectHierarchyWidget, ObjectPropertiesWidget,
                                                ObjectHierarchyWidgetItem)
-from juniors_toolbox.gui.tabs.rail import RailListWidget
+from juniors_toolbox.gui.tabs.rail import RailViewerWidget
 from juniors_toolbox.utils.filesystem import get_program_folder, resource_path
 
 class TabMenuAction(QAction):
