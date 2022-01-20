@@ -16,8 +16,8 @@ from juniors_toolbox.gui.widgets.synceddock import SyncedDockWidget
 class TabWidgetManager():
     _STR_TO_TYPE = {
         "Project Viewer": ProjectViewerWidget,
-        "Object Hierarchy": ObjectHierarchyWidget,
-        "Object Properties": ObjectPropertiesWidget,
+        "Scene Hierarchy": ObjectHierarchyWidget,
+        "Selected Properties": ObjectPropertiesWidget,
         "Rail List": RailViewerWidget,
         "Rail Editor": None,
         "BMG Editor": BMGMessageEditor,

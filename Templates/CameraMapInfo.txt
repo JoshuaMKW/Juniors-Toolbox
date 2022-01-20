@@ -1,10 +1,6 @@
 Camera Map Info
-X FLOAT
-Y FLOAT
-Z FLOAT
-Pitch FLOAT
-Yaw FLOAT
-Roll FLOAT
+Position VEC3F
+Rotation VEC3F
 Type INT
 Unknown INT
 Unknown INT

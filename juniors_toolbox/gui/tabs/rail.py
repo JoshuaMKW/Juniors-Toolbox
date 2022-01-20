@@ -4,7 +4,7 @@ from typing import List, Optional, Union
 
 from PySide6.QtCore import Qt, QPoint, Slot, Signal, SignalInstance
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QFrame, QListWidget, QSizePolicy, QTreeWidget, QTreeWidgetItem, QWidget, QHBoxLayout, QListWidgetItem, QSplitter, QGridLayout, QMenu
+from PySide6.QtWidgets import QFrame, QListWidget, QSizePolicy, QTreeWidget, QTreeWidgetItem, QWidget, QHBoxLayout, QListWidgetItem, QSplitter, QGridLayout, QMenu, QAbstractItemView
 from juniors_toolbox.gui.tabs.generic import GenericTabWidget
 from juniors_toolbox.objects.object import GameObject
 from juniors_toolbox.rail import Rail, RailKeyFrame
@@ -14,6 +14,12 @@ from juniors_toolbox.scene import SMSScene
 class RailListWidgetItem(QListWidgetItem):
     def __init__(self, item: Union["RailListWidgetItem", str], rail: Rail):
         super().__init__(item)
+        self.setFlags(
+            Qt.ItemIsSelectable |
+            Qt.ItemIsEnabled |
+            Qt.ItemIsEditable |
+            Qt.ItemIsDragEnabled
+        )
         self.rail = rail
 
     def clone(self) -> "RailListWidgetItem":
@@ -24,6 +30,10 @@ class RailListWidgetItem(QListWidgetItem):
 class RailNodeListWidgetItem(QListWidgetItem):
     def __init__(self, item: Union["RailListWidgetItem", str], node: RailKeyFrame):
         super().__init__(item)
+        self.setFlags(
+            Qt.ItemIsSelectable |
+            Qt.ItemIsEnabled
+        )
         self.node = node
 
     def clone(self) -> "RailNodeListWidgetItem":
@@ -34,6 +44,9 @@ class RailNodeListWidgetItem(QListWidgetItem):
 class RailListWidget(QListWidget):
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
+        self.setAcceptDrops(True)
+        #self.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.setDragDropMode(QAbstractItemView.InternalMove)
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.custom_context_menu)
         self.itemChanged.connect(self.rename_rail)
@@ -73,7 +86,8 @@ class RailListWidget(QListWidget):
     
     @Slot(RailListWidgetItem)
     def rename_rail(self, item: RailListWidgetItem):
-        newName = self.__resolve_rail_name(item.text())
+
+        newName = self.__resolve_rail_name(item.text(), item)
 
         self.blockSignals(True)
         item.setText(newName)
@@ -92,14 +106,13 @@ class RailListWidget(QListWidget):
 
         self.insertItem(self.row(item)+1, newItem)
 
-    def __resolve_rail_name(self, name: str) -> str:
+    def __resolve_rail_name(self, name: str, filterItem: RailListWidgetItem = None) -> str:
         #for i, char in enumerate(name[::-1]):
         #    if not char.isdecimal():
         #        name = name[:len(name)-i]
         #        break
         
         renameContext = 1
-        count = self.count()
         ogName = name
 
         possibleNames = []
@@ -108,6 +121,8 @@ class RailListWidget(QListWidget):
                 raise FileExistsError(
                     "Path exists beyond 100 unique iterations!")
             item = self.item(i)
+            if item == filterItem:
+                continue
             if item.text().startswith(ogName):
                 possibleNames.append(item.text())
 
@@ -129,6 +144,7 @@ class RailListWidget(QListWidget):
 class RailViewerWidget(QWidget, GenericTabWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.setMinimumSize(200, 80)
         
         mainLayout = QGridLayout()
 
@@ -149,10 +165,10 @@ class RailViewerWidget(QWidget, GenericTabWidget):
         mainLayout.addWidget(splitter)
 
         self.setLayout(mainLayout)
-        self.setMinimumSize(200, 80)
-        #self.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
 
     def populate(self, data: SMSScene, scenePath: Path):
+        self.railList.clear()
+        self.nodeList.clear()
         for rail in data.iter_rails():
             item = RailListWidgetItem(rail.name, rail)
             self.railList.addItem(item)

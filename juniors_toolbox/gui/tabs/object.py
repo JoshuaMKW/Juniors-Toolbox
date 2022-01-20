@@ -69,13 +69,14 @@ class ObjectHierarchyWidget(QTreeWidget, GenericTabWidget):
                 self.target.setCurrentItem(self.droppeditem)
                 self.curgblindex = self.target.currentIndex()
                 self.curparent = self.target.currentItem().parent()
-                self.curindex = self.curparent.indexOfChild(self.target.currentItem())
+                self.curindex = self.curparent.indexOfChild(
+                    self.target.currentItem())
                 self.__initialized = True
             else:
                 self.prevparent.removeChild(self.droppeditem)
                 self.curparent.insertChild(self.curindex, self.droppeditem)
                 self.target.setCurrentIndex(self.curgblindex)
-            
+
         def undo(self):
             item = self.curparent.child(self.curindex)
             item.setExpanded(self.droppedExpanded)
@@ -91,22 +92,22 @@ class ObjectHierarchyWidget(QTreeWidget, GenericTabWidget):
         self.setRootIsDecorated(True)
         self.setAcceptDrops(True)
         self.setDragEnabled(True)
-        self.setHeaderHidden(True)
         self.setDragDropMode(self.InternalMove)
         self.setDefaultDropAction(Qt.MoveAction)
+        self.setHeaderHidden(True)
         self.setMinimumSize(300, 80)
 
         self.undoStack = QUndoStack(self)
         self.undoStack.setUndoLimit(32)
 
     def populate(self, data: SMSScene, scenePath: Path):
-        def inner_populate(obj: GameObject, parentNode: ObjectHierarchyWidgetItem) -> List[ObjectHierarchyWidgetItem]:
+        def inner_populate(obj: GameObject, parentNode: ObjectHierarchyWidgetItem, column: int) -> List[ObjectHierarchyWidgetItem]:
             for g in obj.iter_grouped():
                 childNode = ObjectHierarchyWidgetItem(g)
-                childNode.setText(0, g.get_explicit_name())
+                childNode.setText(column, g.get_explicit_name())
                 parentNode.addChild(childNode)
                 if g.is_group():
-                    inner_populate(g, childNode)
+                    inner_populate(g, childNode, column)
 
         self.clear()
 
@@ -115,9 +116,16 @@ class ObjectHierarchyWidget(QTreeWidget, GenericTabWidget):
             node.setText(0, obj.get_explicit_name())
             self.addTopLevelItem(node)
             if obj.is_group():
-                inner_populate(obj, node)
+                inner_populate(obj, node, 0)
 
-        self.expandAll()
+        for table in data.iter_tables():
+            node = ObjectHierarchyWidgetItem(table)
+            node.setText(0, table.get_explicit_name())
+            self.addTopLevelItem(node)
+            if table.is_group():
+                inner_populate(table, node, 0)
+
+        # self.expandAll()
 
     def dragEnterEvent(self, event: QDragEnterEvent):
         self.draggedItem = self.currentItem()
@@ -162,24 +170,31 @@ class ObjectPropertiesWidget(QScrollArea, GenericTabWidget):
         clear_layout(self.gridLayout)
         self.object = None
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-    
+
     def populate(self, data: Any, scenePath: Path):
         self.reset()
         if not isinstance(data, GameObject):
             return
-            
+
         self.object = data
 
         row = 0
         indentWidth = 25
         self._structs: Dict[str, QWidget] = {}
-        def inner_struct_populate(parent: QGridLayout, attribute: Tuple[str, Union[int, float, str, bytes, RGBA8, RGB8, RGB32, Vec3f]], nestedDepth: int = 0):
+
+        def inner_struct_populate(
+            parent: QGridLayout,
+            attribute: Tuple[str, Union[int, float, str, bytes, RGBA8, RGB8, RGB32, Vec3f]],
+            nestedDepth: int = 0,
+            readOnly: bool = False
+        ):
             nonlocal row
             scopeNames = attribute[0].split(".")
             parentScopes = scopeNames[:nestedDepth]
             thisScope = scopeNames[nestedDepth]
             childScopes = scopeNames[nestedDepth+1:]
-            prefixQual = "" if len(parentScopes) == 0 else ".".join(parentScopes) + "."
+            prefixQual = "" if len(
+                parentScopes) == 0 else ".".join(parentScopes) + "."
             qualname = f"{prefixQual}{thisScope}"
 
             if len(childScopes) > 0:
@@ -189,18 +204,20 @@ class ObjectPropertiesWidget(QScrollArea, GenericTabWidget):
                     container.setLayout(QGridLayout())
                 layout = container.layout()
                 layout.setContentsMargins(0, 0, 0, 10)
-                inner_struct_populate(layout, [attribute[0], attribute[1]], nestedDepth+1)
+                inner_struct_populate(
+                    layout, [attribute[0], attribute[1]], nestedDepth+1)
                 if firstPass:
                     child = FrameLayout(title=thisScope)
                     child.addWidget(container)
                     child.setObjectName(qualname)
                     child._main_v_layout.setContentsMargins(0, 0, 0, 0)
                     child._main_v_layout.setAlignment(container, Qt.AlignRight)
-                    child._content_layout.setContentsMargins(indentWidth, 0, 0, 0)
+                    child._content_layout.setContentsMargins(
+                        indentWidth, 0, 0, 0)
                     parent.addWidget(child, row, 0, 1, 1)
                     row += 1
                 return
-                
+
             if isinstance(attribute[1], RGBA8):
                 layout = QFormLayout()
                 label = QLabel(attribute[0].split(".")[-1])
@@ -212,9 +229,9 @@ class ObjectPropertiesWidget(QScrollArea, GenericTabWidget):
                 colorbutton.setObjectName(qualname)
                 colorbutton.colorChanged.connect(self.updateObjectValue)
                 container = EntryLayout(
-                    thisScope, 
-                    colorbutton, 
-                    Vec3f, 
+                    thisScope,
+                    colorbutton,
+                    Vec3f,
                     [],
                     labelWidth=100 - (indentWidth * nestedDepth),
                     minEntryWidth=180 + (indentWidth * nestedDepth)
@@ -230,31 +247,33 @@ class ObjectPropertiesWidget(QScrollArea, GenericTabWidget):
                 containerLayout.setRowStretch(0, 0)
                 containerLayout.setRowStretch(1, 0)
                 container = EntryLayout(
-                    thisScope, 
-                    widget, 
-                    Vec3f, 
-                    [], 
+                    thisScope,
+                    widget,
+                    Vec3f,
+                    [],
                     labelWidth=100 - (indentWidth * nestedDepth),
-                    minEntryWidth=260# + (indentWidth * nestedDepth)
+                    minEntryWidth=260  # + (indentWidth * nestedDepth)
                 )
                 container.setObjectName(qualname)
                 for i, component in enumerate(attribute[1]):
                     axis = "XYZ"[i]
-                    lineEdit = ExplicitLineEdit(f"{attribute[0]}.{axis}", ExplicitLineEdit.FilterKind.FLOAT)
+                    lineEdit = ExplicitLineEdit(
+                        f"{attribute[0]}.{axis}", ExplicitLineEdit.FilterKind.FLOAT)
                     lineEdit.setMinimumWidth(20)
                     lineEdit.setText(str(component))
                     lineEdit.setCursorPosition(0)
                     entry = EntryLayout(
-                        axis, 
-                        lineEdit, 
-                        float, 
-                        [], 
-                        labelWidth=6, 
-                        newlining=False, 
+                        axis,
+                        lineEdit,
+                        float,
+                        [],
+                        labelWidth=6,
+                        newlining=False,
                         labelFixed=True
                     )
                     entry.entryModified.connect(self.updateObjectValue)
-                    lineEdit.textChangedNamed.connect(container.updateFromChild)
+                    lineEdit.textChangedNamed.connect(
+                        container.updateFromChild)
                     containerLayout.addLayout(entry, 0, i, 1, 1)
                     containerLayout.setColumnStretch(i, 0)
                     container.addDirectChild(lineEdit)
@@ -266,9 +285,11 @@ class ObjectPropertiesWidget(QScrollArea, GenericTabWidget):
             else:
                 layout = QFormLayout()
                 layout.setObjectName("EntryForm " + attribute[0])
-                lineEdit = ExplicitLineEdit(attribute[0], ExplicitLineEdit.FilterKind.type_to_filter(attribute[1].__class__))
+                lineEdit = ExplicitLineEdit(
+                    attribute[0], ExplicitLineEdit.FilterKind.type_to_filter(attribute[1].__class__))
                 lineEdit.setText(str(attribute[1]))
                 lineEdit.setCursorPosition(0)
+                lineEdit.setEnabled(not readOnly)
                 entry = EntryLayout(
                     thisScope,
                     lineEdit,
@@ -285,7 +306,8 @@ class ObjectPropertiesWidget(QScrollArea, GenericTabWidget):
                 row += 1
 
         for attr in data.iter_values():
-            inner_struct_populate(self.gridLayout, attr)
+            inner_struct_populate(self.gridLayout, attr,
+                                  readOnly=data.is_group() and attr[0] == "Grouped")
 
         for i in range(row):
             self.gridLayout.setRowStretch(i, 0)

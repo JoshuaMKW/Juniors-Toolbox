@@ -24,6 +24,7 @@ class SMSScene():
         this = cls()
 
         objPath = scene / "map/scene.bin"
+        tablePath = scene / "map/tables.bin"
         railPath = scene / "map/scene.ral"
         with objPath.open("rb") as f:
             _startPos = f.tell()
@@ -37,6 +38,15 @@ class SMSScene():
         with railPath.open("rb") as f:
             this._raildata = RalData.from_bytes(f)
 
+        with tablePath.open("rb") as f:
+            _startPos = f.tell()
+            f.seek(0, 2)
+            end = f.tell()
+            f.seek(_startPos, 0)
+
+            while f.tell() < end:
+                this._tables.append(GameObject.from_bytes(f))
+
         return this
 
     def reset(self):
@@ -44,6 +54,7 @@ class SMSScene():
         Reset the scene back to an empty state
         """
         self._objects: List[GameObject] = []
+        self._tables: List[GameObject] = []
         self._raildata: RalData = None
 
     def dump(self, out: Optional[TextIO] = None, indentwidth: int = 2):
@@ -52,6 +63,8 @@ class SMSScene():
         """
         for obj in self.iter_objects():
             obj.print_map(out, 0, indentwidth)
+        for table in self.iter_tables():
+            table.print_map(out, 0, indentwidth)
         for rail in self.iter_rails():
             out.write(rail + "\n")
 
@@ -63,6 +76,17 @@ class SMSScene():
 
     def get_object(self, name: str, desc: str) -> GameObject:
         for obj in self.iter_objects(True):
+            if obj.name == name and obj.desc == desc:
+                return obj
+
+    def iter_tables(self, deep: bool = False) -> Iterable[GameObject]:
+        for obj in self._tables:
+            yield obj
+            if deep and obj.is_group():
+                yield from obj.iter_grouped(True)
+
+    def get_table(self, name: str, desc: str) -> GameObject:
+        for obj in self.iter_tables(True):
             if obj.name == name and obj.desc == desc:
                 return obj
         
