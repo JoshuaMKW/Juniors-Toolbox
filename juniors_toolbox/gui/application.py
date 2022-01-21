@@ -164,7 +164,7 @@ class JuniorsToolbox(QApplication):
         Update the UI theme to the specified theme
         """
         #from qdarkstyle import load_stylesheet, load
-        from qdarktheme import load_stylesheet, load_palette
+        from juniors_toolbox.gui.qdarktheme import load_stylesheet, load_palette
         if theme == MainWindow.Theme.LIGHT:
             self.theme = MainWindow.Theme.LIGHT
             self.setStyleSheet(load_stylesheet("light"))

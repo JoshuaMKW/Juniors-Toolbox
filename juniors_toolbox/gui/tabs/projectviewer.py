@@ -211,7 +211,7 @@ class ProjectFocusedMenuBar(QMenuBar):
             if isinstance(part, ProjectFocusedMenuBarAction) and not part.isRoot:
                 subPath = subPath / part.text()
 
-        return self.scenePath / subPath / name
+        return subPath / name
 
     def view(self, path: Path):
         """
@@ -241,7 +241,10 @@ class ProjectFocusedMenuBar(QMenuBar):
         else:
             target = clicked
         path = self.get_focused_path_to(target, tname)
-        self.folderChangeRequested.emit(path)
+        if self.__focusedPath == path:
+            clicked.setChecked(True)
+        else:
+            self.folderChangeRequested.emit(path)
 
     def __populate_from_path(self, path: Path):
         curSubPath = Path()
