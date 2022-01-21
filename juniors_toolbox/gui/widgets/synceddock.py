@@ -21,7 +21,7 @@ class SyncedDockWidget(QDockWidget):
         # self.hidden.emit(self)
 
     def sizeHint(self) -> QSize:
-        self.minimumSizeHint()
+        return self.minimumSizeHint()
 
     def minimumSizeHint(self) -> QSize:
         return super().minimumSizeHint()

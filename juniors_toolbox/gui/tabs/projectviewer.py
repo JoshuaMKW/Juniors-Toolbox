@@ -150,10 +150,11 @@ class ProjectHierarchyItem(QTreeWidgetItem):
 class ProjectFocusedMenuBarAction(QAction):
     clicked: SignalInstance = Signal(QAction)
 
-    def __init__(self, parent: Optional[QWidget] = None):
+    def __init__(self, isRoot: bool = False, parent: Optional[QWidget] = None):
         super().__init__(parent)
 
-        self.toggled.connect(self.__click)
+        self.isRoot = isRoot
+        self.triggered.connect(self.__click)
 
     def __click(self, toggled: bool):
         self.clicked.emit(self)
@@ -179,6 +180,8 @@ class ProjectFocusedMenuBar(QMenuBar):
         self.__scenePath: Path = None
         self.__focusedPath: Path = None
 
+        self.__parts: List[ProjectFocusedMenuBarAction] = []
+
     @property
     def scenePath(self) -> Path:
         return self.__scenePath
@@ -197,41 +200,48 @@ class ProjectFocusedMenuBar(QMenuBar):
     def focusedPath(self, path: Path):
         self.view(path)
 
-    def get_focused_path_to(self, item: ProjectFocusedMenuBarAction):
+    def get_focused_path_to(self, item: Union[ProjectFocusedMenuBarAction, QMenu], name: str):
+        if isinstance(item, ProjectFocusedMenuBarAction) and item.isRoot:
+            return self.scenePath
+
         subPath = Path()
-        for menu in self.findChildren(ProjectFocusedMenuBarAction, options=Qt.FindDirectChildrenOnly):
-            print(menu.title())
-            if menu.title() == ">":
-                continue
-            subPath / menu.title()
-            if menu == item:
+        for part in self.__parts:
+            if part == item:
                 break
-        return self.scenePath / subPath
+            if isinstance(part, ProjectFocusedMenuBarAction) and not part.isRoot:
+                subPath = subPath / part.text()
+
+        return self.scenePath / subPath / name
 
     def view(self, path: Path):
         """
         Path is relative to scene path
         """
         self.clear()
+        self.__parts.clear()
         if not path.is_absolute():
             self.__focusedPath = path
         else:
             self.__focusedPath = path.relative_to(self.scenePath)
 
-        sceneItem = QAction()
-        sceneItem.setText("&" + self.scenePath.name)
-        # sceneItem.clicked.connect(self.check_clicked)
-        action = self.addAction(self.scenePath.name)
-        action.setCheckable(False)
+        sceneItem = ProjectFocusedMenuBarAction(True, self)
+        sceneItem.setText(self.scenePath.name)
+        sceneItem.clicked.connect(self.check_clicked)
+        self.addAction(sceneItem)
+
+        self.__parts.append(sceneItem)
         self.__populate_from_path(self.__focusedPath)
 
-    def check_clicked(self, clicked: QAction):
-        if clicked != ">":
-            path = self.get_focused_path_to(clicked)
-            print("emit", path)
-            self.folderChangeRequested.emit(path)
+    @Slot(ProjectFocusedMenuBarAction)
+    def check_clicked(self, clicked: ProjectFocusedMenuBarAction):
+        parent = clicked.parent()
+        tname = clicked.text()
+        if isinstance(parent, QMenu):
+            target = parent
         else:
-            print(">")
+            target = clicked
+        path = self.get_focused_path_to(target, tname)
+        self.folderChangeRequested.emit(path)
 
     def __populate_from_path(self, path: Path):
         curSubPath = Path()
@@ -239,20 +249,21 @@ class ProjectFocusedMenuBar(QMenuBar):
             expandItem = QMenu(self)
             expandItem.setTitle(">")
             self.addAction(expandItem.menuAction())
+            self.__parts.append(expandItem)
 
-            folderItem = QMenu(self)
-            folderItem.setTitle(part)
-            # folderItem.clicked.connect(self.check_clicked)
-            self.addAction(folderItem.menuAction())
-            #expandItem = self.addAction(">>")
-            #folderItem = self.addAction(part)
+            folderItem = ProjectFocusedMenuBarAction(False, self)
+            folderItem.setText(part)
+            folderItem.clicked.connect(self.check_clicked)
+            self.addAction(folderItem)
+            self.__parts.append(folderItem)
 
             for child in (self.scenePath / curSubPath).iterdir():
                 if child.is_dir():
-                    action = QAction(expandItem)
+                    action = ProjectFocusedMenuBarAction(False, expandItem)
                     action.setText(child.name)
                     action.setCheckable(True)
                     action.setChecked(child.name.lower() == part.lower())
+                    action.clicked.connect(self.check_clicked)
                     expandItem.addAction(action)
 
             curSubPath = curSubPath / part
@@ -415,6 +426,7 @@ class ProjectHierarchyViewWidget(QTreeWidget, FileSystemViewer):
         self.setContextMenuPolicy(Qt.CustomContextMenu)
 
         self.__scenePath: Path = None
+        self.__focusedPath: Path = None
         self.__rootFsItem: ProjectHierarchyItem = None
         self.__dragHasFolders = False
 
@@ -433,6 +445,39 @@ class ProjectHierarchyViewWidget(QTreeWidget, FileSystemViewer):
     def scenePath(self, path: Path):
         self.__scenePath = path
         self.view(self.__scenePath)
+
+    @property
+    def focusedPath(self) -> Path:
+        return self.__focusedPath
+
+    @focusedPath.setter
+    def focusedPath(self, path: Path):
+        fsItem = self.get_fs_tree_item(self.__focusedPath)
+        while fsItem:
+            fsItem.setExpanded(False)
+            fsItem = fsItem.parent()
+
+        self.__focusedPath = path
+
+        fsItem = self.get_fs_tree_item(path)
+        while fsItem:
+            fsItem.setExpanded(True)
+            fsItem = fsItem.parent()
+
+    def get_fs_tree_item(self, path: Path) -> ProjectHierarchyItem:
+        if path is None:
+            return None
+        if path == Path():
+            return self.topLevelItem(0)
+        possibleItems: List[ProjectHierarchyItem] = self.findItems(
+            path.name, Qt.MatchExactly | Qt.MatchRecursive, 0)
+        if len(possibleItems) == 0:
+            return None
+        for pItem in possibleItems:
+            pPath = pItem.get_relative_path()
+            if pPath == path:
+                return pItem
+        return None
 
     def view(self, path: Path):
         """
@@ -674,6 +719,8 @@ class ProjectViewerWidget(QWidget, GenericTabWidget):
         self.folderViewWidget.dropInRequested.connect(
             self.copy_path_to_focused)
 
+        self.focusedViewWidget.folderChangeRequested.connect(self.view_folder)
+
         self.fsTreeWidget.openExplorerRequested.connect(self.explore_item)
         self.fsTreeWidget.openRequested.connect(self.open_item)
         self.fsTreeWidget.deleteRequested.connect(self.delete_item)
@@ -704,6 +751,7 @@ class ProjectViewerWidget(QWidget, GenericTabWidget):
     @focusedPath.setter
     def focusedPath(self, path: Path):
         self.__focusedPath = path
+        self.fsTreeWidget.focusedPath = path
         self.folderViewWidget.focusedPath = path
         self.focusedViewWidget.focusedPath = path
 
@@ -725,17 +773,6 @@ class ProjectViewerWidget(QWidget, GenericTabWidget):
         self.observer.start()
         self.watcherThread.start()
 
-    def get_fs_tree_item(self, path: Path) -> ProjectHierarchyItem:
-        possibleItems: List[ProjectHierarchyItem] = self.fsTreeWidget.findItems(
-            path.name, Qt.MatchExactly | Qt.MatchRecursive, 0)
-        if len(possibleItems) == 0:
-            return None
-        for pItem in possibleItems:
-            pPath = pItem.get_relative_path()
-            if pPath == path:
-                return pItem
-        return None
-
     @Slot()
     def update(self):
         self.fsTreeWidget.view(self.scenePath)
@@ -743,23 +780,26 @@ class ProjectViewerWidget(QWidget, GenericTabWidget):
         self.focusedViewWidget.view(self.focusedPath)
 
     @Slot(ProjectHierarchyItem)
-    def view_folder(self, item: ProjectHierarchyItem):
-        itemPath = item.get_relative_path()
+    @Slot(Path)
+    def view_folder(self, item: Union[ProjectHierarchyItem, Path]):
+        isFsItem = isinstance(item, ProjectHierarchyItem)
+        if isFsItem:
+            itemPath = item.get_relative_path()
+        else:
+            itemPath = item
+            if item.is_absolute():
+                itemPath = item.relative_to(self.scenePath)
+
+        if not (self.scenePath / itemPath).is_dir():
+            return
+
         if self.focusedPath == itemPath:
             return
-        self.focusedPath = itemPath
-        self.folderViewWidget.view(self.focusedPath)
-        self.focusedViewWidget.view(self.focusedPath)
+        self.focusedPath = itemPath  # Set viewed directory
 
     @Slot(ProjectAssetListItem)
     def handle_view_double_click(self, item: ProjectAssetListItem):
-        if item.is_folder():
-            targetItem = self.get_fs_tree_item(
-                self.focusedPath / item.text())
-            if targetItem is None:
-                raise ValueError(
-                    f"Can't view folder `{item.text()}` as there is no filesystem match!")
-            self.view_folder(targetItem)
+        self.view_folder(self.focusedPath / item.text())
 
     @Slot(ProjectHierarchyItem)
     @Slot(ProjectAssetListItem)
