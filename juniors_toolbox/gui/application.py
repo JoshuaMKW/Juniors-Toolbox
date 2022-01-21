@@ -163,13 +163,14 @@ class JuniorsToolbox(QApplication):
         """
         Update the UI theme to the specified theme
         """
-        from qdarkstyle import load_stylesheet
+        #from qdarkstyle import load_stylesheet, load
+        from qdarktheme import load_stylesheet, load_palette
         if theme == MainWindow.Theme.LIGHT:
             self.theme = MainWindow.Theme.LIGHT
-            self.setStyleSheet("")
+            self.setStyleSheet(load_stylesheet("light"))
         else:
             self.theme = MainWindow.Theme.DARK
-            self.setStyleSheet(load_stylesheet())
+            self.setStyleSheet(load_stylesheet("dark"))
 
     def update_elements(self, scene: SMSScene):
         """

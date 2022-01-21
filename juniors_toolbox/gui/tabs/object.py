@@ -267,7 +267,7 @@ class ObjectPropertiesWidget(QScrollArea, GenericTabWidget):
                         lineEdit,
                         float,
                         [],
-                        labelWidth=6,
+                        labelWidth=14,
                         newlining=False,
                         labelFixed=True
                     )

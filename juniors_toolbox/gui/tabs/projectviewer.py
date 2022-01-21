@@ -1,3 +1,4 @@
+from cmath import exp
 from enum import Enum, IntEnum, auto
 import shutil
 import time
@@ -14,11 +15,11 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, FileSystemEvent
 
 from PySide6.QtCore import QLine, QModelIndex, QObject, QSize, Qt, QTimer, Signal, SignalInstance, QThread, Slot, QAbstractItemModel, QPoint, QEvent, QMimeData, QUrl, QDataStream, QIODevice
-from PySide6.QtGui import QColor, QCursor, QDragEnterEvent, QDropEvent, QIcon, QImage, QKeyEvent, QUndoCommand, QUndoStack, QPixmap, QAction, QMouseEvent, QDragMoveEvent, QDragLeaveEvent, QDrag
-from PySide6.QtWidgets import (QBoxLayout, QFormLayout, QFrame, QGridLayout,
+from PySide6.QtGui import QColor, QCursor, QDragEnterEvent, QDropEvent, QIcon, QImage, QKeyEvent, QUndoCommand, QUndoStack, QPixmap, QAction, QMouseEvent, QDragMoveEvent, QDragLeaveEvent, QDrag, QPaintDevice, QPaintEvent, QPalette, QPainter
+from PySide6.QtWidgets import (QBoxLayout, QFormLayout, QFrame, QGridLayout, QTableWidget, QTableWidgetItem, QStylePainter, QStyleOptionComboBox, QMenuBar, QToolBar,
                                QGroupBox, QHBoxLayout, QLabel, QLayout,
                                QLineEdit, QListView, QListWidget, QListWidgetItem, QPushButton,
-                               QScrollArea, QSizePolicy, QSpacerItem, QSplitter, QStyle, QTreeWidget,
+                               QScrollArea, QSizePolicy, QSpacerItem, QSplitter, QStyle, QTreeWidget, QComboBox,
                                QTreeWidget, QTreeWidgetItem,
                                QVBoxLayout, QWidget, QMenu)
 from juniors_toolbox import scene
@@ -146,6 +147,18 @@ class ProjectHierarchyItem(QTreeWidgetItem):
         return Path(subPath) if subPath != "scene" else Path()
 
 
+class ProjectFocusedMenuBarAction(QAction):
+    clicked: SignalInstance = Signal(QAction)
+
+    def __init__(self, parent: Optional[QWidget] = None):
+        super().__init__(parent)
+
+        self.toggled.connect(self.__click)
+
+    def __click(self, toggled: bool):
+        self.clicked.emit(self)
+
+
 class FileSystemViewer():
     openExplorerRequested: SignalInstance = Signal(ProjectAssetListItem)
     openRequested: SignalInstance = Signal(ProjectAssetListItem)
@@ -153,6 +166,96 @@ class FileSystemViewer():
     deleteRequested: SignalInstance = Signal(ProjectAssetListItem)
     dropInRequested: SignalInstance = Signal(Path)
     dropOutRequested: SignalInstance = Signal(ProjectAssetListItem)
+
+
+class ProjectFocusedMenuBar(QMenuBar):
+    folderChangeRequested: SignalInstance = Signal(Path)
+
+    def __init__(self, parent: Optional[QWidget] = None):
+        super().__init__(parent)
+        self.setNativeMenuBar(False)
+        # self.setFloatable(False)
+
+        self.__scenePath: Path = None
+        self.__focusedPath: Path = None
+
+    @property
+    def scenePath(self) -> Path:
+        return self.__scenePath
+
+    @scenePath.setter
+    def scenePath(self, path: Path):
+        self.__scenePath = path
+        self.__focusedPath = Path()
+        self.view(self.__focusedPath)
+
+    @property
+    def focusedPath(self) -> Path:
+        return self.__focusedPath
+
+    @focusedPath.setter
+    def focusedPath(self, path: Path):
+        self.view(path)
+
+    def get_focused_path_to(self, item: ProjectFocusedMenuBarAction):
+        subPath = Path()
+        for menu in self.findChildren(ProjectFocusedMenuBarAction, options=Qt.FindDirectChildrenOnly):
+            print(menu.title())
+            if menu.title() == ">":
+                continue
+            subPath / menu.title()
+            if menu == item:
+                break
+        return self.scenePath / subPath
+
+    def view(self, path: Path):
+        """
+        Path is relative to scene path
+        """
+        self.clear()
+        if not path.is_absolute():
+            self.__focusedPath = path
+        else:
+            self.__focusedPath = path.relative_to(self.scenePath)
+
+        sceneItem = QAction()
+        sceneItem.setText("&" + self.scenePath.name)
+        # sceneItem.clicked.connect(self.check_clicked)
+        action = self.addAction(self.scenePath.name)
+        action.setCheckable(False)
+        self.__populate_from_path(self.__focusedPath)
+
+    def check_clicked(self, clicked: QAction):
+        if clicked != ">":
+            path = self.get_focused_path_to(clicked)
+            print("emit", path)
+            self.folderChangeRequested.emit(path)
+        else:
+            print(">")
+
+    def __populate_from_path(self, path: Path):
+        curSubPath = Path()
+        for part in path.parts:
+            expandItem = QMenu(self)
+            expandItem.setTitle(">")
+            self.addAction(expandItem.menuAction())
+
+            folderItem = QMenu(self)
+            folderItem.setTitle(part)
+            # folderItem.clicked.connect(self.check_clicked)
+            self.addAction(folderItem.menuAction())
+            #expandItem = self.addAction(">>")
+            #folderItem = self.addAction(part)
+
+            for child in (self.scenePath / curSubPath).iterdir():
+                if child.is_dir():
+                    action = QAction(expandItem)
+                    action.setText(child.name)
+                    action.setCheckable(True)
+                    action.setChecked(child.name.lower() == part.lower())
+                    expandItem.addAction(action)
+
+            curSubPath = curSubPath / part
 
 
 class ProjectFolderViewWidget(QListWidget, FileSystemViewer):
@@ -187,7 +290,7 @@ class ProjectFolderViewWidget(QListWidget, FileSystemViewer):
         self.__scenePath = path
         self.__focusedPath = Path()
         self.view(self.__focusedPath)
-        
+
     @property
     def focusedPath(self) -> Path:
         return self.__focusedPath
@@ -233,7 +336,8 @@ class ProjectFolderViewWidget(QListWidget, FileSystemViewer):
         mime = self.model().mimeData(indexes)
         urlList = []
         for item in items:
-            urlList.append(QUrl.fromLocalFile(self.scenePath / self.focusedPath / item.text()))
+            urlList.append(QUrl.fromLocalFile(
+                self.scenePath / self.focusedPath / item.text()))
         mime.setUrls(urlList)
         drag.setMimeData(mime)
         drag.exec(supportedActions)
@@ -249,7 +353,7 @@ class ProjectFolderViewWidget(QListWidget, FileSystemViewer):
             event.acceptProposedAction()
         else:
             event.ignore()
-    
+
     def dropEvent(self, event: QDropEvent):
         from juniors_toolbox.gui.application import JuniorsToolbox
         md = event.mimeData()
@@ -264,7 +368,7 @@ class ProjectFolderViewWidget(QListWidget, FileSystemViewer):
                     self.dropOutRequested.emit(path)
             event.acceptProposedAction()
 
-    #def dropMimeData(self, index: int, data: QMimeData, action: Qt.DropAction) -> bool:
+    # def dropMimeData(self, index: int, data: QMimeData, action: Qt.DropAction) -> bool:
     #    return super().dropMimeData(index, data, action)
 
     @Slot(QPoint)
@@ -446,11 +550,13 @@ class ProjectHierarchyViewWidget(QTreeWidget, FileSystemViewer):
             for i in range(parent.childCount()):
                 child: ProjectHierarchyItem = parent.child(i)
                 __inner_recurse(child)
-                child.setExpanded(tree.setdefault(child.get_relative_path(), False))
+                child.setExpanded(tree.setdefault(
+                    child.get_relative_path(), False))
         for i in range(self.topLevelItemCount()):
             child: ProjectHierarchyItem = self.topLevelItem(i)
             __inner_recurse(child)
-            child.setExpanded(tree.setdefault(child.get_relative_path(), False))
+            child.setExpanded(tree.setdefault(
+                child.get_relative_path(), False))
 
 
 class ProjectViewerWidget(QWidget, GenericTabWidget):
@@ -520,13 +626,26 @@ class ProjectViewerWidget(QWidget, GenericTabWidget):
         self.__openTable = {}
 
         self.mainLayout = QHBoxLayout()
-        self.folderViewWidget = ProjectFolderViewWidget()
+
         self.fsTreeWidget = ProjectHierarchyViewWidget()
+
+        self.folderWidget = QWidget()
+
+        self.folderViewLayout = QVBoxLayout()
+        self.folderViewLayout.setContentsMargins(0, 0, 0, 0)
+
+        self.focusedViewWidget = ProjectFocusedMenuBar()
+        self.folderViewWidget = ProjectFolderViewWidget()
+
+        self.folderViewLayout.addWidget(self.focusedViewWidget)
+        self.folderViewLayout.addWidget(self.folderViewWidget)
+
+        self.folderWidget.setLayout(self.folderViewLayout)
 
         splitter = QSplitter()
         splitter.setChildrenCollapsible(False)
         splitter.addWidget(self.fsTreeWidget)
-        splitter.addWidget(self.folderViewWidget)
+        splitter.addWidget(self.folderWidget)
         self.splitter = splitter
 
         self.mainLayout.addWidget(self.splitter)
@@ -552,7 +671,8 @@ class ProjectViewerWidget(QWidget, GenericTabWidget):
         self.folderViewWidget.openRequested.connect(self.open_item)
         self.folderViewWidget.deleteRequested.connect(self.delete_item)
         self.folderViewWidget.renameRequested.connect(self.rename_item)
-        self.folderViewWidget.dropInRequested.connect(self.copy_path_to_focused)
+        self.folderViewWidget.dropInRequested.connect(
+            self.copy_path_to_focused)
 
         self.fsTreeWidget.openExplorerRequested.connect(self.explore_item)
         self.fsTreeWidget.openRequested.connect(self.open_item)
@@ -575,7 +695,8 @@ class ProjectViewerWidget(QWidget, GenericTabWidget):
         self.__scenePath = path
         self.fsTreeWidget.scenePath = path
         self.folderViewWidget.scenePath = path
-        
+        self.focusedViewWidget.scenePath = path
+
     @property
     def focusedPath(self) -> Path:
         return self.__focusedPath
@@ -584,9 +705,10 @@ class ProjectViewerWidget(QWidget, GenericTabWidget):
     def focusedPath(self, path: Path):
         self.__focusedPath = path
         self.folderViewWidget.focusedPath = path
+        self.focusedViewWidget.focusedPath = path
 
-    def populate(self, data: Any, focusedPath: Path):
-        self.focusedPath = focusedPath
+    def populate(self, data: Any, scenePath: Path):
+        self.scenePath = scenePath
         self.focusedPath = Path()
         self.update()
 
@@ -618,6 +740,7 @@ class ProjectViewerWidget(QWidget, GenericTabWidget):
     def update(self):
         self.fsTreeWidget.view(self.scenePath)
         self.folderViewWidget.view(self.focusedPath)
+        self.focusedViewWidget.view(self.focusedPath)
 
     @Slot(ProjectHierarchyItem)
     def view_folder(self, item: ProjectHierarchyItem):
@@ -626,6 +749,7 @@ class ProjectViewerWidget(QWidget, GenericTabWidget):
             return
         self.focusedPath = itemPath
         self.folderViewWidget.view(self.focusedPath)
+        self.focusedViewWidget.view(self.focusedPath)
 
     @Slot(ProjectAssetListItem)
     def handle_view_double_click(self, item: ProjectAssetListItem):
@@ -643,7 +767,8 @@ class ProjectViewerWidget(QWidget, GenericTabWidget):
         if isinstance(item, ProjectHierarchyItem):
             open_path_in_explorer(self.scenePath / item.get_relative_path())
         else:
-            open_path_in_explorer(self.scenePath / self.focusedPath / item.text())
+            open_path_in_explorer(
+                self.scenePath / self.focusedPath / item.text())
 
     @Slot(ProjectHierarchyItem)
     @Slot(ProjectAssetListItem)
@@ -668,9 +793,11 @@ class ProjectViewerWidget(QWidget, GenericTabWidget):
         if isFsItem:
             item.parent().removeChild(item)
             if path.parent.relative_to(self.scenePath) == self.focusedPath:
-                items = self.folderViewWidget.findItems(path.name, Qt.MatchFlag.MatchExactly)
+                items = self.folderViewWidget.findItems(
+                    path.name, Qt.MatchFlag.MatchExactly)
                 if len(items) == 1:
-                    self.folderViewWidget.takeItem(self.folderViewWidget.row(items[0]))
+                    self.folderViewWidget.takeItem(
+                        self.folderViewWidget.row(items[0]))
         else:
             self.folderViewWidget.takeItem(self.folderViewWidget.row(item))
             fsItem = self.get_fs_tree_item(path.relative_to(self.scenePath))
@@ -725,18 +852,20 @@ class ProjectViewerWidget(QWidget, GenericTabWidget):
         oldPath.rename(newPath)
         if self.focusedPath == previousPath:
             self.focusedPath = newPath
-        
+
         if isFsItem:
             self.fsTreeWidget.sortByColumn(0, Qt.SortOrder.AscendingOrder)
         else:
             self.folderViewWidget.sortItems(Qt.SortOrder.AscendingOrder)
             if newPath.is_dir():
-                fsItem = self.get_fs_tree_item(oldPath.relative_to(self.scenePath))
+                fsItem = self.get_fs_tree_item(
+                    oldPath.relative_to(self.scenePath))
                 if fsItem:
                     self.__ignoreItemRename = True
                     fsItem.setText(0, newPath.name)
                     self.__ignoreItemRename = False
-                    self.fsTreeWidget.sortByColumn(0, Qt.SortOrder.AscendingOrder)
+                    self.fsTreeWidget.sortByColumn(
+                        0, Qt.SortOrder.AscendingOrder)
         self.eventHandler.block_future_emit()
 
     @Slot(Path)
@@ -747,13 +876,16 @@ class ProjectViewerWidget(QWidget, GenericTabWidget):
 
         try:
             if path.is_file():
-                shutil.copy(path, self.scenePath / self.focusedPath / path.name)
+                shutil.copy(path, self.scenePath /
+                            self.focusedPath / path.name)
             else:
-                shutil.copytree(path, self.scenePath / self.focusedPath / path.name, dirs_exist_ok=True)
+                shutil.copytree(path, self.scenePath /
+                                self.focusedPath / path.name, dirs_exist_ok=True)
         except PermissionError:
             return
 
-        self.folderViewWidget.addItem(ProjectAssetListItem(path.name, path.is_dir()))
+        self.folderViewWidget.addItem(
+            ProjectAssetListItem(path.name, path.is_dir()))
 
     @Slot(str, Path)
     def move_path_from_focused(self, path: Path, dst: Path):
@@ -763,4 +895,5 @@ class ProjectViewerWidget(QWidget, GenericTabWidget):
         except PermissionError:
             return
 
-        self.folderViewWidget.takeItem(self.folderViewWidget.findItems(name, Qt.MatchFlag.MatchExactly))
+        self.folderViewWidget.takeItem(
+            self.folderViewWidget.findItems(name, Qt.MatchFlag.MatchExactly))
