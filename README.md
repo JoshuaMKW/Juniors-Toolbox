@@ -1,5 +1,5 @@
 # Junior's Toolbox
-Object layout and configuration editor for SMS stages, updated to Python 3
+Scene editor for SMS stages, written with Python 3 and PySide6
 
 ![image](https://user-images.githubusercontent.com/60854312/150532520-67c7130f-8657-4e77-ba37-57cb57965dc5.png)
 
