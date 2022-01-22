@@ -400,6 +400,7 @@ class BMGMessageEditor(QWidget, GenericTabWidget):
         self.textEdit = BMGMessageTextBox()
         self.textEdit.setAcceptRichText(True)
         self.textEdit.setObjectName("Message Editor")
+        self.textEdit.textChanged.connect(self.update_message_text)
 
         messageListBox = BMGMessageListWidget()
         messageListBox.currentItemChanged.connect(self.show_message)
@@ -510,6 +511,16 @@ class BMGMessageEditor(QWidget, GenericTabWidget):
     def show_message(self, item: BMGMessageListItem):
         self.textEdit.setPlainText(item.message.message.get_rich_text())
         self.messagePreview.message = item.message.message
+        self.messagePreview.update()
+
+    @Slot()
+    def update_message_text(self):
+        item: BMGMessageListItem = self.messageListBox.currentItem()
+        if item is None:
+            return
+        item.message.message = RichMessage.from_rich_string(self.textEdit.toPlainText())
+        self.messagePreview.message = item.message.message
+        self.messagePreview.update()
 
 
 # class BMGNodeEditorWidget(NodeEditorWidget, GenericTabWidget):

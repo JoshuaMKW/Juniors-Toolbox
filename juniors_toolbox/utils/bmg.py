@@ -17,9 +17,77 @@ class RichMessage:
     components: list = field(default_factory=lambda: [])
     encoding: str = None
 
+    _RICH_TO_COMMAND = {
+        "{text:slow}":           b"\x1A\x05\x00\x00\x00",
+        "{text:end_close}":      b"\x1A\x05\x00\x00\x01",
+        "{ctx:bananas}":         b"\x1A\x06\x02\x00\x04\x00",
+        "{ctx:coconuts}":        b"\x1A\x06\x02\x00\x04\x01",
+        "{ctx:pineapples}":      b"\x1A\x06\x02\x00\x04\x02",
+        "{ctx:durians}":         b"\x1A\x06\x02\x00\x04\x03",
+        "{color:white}":         b"\x1A\x06\xFF\x00\x00\x00",
+        "{color:red}":           b"\x1A\x06\xFF\x00\x00\x01",
+        "{color:blue}":          b"\x1A\x06\xFF\x00\x00\x02",
+        "{color:yellow}":        b"\x1A\x06\xFF\x00\x00\x03",
+        "{color:green}":         b"\x1A\x06\xFF\x00\x00\x04",
+        "{record:race_pianta}":  b"\x1A\x05\x02\x00\x00",
+        "{record:race_gelato}":  b"\x1A\x05\x02\x00\x01",
+        "{record:crate_time}":   b"\x1A\x05\x02\x00\x02",
+        "{record:bcoin_shines}": b"\x1A\x05\x02\x00\x03",
+        "{record:race_noki}":    b"\x1A\x05\x02\x00\x06",
+    }
+
+    _COMMAND_TO_RICH = {
+        b"\x1A\x05\x00\x00\x00":     "{text:slow}",
+        b"\x1A\x05\x00\x00\x01":     "{text:end_close}",
+        b"\x1A\x06\x02\x00\x04\x00": "{ctx:bananas}",
+        b"\x1A\x06\x02\x00\x04\x01": "{ctx:coconuts}",
+        b"\x1A\x06\x02\x00\x04\x02": "{ctx:pineapples}",
+        b"\x1A\x06\x02\x00\x04\x03": "{ctx:durians}",
+        b"\x1A\x06\xFF\x00\x00\x00": "{color:white}",
+        b"\x1A\x06\xFF\x00\x00\x01": "{color:red}",
+        b"\x1A\x06\xFF\x00\x00\x02": "{color:blue}",
+        b"\x1A\x06\xFF\x00\x00\x03": "{color:yellow}",
+        b"\x1A\x06\xFF\x00\x00\x04": "{color:green}",
+        b"\x1A\x05\x02\x00\x00":     "{record:race_pianta}",
+        b"\x1A\x05\x02\x00\x01":     "{record:race_gelato}",
+        b"\x1A\x05\x02\x00\x02":     "{record:crate_time}",
+        b"\x1A\x05\x02\x00\x03":     "{record:bcoin_shines}",
+        b"\x1A\x05\x02\x00\x06":     "{record:race_noki}",
+    }
+
+    @staticmethod
+    def command_to_rich(cmd: bytes) -> str:
+        if cmd in RichMessage._COMMAND_TO_RICH:
+            return RichMessage._COMMAND_TO_RICH[cmd]
+
+        if cmd.startswith(b"\x1A\x06\x00\x00\x00"):
+            return "{speed:" + str(cmd[-1]) + "}"
+
+        if cmd[2:4] == b"\x01\x00":
+            return "{option:" + str(cmd[4]) + ":" + decode_raw_string(cmd[5:]) + "}"
+
+    @staticmethod
+    def rich_to_command(rich: str) -> bytes:
+        if rich in RichMessage._RICH_TO_COMMAND:
+            return RichMessage._RICH_TO_COMMAND[rich]
+
+        if rich.startswith("{speed:"):
+            rich = rich.replace(" ", "")
+            speed = int(rich[7:-1])
+            return b"\x1A\x06\x00\x00\x00" + speed.to_bytes(1, "big", signed=False)
+            
+        if rich.startswith("{option:"):
+            command, message = rich.rsplit(":", 1)
+            command.replace(" ", "")
+            message = message[:-1].encode() + b"\x00"
+
+            option = int(command[8:]).to_bytes(1, "big", signed=False)
+            length = len(message).to_bytes(1, "big", signed=False)
+            return b"\x1A" + length + b"\x01\x00" + option + message
+
     @classmethod
     def from_bytes(cls, f: BytesIO, encoding: Optional[str] = None):
-        TERMINATING_CHARS = {b"",}
+        TERMINATING_CHARS = {b"", }
 
         string = b""
         components = []
@@ -67,6 +135,29 @@ class RichMessage:
             components.append(decode_raw_string(string, encoding))
         return cls(components, _encodingGuess)
 
+    @classmethod
+    def from_rich_string(cls, string: str):
+        components = []
+        substr = ""
+        lPos = string.find("{")
+        rPos = string.find("}", lPos)
+        encoding = None
+        while lPos > -1 and rPos > -1:
+            mainstr = string[:lPos]
+            if encoding is None:
+                encoding = get_likely_encoding(mainstr.encode())
+            components.append(mainstr)
+            substr = string[lPos:rPos+1]
+            components.append(RichMessage.rich_to_command(substr))
+            string = string[rPos+1:]
+            lPos = string.find("{")
+            rPos = string.find("}", lPos)
+        if string != "":
+            if encoding is None:
+                encoding = get_likely_encoding(string.encode())
+            components.append(string+"\x00")
+        return RichMessage(components, encoding)   
+
     def to_bytes(self) -> bytes:
         data = b""
         for cmp in self.components:
@@ -80,7 +171,14 @@ class RichMessage:
         return data
 
     def get_rich_text(self) -> str:
-        return self.get_string().replace("\x00", "") # TODO: Construct formatting system from encoded instructions
+        # TODO: Construct formatting system from encoded instructions
+        string = ""
+        for cmp in self.components:
+            if isinstance(cmp, str):
+                string += cmp.replace("\x00", "")
+            else:
+                string += RichMessage.command_to_rich(cmp)
+        return string
 
     def get_string(self) -> str:
         string = ""
