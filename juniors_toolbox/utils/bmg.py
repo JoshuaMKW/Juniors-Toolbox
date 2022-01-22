@@ -79,6 +79,9 @@ class RichMessage:
                 data += cmp
         return data
 
+    def get_rich_text(self) -> str:
+        return self.get_string().replace("\x00", "") # TODO: Construct formatting system from encoded instructions
+
     def get_string(self) -> str:
         string = ""
         for cmp in self.components:

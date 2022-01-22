@@ -1,22 +1,23 @@
 import time
 import math
 from pathlib import Path
-from typing import Any, List, Union
+from typing import Any, List, Optional, Union
 from enum import IntEnum
 from PySide6.QtWidgets import QPlainTextEdit, QSplitter
-from PySide6.QtCore import QLine, QModelIndex, QObject, Qt, QTimer
-from PySide6.QtGui import QColor, QCursor, QDragEnterEvent, QDropEvent, QImage, QKeyEvent, QPaintEvent, QPainter
-from PySide6.QtWidgets import (QBoxLayout, QFormLayout, QFrame, QGridLayout,
+from PySide6.QtCore import QLine, QModelIndex, QObject, Qt, QTimer, Slot, SignalInstance, Signal
+from PySide6.QtGui import QColor, QCursor, QDragEnterEvent, QDropEvent, QImage, QKeyEvent, QPaintEvent, QPainter, QAction
+from PySide6.QtWidgets import (QBoxLayout, QFormLayout, QFrame, QGridLayout, QMenu,
                                QGroupBox, QHBoxLayout, QLabel, QLayout,
                                QLineEdit, QListWidget, QListWidgetItem, QPushButton,
                                QScrollArea, QSizePolicy, QSpacerItem, QStyle, QTextEdit,
                                QTreeWidget, QTreeWidgetItem,
-                               QVBoxLayout, QWidget)
+                               QVBoxLayout, QWidget, QMenuBar, QFileDialog)
 
 from nodeeditor.node_scene import Scene
 from nodeeditor.node_node import Node
 from nodeeditor.node_editor_widget import NodeEditorWidget
 from nodeeditor.node_socket import Socket
+from numpy import save
 
 from juniors_toolbox.gui.tabs.generic import GenericTabWidget
 from juniors_toolbox.objects.object import GameObject
@@ -30,7 +31,7 @@ def _is_escape_code_option(code: bytes):
         code[2:4] == b"\x01\x00"
     ])
 
-class MessagePreview(QWidget):
+class BMGMessagePreviewWidget(QWidget):
     TextSpacingScale = 0.00382544309832 # from SMS
     BoxAppearSpeed = 0.04 # from SMS - 0 to 1 range
     TextWaitInverseScale = 1.0 # from SMS
@@ -47,15 +48,16 @@ class MessagePreview(QWidget):
         NPC = 0
         BILLBOARD = 1
 
-    def __init__(self, message: RichMessage, parent=None):
+    def __init__(self, message: RichMessage = None, parent=None):
         super().__init__(parent)
+        self.setMinimumSize(200, 200)
         self.__message = message
         self.__playing = False
         self.__curFrame = -1
         self.__endFrame = -1
         self.__curPage = 0
         self.__renderTimer = 0.0
-        self.__boxState = MessagePreview.BoxState.NPC
+        self.__boxState = BMGMessagePreviewWidget.BoxState.NPC
 
     @property
     def message(self) -> RichMessage:
@@ -75,11 +77,11 @@ class MessagePreview(QWidget):
 
     @property
     def linesPerPage(self) -> int:
-        return 3 if self.__boxState == MessagePreview.BoxState.NPC else 6
+        return 3 if self.__boxState == BMGMessagePreviewWidget.BoxState.NPC else 6
 
     @property
     def backDropImage(self) -> QImage:
-        if self.__boxState == MessagePreview.BoxState.NPC:
+        if self.__boxState == BMGMessagePreviewWidget.BoxState.NPC:
             QImage(str(resource_path("gui/images/message_back.png")))
         else:
             QImage(str(resource_path("gui/images/message_board.png")))
@@ -104,6 +106,9 @@ class MessagePreview(QWidget):
         self.__renderTimer = time.perf_counter()
 
     def render(self, painter: QPainter):
+        if self.message is None:
+            return
+
         _len = 0
         curComponent = None
         for cmp in self.message.components:
@@ -132,7 +137,7 @@ class MessagePreview(QWidget):
         isNextButtonVisible = self.__curPage < numPages-1
         backDropImg = self.backDropImage
 
-        if self.__boxState == MessagePreview.BoxState.NPC:
+        if self.__boxState == BMGMessagePreviewWidget.BoxState.NPC:
             self.__render_message(painter, backDropImg, isNextButtonVisible)
         else:
             self.__render_billboard(painter, backDropImg, isNextButtonVisible)
@@ -177,8 +182,8 @@ class MessagePreview(QWidget):
 
     def paintEvent(self, event: QPaintEvent):
         super().paintEvent(event)
-        painter = QPainter(self)
-        painter.begin()
+        painter = QPainter()
+        painter.begin(self)
 
         self.render(painter)
         if self.__playing:
@@ -190,63 +195,215 @@ class MessagePreview(QWidget):
 
 
 class BMGMessageListItem(QListWidgetItem):
-    def __init__(self, message: RichMessage, name: str, *args, **kwargs):
+    def __init__(self, message: BMG.MessageEntry, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.message = message
 
-class BMGMessageTextBox(QPlainTextEdit):
+class BMGMessageTextBox(QTextEdit):
     __ESCAPE_TO_RICH_TEXT = [
         ["{color:white}", "<span style=\"color:#ff0000;\">"]
     ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.setLineWrapMode(QTextEdit.NoWrap)
+        self.setMinimumWidth(100)
         self.textChanged.connect(self.format_escape_codes)
 
     def format_escape_codes(self):
         text = self.toPlainText()
 
 
+class BMGMessageMenuBar(QMenuBar):
+    openRequested: SignalInstance = Signal()
+    closeRequested: SignalInstance = Signal()
+    saveRequested: SignalInstance = Signal(bool)
+
+    def __init__(self, parent: Optional[QWidget] = None):
+        super().__init__(parent)
+        self.setNativeMenuBar(False)
+        self.setFixedHeight(28)
+
+        fileMenu = QMenu(self)
+        fileMenu.setTitle("File")
+
+        openAction = QAction(self)
+        openAction.setText("Open...")
+        openAction.triggered.connect(lambda toggled: self.openRequested.emit())
+
+        saveAction = QAction(self)
+        saveAction.setText("Save")
+        saveAction.triggered.connect(lambda toggled: self.saveRequested.emit(False))
+
+        saveAsAction = QAction(self)
+        saveAsAction.setText("Save As...")
+        saveAsAction.triggered.connect(lambda toggled: self.saveRequested.emit(True))
+
+        closeAction = QAction(self)
+        closeAction.setText("Close")
+        closeAction.triggered.connect(lambda toggled: self.closeRequested.emit())
+
+        fileMenu.addAction(openAction)
+        fileMenu.addAction(saveAction)
+        fileMenu.addAction(saveAsAction)
+        fileMenu.addAction(closeAction)
+
+        kindMenu = QMenu(self)
+        kindMenu.setTitle("Region")
+        
+        usaAction = QAction(kindMenu)
+        usaAction.setText("NTSC-U")
+        usaAction.setCheckable(True)
+        usaAction.setChecked(True)
+        
+        palAction = QAction(kindMenu)
+        palAction.setText("PAL")
+        palAction.setCheckable(True)
+        
+        usaAction.toggled.connect(lambda toggled: palAction.setChecked(not toggled))
+        palAction.toggled.connect(lambda toggled: usaAction.setChecked(not toggled))
+
+        kindMenu.addAction(usaAction)
+        kindMenu.addAction(palAction)
+
+        self.__usaAction = usaAction
+        self.__palAction = palAction
+
+        self.addMenu(fileMenu)
+        self.addMenu(kindMenu)
+
+    def is_region_pal(self) -> bool:
+        return self.__palAction.isChecked() and not self.__usaAction.isChecked()
+
+    def set_region_pal(self, isPal: bool):
+        self.__palAction.setChecked(isPal)
+        self.__usaAction.setChecked(not isPal)
+
+
 class BMGMessageEditor(QWidget, GenericTabWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAcceptDrops(True)
-        self.setMinimumSize(400, 300)
+        self.setMinimumSize(420, 240)
 
-        self.mainLayout = QHBoxLayout()
+        self.mainLayout = QVBoxLayout()
+        self.mainLayout.setContentsMargins(0, 0, 0, 0)
         
-        self.textEdit = QTextEdit()
+        self.textEdit = BMGMessageTextBox()
         self.textEdit.setAcceptRichText(True)
         self.textEdit.setObjectName("Message Editor")
 
-        self.messageListBox = QListWidget()
-        self.messageListBox.setDragEnabled(True)
-        self.messageListBox.setAcceptDrops(True)
-        #self.messageListBox.setMaximumWidth(180)
-        self.messageListBox.setObjectName("Message List")
+        messageListBox = QListWidget()
+        messageListBox.setDragEnabled(True)
+        messageListBox.setAcceptDrops(True)
+        messageListBox.setObjectName("Message List")
+        messageListBox.currentItemChanged.connect(self.show_message)
+
+        self.messageListBox = messageListBox
+
+        self.messagePreview = BMGMessagePreviewWidget()
 
         splitter = QSplitter()
         splitter.setChildrenCollapsible(False)
         splitter.addWidget(self.messageListBox)
         splitter.addWidget(self.textEdit)
+        splitter.addWidget(self.messagePreview)
         self.splitter = splitter
 
+        menuBar = BMGMessageMenuBar(self)
+        menuBar.openRequested.connect(self.open_bmg)
+        menuBar.closeRequested.connect(self.close_bmg)
+        menuBar.saveRequested.connect(lambda saveAs: self.save_bmg(saveAs=saveAs))
+        self.menuBar = menuBar
+
+        self.mainLayout.addWidget(self.menuBar)
         self.mainLayout.addWidget(self.splitter)
 
         self.setLayout(self.mainLayout)
 
         self.messages: List[BMG.MessageEntry] = []
 
+        self.__cachedOpenPath: Path = None
+
     def populate(self, data: Any, scenePath: Path):
         if not isinstance(data, BMG):
             return
 
+        self.messageListBox.clear()
+        self.textEdit.clear()
+
+        self.menuBar.set_region_pal(data.is_pal())
+
         for i, message in enumerate(data.iter_messages()):
-            name = message.name
             if message.name == "":
-                name = f"message_unk_{i}"
-            listItem = BMGMessageListItem(message.message, name)
+                message.name = f"message_unk_{i}"
+            listItem = BMGMessageListItem(message, message.name)
             self.messageListBox.addItem(listItem)
+
+        if self.messageListBox.count() > 0:
+            self.messageListBox.setCurrentRow(0)
+
+    @Slot(Path)
+    def open_bmg(self, path: Optional[Path] = None):
+        if path is None:
+            dialog = QFileDialog(
+                parent=self,
+                caption="Open BMG...",
+                directory=str(
+                    self.__cachedOpenPath.parent if self.__cachedOpenPath else Path.home()
+                ),
+                filter="Binary Messages (*.bmg);;All files (*)"
+            )
+
+            dialog.setAcceptMode(QFileDialog.AcceptOpen)
+            dialog.setFileMode(QFileDialog.AnyFile)
+
+            if dialog.exec_() != QFileDialog.Accepted:
+                return False
+
+            path = Path(dialog.selectedFiles()[0]).resolve()
+            self.__cachedOpenPath = path
+
+        with path.open("rb") as f:
+            bmg = BMG.from_bytes(f)
+
+        self.populate(bmg, None)
+        
+    @Slot()
+    def close_bmg(self):
+        self.messageListBox.clear()
+        self.textEdit.clear()
+
+    @Slot(Path, bool)
+    def save_bmg(self, path: Optional[Path] = None, saveAs: bool = False):
+        if (saveAs or self.__cachedOpenPath is None) and path is None:
+            dialog = QFileDialog(
+                parent=self,
+                caption="Save BMG...",
+                directory=str(
+                    self.__cachedOpenPath.parent if self.__cachedOpenPath else Path.home()
+                ),
+                filter="Binary Messages (*.bmg);;All files (*)"
+            )
+
+            dialog.setAcceptMode(QFileDialog.AcceptSave)
+            dialog.setFileMode(QFileDialog.AnyFile)
+
+            if dialog.exec_() != QFileDialog.Accepted:
+                return False
+
+            path = Path(dialog.selectedFiles()[0]).resolve()
+            self.__cachedOpenPath = path
+
+        with path.open("wb") as f:
+            bmg = BMG.from_bytes(f)
+
+        self.populate(bmg, None)
+
+    @Slot(BMGMessageListItem)
+    def show_message(self, item: BMGMessageListItem):
+        self.textEdit.setPlainText(item.message.message.get_rich_text())
+
 
 
 # class BMGNodeEditorWidget(NodeEditorWidget, GenericTabWidget):

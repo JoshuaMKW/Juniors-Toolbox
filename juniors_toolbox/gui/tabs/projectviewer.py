@@ -182,6 +182,10 @@ class ProjectFocusedMenuBar(QMenuBar):
 
         self.__parts: List[ProjectFocusedMenuBarAction] = []
 
+        font = self.font()
+        font.setBold(True)
+        self.setFont(font)
+
     @property
     def scenePath(self) -> Path:
         return self.__scenePath
@@ -381,9 +385,6 @@ class ProjectFolderViewWidget(QListWidget, FileSystemViewer):
                 else:
                     self.dropOutRequested.emit(path)
             event.acceptProposedAction()
-
-    # def dropMimeData(self, index: int, data: QMimeData, action: Qt.DropAction) -> bool:
-    #    return super().dropMimeData(index, data, action)
 
     @Slot(QPoint)
     def custom_context_menu(self, point: QPoint):
