@@ -199,6 +199,24 @@ class BMGMessageListItem(QListWidgetItem):
         super().__init__(*args, **kwargs)
         self.message = message
 
+        self.setFlags(
+            Qt.ItemIsEnabled |
+            Qt.ItemIsEditable |
+            Qt.ItemIsSelectable |
+            Qt.ItemIsDragEnabled
+        )
+
+class BMGMessageListWidget(QListWidget):
+    def __init__(self, parent: Optional[QWidget] = None):
+        super().__init__(parent)
+
+        self.setDragEnabled(True)
+        self.setAcceptDrops(True)
+        self.setDefaultDropAction(Qt.MoveAction)
+        self.setDragDropMode(QListWidget.DragDrop)
+        self.setObjectName("Message List")
+
+
 class BMGMessageTextBox(QTextEdit):
     __ESCAPE_TO_RICH_TEXT = [
         ["{color:white}", "<span style=\"color:#ff0000;\">"]
@@ -207,7 +225,7 @@ class BMGMessageTextBox(QTextEdit):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setLineWrapMode(QTextEdit.NoWrap)
-        self.setMinimumWidth(100)
+        self.setMinimumWidth(130)
         self.textChanged.connect(self.format_escape_codes)
 
     def format_escape_codes(self):
@@ -284,7 +302,7 @@ class BMGMessageEditor(QWidget, GenericTabWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAcceptDrops(True)
-        self.setMinimumSize(420, 240)
+        self.setMinimumSize(440, 240)
 
         self.mainLayout = QVBoxLayout()
         self.mainLayout.setContentsMargins(0, 0, 0, 0)
@@ -293,10 +311,7 @@ class BMGMessageEditor(QWidget, GenericTabWidget):
         self.textEdit.setAcceptRichText(True)
         self.textEdit.setObjectName("Message Editor")
 
-        messageListBox = QListWidget()
-        messageListBox.setDragEnabled(True)
-        messageListBox.setAcceptDrops(True)
-        messageListBox.setObjectName("Message List")
+        messageListBox = BMGMessageListWidget()
         messageListBox.currentItemChanged.connect(self.show_message)
 
         self.messageListBox = messageListBox
