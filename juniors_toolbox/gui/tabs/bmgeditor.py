@@ -314,8 +314,6 @@ class BMGMessagePreviewWidget(QWidget):
         painter.setOpacity(1.0)
         painter.drawImage(tPointTranslated, arrow)
         painter.setOpacity(_opacity)
-        painter.drawPoint(targetPos.x() + (nextImg.width()/2),
-                          targetPos.y() + (nextImg.height()/2))
 
     def __render_end_button(
         self,
