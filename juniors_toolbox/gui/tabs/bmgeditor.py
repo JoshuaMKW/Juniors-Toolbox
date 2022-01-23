@@ -1,9 +1,10 @@
+from dataclasses import dataclass
 from email.charset import QP
 import time
 import math
 from pathlib import Path
 from turtle import back
-from typing import Any, List, Optional, Union
+from typing import Any, Callable, List, Optional, Union
 from enum import IntEnum
 from PySide6.QtWidgets import QPlainTextEdit, QSplitter
 from PySide6.QtCore import QLine, QModelIndex, QObject, Qt, QTimer, Slot, SignalInstance, Signal, QSizeF, QPoint, QPointF
@@ -52,6 +53,15 @@ class BMGMessagePreviewWidget(QWidget):
         NPC = 0
         BILLBOARD = 1
 
+    @dataclass
+    class ButtonCB():
+        position: QPoint = QPoint(0, 0)
+        radius: float = 0.0
+        cb: Callable[[], None] = lambda: None
+
+        def render(self, painter: QPainter):
+            painter.drawEllipse(self.position, self.radius, self.radius)
+
     def __init__(self, message: RichMessage = None, parent=None):
         super().__init__(parent)
         self.setMinimumSize(200, 200)
@@ -62,10 +72,7 @@ class BMGMessagePreviewWidget(QWidget):
         self.__curPage = 0
         self.__renderTimer = 0.0
         self.__boxState = BMGMessagePreviewWidget.BoxState.NPC
-        self.__factor = 0.0
-        self.__imgSize = QSizeF(0.0, 0.0)
-        self.__nextPos = QPoint(-1, -1)
-        self.__nextRadius = 0.0
+        self.__buttons: List[BMGMessagePreviewWidget.ButtonCB] = []
 
     @property
     def message(self) -> RichMessage:
@@ -96,6 +103,12 @@ class BMGMessagePreviewWidget(QWidget):
 
     def is_playing(self) -> bool:
         return self.__playing and self.__curFrame > -1
+
+    def nextPage(self):
+        self.__curPage += 1
+
+    def prevPage(self):
+        self.__curPage -= 1
 
     def play(self):
         self.__playing = True
@@ -163,18 +176,22 @@ class BMGMessagePreviewWidget(QWidget):
         if curComponent is None:
             self.__curFrame = -1
 
+        self.__buttons.clear()
+
         msgImage = QImage(1200, 800, QImage.Format_ARGB32)
         msgImage.fill(Qt.transparent)
-        if self.__curFrame == -1:
-            msgPainter = QPainter()
-            msgPainter.begin(msgImage)
-            msgPainter.scale(2.28, 2.27)
-            self.__render_any(msgPainter)
-            msgPainter.end()
+
+        msgPainter = QPainter()
+        msgPainter.begin(msgImage)
+        msgPainter.scale(2.28, 2.27)
+        buttonPos = self.__render_any(msgPainter)
+        msgPainter.end()
+
+        messageImgOfs = QPoint(635, 5)
 
         mainPainter = QPainter()
         mainPainter.begin(backgroundImg)
-        mainPainter.drawImage(635, 5, msgImage)
+        mainPainter.drawImage(messageImgOfs, msgImage)
         mainPainter.end()
 
         scaledBGImg = fit_image_to(self, backgroundImg)
@@ -186,20 +203,34 @@ class BMGMessagePreviewWidget(QWidget):
 
         painter.drawImage(imgOfs, scaledBGImg)
 
+        # Set Button Callback
+
+        if buttonPos == QPoint(-1, -1):
+            return
+
+        button = BMGMessagePreviewWidget.ButtonCB()
+
         wFactor = self.width() / backgroundImg.width()
         hFactor = self.height() / backgroundImg.height()
 
         factor = min(wFactor, hFactor)
-        self.__nextPos.setX(
-            (635 + self.__nextPos.x()) * factor
+        buttonPos.setX(
+            (messageImgOfs.x() + buttonPos.x()) * factor
         )
-        self.__nextPos.setY(
-            (5 + self.__nextPos.y()) * factor
+        buttonPos.setY(
+            (messageImgOfs.y() + buttonPos.y()) * factor
         )
-        self.__nextPos += imgOfs  # Translate the target by the widget translation
-        self.__nextRadius *= factor * 1.15  # Scale target by the widget scale
+        buttonPos += imgOfs
 
-    def __render_any(self, painter: QPainter):
+        button.position = buttonPos
+        button.radius = 30 * factor
+        button.cb = self.nextPage
+
+        button.render(painter)
+
+        self.__buttons.append(button)
+
+    def __render_any(self, painter: QPainter) -> QPoint:
         numLines = self.__get_num_newlines(self.message)
         numPages = (numLines // self.linesPerPage) + 1
 
@@ -215,7 +246,7 @@ class BMGMessagePreviewWidget(QWidget):
 
         if self.__boxState == BMGMessagePreviewWidget.BoxState.NPC:
             #img = backDropImg.scaledToWidth(backDropImg.width() * 1.15)
-            self.__render_message(
+            buttonPos = self.__render_message(
                 painter,
                 lines,
                 backDropImg,
@@ -223,13 +254,14 @@ class BMGMessagePreviewWidget(QWidget):
                 isEndButtonVisible
             )
         else:
-            self.__render_billboard(
+            buttonPos = self.__render_billboard(
                 painter,
                 lines,
                 backDropImg,
                 isNextButtonVisible,
                 isEndButtonVisible
             )
+        return buttonPos
 
     def __render_message(
         self,
@@ -238,32 +270,31 @@ class BMGMessagePreviewWidget(QWidget):
         backDrop: QImage,
         nextVisible: bool,
         endVisible: bool
-    ):
+    ) -> QPoint:
         painter.translate(100, -33)
         painter.rotate(BMGMessagePreviewWidget.Rotation)
         painter.setOpacity(0.7)
         #painter.scale(1.05, 1)
-        for i, line in enumerate(message):
+        for line in message:
             if line == "":
                 continue
             painter.translate(0, 33)
             painter.drawImage(0, 0, backDrop)
             painter.drawText(0, 0, line.replace("\x00", ""))
-        else:
-            if nextVisible:
-                self.__render_next_button(
-                    painter,
-                    QPoint(backDrop.width(), 45),
-                    -70
-                )
-            elif endVisible:
-                self.__render_end_button(
-                    painter,
-                    QPoint(backDrop.width(), 45),
-                    -70
-                )
-            else:
-                self.__nextPos = QPoint(-1, -1)
+
+        if nextVisible:
+            return self.__render_next_button(
+                painter,
+                QPoint(backDrop.width(), 45),
+                -70
+            )
+        if endVisible:
+            return self.__render_end_button(
+                painter,
+                QPoint(backDrop.width(), 45),
+                -70
+            )
+        return QPoint(-1, -1)
 
     def __render_billboard(
         self,
@@ -272,7 +303,7 @@ class BMGMessagePreviewWidget(QWidget):
         backDrop: QImage,
         nextVisible: bool,
         endVisible: bool
-    ):
+    ) -> QPoint:
         for _ in ():
             ...
 
@@ -281,7 +312,7 @@ class BMGMessagePreviewWidget(QWidget):
         painter: QPainter,
         targetPos: QPoint,
         rotation: float
-    ):
+    ) -> QPoint:
         nextImg = QImage(
             str(resource_path("gui/images/message_button_back.png"))
         )
@@ -299,14 +330,6 @@ class BMGMessagePreviewWidget(QWidget):
         transform.rotate(rotation)
         arrow = arrow.transformed(transform, Qt.SmoothTransformation)
 
-        transform = painter.combinedTransform()
-        self.__nextPos = transform.map(
-            QPoint(
-                targetPos.x() + (nextImg.width()/2),
-                targetPos.y() + (nextImg.height()/2)
-            )
-        )
-        self.__nextRadius = (nextImg.width() + nextImg.height()) / 2
         painter.drawImage(targetPos, nextImg)
 
         tPointTranslated = QPoint(targetPos.x()+4, targetPos.y()+2)
@@ -314,6 +337,14 @@ class BMGMessagePreviewWidget(QWidget):
         painter.setOpacity(1.0)
         painter.drawImage(tPointTranslated, arrow)
         painter.setOpacity(_opacity)
+
+        transform = painter.combinedTransform()
+        return transform.map(
+            QPoint(
+                targetPos.x() + (nextImg.width()/2),
+                targetPos.y() + (nextImg.height()/2)
+            )
+        )
 
     def __render_end_button(
         self,
@@ -334,19 +365,7 @@ class BMGMessagePreviewWidget(QWidget):
         arrow = arrow.smoothScaled(
             arrow.width()*0.7, arrow.height()*0.7
         )
-        transform = QTransform()
-        transform.rotate(rotation)
-        arrow = arrow.transformed(transform, Qt.SmoothTransformation)
 
-        transform = painter.transform()
-        #transform = painter.combinedTransform()
-        self.__nextPos = transform.map(
-            QPoint(
-                targetPos.x() + (nextImg.width()/2),
-                targetPos.y() + (nextImg.height()/2)
-            )
-        )
-        self.__nextRadius = (nextImg.width() + nextImg.height()) / 2
         painter.drawImage(targetPos, nextImg)
 
         tPointTranslated = QPoint(targetPos.x()+3, targetPos.y()+2)
@@ -354,6 +373,14 @@ class BMGMessagePreviewWidget(QWidget):
         painter.setOpacity(1.0)
         painter.drawImage(tPointTranslated, arrow)
         painter.setOpacity(_opacity)
+
+        transform = painter.combinedTransform()
+        return transform.map(
+            QPoint(
+                targetPos.x() + (nextImg.width()/2),
+                targetPos.y() + (nextImg.height()/2)
+            )
+        )
 
     def __get_num_newlines(self, message: RichMessage) -> int:
         num = 0
@@ -408,15 +435,13 @@ class BMGMessagePreviewWidget(QWidget):
     def mousePressEvent(self, event: QMouseEvent):
         if event.button() == Qt.MouseButton.LeftButton:
             ePos = event.pos()
-            nPos = self.__nextPos
-            rad = self.__nextRadius
-            if self.__nextPos == QPoint(-1, -1):
-                return
-            diff = ePos - nPos
-            dist = ePos.dotProduct(diff, diff)
-            drad = self.__nextRadius * self.__nextRadius
-            if dist < drad:
-                self.__curPage += 1
+            for button in self.__buttons:
+                buttonPosition = button.position
+                buttonRadius = button.radius * button.radius
+                diff = ePos - buttonPosition
+                if ePos.dotProduct(diff, diff) < buttonRadius:
+                    button.cb()
+            else:
                 self.update()
 
 
