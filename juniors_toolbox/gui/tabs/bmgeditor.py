@@ -226,8 +226,6 @@ class BMGMessagePreviewWidget(QWidget):
         button.radius = 30 * factor
         button.cb = self.nextPage
 
-        button.render(painter)
-
         self.__buttons.append(button)
 
     def __render_any(self, painter: QPainter) -> QPoint:
