@@ -363,6 +363,9 @@ class BMGMessagePreviewWidget(QWidget):
         arrow = arrow.smoothScaled(
             arrow.width()*0.7, arrow.height()*0.7
         )
+        transform = QTransform()
+        transform.rotate(rotation)
+        arrow = arrow.transformed(transform, Qt.SmoothTransformation)
 
         painter.drawImage(targetPos, nextImg)
 
