@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 from PySide6.QtCore import QPoint, QSize, Slot
-from PySide6.QtGui import QResizeEvent, Qt
+from PySide6.QtGui import QResizeEvent, Qt, QFontDatabase
 
 from PySide6.QtWidgets import QApplication, QDockWidget, QFileDialog, QLabel, QMainWindow, QSizePolicy, QStyleFactory, QWidget
 from juniors_toolbox import __version__
@@ -13,7 +13,7 @@ from juniors_toolbox.gui.tabs.object import ObjectHierarchyWidget, ObjectHierarc
 from juniors_toolbox.gui.widgets.synceddock import SyncedDockWidget
 from juniors_toolbox.gui.windows.mainwindow import MainWindow
 from juniors_toolbox.scene import SMSScene
-from juniors_toolbox.utils.filesystem import get_program_folder
+from juniors_toolbox.utils.filesystem import get_program_folder, resource_path
 from juniors_toolbox.gui.settings import SMSBinEditorSettings
 
 
@@ -85,6 +85,13 @@ class JuniorsToolbox(QApplication):
 
         # Set up theme toggle
         self.gui.themeChanged.connect(self.update_theme)
+
+        fontFolder = resource_path("gui/fonts/")
+        for fontFile in fontFolder.iterdir():
+            if not fontFile.is_file():
+                continue
+            id = QFontDatabase.addApplicationFont(str(fontFile))
+            print(QFontDatabase.applicationFontFamilies(id))
 
     # --- GETTER / SETTER --- #
 

@@ -321,12 +321,3 @@ class ObjectPropertiesWidget(QScrollArea, GenericTabWidget):
 
     def updateObjectValue(self, qualname: str, value: object):
         self.object.set_value(qualname, value)
-
-    def keyPressEvent(self, event: QKeyEvent):
-        if not (event.modifiers() & Qt.CTRL):
-            return
-
-        if event.key() == Qt.Key_Y:
-            self.undoStack.redo()
-        elif event.key() == Qt.Key_Z:
-            self.undoStack.undo()
