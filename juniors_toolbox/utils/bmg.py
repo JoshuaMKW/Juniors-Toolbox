@@ -25,10 +25,10 @@ class RichMessage:
         "{ctx:pineapples}":      b"\x1A\x06\x02\x00\x04\x02",
         "{ctx:durians}":         b"\x1A\x06\x02\x00\x04\x03",
         "{color:white}":         b"\x1A\x06\xFF\x00\x00\x00",
-        "{color:red}":           b"\x1A\x06\xFF\x00\x00\x01",
-        "{color:blue}":          b"\x1A\x06\xFF\x00\x00\x02",
-        "{color:yellow}":        b"\x1A\x06\xFF\x00\x00\x03",
-        "{color:green}":         b"\x1A\x06\xFF\x00\x00\x04",
+        "{color:red}":           b"\x1A\x06\xFF\x00\x00\x02",
+        "{color:blue}":          b"\x1A\x06\xFF\x00\x00\x03",
+        "{color:yellow}":        b"\x1A\x06\xFF\x00\x00\x04",
+        "{color:green}":         b"\x1A\x06\xFF\x00\x00\x05",
         "{record:race_pianta}":  b"\x1A\x05\x02\x00\x00",
         "{record:race_gelato}":  b"\x1A\x05\x02\x00\x01",
         "{record:crate_time}":   b"\x1A\x05\x02\x00\x02",
@@ -44,10 +44,10 @@ class RichMessage:
         b"\x1A\x06\x02\x00\x04\x02": "{ctx:pineapples}",
         b"\x1A\x06\x02\x00\x04\x03": "{ctx:durians}",
         b"\x1A\x06\xFF\x00\x00\x00": "{color:white}",
-        b"\x1A\x06\xFF\x00\x00\x01": "{color:red}",
-        b"\x1A\x06\xFF\x00\x00\x02": "{color:blue}",
-        b"\x1A\x06\xFF\x00\x00\x03": "{color:yellow}",
-        b"\x1A\x06\xFF\x00\x00\x04": "{color:green}",
+        b"\x1A\x06\xFF\x00\x00\x02": "{color:red}",
+        b"\x1A\x06\xFF\x00\x00\x03": "{color:blue}",
+        b"\x1A\x06\xFF\x00\x00\x04": "{color:yellow}",
+        b"\x1A\x06\xFF\x00\x00\x05": "{color:green}",
         b"\x1A\x05\x02\x00\x00":     "{record:race_pianta}",
         b"\x1A\x05\x02\x00\x01":     "{record:race_gelato}",
         b"\x1A\x05\x02\x00\x02":     "{record:crate_time}",
@@ -144,14 +144,19 @@ class RichMessage:
         encoding = None
         while lPos > -1 and rPos > -1:
             mainstr = string[:lPos]
-            if encoding is None:
-                encoding = get_likely_encoding(mainstr.encode())
-            components.append(mainstr)
+            if mainstr != "":
+                if encoding is None:
+                    encoding = get_likely_encoding(mainstr.encode())
+                components.append(mainstr)
             substr = string[lPos:rPos+1]
-            components.append(RichMessage.rich_to_command(substr))
-            string = string[rPos+1:]
-            lPos = string.find("{")
-            rPos = string.find("}", lPos)
+            if substr != "":
+                part = RichMessage.rich_to_command(substr)
+                if part is None:
+                    part = substr
+                components.append(part)
+                string = string[rPos+1:]
+                lPos = string.find("{")
+                rPos = string.find("}", lPos)
         if string != "":
             if encoding is None:
                 encoding = get_likely_encoding(string.encode())

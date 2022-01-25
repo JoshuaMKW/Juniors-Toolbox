@@ -35,6 +35,15 @@ class BMGMessagePreviewWidget(QWidget):
     BoxAppearSpeed = 0.04  # from SMS - 0 to 1 range
     TextWaitInverseScale = 1.0  # from SMS
     Rotation = 17.0  # from SMS, clockwise
+    FontSize = 15
+    PaddingMap = {
+        " ": 4,
+        "c": 2,
+        "l": 2,
+        "u": 1,
+        "y": 1,
+        ",": 6,
+    }
 
     class PreviewState(IntEnum):
         IDLE = 0
@@ -110,6 +119,17 @@ class BMGMessagePreviewWidget(QWidget):
 
     def is_billboard(self) -> bool:
         return self.__boxState == BMGMessagePreviewWidget.BoxState.BILLBOARD
+
+    @staticmethod
+    def get_color(index: int) -> QColor:
+        return [
+            QColor(0xFF, 0xFF, 0xFF, 0xFF),
+            QColor(0xFF, 0xFF, 0xFF, 0xFF),
+            QColor(0xFF, 0xB4, 0x8C, 0xFF),
+            QColor(0x6E, 0xE6, 0xFF, 0xFF),
+            QColor(0xFF, 0xFF, 0x00, 0xFF),
+            QColor(0xAA, 0xFF, 0x50, 0xFF)
+        ][index]
 
     def nextPage(self):
         self.__curPage += 1
@@ -192,7 +212,7 @@ class BMGMessagePreviewWidget(QWidget):
         msgPainter.begin(msgImage)
         msgPainter.scale(2.28, 2.27)
         font = QFont("FOT-PopHappiness Std EB")
-        font.setPointSize(16)
+        font.setPointSize(self.FontSize)
         msgPainter.setFont(font)
         msgPainter.setPen(Qt.white)
         buttonPos = self.__render_any(msgPainter)
@@ -250,9 +270,7 @@ class BMGMessagePreviewWidget(QWidget):
             self.__curPage = 0
 
         message = self.__get_message_for_page(self.__curPage)
-        lines = message.get_string().split("\n")
 
-        isNextButtonVisible = self.__curPage < numPages-1
         isEndButtonVisible = self.__curPage == numPages-1
         backDropImg = self.backDropImage
 
@@ -260,17 +278,15 @@ class BMGMessagePreviewWidget(QWidget):
             #img = backDropImg.scaledToWidth(backDropImg.width() * 1.15)
             buttonPos = self.__render_message(
                 painter,
-                lines,
+                message,
                 backDropImg,
-                isNextButtonVisible,
                 isEndButtonVisible
             )
         else:
             buttonPos = self.__render_billboard(
                 painter,
-                lines,
+                message,
                 backDropImg,
-                isNextButtonVisible,
                 isEndButtonVisible
             )
         return buttonPos
@@ -278,61 +294,89 @@ class BMGMessagePreviewWidget(QWidget):
     def __render_message(
         self,
         painter: QPainter,
-        message: List[str],
+        message: RichMessage,
         backDrop: QImage,
-        nextVisible: bool,
         endVisible: bool
     ) -> QPoint:
+        pathPercentage = 0.0
+        path = QPainterPath(QPoint(24, 41))
+        path.cubicTo(
+            QPoint(backDrop.width() / 3, 16),
+            QPoint(backDrop.width() - (backDrop.width() / 3), 16),
+            QPoint(backDrop.width() - 16, 50)
+        )
+        plen = path.length()
+
+        def next_line(painter: QPainter, lineImg: QImage):
+            painter.translate(0, 33)
+            painter.setOpacity(0.7)
+            painter.drawImage(0, 0, lineImg)
+            painter.setOpacity(1.0)
+
         painter.translate(100, -33)
         painter.rotate(BMGMessagePreviewWidget.Rotation)
         backDropRendered = False
-        for line in message:
-            line = line.replace("\x00", "")
-            if line == "":
-                continue
-            painter.translate(0, 33)
-            painter.setOpacity(0.7)
-            painter.drawImage(0, 0, backDrop)
-            painter.setOpacity(1.0)
-            backDropRendered = True
 
-            path = QPainterPath(QPoint(24, 43))
-            path.cubicTo(
-                QPoint(backDrop.width() / 3, 16),
-                QPoint(backDrop.width() - (backDrop.width() / 3), 16),
-                QPoint(backDrop.width() - 16, 50)
-            )
-            plen = path.length()
+        next_line(painter, backDrop)
+        backDropRendered = True
+        lastChar = ""
+        queueLine = False
+        queueSize = 0
+        for component in message.components:
+            if isinstance(component, bytes):
+                if component.startswith(b"\x1A\x06\xFF\x00\x00"):
+                    color = self.get_color(component[-1])
+                    painter.setPen(color)
+            else:
+                line = component.replace("\x00", "")
+                if line in {"", "\n"}:
+                    continue
 
-            fontMetrics = painter.fontMetrics()
-            percent = 0.0
-            for char in line:
-                if percent > 1.0:
-                    break
+                fontMetrics = painter.fontMetrics()
+                lines = 1
+                for char in line:
+                    if char == "\n" and lastChar != "\n":
+                        queueLine = True
+                        queueSize = 1
+                        pathPercentage = 0.0
+                        lines += 1
+                        lastChar = char
+                        continue
+                    if lastChar == "\n" and queueLine:
+                        if char == "\n":
+                            queueSize += 1
+                            continue
+                        for _ in range(queueSize):
+                            next_line(painter, backDrop)
+                        queueLine = False
+                        queueSize = 0
 
-                point = path.pointAtPercent(percent)
-                angle = path.angleAtPercent(percent)
+                    if pathPercentage > 1.0:
+                        continue
 
-                charWidth = fontMetrics.horizontalAdvanceChar(char)
-                if char == " ":
-                    charWidth += 4
-                percent += charWidth / plen
+                    point = path.pointAtPercent(pathPercentage)
+                    angle = path.angleAtPercent(pathPercentage)
 
-                painter.save()
-                # Move the virtual origin to the point on the curve
-                painter.translate(point)
-                # Rotate to match the angle of the curve
-                # Clockwise is positive so we negate the angle from above
-                painter.rotate(-angle)
-                # Draw a line width above the origin to move the text above the line
-                # and let Qt do the transformations
-                painter.drawText(QPoint(0, 0), char)
-                painter.restore()
+                    charWidth = fontMetrics.horizontalAdvanceChar(char)
+                    if char in self.PaddingMap:
+                        charWidth += self.PaddingMap[char]
+                    pathPercentage += charWidth / plen
+
+                    painter.save()
+                    # Move the virtual origin to the point on the curve
+                    painter.translate(point)
+                    # Rotate to match the angle of the curve
+                    # Clockwise is positive so we negate the angle from above
+                    painter.rotate(-angle)
+                    # Draw a line width above the origin to move the text above the line
+                    # and let Qt do the transformations
+                    painter.drawText(QPoint(0, 0), char)
+                    painter.restore()
+
+                    lastChar = char
+                
         if not backDropRendered:
-            painter.translate(0, 33)
-            painter.setOpacity(0.7)
-            painter.drawImage(0, 0, backDrop)
-            painter.setOpacity(1.0)
+            next_line(painter, backDrop)
 
         buttonImg = QImage(27, 27, QImage.Format_ARGB32)
         buttonImg.fill(Qt.transparent)
@@ -340,7 +384,7 @@ class BMGMessagePreviewWidget(QWidget):
         buttonPainter = QPainter()
         buttonPainter.begin(buttonImg)
 
-        if nextVisible:
+        if self.is_next_button_visible():
             self.__render_next_button(buttonPainter)
             buttonPainter.end()
         elif endVisible:
@@ -373,9 +417,8 @@ class BMGMessagePreviewWidget(QWidget):
     def __render_billboard(
         self,
         painter: QPainter,
-        message: List[str],
+        message: RichMessage,
         backDrop: QImage,
-        nextVisible: bool,
         endVisible: bool
     ) -> QPoint:
         painter.rotate(-10)
@@ -386,10 +429,11 @@ class BMGMessagePreviewWidget(QWidget):
         painter.save()
         painter.translate(0, 20)
         fontMetrics = painter.fontMetrics()
-        for line in message:
+        lines = message.get_string().split("\n")
+        for line in lines:
             line = line.replace("\x00", "")
             lineWidth = fontMetrics.tightBoundingRect(line).width()
-            painter.translate(0, 33)
+            painter.translate(0, 32)
             painter.drawText((backDrop.width() - lineWidth) / 2, 0, line)
         painter.restore()
 
@@ -399,7 +443,7 @@ class BMGMessagePreviewWidget(QWidget):
         buttonPainter = QPainter()
         buttonPainter.begin(buttonImg)
 
-        if nextVisible:
+        if len(lines) > 6 and not endVisible:
             self.__render_next_button(buttonPainter)
             buttonPainter.end()
         elif endVisible:
@@ -469,10 +513,13 @@ class BMGMessagePreviewWidget(QWidget):
                 index = (newlines + cmpNLines) - startIndex
                 if index < 0:
                     continue
+                if (linesPerPage+startIndex) - newlines < 0:
+                    break
                 components.append(
                     "\n".join(
                         cmp.split("\n")[
-                            startIndex-newlines:(linesPerPage+startIndex) - newlines]
+                            startIndex:(linesPerPage+startIndex) - newlines
+                        ]
                     )
                 )
                 if index > linesPerPage:
@@ -768,31 +815,3 @@ class BMGMessageEditor(QWidget, GenericTabWidget):
             BMGMessagePreviewWidget.BoxState.BILLBOARD if toggled else BMGMessagePreviewWidget.BoxState.NPC
         )
         self.messagePreview.update()
-
-
-# class BMGNodeEditorWidget(NodeEditorWidget, GenericTabWidget):
-#     def __init__(self, parent=None):
-#         super().__init__(parent)
-#         self.setAcceptDrops(True)
-#         self.setMinimumSize(300, 300)
-
-#     def populate(self, data: Any, scenePath: Path):
-#         if not isinstance(data, BMG):
-#             return
-
-#         scene = Scene()
-#         prevEscapeNodes = []
-#         prevTextNode: Node = None
-#         for message in data.iter_messages():
-#             for component in message.message.components:
-#                 if isinstance(component, str):
-#                     node = Node(
-#                         scene,
-#                         message.name,
-#                         [1, 2, 3],
-#                         [1]
-#                     )
-
-#                     socket: Socket = node.inputs[0]
-#                     prevTextNode.conn
-#                 else:
