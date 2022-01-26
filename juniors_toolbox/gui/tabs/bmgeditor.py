@@ -130,6 +130,22 @@ class BMGMessagePreviewWidget(QWidget):
             QColor(0xFF, 0xFF, 0x00, 0xFF),
             QColor(0xAA, 0xFF, 0x50, 0xFF)
         ][index]
+        
+    @staticmethod
+    def get_fruit(index: int) -> int:
+        return [3, 3, 3, 3][index]
+        
+    @staticmethod
+    def get_record(index: int) -> str:
+        return [
+            "00:30:00",
+            "00:35:00",
+            "30",
+            "1",
+            "",
+            "",
+            "00:40:00",
+        ][index]
 
     def nextPage(self):
         self.__curPage += 1
@@ -298,7 +314,39 @@ class BMGMessagePreviewWidget(QWidget):
         backDrop: QImage,
         endVisible: bool
     ) -> QPoint:
-        pathPercentage = 0.0
+        def next_line(painter: QPainter, lineImg: QImage):
+            painter.translate(0, 33)
+            painter.setOpacity(0.7)
+            painter.drawImage(0, 0, lineImg)
+            painter.setOpacity(1.0)
+
+        def render_char(painter: QPainter, char: str, path: QPainterPath, lerp: float) -> float:
+            if lerp > 1.0:
+                return 0.0
+
+            fontMetrics = painter.fontMetrics()
+
+            point = path.pointAtPercent(lerp)
+            angle = path.angleAtPercent(lerp)
+
+            charWidth = fontMetrics.horizontalAdvanceChar(char)
+            if char in self.PaddingMap:
+                charWidth += self.PaddingMap[char]
+
+            painter.save()
+            # Move the virtual origin to the point on the curve
+            painter.translate(point)
+            # Rotate to match the angle of the curve
+            # Clockwise is positive so we negate the angle from above
+            painter.rotate(-angle)
+            # Draw a line width above the origin to move the text above the line
+            # and let Qt do the transformations
+            painter.drawText(QPoint(0, 0), char)
+            painter.restore()
+
+            return charWidth
+
+        pathLerp = 0.0
         path = QPainterPath(QPoint(24, 41))
         path.cubicTo(
             QPoint(backDrop.width() / 3, 16),
@@ -306,12 +354,6 @@ class BMGMessagePreviewWidget(QWidget):
             QPoint(backDrop.width() - 16, 50)
         )
         plen = path.length()
-
-        def next_line(painter: QPainter, lineImg: QImage):
-            painter.translate(0, 33)
-            painter.setOpacity(0.7)
-            painter.drawImage(0, 0, lineImg)
-            painter.setOpacity(1.0)
 
         painter.translate(100, -33)
         painter.rotate(BMGMessagePreviewWidget.Rotation)
@@ -327,53 +369,56 @@ class BMGMessagePreviewWidget(QWidget):
                 if component.startswith(b"\x1A\x06\xFF\x00\x00"):
                     color = self.get_color(component[-1])
                     painter.setPen(color)
-            else:
-                line = component.replace("\x00", "")
-                if line in {"", "\n"}:
-                    continue
-
-                fontMetrics = painter.fontMetrics()
-                lines = 1
-                for char in line:
-                    if char == "\n" and lastChar != "\n":
-                        queueLine = True
-                        queueSize = 1
-                        pathPercentage = 0.0
-                        lines += 1
-                        lastChar = char
-                        continue
+                elif component.startswith(b"\x1A\x06\x02\x00\x04"):
                     if lastChar == "\n" and queueLine:
-                        if char == "\n":
-                            queueSize += 1
-                            continue
                         for _ in range(queueSize):
                             next_line(painter, backDrop)
                         queueLine = False
                         queueSize = 0
+                    fruitNum = str(self.get_fruit(component[-1]))
+                    for char in fruitNum:
+                        charWidth = render_char(painter, char, path, pathLerp)
+                        pathLerp += charWidth / plen
+                        lastChar = char
+                elif component.startswith(b"\x1A\x05\x02\x00"):
+                    if lastChar == "\n" and queueLine:
+                        for _ in range(queueSize):
+                            next_line(painter, backDrop)
+                        queueLine = False
+                        queueSize = 0
+                    text = self.get_record(component[-1])
+                    for char in text:
+                        charWidth = render_char(painter, char, path, pathLerp)
+                        pathLerp += charWidth / plen
+                        lastChar = char
+                continue
+                
+            line = component.replace("\x00", "")
+            if line == "":
+                continue
 
-                    if pathPercentage > 1.0:
-                        continue
-
-                    point = path.pointAtPercent(pathPercentage)
-                    angle = path.angleAtPercent(pathPercentage)
-
-                    charWidth = fontMetrics.horizontalAdvanceChar(char)
-                    if char in self.PaddingMap:
-                        charWidth += self.PaddingMap[char]
-                    pathPercentage += charWidth / plen
-
-                    painter.save()
-                    # Move the virtual origin to the point on the curve
-                    painter.translate(point)
-                    # Rotate to match the angle of the curve
-                    # Clockwise is positive so we negate the angle from above
-                    painter.rotate(-angle)
-                    # Draw a line width above the origin to move the text above the line
-                    # and let Qt do the transformations
-                    painter.drawText(QPoint(0, 0), char)
-                    painter.restore()
-
+            lines = 1
+            for char in line:
+                if char == "\n" and lastChar != "\n":
+                    queueLine = True
+                    queueSize = 1
+                    pathLerp = 0.0
+                    lines += 1
                     lastChar = char
+                    continue
+                if lastChar == "\n" and queueLine:
+                    if char == "\n":
+                        queueSize += 1
+                        continue
+                    for _ in range(queueSize):
+                        next_line(painter, backDrop)
+                    queueLine = False
+                    queueSize = 0
+
+                charWidth = render_char(painter, char, path, pathLerp)
+                pathLerp += charWidth / plen
+
+                lastChar = char
                 
         if not backDropRendered:
             next_line(painter, backDrop)
@@ -505,27 +550,46 @@ class BMGMessagePreviewWidget(QWidget):
         newlines = 0
         for cmp in self.message.components:
             if isinstance(cmp, str):
-                cmpNLines = cmp.count("\n")
-            # else:
-            #   if _is_escape_code_option(cmp):
-            #        newlines = math.ceil(newlines/3)*3 if newlines > 0 else 1
+                cmpNewLines = 0
+                substr = ""
+                for char in cmp:
+                    index = (newlines + cmpNewLines) - startIndex
 
+                    if char == "\n":
+                        cmpNewLines += 1
+
+                    if index < 0:
+                        continue
+                    
+                    substr += char
+                    if (linesPerPage + startIndex) - (newlines + cmpNewLines) <= 0:
+                        components.append(substr)
+                        return RichMessage(components)
+                if substr != "":
+                    components.append(substr)
+                newlines += cmpNewLines
+
+                """
                 index = (newlines + cmpNLines) - startIndex
                 if index < 0:
+                    newlines += cmpNLines
                     continue
                 if (linesPerPage+startIndex) - newlines < 0:
                     break
                 components.append(
                     "\n".join(
                         cmp.split("\n")[
-                            startIndex:(linesPerPage+startIndex) - newlines
+                            startIndex-newlines:(linesPerPage+startIndex) - newlines
                         ]
                     )
                 )
                 if index > linesPerPage:
                     break
                 newlines += cmpNLines
+                """
             else:
+                if newlines - startIndex < 0:
+                    continue
                 components.append(cmp)
         return RichMessage(components)
 
