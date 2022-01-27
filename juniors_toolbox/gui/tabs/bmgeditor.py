@@ -1,33 +1,37 @@
+from audioop import add
 import math
+from msilib.schema import Billboard
+import re
 import time
 from dataclasses import dataclass
 from email.charset import QP
-from enum import IntEnum
+from enum import Enum, IntEnum
 from pathlib import Path
 from tkinter import font
 from turtle import back
-from typing import Any, Callable, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from juniors_toolbox.gui.tabs.generic import GenericTabWidget
+from juniors_toolbox.gui.widgets.interactivelist import InteractiveListWidget, InteractiveListWidgetItem
 from juniors_toolbox.objects.object import GameObject
 from juniors_toolbox.scene import SMSScene
-from juniors_toolbox.utils.bmg import BMG, RichMessage
+from juniors_toolbox.utils.bmg import BMG, RichMessage, SoundID
 from juniors_toolbox.utils.filesystem import resource_path
 from PySide6.QtCore import (QLine, QModelIndex, QObject, QPoint, QPointF,
                             QRect, QSizeF, Qt, QTimer, Signal, SignalInstance,
                             Slot)
 from PySide6.QtGui import (QAction, QColor, QCursor, QDragEnterEvent,
-                           QDropEvent, QFont, QImage, QKeyEvent, QMouseEvent,
+                           QDropEvent, QFont, QImage, QKeyEvent, QMouseEvent, QIntValidator,
                            QPainter, QPainterPath, QPaintEvent, QResizeEvent,
-                           QTransform)
-from PySide6.QtWidgets import (QBoxLayout, QFileDialog, QFormLayout, QFrame,
+                           QTransform, QTextCursor)
+from PySide6.QtWidgets import (QBoxLayout, QFileDialog, QFormLayout, QFrame, QCheckBox,
                                QGridLayout, QGroupBox, QHBoxLayout, QLabel,
-                               QLayout, QLineEdit, QListWidget,
+                               QLayout, QLineEdit, QListWidget, QComboBox,
                                QListWidgetItem, QMenu, QMenuBar,
                                QPlainTextEdit, QPushButton, QScrollArea,
                                QSizePolicy, QSpacerItem, QSplitter, QStyle,
                                QTextEdit, QTreeWidget, QTreeWidgetItem,
-                               QVBoxLayout, QWidget)
+                               QVBoxLayout, QWidget, QAbstractItemView)
 
 
 class BMGMessagePreviewWidget(QWidget):
@@ -36,6 +40,7 @@ class BMGMessagePreviewWidget(QWidget):
     TextWaitInverseScale = 1.0  # from SMS
     Rotation = 17.0  # from SMS, clockwise
     FontSize = 15
+    BgOpacity = 0.75
     PaddingMap = {
         " ": 4,
         "c": 2,
@@ -56,6 +61,11 @@ class BMGMessagePreviewWidget(QWidget):
         NPC = 0
         BILLBOARD = 1
 
+    class BackGround(str, Enum):
+        PIANTA = "shades_pianta"
+        TANOOKI = "tanooki"
+        NOKI = "old_noki"
+
     @dataclass
     class ButtonCB():
         position: QPoint = QPoint(0, 0)
@@ -69,6 +79,7 @@ class BMGMessagePreviewWidget(QWidget):
         super().__init__(parent)
         self.setMinimumSize(200, 200)
         self.__message = message
+        self.__background: QImage = None
         self.__playing = False
         self.__curFrame = -1
         self.__endFrame = -1
@@ -76,6 +87,11 @@ class BMGMessagePreviewWidget(QWidget):
         self.__renderTimer = 0.0
         self.__boxState = BMGMessagePreviewWidget.BoxState.NPC
         self.__buttons: List[BMGMessagePreviewWidget.ButtonCB] = []
+        self.__is_right_bound = True
+
+        self.set_background(
+            BMGMessagePreviewWidget.BackGround.PIANTA
+        )
 
     @property
     def message(self) -> RichMessage:
@@ -103,6 +119,19 @@ class BMGMessagePreviewWidget(QWidget):
             return QImage(str(resource_path("gui/images/message_back.png")))
         else:
             return QImage(str(resource_path("gui/images/message_board.png")))
+
+    def get_background(self) -> QImage:
+        return QImage(self.__background)
+
+    def set_background(self, bg: BackGround):
+        bgFolder = resource_path("gui/backgrounds/")
+        for file in bgFolder.iterdir():
+            if not file.name.startswith("bmg_preview_"):
+                continue
+            if not file.is_file():
+                continue
+            if file.stem.removeprefix("bmg_preview_") == bg.value:
+                self.__background = str(file.resolve())
 
     def is_playing(self) -> bool:
         return self.__playing and self.__curFrame > -1
@@ -146,6 +175,12 @@ class BMGMessagePreviewWidget(QWidget):
             "",
             "00:40:00",
         ][index]
+
+    def is_right_aligned(self) -> bool:
+        return self.__is_right_bound
+
+    def set_right_aligned(self, raligned: bool):
+        self.__is_right_bound = raligned
 
     def nextPage(self):
         self.__curPage += 1
@@ -192,9 +227,7 @@ class BMGMessagePreviewWidget(QWidget):
         painter.fillRect(0, 0, self.width(), self.height(),
                          QColor(0, 0, 0, 255))
 
-        backgroundImg = QImage(
-            str(resource_path("gui/backgrounds/bmg_preview.png"))
-        )
+        backgroundImg = self.get_background()
 
         if self.message is None:
             scaledBGImg = fit_image_to(self, backgroundImg)
@@ -237,7 +270,10 @@ class BMGMessagePreviewWidget(QWidget):
         if self.is_billboard():
             messageImgOfs = QPoint(470, 30)
         else:
-            messageImgOfs = QPoint(635, 5)
+            if self.__is_right_bound:
+                messageImgOfs = QPoint(635, 5)
+            else:
+                messageImgOfs = QPoint(210, 53)
 
         mainPainter = QPainter()
         mainPainter.begin(backgroundImg)
@@ -316,7 +352,7 @@ class BMGMessagePreviewWidget(QWidget):
     ) -> QPoint:
         def next_line(painter: QPainter, lineImg: QImage):
             painter.translate(0, 33)
-            painter.setOpacity(0.7)
+            painter.setOpacity(self.BgOpacity)
             painter.drawImage(0, 0, lineImg)
             painter.setOpacity(1.0)
 
@@ -355,8 +391,12 @@ class BMGMessagePreviewWidget(QWidget):
         )
         plen = path.length()
 
-        painter.translate(100, -33)
-        painter.rotate(BMGMessagePreviewWidget.Rotation)
+        if self.is_right_aligned():
+            painter.translate(100, -33)
+            painter.rotate(BMGMessagePreviewWidget.Rotation)
+        else:
+            painter.translate(0, 63)
+            painter.rotate(-BMGMessagePreviewWidget.Rotation - 4)
         backDropRendered = False
 
         next_line(painter, backDrop)
@@ -467,7 +507,7 @@ class BMGMessagePreviewWidget(QWidget):
         endVisible: bool
     ) -> QPoint:
         painter.rotate(-10)
-        painter.setOpacity(0.7)
+        painter.setOpacity(self.BgOpacity)
         painter.translate(0, 100)
         painter.drawImage(0, 0, backDrop)
         painter.setOpacity(1.0)
@@ -488,7 +528,7 @@ class BMGMessagePreviewWidget(QWidget):
         buttonPainter = QPainter()
         buttonPainter.begin(buttonImg)
 
-        if len(lines) > 6 and not endVisible:
+        if self.is_next_button_visible():
             self.__render_next_button(buttonPainter)
             buttonPainter.end()
         elif endVisible:
@@ -516,7 +556,7 @@ class BMGMessagePreviewWidget(QWidget):
         arrowImg = QImage(
             str(resource_path("gui/images/message_cursor.png"))
         )
-        painter.setOpacity(0.7)
+        painter.setOpacity(self.BgOpacity)
         painter.drawImage(0, 0, nextImg)
         painter.setOpacity(1.0)
         painter.drawImage(5, 7, arrowImg)
@@ -529,7 +569,7 @@ class BMGMessagePreviewWidget(QWidget):
         returnImg = QImage(
             str(resource_path("gui/images/message_return.png"))
         )
-        painter.setOpacity(0.7)
+        painter.setOpacity(self.BgOpacity)
         painter.drawImage(0, 0, nextImg)
         painter.setOpacity(1.0)
         painter.drawImage(5, 5, returnImg)
@@ -568,25 +608,6 @@ class BMGMessagePreviewWidget(QWidget):
                 if substr != "":
                     components.append(substr)
                 newlines += cmpNewLines
-
-                """
-                index = (newlines + cmpNLines) - startIndex
-                if index < 0:
-                    newlines += cmpNLines
-                    continue
-                if (linesPerPage+startIndex) - newlines < 0:
-                    break
-                components.append(
-                    "\n".join(
-                        cmp.split("\n")[
-                            startIndex-newlines:(linesPerPage+startIndex) - newlines
-                        ]
-                    )
-                )
-                if index > linesPerPage:
-                    break
-                newlines += cmpNLines
-                """
             else:
                 if newlines - startIndex < 0:
                     continue
@@ -619,50 +640,267 @@ class BMGMessagePreviewWidget(QWidget):
                 self.update()
 
 
-class BMGMessageListItem(QListWidgetItem):
-    def __init__(self, message: BMG.MessageEntry, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+class BMGMessageListItem(InteractiveListWidgetItem):
+    def __init__(self, item: Union["BMGMessageListItem", str], message: BMG.MessageEntry):
+        super().__init__(item)
         self.message = message
 
-        self.setFlags(
-            Qt.ItemIsEnabled |
-            Qt.ItemIsEditable |
-            Qt.ItemIsSelectable |
-            Qt.ItemIsDragEnabled
+    def clone(self) -> "BMGMessageListItem":
+        message = BMG.MessageEntry(
+            self.message.name,
+            self.message.message,
+            self.message.soundID,
+            self.message.startFrame,
+            self.message.endFrame
         )
+        item = BMGMessageListItem(self, message)
+        return item
 
 
-class BMGMessageListWidget(QListWidget):
+class BMGMessageListWidget(InteractiveListWidget):
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
+        self.setMinimumSize(150, 100)
 
-        self.setDragEnabled(True)
-        self.setAcceptDrops(True)
-        self.setDefaultDropAction(Qt.MoveAction)
-        self.setDragDropMode(QListWidget.DragDrop)
-        self.setObjectName("Message List")
+    @Slot(BMGMessageListItem)
+    def rename_item(self, item: BMGMessageListItem):
+        name = super().rename_item(item)
+        item.message.name = name
+
+    @Slot(BMGMessageListItem)
+    def duplicate_item(self, item: BMGMessageListItem):
+        name = super().duplicate_item(item)
+        item.message.name = name
+
+    
+class BMGMessageListInterfaceWidget(QWidget):
+    addRequested: SignalInstance = Signal()
+    removeRequested: SignalInstance = Signal()
+    copyRequested: SignalInstance = Signal()
+
+    def __init__(self, parent: Optional[QWidget] = None):
+        super().__init__(parent)
+        self.setMinimumWidth(200)
+        self.setFixedHeight(45)
+
+        addButton = QPushButton("New", self)
+        addButton.clicked.connect(self.addRequested.emit)
+        self.__addButton = addButton
+
+        removeButton = QPushButton("Remove", self)
+        removeButton.clicked.connect(self.removeRequested.emit)
+        self.__removeButton = removeButton
+
+        copyButton = QPushButton("Copy", self)
+        copyButton.clicked.connect(self.copyRequested.emit)
+        self.__copyButton = copyButton
+
+        layout = QHBoxLayout(self)
+        layout.addWidget(self.__addButton)
+        layout.addWidget(self.__removeButton)
+        layout.addWidget(self.__copyButton)
+        #layout.setContentsMargins(0, 0, 0, 0)
+
+        self.setLayout(layout)
 
 
-class BMGMessageTextBox(QTextEdit):
-    __ESCAPE_TO_RICH_TEXT = [
-        ["{color:white}", "<span style=\"color:#ff0000;\">"]
-    ]
+class BMGMessageInterfaceWidget(QWidget):
+    attributeUpdateRequested: SignalInstance = Signal(str, int, int)
+
+    def __init__(self, parent: Optional[QWidget] = None):
+        super().__init__(parent)
+        self.setMinimumWidth(200)
+        self.setFixedHeight(100)
+
+        layout = QVBoxLayout()
+
+        soundIdLayout = QFormLayout()
+
+        soundIdComboBox = QComboBox()
+        soundIdComboBox.setEditable(False)
+        for sound in SoundID._member_names_:
+            soundIdComboBox.addItem(sound)
+        soundIdComboBox.setCurrentIndex(0)
+        soundIdComboBox.currentIndexChanged.connect(self.__push_update_request)
+        self.__soundIdComboBox = soundIdComboBox
+
+        soundIdLayout.addRow("Sound ID:", self.__soundIdComboBox)
+
+        startFrameLayout = QFormLayout()
+
+        startFrameLineEdit = QLineEdit()
+        startFrameLineEdit.setText("0")
+        startFrameLineEdit.setValidator(QIntValidator(0, 65535))
+        startFrameLineEdit.textChanged.connect(self.__push_update_request)
+        self.__startFrameLineEdit = startFrameLineEdit
+
+        startFrameLayout.addRow("Start Frame:", self.__startFrameLineEdit)
+
+        endFrameLayout = QFormLayout()
+
+        endFrameLineEdit = QLineEdit()
+        endFrameLineEdit.setText("0")
+        endFrameLineEdit.setValidator(QIntValidator(0, 65535))
+        endFrameLineEdit.textChanged.connect(self.__push_update_request)
+        self.__endFrameLineEdit = endFrameLineEdit
+
+        endFrameLayout.addRow("End Frame: ", self.__endFrameLineEdit)
+
+        layout.addLayout(soundIdLayout)
+        layout.addLayout(startFrameLayout)
+        layout.addLayout(endFrameLayout)
+
+        self.setLayout(layout)
+
+    def set_values(self, soundID: SoundID, startFrame: int, endFrame: int):
+        self.__soundIdComboBox.setCurrentIndex(soundID.value)
+        self.__startFrameLineEdit.setText(str(startFrame))
+        self.__endFrameLineEdit.setText(str(endFrame))
+
+    @Slot()
+    def __push_update_request(self):
+        soundName = self.__soundIdComboBox.currentText()
+
+        text = self.__startFrameLineEdit.text()
+        if text == "":
+            startFrame = 0
+        else:
+            startFrame = int(self.__startFrameLineEdit.text())
+
+        text = self.__endFrameLineEdit.text()
+        if text == "":
+            endFrame = 0
+        else:
+            endFrame = int(self.__endFrameLineEdit.text())
+
+        self.attributeUpdateRequested.emit(soundName, startFrame, endFrame)
+
+
+class BMGMessagePreviewBGSelectWidget(QWidget):
+    bgUpdateRequested: SignalInstance = Signal(str)
+    boxChangeRequested: SignalInstance = Signal(bool)
+    def __init__(self, parent: Optional[QWidget] = None):
+        super().__init__(parent)
+        self.setFixedSize(150, 100)
+        
+        layout = QFormLayout()
+        layout.setRowWrapPolicy(QFormLayout.WrapAllRows)
+        
+        comboBox = QComboBox()
+        for bg in BMGMessagePreviewWidget.BackGround._member_names_:
+            name = bg.replace("_", " ").title()
+            comboBox.addItem(name)
+        comboBox.currentIndexChanged.connect(
+            lambda idx: self.bgUpdateRequested.emit(self.comboBox.itemText(idx))
+        )
+        self.comboBox = comboBox
+
+        billboard = QCheckBox("Is Billboard")
+        billboard.setCheckable(True)
+        billboard.stateChanged.connect(self.boxChangeRequested.emit)
+        self.billboard = billboard
+
+        layout.addRow("Background", comboBox)
+        layout.addRow(billboard)
+
+        self.setLayout(layout)
+
+
+class BMGMessageTextBox(QPlainTextEdit):
+    class CmdAction(QAction):
+        clicked: SignalInstance = Signal(str)
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.triggered.connect(self.__click)
+
+        def __click(self):
+            subname = self.text()
+            parent: QMenu = self.parent()
+            if parent:
+                category = parent.title()
+            self.clicked.emit("{" + category.lower() + ":" + subname + "}")
+
+    class SpeedCmdAction(QAction):
+        clicked: SignalInstance = Signal(str)
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.triggered.connect(self.__click)
+
+        def __click(self):
+            self.clicked.emit("{speed:0}")
+
+    class OptionCmdAction(QAction):
+        clicked: SignalInstance = Signal(str)
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.triggered.connect(self.__click)
+
+        def __click(self):
+            self.clicked.emit("{option:0:}")
+
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.setLineWrapMode(QTextEdit.NoWrap)
-        self.setMinimumWidth(130)
-        self.textChanged.connect(self.format_escape_codes)
+        self.setLineWrapMode(QPlainTextEdit.NoWrap)
+        self.setMinimumSize(130, 100)
+        self.setContextMenuPolicy(Qt.CustomContextMenu)
 
-    def format_escape_codes(self):
-        text = self.toPlainText()
+        self.customContextMenuRequested.connect(self.context_menu)
+
+    @Slot(QPoint)
+    def context_menu(self, point: QPoint):
+        menu = self.createStandardContextMenu(point)
+
+        categories: Dict[str, str] = {}
+        for rich in RichMessage._RICH_TO_COMMAND:
+            category, specifier = rich[1:-1].split(":")
+            items: List[str] = categories.setdefault(category, [])
+            items.append(specifier)
+
+        menu.addSeparator()
+
+        optionAction = BMGMessageTextBox.OptionCmdAction("New Option", menu)
+        optionAction.clicked.connect(self.insert_format_token)
+
+        speedAction = BMGMessageTextBox.SpeedCmdAction("Speed", menu)
+        speedAction.clicked.connect(self.insert_format_token)
+
+        menu.addAction(optionAction)
+        menu.addAction(speedAction)
+
+        if len(categories) > 0:
+            menu.addSeparator()
+
+        for category, items in categories.items():
+            submenu = QMenu(category.capitalize(), menu)
+            for item in items:
+                action = BMGMessageTextBox.CmdAction(item, submenu)
+                action.clicked.connect(
+                    self.insert_token
+                )
+                submenu.addAction(action)
+            menu.addMenu(submenu)
+
+        menu.exec(self.mapToGlobal(point))
+
+    @Slot(str)
+    def insert_token(self, token: str):
+        self.insertPlainText(token)
+
+    @Slot(str)
+    def insert_format_token(self, token: str):
+        self.insertPlainText(token)
+        self.moveCursor(QTextCursor.Left, QTextCursor.MoveAnchor)
 
 
 class BMGMessageMenuBar(QMenuBar):
+    newRequested: SignalInstance = Signal()
     openRequested: SignalInstance = Signal()
     closeRequested: SignalInstance = Signal()
     saveRequested: SignalInstance = Signal(bool)
-    boxChangeRequested: SignalInstance = Signal(bool)
 
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
@@ -671,6 +909,10 @@ class BMGMessageMenuBar(QMenuBar):
 
         fileMenu = QMenu(self)
         fileMenu.setTitle("File")
+
+        newAction = QAction(self)
+        newAction.setText("New")
+        newAction.triggered.connect(lambda toggled: self.newRequested.emit())
 
         openAction = QAction(self)
         openAction.setText("Open...")
@@ -691,9 +933,12 @@ class BMGMessageMenuBar(QMenuBar):
         closeAction.triggered.connect(
             lambda toggled: self.closeRequested.emit())
 
+        fileMenu.addAction(newAction)
         fileMenu.addAction(openAction)
+        fileMenu.addSeparator()
         fileMenu.addAction(saveAction)
         fileMenu.addAction(saveAsAction)
+        fileMenu.addSeparator()
         fileMenu.addAction(closeAction)
 
         kindMenu = QMenu(self)
@@ -719,14 +964,8 @@ class BMGMessageMenuBar(QMenuBar):
         self.__usaAction = usaAction
         self.__palAction = palAction
 
-        billBoardAction = QAction(self)
-        billBoardAction.setText("Billboard")
-        billBoardAction.setCheckable(True)
-        billBoardAction.toggled.connect(self.boxChangeRequested.emit)
-
         self.addMenu(fileMenu)
         self.addMenu(kindMenu)
-        self.addAction(billBoardAction)
 
     def is_region_pal(self) -> bool:
         return self.__palAction.isChecked() and not self.__usaAction.isChecked()
@@ -740,36 +979,100 @@ class BMGMessageEditor(QWidget, GenericTabWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAcceptDrops(True)
-        self.setMinimumSize(440, 240)
+        self.setMinimumSize(664, 300)
 
         self.mainLayout = QVBoxLayout()
         self.mainLayout.setContentsMargins(0, 0, 0, 0)
 
-        self.textEdit = BMGMessageTextBox()
-        self.textEdit.setAcceptRichText(True)
-        self.textEdit.setObjectName("Message Editor")
-        self.textEdit.textChanged.connect(self.update_message_text)
-
         messageListBox = BMGMessageListWidget()
         messageListBox.currentItemChanged.connect(self.show_message)
-
         self.messageListBox = messageListBox
 
+        messageListInterface = BMGMessageListInterfaceWidget()
+        messageListInterface.addRequested.connect(self.new_message)
+        messageListInterface.removeRequested.connect(self.remove_selected_message)
+        messageListInterface.copyRequested.connect(self.copy_selected_message)
+        self.messageListInterface = messageListInterface
+
+        messageTextEdit = BMGMessageTextBox()
+        messageTextEdit.setObjectName("Message Editor")
+        messageTextEdit.textChanged.connect(self.update_message_text)
+        self.messageTextEdit = messageTextEdit
+
+        messageInterface = BMGMessageInterfaceWidget()
+        messageInterface.attributeUpdateRequested.connect(
+            self.update_message_attributes
+        )
+        self.messageInterface = messageInterface
+
+        messagePreviewInterface = BMGMessagePreviewBGSelectWidget()
+        messagePreviewInterface.bgUpdateRequested.connect(
+            self.set_background
+        )
+        messagePreviewInterface.boxChangeRequested.connect(
+            self.set_billboard
+        )
+        self.messagePreviewInterface = messagePreviewInterface
+
+        messageInterfaceLayoutline = QFrame()
+        messageInterfaceLayoutline.setFrameShape(QFrame.VLine)
+        messageInterfaceLayoutline.setFrameShadow(QFrame.Sunken)
+
+        messageInterfaceLayout = QHBoxLayout()
+        messageInterfaceLayout.addWidget(messageInterface)
+        messageInterfaceLayout.addWidget(messageInterfaceLayoutline)
+        messageInterfaceLayout.addWidget(messagePreviewInterface)
+        messageInterfaceLayout.setContentsMargins(0, 0, 0, 0)
+
+        messageInterfaceWidget = QWidget()
+        messageInterfaceWidget.setLayout(messageInterfaceLayout)
+        messageInterfaceWidget.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Maximum)
+
+        messageListLayout = QVBoxLayout()
+        messageListLayout.addWidget(messageListInterface)
+        messageListLayout.addWidget(messageListBox)
+        messageListLayout.setContentsMargins(0, 0, 0, 0)
+
+        messageListWidget = QWidget()
+        messageListWidget.setLayout(messageListLayout)
+        self.messageListWidget = messageListWidget
+
+        messageWidget = QWidget()
         self.messagePreview = BMGMessagePreviewWidget()
+
+        messageSplitter = QSplitter()
+        messageSplitter.setChildrenCollapsible(False)
+        messageSplitter.addWidget(self.messageTextEdit)
+        messageSplitter.addWidget(self.messagePreview)
+
+        messageLayoutline = QFrame()
+        messageLayoutline.setFrameShape(QFrame.HLine)
+        messageLayoutline.setFrameShadow(QFrame.Sunken)
+
+        messageLayout = QVBoxLayout()
+        messageLayout.addWidget(messageInterfaceWidget)
+        messageLayout.addWidget(messageLayoutline)
+        messageLayout.addWidget(messageSplitter)
+        messageLayout.setContentsMargins(0, 0, 0, 0)
+        
+        messageWidget = QWidget()
+        messageWidget.setLayout(messageLayout)
+        messageWidget.setEnabled(False)
+        self.messageWidget = messageWidget
 
         splitter = QSplitter()
         splitter.setChildrenCollapsible(False)
-        splitter.addWidget(self.messageListBox)
-        splitter.addWidget(self.textEdit)
-        splitter.addWidget(self.messagePreview)
+        splitter.addWidget(messageListWidget)
+        splitter.addWidget(messageWidget)
+        #splitter.addWidget(self.messagePreview)
         self.splitter = splitter
 
         menuBar = BMGMessageMenuBar(self)
+        menuBar.newRequested.connect(self.new_bmg)
         menuBar.openRequested.connect(self.open_bmg)
         menuBar.closeRequested.connect(self.close_bmg)
         menuBar.saveRequested.connect(
             lambda saveAs: self.save_bmg(saveAs=saveAs))
-        menuBar.boxChangeRequested.connect(self.set_billboard)
         self.menuBar = menuBar
 
         self.mainLayout.addWidget(self.menuBar)
@@ -786,18 +1089,26 @@ class BMGMessageEditor(QWidget, GenericTabWidget):
             return
 
         self.messageListBox.clear()
-        self.textEdit.clear()
+        self.messageTextEdit.clear()
 
         self.menuBar.set_region_pal(data.is_pal())
 
         for i, message in enumerate(data.iter_messages()):
             if message.name == "":
                 message.name = f"message_unk_{i}"
-            listItem = BMGMessageListItem(message, message.name)
+            listItem = BMGMessageListItem(message.name, message)
             self.messageListBox.addItem(listItem)
 
         if self.messageListBox.count() > 0:
             self.messageListBox.setCurrentRow(0)
+
+    @Slot()
+    def new_bmg(self):
+        self.populate(
+            BMG(self.menuBar.is_region_pal(), 12),
+            None
+        )
+        self.messageWidget.setEnabled(True)
 
     @Slot(Path)
     def open_bmg(self, path: Optional[Path] = None):
@@ -828,7 +1139,11 @@ class BMGMessageEditor(QWidget, GenericTabWidget):
     @Slot()
     def close_bmg(self):
         self.messageListBox.clear()
-        self.textEdit.clear()
+        self.messageTextEdit.clear()
+        self.messageInterface.set_values(
+            SoundID(0), 0, 0
+        )
+        self.messageWidget.setEnabled(False)
 
     @Slot(Path, bool)
     def save_bmg(self, path: Optional[Path] = None, saveAs: bool = False):
@@ -858,10 +1173,40 @@ class BMGMessageEditor(QWidget, GenericTabWidget):
 
     @Slot(BMGMessageListItem)
     def show_message(self, item: BMGMessageListItem):
-        self.textEdit.setPlainText(item.message.message.get_rich_text().replace("\x00", ""))
-        self.messagePreview.message = item.message.message
+        if item is None or item.text() == "":
+            return
+
+        message = item.message
+        self.messageTextEdit.setPlainText(message.message.get_rich_text().replace("\x00", ""))
+        self.messageInterface.set_values(
+            message.soundID,
+            message.startFrame,
+            message.endFrame
+        )
+        self.messagePreview.message = message.message
         self.messagePreview.reset()
         self.messagePreview.update()
+        self.messageWidget.setEnabled(True)
+
+    @Slot()
+    def new_message(self):
+        name = self.messageListBox._resolve_name("message")
+        item = BMGMessageListItem(
+            name,
+            BMG.MessageEntry(name, RichMessage(), SoundID(0), 0, 0)
+        )
+        self.messageListBox.blockSignals(True)
+        self.messageListBox.addItem(item)
+        self.messageListBox.blockSignals(False)
+        self.messageListBox.editItem(item, new=True)
+
+    @Slot()
+    def remove_selected_message(self):
+        self.messageListBox.takeItem(self.messageListBox.currentRow())
+
+    @Slot()
+    def copy_selected_message(self):
+        self.messageListBox.duplicate_item(self.messageListBox.currentItem())
 
     @Slot()
     def update_message_text(self):
@@ -869,9 +1214,18 @@ class BMGMessageEditor(QWidget, GenericTabWidget):
         if item is None:
             return
         item.message.message = RichMessage.from_rich_string(
-            self.textEdit.toPlainText())
+            self.messageTextEdit.toPlainText())
         self.messagePreview.message = item.message.message
         self.messagePreview.update()
+
+    @Slot(str, int, int)
+    def update_message_attributes(self, soundName: str, startFrame: int, endFrame: int):
+        item: BMGMessageListItem = self.messageListBox.currentItem()
+
+        message = item.message
+        message.soundID = SoundID.name_to_sound_id(soundName)
+        message.startFrame = startFrame
+        message.endFrame = endFrame
 
     @Slot(bool)
     def set_billboard(self, toggled: bool):
@@ -879,3 +1233,9 @@ class BMGMessageEditor(QWidget, GenericTabWidget):
             BMGMessagePreviewWidget.BoxState.BILLBOARD if toggled else BMGMessagePreviewWidget.BoxState.NPC
         )
         self.messagePreview.update()
+
+    @Slot(str)
+    def set_background(self, bgname: str):
+        bg = BMGMessagePreviewWidget.BackGround._member_map_[bgname.upper()]
+        self.messagePreview.set_background(bg)
+        self.messagePreview.set_right_aligned(bg != BMGMessagePreviewWidget.BackGround.NOKI)

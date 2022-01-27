@@ -1,25 +1,18 @@
 from pathlib import Path
-from platform import node
-from typing import List, Optional, Union
+from typing import Union
 
-from PySide6.QtCore import Qt, QPoint, Slot, Signal, SignalInstance
-from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QFrame, QListWidget, QSizePolicy, QTreeWidget, QTreeWidgetItem, QWidget, QHBoxLayout, QListWidgetItem, QSplitter, QGridLayout, QMenu, QAbstractItemView
 from juniors_toolbox.gui.tabs.generic import GenericTabWidget
-from juniors_toolbox.objects.object import GameObject
+from juniors_toolbox.gui.widgets.interactivelist import (
+    InteractiveListWidget, InteractiveListWidgetItem)
 from juniors_toolbox.rail import Rail, RailKeyFrame
 from juniors_toolbox.scene import SMSScene
+from PySide6.QtCore import Qt, Slot
+from PySide6.QtWidgets import QGridLayout, QListWidget, QSplitter, QWidget, QListWidgetItem
 
 
-class RailListWidgetItem(QListWidgetItem):
+class RailListWidgetItem(InteractiveListWidgetItem):
     def __init__(self, item: Union["RailListWidgetItem", str], rail: Rail):
         super().__init__(item)
-        self.setFlags(
-            Qt.ItemIsSelectable |
-            Qt.ItemIsEnabled |
-            Qt.ItemIsEditable |
-            Qt.ItemIsDragEnabled
-        )
         self.rail = rail
 
     def clone(self) -> "RailListWidgetItem":
@@ -28,7 +21,7 @@ class RailListWidgetItem(QListWidgetItem):
 
 
 class RailNodeListWidgetItem(QListWidgetItem):
-    def __init__(self, item: Union["RailListWidgetItem", str], node: RailKeyFrame):
+    def __init__(self, item: Union["RailNodeListWidgetItem", str], node: RailKeyFrame):
         super().__init__(item)
         self.setFlags(
             Qt.ItemIsSelectable |
@@ -41,118 +34,30 @@ class RailNodeListWidgetItem(QListWidgetItem):
         return item
 
 
-class RailListWidget(QListWidget):
-    def __init__(self, parent: Optional[QWidget] = None):
-        super().__init__(parent)
-        self.setAcceptDrops(True)
-        #self.setSelectionMode(QAbstractItemView.SingleSelection)
-        self.setDragDropMode(QAbstractItemView.InternalMove)
-        self.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.customContextMenuRequested.connect(self.custom_context_menu)
-        self.itemChanged.connect(self.rename_rail)
-    
-    @Slot(QPoint)
-    def custom_context_menu(self, point: QPoint):
-        # Infos about the node selected.
-        index = self.indexAt(point)
-
-        if not index.isValid():
-            return
-
-        item: RailListWidgetItem = self.itemAt(point)
-
-        # We build the menu.
-        menu = QMenu(self)
-
-        deleteAction = QAction("Delete", self)
-        deleteAction.triggered.connect(
-            lambda clicked=None: self.takeItem(self.row(item))
-        )
-        renameAction = QAction("Rename", self)
-        renameAction.triggered.connect(
-            lambda clicked=None: self.editItem(item)
-        )
-        duplicateAction = QAction("Duplicate", self)
-        duplicateAction.triggered.connect(
-            lambda clicked=None: self.duplicate_rail(item)
-        )
-
-        menu.addAction(deleteAction)
-        menu.addAction(renameAction)
-        menu.addSeparator()
-        menu.addAction(duplicateAction)
-
-        menu.exec(self.mapToGlobal(point))
-    
+class RailListWidget(InteractiveListWidget):
     @Slot(RailListWidgetItem)
-    def rename_rail(self, item: RailListWidgetItem):
-
-        newName = self.__resolve_rail_name(item.text(), item)
-
-        self.blockSignals(True)
-        item.setText(newName)
-        item.rail.name = newName
-        self.blockSignals(False)
+    def rename_item(self, item: RailListWidgetItem):
+        name = super().rename_item(item)
+        item.rail.name = name
 
     @Slot(RailListWidgetItem)
-    def duplicate_rail(self, item: RailListWidgetItem):
-        newName = self.__resolve_rail_name(item.text())
+    def duplicate_item(self, item: RailListWidgetItem):
+        name = super().duplicate_item(item)
+        item.rail.name = name
 
-        self.blockSignals(True)
-        newItem = item.clone()
-        newItem.setText(newName)
-        newItem.rail.name = newName
-        self.blockSignals(False)
-
-        self.insertItem(self.row(item)+1, newItem)
-
-    def __resolve_rail_name(self, name: str, filterItem: RailListWidgetItem = None) -> str:
-        #for i, char in enumerate(name[::-1]):
-        #    if not char.isdecimal():
-        #        name = name[:len(name)-i]
-        #        break
-        
-        renameContext = 1
-        ogName = name
-
-        possibleNames = []
-        for i in range(self.count()):
-            if renameContext > 100:
-                raise FileExistsError(
-                    "Path exists beyond 100 unique iterations!")
-            item = self.item(i)
-            if item == filterItem:
-                continue
-            if item.text().startswith(ogName):
-                possibleNames.append(item.text())
-
-        i = 0
-        while True:
-            if i >= len(possibleNames):
-                break
-            if renameContext > 100:
-                raise FileExistsError(
-                    "Path exists beyond 100 unique iterations!")
-            if possibleNames[i] == name:
-                name = f"{ogName}{renameContext}"
-                renameContext += 1
-                i = 0
-            else:
-                i += 1
-        return name
 
 class RailViewerWidget(QWidget, GenericTabWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setMinimumSize(200, 80)
-        
+
         mainLayout = QGridLayout()
 
         railList = RailListWidget()
         railList.setMinimumWidth(100)
         railList.currentItemChanged.connect(self.__populate_nodelist)
         self.railList = railList
-        
+
         nodeList = QListWidget()
         self.nodeList = nodeList
 
@@ -172,8 +77,14 @@ class RailViewerWidget(QWidget, GenericTabWidget):
         for rail in data.iter_rails():
             item = RailListWidgetItem(rail.name, rail)
             self.railList.addItem(item)
+        if self.railList.count() > 0:
+            self.railList.setCurrentRow(0)
+            self.__populate_nodelist(self.railList.currentItem())
 
     def __populate_nodelist(self, item: RailListWidgetItem):
+        if item is None:
+            return
+
         self.nodeList.clear()
 
         rail = item.rail
@@ -184,4 +95,3 @@ class RailViewerWidget(QWidget, GenericTabWidget):
                 Qt.ItemIsEnabled
             )
             self.nodeList.addItem(item)
-        

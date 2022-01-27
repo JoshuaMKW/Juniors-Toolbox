@@ -75,7 +75,7 @@ class RichMessage:
             rich = rich.replace(" ", "")
             speed = int(rich[7:-1])
             return b"\x1A\x06\x00\x00\x00" + speed.to_bytes(1, "big", signed=False)
-            
+
         if rich.startswith("{option:"):
             command, message = rich.rsplit(":", 1)
             command.replace(" ", "")
@@ -161,7 +161,7 @@ class RichMessage:
             if encoding is None:
                 encoding = get_likely_encoding(string.encode())
             components.append(string+"\x00")
-        return RichMessage(components, encoding)   
+        return RichMessage(components, encoding)
 
     def to_bytes(self) -> bytes:
         data = b""
@@ -176,7 +176,6 @@ class RichMessage:
         return data
 
     def get_rich_text(self) -> str:
-        # TODO: Construct formatting system from encoded instructions
         string = ""
         for cmp in self.components:
             if isinstance(cmp, str):
@@ -206,7 +205,101 @@ class RichMessage:
 
 
 class SoundID(IntEnum):
-    ...
+    PEACH_NORMAL = 0
+    PEACH_SURPRISE = 1
+    PEACH_WORRY = 2
+    PEACH_ANGRY = 3
+    PEACH_APPEAL = 4
+    PEACH_DOUBT = 5
+    TOADSWORTH_NORMAL = 6
+    TOADSWORTH_EXCITED = 7
+    TOADSWORTH_ADVICE = 8
+    TOADSWORTH_CONFUSED = 9
+    TOADSWORTH_ASK = 10
+    TOAD_NORMAL = 11
+    TOAD_CRY_S = 12
+    TOAD_CRY_L = 13
+    TOAD_PEACE = 14
+    TOAD_SAD_S = 15
+    TOAD_ASK = 16
+    TOAD_CONFUSED = 17
+    TOAD_RECOVER = 18
+    TOAD_SAD_L = 19
+    MALE_PIANTA_NORMAL = 20
+    MALE_PIANTA_LOST = 21
+    MALE_PIANTA_NORMAL_2 = 22
+    MALE_PIANTA_LAUGH_D = 23
+    MALE_PIANTA_DISGUSTED = 24
+    MALE_PIANTA_ANGER_S = 25
+    MALE_PIANTA_SURPRISE = 26
+    MALE_PIANTA_DOUBT = 27
+    MALE_PIANTA_DISPLEASED = 28
+    MALE_PIANTA_CONFUSED = 29
+    MALE_PIANTA_REGRET = 30
+    MALE_PIANTA_PROUD = 31
+    MALE_PIANTA_RECOVER = 32
+    MALE_PIANTA_INVITING = 33
+    MALE_PIANTA_QUESTION = 34
+    MALE_PIANTA_LAUGH = 35
+    MALE_PIANTA_THANKS = 36
+    FEMALE_PIANTA_NORMAL = 37
+    FEMALE_PIANTA_REGRET = 38
+    FEMALE_PIANTA_INVITING = 39
+    FEMALE_PIANTA_LAUGH = 40
+    MALE_NOKI_NORMAL = 41
+    MALE_NOKI_REGRET = 42
+    MALE_NOKI_LAUGH = 43
+    MALE_NOKI_APPEAL = 44
+    MALE_NOKI_SUPRISE = 45
+    MALE_NOKI_SAD = 46
+    MALE_NOKI_ASK = 47
+    MALE_NOKI_PROMPT = 48
+    MALE_NOKI_THANKS = 49
+    FEMALE_NOKI_NORMAL = 50
+    FEMALE_NOKI_REGRET = 51
+    FEMALE_NOKI_LAUGH = 52
+    FEMALE_NOKI_APPEAL = 53
+    FEMALE_NOKI_SURPRISE = 54
+    FEMALE_NOKI_SAD = 55
+    FEMALE_NOKI_ASK = 56
+    FEMALE_NOKI_PROMPT = 57
+    FEMALE_NOKI_THANKS = 58
+    ELDER_NOKI_NORMAL = 59
+    ELDER_NOKI_REGRET = 60
+    ELDER_NOKI_LAUGH = 61
+    ELDER_NOKI_APPEAL = 62
+    ELDER_NOKI_SURPRISE = 63
+    ELDER_NOKI_SAD = 64
+    ELDER_NOKI_ASK = 65
+    ELDER_NOKI_PROMPT = 66
+    ELDER_NOKI_THANKS = 67
+    TANUKI_NORMAL = 68
+    SUNFLOWER_JOY = 69
+    SUNFLOWER_SAD = 70
+    SUNFLOWER_JOY_2 = 71
+    SUNFLOWER_SAD_2 = 72
+    FEMALE_PIANTA_LAUGH_D = 73
+    FEMALE_PIANTA_DISGUSTED = 74
+    FEMALE_PIANTA_ANGER_S = 75
+    FEMALE_PIANTA_SURPRISE = 76
+    FEMALE_PIANTA_DOUBT = 77
+    FEMALE_PIANTA_DISPLEASED = 78
+    FEMALE_PIANTA_CONFUSED = 79
+    FEMALE_PIANTA_PROUD = 80
+    FEMALE_PIANTA_RECOVER = 81
+    FEMALE_PIANTA_QUESTION = 82
+    FEMALE_PIANTA_THANKS = 83
+    MALE_NOKI_FLUTE = 84
+    SUNFLOWER_JOY_3 = 85
+    FMARIO_PSHOT = 86
+
+    @classmethod
+    def _missing_(cls, value: int) -> "SoundID":
+        return cls.PEACH_NORMAL
+
+    @classmethod
+    def name_to_sound_id(cls, name: int):
+        return cls._member_map_[name]
 
 
 class BMG():
@@ -217,7 +310,7 @@ class BMG():
     class MessageEntry:
         name: str
         message: RichMessage
-        soundID: int
+        soundID: SoundID
         startFrame: int
         endFrame: int
 
@@ -278,7 +371,7 @@ class BMG():
                         fEnd = read_uint16(f)
                         if isPal:
                             strIDOffsets.append(read_uint16(f))
-                        soundID = read_ubyte(f)  # BMG.SoundID(read_ubyte(f))
+                        soundID = SoundID(read_ubyte(f))  # BMG.SoundID(read_ubyte(f))
                         messageMetaDatas.append([fStart, fEnd, soundID])
                         f.seek(1 if isPal else 3, 1)
                 elif packetSize == 8:
