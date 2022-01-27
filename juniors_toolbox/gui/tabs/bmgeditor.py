@@ -982,7 +982,6 @@ class BMGMessageEditor(QWidget, GenericTabWidget):
         self.setMinimumSize(664, 300)
 
         self.mainLayout = QVBoxLayout()
-        self.mainLayout.setContentsMargins(0, 0, 0, 0)
 
         messageListBox = BMGMessageListWidget()
         messageListBox.currentItemChanged.connect(self.show_message)
