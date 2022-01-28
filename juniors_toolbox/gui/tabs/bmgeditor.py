@@ -865,7 +865,6 @@ class BMGMessagePreviewWidget(QWidget):
         return RichMessage(components)
 
     def paintEvent(self, event: QPaintEvent):
-        super().paintEvent(event)
         painter = QPainter()
         painter.begin(self)
 
@@ -874,9 +873,6 @@ class BMGMessagePreviewWidget(QWidget):
             self.__curFrame += 1
             if self.__curFrame > self.__endFrame:
                 self.stop()
-
-        for button in self.__buttons:
-            button.render(painter)
 
         painter.end()
 
