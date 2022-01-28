@@ -66,6 +66,8 @@ class RichMessage:
         if cmd[2:4] == b"\x01\x00":
             return "{option:" + str(cmd[4]) + ":" + decode_raw_string(cmd[5:]) + "}"
 
+        return "{raw:" + f"0x{cmd.hex().upper()}" + "}"
+
     @staticmethod
     def rich_to_command(rich: str) -> bytes:
         if rich in RichMessage._RICH_TO_COMMAND:
@@ -84,6 +86,11 @@ class RichMessage:
             option = int(command[8:]).to_bytes(1, "big", signed=False)
             length = len(message).to_bytes(1, "big", signed=False)
             return b"\x1A" + length + b"\x01\x00" + option + message
+
+        if rich.startswith("{raw:"):
+            rich = rich.replace(" ", "")
+            rawval = int(rich[5:-1], 16)
+            return rawval.to_bytes((rawval.bit_length() // 8) + 1, "big", signed=False)
 
     @classmethod
     def from_bytes(cls, f: BytesIO, encoding: Optional[str] = None):
