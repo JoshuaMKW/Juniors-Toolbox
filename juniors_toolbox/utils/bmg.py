@@ -380,6 +380,7 @@ class BMG():
         soundID: SoundID
         startFrame: int
         endFrame: int
+        _unkflags: bytes = b""
 
         def __str__(self) -> str:
             return f"{self.name} :: {self.message.get_string()}"
@@ -390,10 +391,10 @@ class BMG():
         self.flagSize = flagSize
 
         self.__messages: List[BMG.MessageEntry] = []
-        self.__isPal = isPal
+        self.__isStr1 = isPal
 
     @staticmethod
-    def is_data_pal(f: BytesIO) -> bool:
+    def is_str1_present_f(f: BytesIO) -> bool:
         if f.read(8) != BMG.MAGIC:
             return False
 
@@ -431,8 +432,8 @@ class BMG():
                 messageMetaDatas = []
                 messages = []
                 names = []
-                if packetSize == 12:
-                    for i in range(messageNum):
+                for i in range(messageNum):
+                    if packetSize == 12:
                         dataOffsets.append(read_uint32(f))
                         fStart = read_uint16(f)
                         fEnd = read_uint16(f)
@@ -440,16 +441,22 @@ class BMG():
                             strIDOffsets.append(read_uint16(f))
                         soundID = SoundID(read_ubyte(f))
                         f.seek(1 if isPal else 3, 1)
-                elif packetSize == 8:
-                    raise NotImplementedError("PacketSize 8 not implemented")
-                elif packetSize == 4:
-                    dataOffsets.append(read_uint32(f))
-                    fStart = 0
-                    fEnd = 0
-                    soundID = SoundID.NOTHING
-                else:
-                    raise NotImplementedError("PacketSize unknown")
-                messageMetaDatas.append([fStart, fEnd, soundID])
+                        unkFlags = b""
+                    elif packetSize == 8:
+                        dataOffsets.append(read_uint32(f))
+                        soundID = SoundID.NOTHING
+                        fStart = 0
+                        fEnd = 0
+                        unkFlags = f.read(4)
+                    elif packetSize == 4:
+                        dataOffsets.append(read_uint32(f))
+                        soundID = SoundID.NOTHING
+                        fStart = 0
+                        fEnd = 0
+                        unkFlags = b""
+                    else:
+                        raise NotImplementedError("PacketSize unknown")
+                    messageMetaDatas.append([fStart, fEnd, soundID, unkFlags])
             elif sectionMagic == b"DAT1":
                 assert i > 0, f"DAT1 found before INF1!"
                 data = f.read(sectionSize - 8)
@@ -473,11 +480,12 @@ class BMG():
         for i in range(len(messages)):
             bmg.add_message(
                 BMG.MessageEntry(
-                    names[i] if isPal else "",
+                    names[i] if isPal and packetSize == 12 else "",
                     messages[i],
                     messageMetaDatas[i][2],
                     messageMetaDatas[i][0],
-                    messageMetaDatas[i][1]
+                    messageMetaDatas[i][1],
+                    messageMetaDatas[i][3]
                 )
             )
 
@@ -487,7 +495,7 @@ class BMG():
         header = BytesIO(self.MAGIC)
         header.seek(len(self.MAGIC))
         write_uint32(header, self.get_data_size() // 32)
-        write_uint32(header, 3 if self.is_pal() else 2)
+        write_uint32(header, 3 if self.is_str1_present() else 2)
         header.write(b"\x00" * 16)  # padding
 
         inf1Size = self.get_inf1_size()
@@ -511,16 +519,25 @@ class BMG():
 
         for msg in self.__messages:
             # INF1
-            write_uint32(inf1, dat1.tell() - 8)
-            write_uint16(inf1, msg.startFrame)
-            write_uint16(inf1, msg.endFrame)
-            if self.is_pal():
-                write_uint16(inf1, str1.tell() - 8)
-                write_ubyte(inf1, msg.soundID)
-                inf1.seek(1, 1)
+            if self.flagSize == 12:
+                write_uint32(inf1, dat1.tell() - 8)
+                write_uint16(inf1, msg.startFrame)
+                write_uint16(inf1, msg.endFrame)
+                if self.is_str1_present():
+                    write_uint16(inf1, str1.tell() - 8)
+                    write_ubyte(inf1, msg.soundID)
+                    inf1.seek(1, 1)
+                else:
+                    write_ubyte(inf1, msg.soundID)
+                    inf1.seek(3, 1)
+            elif self.flagSize == 8:
+                write_uint32(inf1, dat1.tell() - 8)
+                flags = msg._unkflags + b"\x00" * max(0, 4 - len(msg._unkflags))
+                inf1.write(flags)
+            elif self.flagSize == 4:
+                write_uint32(inf1, dat1.tell() - 8)
             else:
-                write_ubyte(inf1, msg.soundID)
-                inf1.seek(3, 1)
+                raise NotImplementedError("PacketSize unknown")
 
             # DAT1
             dat1.write(msg.message.to_bytes())
@@ -529,13 +546,13 @@ class BMG():
             write_string(str1, msg.name)
 
         data = inf1.getvalue() + dat1.getvalue()
-        if self.is_pal():
+        if self.is_str1_present():
             data += str1.getvalue()
 
         return header.getvalue() + data
 
     def get_data_size(self) -> int:
-        if self.is_pal():
+        if self.is_str1_present():
             return 0x20 + self.get_inf1_size() + self.get_dat1_size() + self.get_str1_size()
         else:
             return 0x20 + self.get_inf1_size() + self.get_dat1_size()
@@ -559,11 +576,11 @@ class BMG():
             ), 32
         )
 
-    def set_pal(self, isPal: bool):
-        self.__isPal = isPal
+    def set_str1_present(self, isStr1: bool):
+        self.__isStr1 = isStr1
 
-    def is_pal(self) -> bool:
-        return self.__isPal
+    def is_str1_present(self) -> bool:
+        return self.__isStr1 and self.flagSize == 12
 
     def add_message(self, message: MessageEntry):
         self.__messages.append(message)

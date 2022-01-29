@@ -999,21 +999,13 @@ class BMGMessageInterfaceWidget(QWidget):
         self.setLayout(layout)
 
     def set_values(self, soundID: SoundID, startFrame: int, endFrame: int):
+        startFrame = min(startFrame, 65535)
+        endFrame = min(endFrame, 65535)
         index = self.__soundIdComboBox.findText(soundID.name, Qt.MatchFixedString)
         index = max(0, index)
         self.__soundIdComboBox.setCurrentIndex(index)
         self.__startFrameLineEdit.setText(str(startFrame))
         self.__endFrameLineEdit.setText(str(endFrame))
-
-    def repopulate_sound_list(self):
-        index = self.__soundIdComboBox.currentIndex()
-        self.__soundIdComboBox.blockSignals(True)
-        self.__soundIdComboBox.clear()
-        for sound in SoundID._member_names_:
-            self.__soundIdComboBox.addItem(sound)
-        if self.__soundIdComboBox.count() > index:
-            self.__soundIdComboBox.setCurrentIndex(index)
-        self.__soundIdComboBox.blockSignals(False)
 
     def blockSignals(self, b: bool) -> bool:
         super().blockSignals(b)
@@ -1029,13 +1021,13 @@ class BMGMessageInterfaceWidget(QWidget):
         if text == "":
             startFrame = 0
         else:
-            startFrame = int(self.__startFrameLineEdit.text())
+            startFrame = min(int(self.__startFrameLineEdit.text()), 65535)
 
         text = self.__endFrameLineEdit.text()
         if text == "":
             endFrame = 0
         else:
-            endFrame = int(self.__endFrameLineEdit.text())
+            endFrame = min(int(self.__endFrameLineEdit.text()), 65535)
 
         self.attributeUpdateRequested.emit(soundName, startFrame, endFrame)
 
@@ -1235,18 +1227,52 @@ class BMGMessageMenuBar(QMenuBar):
         palAction.setCheckable(True)
 
         usaAction.toggled.connect(
-            lambda toggled: palAction.setChecked(not toggled))
+            lambda toggled: palAction.setChecked(not toggled)
+        )
         palAction.toggled.connect(
-            lambda toggled: usaAction.setChecked(not toggled))
+            lambda toggled: usaAction.setChecked(not toggled)
+        )
+        self.__usaAction = usaAction
+        self.__palAction = palAction
 
         kindMenu.addAction(usaAction)
         kindMenu.addAction(palAction)
 
-        self.__usaAction = usaAction
-        self.__palAction = palAction
+        sizeMenu = QMenu(self)
+        sizeMenu.setTitle("Packet Size")
+
+        sizeAction4 = QAction(sizeMenu)
+        sizeAction4.setText("4 (System)")
+        sizeAction4.setCheckable(True)
+        sizeAction4.toggled.connect(
+            lambda toggled: self.set_packet_size(4)
+        )
+
+        sizeAction8 = QAction(sizeMenu)
+        sizeAction8.setText("8 (Unknown)")
+        sizeAction8.setCheckable(True)
+        sizeAction8.toggled.connect(
+            lambda toggled: self.set_packet_size(8)
+        )
+
+        sizeAction12 = QAction(sizeMenu)
+        sizeAction12.setText("12 (NPC)")
+        sizeAction12.setCheckable(True)
+        sizeAction12.setChecked(True)
+        sizeAction12.toggled.connect(
+            lambda toggled: self.set_packet_size(12)
+        )
+        self.__sizeAction4 = sizeAction4
+        self.__sizeAction8 = sizeAction8
+        self.__sizeAction12 = sizeAction12
+
+        sizeMenu.addAction(sizeAction4)
+        sizeMenu.addAction(sizeAction8)
+        sizeMenu.addAction(sizeAction12)
 
         self.addMenu(fileMenu)
         self.addMenu(kindMenu)
+        self.addMenu(sizeMenu)
 
     def is_region_pal(self) -> bool:
         return self.__palAction.isChecked() and not self.__usaAction.isChecked()
@@ -1254,6 +1280,34 @@ class BMGMessageMenuBar(QMenuBar):
     def set_region_pal(self, isPal: bool):
         self.__palAction.setChecked(isPal)
         self.__usaAction.setChecked(not isPal)
+
+    def set_packet_size(self, size: int):
+        self.__sizeAction4.blockSignals(True)
+        self.__sizeAction8.blockSignals(True)
+        self.__sizeAction12.blockSignals(True)
+        if size == 4:
+            self.__sizeAction4.setChecked(True)
+            self.__sizeAction8.setChecked(False)
+            self.__sizeAction12.setChecked(False)
+        elif size == 8:
+            self.__sizeAction4.setChecked(False)
+            self.__sizeAction8.setChecked(True)
+            self.__sizeAction12.setChecked(False)
+        elif size == 12:
+            self.__sizeAction4.setChecked(False)
+            self.__sizeAction8.setChecked(False)
+            self.__sizeAction12.setChecked(True)
+        self.__sizeAction4.blockSignals(False)
+        self.__sizeAction8.blockSignals(False)
+        self.__sizeAction12.blockSignals(False)
+
+    def get_packet_size(self) -> int:
+        if self.__sizeAction4.isChecked():
+            return 4
+        if self.__sizeAction8.isChecked():
+            return 8
+        if self.__sizeAction12.isChecked():
+            return 12
 
 
 class BMGMessageEditor(QWidget, GenericTabWidget):
@@ -1375,7 +1429,7 @@ class BMGMessageEditor(QWidget, GenericTabWidget):
         self.messageListBox.clear()
         self.messageTextEdit.clear()
 
-        self.menuBar.set_region_pal(data.is_pal())
+        self.menuBar.set_region_pal(data.is_str1_present())
 
         for i, message in enumerate(data.iter_messages()):
             if message.name == "":
@@ -1420,12 +1474,13 @@ class BMGMessageEditor(QWidget, GenericTabWidget):
             bmg = BMG.from_bytes(f)
 
         self.populate(bmg, None)
-        self.messageInterface.repopulate_sound_list()
 
     @Slot()
     def close_bmg(self):
         self.messageListBox.clear()
         self.messageTextEdit.clear()
+        self.messagePreview.stop()
+        self.messagePreview.message = None
         self.messageInterface.set_values(
             SoundID(0), 0, 0
         )
@@ -1456,7 +1511,7 @@ class BMGMessageEditor(QWidget, GenericTabWidget):
         else:
             path = self.__cachedOpenPath
 
-        bmg = BMG(self.menuBar.is_region_pal(), 12)
+        bmg = BMG(self.menuBar.is_region_pal(), self.menuBar.get_packet_size())
         for row in range(self.messageListBox.count()):
             item: BMGMessageListItem = self.messageListBox.item(row)
             bmg.add_message(item.message)
@@ -1467,6 +1522,16 @@ class BMGMessageEditor(QWidget, GenericTabWidget):
     @Slot(BMGMessageListItem)
     def show_message(self, item: BMGMessageListItem):
         if item is None or item.text() == "":
+            self.messageTextEdit.clear()
+            self.messageTextEdit.setDisabled(True)
+            self.messageInterface.blockSignals(True)
+            self.messageInterface.set_values(
+                SoundID.NOTHING, 0, 0
+            )
+            self.messageInterface.blockSignals(False)
+            self.messageInterface.setDisabled(True)
+            self.messagePreview.stop()
+            self.messagePreview.message = None
             return
 
         message = item.message
@@ -1490,7 +1555,13 @@ class BMGMessageEditor(QWidget, GenericTabWidget):
         name = self.messageListBox._resolve_name("message")
         item = BMGMessageListItem(
             name,
-            BMG.MessageEntry(name, RichMessage(), SoundID(0), 0, 0)
+            BMG.MessageEntry(
+                name,
+                RichMessage(),
+                SoundID.NOTHING,
+                0,
+                0
+            )
         )
         self.messageListBox.blockSignals(True)
         self.messageListBox.addItem(item)
