@@ -82,6 +82,9 @@ class InteractiveListWidget(QListWidget):
         """
         Returns the new name of the item
         """
+        if item is None:
+            return
+            
         name = item.text()
         if name == "":
             if item._newItem_:
@@ -105,6 +108,9 @@ class InteractiveListWidget(QListWidget):
         """
         Returns the new name of the item
         """
+        if item is None:
+            return
+
         newName = self._resolve_name(item.text())
 
         self.blockSignals(True)
