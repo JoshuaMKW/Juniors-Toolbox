@@ -1430,6 +1430,7 @@ class BMGMessageEditor(QWidget, GenericTabWidget):
         self.messageTextEdit.clear()
 
         self.menuBar.set_region_pal(data.is_str1_present())
+        self.menuBar.set_packet_size(data.flagSize)
 
         for i, message in enumerate(data.iter_messages()):
             if message.name == "":

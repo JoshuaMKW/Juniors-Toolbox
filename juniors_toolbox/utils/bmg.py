@@ -116,24 +116,10 @@ class RichMessage:
                     components.append(decode_raw_string(string, encoding))
                     string = b""
 
-                subChar = f.read(1)
-                flags = f.read(3)
-                if flags[:2] == b"\x01\x00":  # text choices
-                    components.append(
-                        char + subChar + flags + f.read(
-                            int.from_bytes(subChar, "big", signed=False) - 5
-                        ))
-                elif subChar == b"\x06":
-                    components.append(
-                        char + subChar + flags + f.read(1)
-                    )
-                elif subChar == b"\x05":
-                    components.append(
-                        char + subChar + flags
-                    )
-                else:
-                    raise ValueError(
-                        f"Unknown escape code {char + subChar + flags[:2]}")
+                cmdLength = f.read(1)
+                components.append(
+                    char + cmdLength + f.read(cmdLength[0] - 2)
+                )
             else:
                 string += char
         if string not in TERMINATING_CHARS:
