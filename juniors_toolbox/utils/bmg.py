@@ -1,13 +1,10 @@
 from dataclasses import dataclass, field
-from enum import Enum, IntEnum
+from enum import IntEnum
 from io import BytesIO
 from os import write
-from pathlib import Path
-import struct
-import sys
 from typing import Iterable, List, Optional, Tuple, Union
 
-from numpy import inf
+from aenum import extend_enum
 
 from juniors_toolbox.utils.iohelper import align_int, decode_raw_string, get_likely_encoding, read_string, read_ubyte, read_uint16, read_uint32, write_string, write_ubyte, write_uint16, write_uint32
 
@@ -66,31 +63,34 @@ class RichMessage:
         if cmd[2:4] == b"\x01\x00":
             return "{option:" + str(cmd[4]) + ":" + decode_raw_string(cmd[5:]) + "}"
 
-        return "{raw:" + f"0x{cmd.hex().upper()}" + "}"
+        return "{raw:" + f"0x{cmd[1:].hex().upper()}" + "}"
 
     @staticmethod
     def rich_to_command(rich: str) -> bytes:
         if rich in RichMessage._RICH_TO_COMMAND:
             return RichMessage._RICH_TO_COMMAND[rich]
 
-        if rich.startswith("{speed:"):
-            rich = rich.replace(" ", "")
-            speed = int(rich[7:-1])
-            return b"\x1A\x06\x00\x00\x00" + speed.to_bytes(1, "big", signed=False)
+        try:
+            if rich.startswith("{speed:"):
+                rich = rich.replace(" ", "")
+                speed = int(rich[7:-1])
+                return b"\x1A\x06\x00\x00\x00" + speed.to_bytes(1, "big", signed=False)
 
-        if rich.startswith("{option:"):
-            command, message = rich.rsplit(":", 1)
-            command.replace(" ", "")
-            message = message[:-1].encode() + b"\x00"
+            if rich.startswith("{option:"):
+                command, message = rich.rsplit(":", 1)
+                command.replace(" ", "")
+                message = message[:-1].encode()
 
-            option = int(command[8:]).to_bytes(1, "big", signed=False)
-            length = len(message).to_bytes(1, "big", signed=False)
-            return b"\x1A" + length + b"\x01\x00" + option + message
+                option = int(command[8:]).to_bytes(1, "big", signed=False)
+                length = (len(message) + 5).to_bytes(1, "big", signed=False)
+                return b"\x1A" + length + b"\x01\x00" + option + message
 
-        if rich.startswith("{raw:"):
-            rich = rich.replace(" ", "")
-            rawval = int(rich[5:-1], 16)
-            return rawval.to_bytes((rawval.bit_length() // 8) + 1, "big", signed=False)
+            if rich.startswith("{raw:"):
+                rich = rich.replace(" ", "")
+                rawval = int(rich[5:-1], 16)
+                return b"\x1A" + rawval.to_bytes((rawval.bit_length() + 7) // 8, "big", signed=False)
+        except Exception:
+            return None
 
     @classmethod
     def from_bytes(cls, f: BytesIO, encoding: Optional[str] = None):
@@ -139,7 +139,7 @@ class RichMessage:
         if string not in TERMINATING_CHARS:
             if _encodingGuess is None:
                 _encodingGuess = get_likely_encoding(string)
-            components.append(decode_raw_string(string, encoding))
+            components.append(decode_raw_string(string, encoding)[:-1])
         return cls(components, _encodingGuess)
 
     @classmethod
@@ -148,26 +148,36 @@ class RichMessage:
         substr = ""
         lPos = string.find("{")
         rPos = string.find("}", lPos)
+        nextLPos = string.find("{", lPos+1)
         encoding = None
         while lPos > -1 and rPos > -1:
+            isCmdEnclosed = rPos < nextLPos or nextLPos == -1
             mainstr = string[:lPos]
             if mainstr != "":
                 if encoding is None:
                     encoding = get_likely_encoding(mainstr.encode())
                 components.append(mainstr)
-            substr = string[lPos:rPos+1]
+            if isCmdEnclosed:
+                substr = string[lPos:rPos+1]
+            else:
+                substr = string[lPos:nextLPos]
             if substr != "":
-                part = RichMessage.rich_to_command(substr)
-                if part is None:
+                if isCmdEnclosed:
+                    part = RichMessage.rich_to_command(substr)
+                    if part is None:
+                        part = substr
+                    string = string[rPos+1:]
+                else:
                     part = substr
+                    string = string[nextLPos:]
                 components.append(part)
-                string = string[rPos+1:]
                 lPos = string.find("{")
                 rPos = string.find("}", lPos)
+                nextLPos = string.find("{", lPos+1)
         if string != "":
             if encoding is None:
                 encoding = get_likely_encoding(string.encode())
-            components.append(string+"\x00")
+            components.append(string)
         return RichMessage(components, encoding)
 
     def to_bytes(self) -> bytes:
@@ -180,7 +190,7 @@ class RichMessage:
                     data += cmp.encode()
             else:
                 data += cmp
-        return data
+        return data + b"\x00"
 
     def get_rich_text(self) -> str:
         string = ""
@@ -208,14 +218,15 @@ class RichMessage:
                     size += len(cmp.encode())
             else:
                 size += len(cmp)
-        return size
+        return size + 1
 
 
 class SoundID(IntEnum):
+    NOTHING = 69
     PEACH_NORMAL = 0
     PEACH_SURPRISE = 1
     PEACH_WORRY = 2
-    PEACH_ANGRY = 3
+    PEACH_ANGER_L = 3
     PEACH_APPEAL = 4
     PEACH_DOUBT = 5
     TOADSWORTH_NORMAL = 6
@@ -233,76 +244,125 @@ class SoundID(IntEnum):
     TOAD_RECOVER = 18
     TOAD_SAD_L = 19
     MALE_PIANTA_NORMAL = 20
-    MALE_PIANTA_LOST = 21
-    MALE_PIANTA_NORMAL_2 = 22
-    MALE_PIANTA_LAUGH_D = 23
-    MALE_PIANTA_DISGUSTED = 24
-    MALE_PIANTA_ANGER_S = 25
-    MALE_PIANTA_SURPRISE = 26
-    MALE_PIANTA_DOUBT = 27
-    MALE_PIANTA_DISPLEASED = 28
-    MALE_PIANTA_CONFUSED = 29
-    MALE_PIANTA_REGRET = 30
-    MALE_PIANTA_PROUD = 31
-    MALE_PIANTA_RECOVER = 32
-    MALE_PIANTA_INVITING = 33
-    MALE_PIANTA_QUESTION = 34
-    MALE_PIANTA_LAUGH = 35
-    MALE_PIANTA_THANKS = 36
-    FEMALE_PIANTA_NORMAL = 37
-    FEMALE_PIANTA_REGRET = 38
-    FEMALE_PIANTA_INVITING = 39
-    FEMALE_PIANTA_LAUGH = 40
-    MALE_NOKI_NORMAL = 41
-    MALE_NOKI_REGRET = 42
-    MALE_NOKI_LAUGH = 43
-    MALE_NOKI_APPEAL = 44
-    MALE_NOKI_SUPRISE = 45
-    MALE_NOKI_SAD = 46
-    MALE_NOKI_ASK = 47
-    MALE_NOKI_PROMPT = 48
-    MALE_NOKI_THANKS = 49
-    FEMALE_NOKI_NORMAL = 50
-    FEMALE_NOKI_REGRET = 51
-    FEMALE_NOKI_LAUGH = 52
-    FEMALE_NOKI_APPEAL = 53
-    FEMALE_NOKI_SURPRISE = 54
-    FEMALE_NOKI_SAD = 55
-    FEMALE_NOKI_ASK = 56
-    FEMALE_NOKI_PROMPT = 57
-    FEMALE_NOKI_THANKS = 58
-    ELDER_NOKI_NORMAL = 59
-    ELDER_NOKI_REGRET = 60
-    ELDER_NOKI_LAUGH = 61
-    ELDER_NOKI_APPEAL = 62
-    ELDER_NOKI_SURPRISE = 63
-    ELDER_NOKI_SAD = 64
-    ELDER_NOKI_ASK = 65
-    ELDER_NOKI_PROMPT = 66
-    ELDER_NOKI_THANKS = 67
-    TANUKI_NORMAL = 68
-    SUNFLOWER_JOY = 69
-    SUNFLOWER_SAD = 70
-    SUNFLOWER_JOY_2 = 71
-    SUNFLOWER_SAD_2 = 72
-    FEMALE_PIANTA_LAUGH_D = 73
-    FEMALE_PIANTA_DISGUSTED = 74
-    FEMALE_PIANTA_ANGER_S = 75
-    FEMALE_PIANTA_SURPRISE = 76
-    FEMALE_PIANTA_DOUBT = 77
-    FEMALE_PIANTA_DISPLEASED = 78
-    FEMALE_PIANTA_CONFUSED = 79
-    FEMALE_PIANTA_PROUD = 80
-    FEMALE_PIANTA_RECOVER = 81
-    FEMALE_PIANTA_QUESTION = 82
-    FEMALE_PIANTA_THANKS = 83
-    MALE_NOKI_FLUTE = 84
-    SUNFLOWER_JOY_3 = 85
-    FMARIO_PSHOT = 86
+    MALE_PIANTA_LAUGH_D = 21
+    MALE_PIANTA_DISGUSTED = 22
+    MALE_PIANTA_ANGER_S = 23
+    MALE_PIANTA_SURPRISE = 24
+    MALE_PIANTA_DOUBT = 25
+    MALE_PIANTA_DISPLEASED = 26
+    MALE_PIANTA_CONFUSED = 27
+    MALE_PIANTA_REGRET = 28
+    MALE_PIANTA_PROUD = 29
+    MALE_PIANTA_RECOVER = 30
+    MALE_PIANTA_INVITING = 31
+    MALE_PIANTA_QUESTION = 32
+    MALE_PIANTA_LAUGH = 33
+    MALE_PIANTA_THANKS = 34
+    FEMALE_PIANTA_NORMAL = 35
+    FEMALE_PIANTA_REGRET = 36
+    FEMALE_PIANTA_INVITING = 37
+    FEMALE_PIANTA_LAUGH = 38
+    FEMALE_PIANTA_LAUGH_D = 70
+    FEMALE_PIANTA_DISGUSTED = 71
+    FEMALE_PIANTA_ANGER_S = 72
+    FEMALE_PIANTA_SURPRISE = 73
+    FEMALE_PIANTA_DOUBT = 74
+    FEMALE_PIANTA_DISPLEASED = 75
+    FEMALE_PIANTA_CONFUSED = 76
+    FEMALE_PIANTA_PROUD = 77
+    FEMALE_PIANTA_RECOVER = 78
+    FEMALE_PIANTA_QUESTION = 79
+    FEMALE_PIANTA_THANKS = 80
+    CHILD_MALE_PIANTA_NORMAL = 81
+    CHILD_MALE_PIANTA_LAUGH_D = 82
+    CHILD_MALE_PIANTA_DISGUSTED = 83
+    CHILD_MALE_PIANTA_ANGER_S = 84
+    CHILD_MALE_PIANTA_SURPRISE = 85
+    CHILD_MALE_PIANTA_DOUBT = 86
+    CHILD_MALE_PIANTA_DISPLEASED = 87
+    CHILD_MALE_PIANTA_CONFUSED = 88
+    CHILD_MALE_PIANTA_REGRET = 89
+    CHILD_MALE_PIANTA_PROUD = 90
+    CHILD_MALE_PIANTA_RECOVER = 91
+    CHILD_MALE_PIANTA_INVITING = 92
+    CHILD_MALE_PIANTA_QUESTION = 93
+    CHILD_MALE_PIANTA_LAUGH = 94
+    CHILD_MALE_PIANTA_THANKS = 95
+    CHILD_FEMALE_PIANTA_NORMAL = 96
+    CHILD_FEMALE_PIANTA_LAUGH_D = 97
+    CHILD_FEMALE_PIANTA_DISGUSTED = 98
+    CHILD_FEMALE_PIANTA_ANGER_S = 99
+    CHILD_FEMALE_PIANTA_SURPRISE = 100
+    CHILD_FEMALE_PIANTA_DOUBT = 101
+    CHILD_FEMALE_PIANTA_DISPLEASED = 102
+    CHILD_FEMALE_PIANTA_CONFUSED = 103
+    CHILD_FEMALE_PIANTA_REGRET = 104
+    CHILD_FEMALE_PIANTA_PROUD = 105
+    CHILD_FEMALE_PIANTA_RECOVER = 106
+    CHILD_FEMALE_PIANTA_INVITING = 107
+    CHILD_FEMALE_PIANTA_QUESTION = 108
+    CHILD_FEMALE_PIANTA_LAUGH = 109
+    CHILD_FEMALE_PIANTA_THANKS = 110
+    MALE_NOKI_NORMAL = 39
+    MALE_NOKI_REGRET = 40
+    MALE_NOKI_LAUGH = 41
+    MALE_NOKI_APPEAL = 42
+    MALE_NOKI_SUPRISE = 43
+    MALE_NOKI_SAD = 44
+    MALE_NOKI_ASK = 45
+    MALE_NOKI_PROMPT = 46
+    MALE_NOKI_THANKS = 47
+    FEMALE_NOKI_NORMAL = 48
+    FEMALE_NOKI_REGRET = 49
+    FEMALE_NOKI_LAUGH = 50
+    FEMALE_NOKI_APPEAL = 51
+    FEMALE_NOKI_SURPRISE = 52
+    FEMALE_NOKI_SAD = 53
+    FEMALE_NOKI_ASK = 54
+    FEMALE_NOKI_PROMPT = 55
+    FEMALE_NOKI_THANKS = 56
+    ELDER_NOKI_NORMAL = 57
+    ELDER_NOKI_REGRET = 58
+    ELDER_NOKI_LAUGH = 59
+    ELDER_NOKI_APPEAL = 60
+    ELDER_NOKI_SURPRISE = 61
+    ELDER_NOKI_SAD = 62
+    ELDER_NOKI_ASK = 63
+    ELDER_NOKI_PROMPT = 64
+    ELDER_NOKI_THANKS = 65
+    CHILD_MALE_NOKI_NORMAL = 111
+    CHILD_MALE_NOKI_REGRET = 112
+    CHILD_MALE_NOKI_LAUGH = 113
+    CHILD_MALE_NOKI_APPEAL = 114
+    CHILD_MALE_NOKI_SURPRISE = 115
+    CHILD_MALE_NOKI_SAD = 116
+    CHILD_MALE_NOKI_ASK = 117
+    CHILD_MALE_NOKI_PROMPT = 118
+    CHILD_MALE_NOKI_THANKS = 119
+    CHILD_FEMALE_NOKI_NORMAL = 120
+    CHILD_FEMALE_NOKI_REGRET = 121
+    CHILD_FEMALE_NOKI_LAUGH = 122
+    CHILD_FEMALE_NOKI_APPEAL = 123
+    CHILD_FEMALE_NOKI_SURPRISE = 124
+    CHILD_FEMALE_NOKI_SAD = 125
+    CHILD_FEMALE_NOKI_ASK = 126
+    CHILD_FEMALE_NOKI_PROMPT = 127
+    CHILD_FEMALE_NOKI_THANKS = 128
+    SUNFLOWER_PARENT_JOY = 67
+    SUNFLOWER_PARENT_SAD = 68
+    TANUKI_NORMAL = 66
+    SHADOW_MARIO_PSHOT = 132
+    IL_PIANTISSIMO_NORMAL = 133
+    IL_PIANTISSIMO_LOST = 134
+    ITEM_COLLECT_DELIGHT = 129
+    ITEM_NOT_COLLECT = 131
+    BGM_FANFARE = 130
 
-    @classmethod
-    def _missing_(cls, value: int) -> "SoundID":
-        return cls.PEACH_NORMAL
+    # @classmethod
+    # def _missing_(cls, value: int) -> "SoundID":
+    #     memberName = f"UNKNOWN_SOUND_{value}"
+    #     extend_enum(cls, memberName, value)
+    #     return cls(value)
 
     @classmethod
     def name_to_sound_id(cls, name: int):
@@ -378,15 +438,18 @@ class BMG():
                         fEnd = read_uint16(f)
                         if isPal:
                             strIDOffsets.append(read_uint16(f))
-                        soundID = SoundID(read_ubyte(f))  # BMG.SoundID(read_ubyte(f))
-                        messageMetaDatas.append([fStart, fEnd, soundID])
+                        soundID = SoundID(read_ubyte(f))
                         f.seek(1 if isPal else 3, 1)
                 elif packetSize == 8:
                     raise NotImplementedError("PacketSize 8 not implemented")
                 elif packetSize == 4:
-                    raise NotImplementedError("PacketSize 4 not implemented")
+                    dataOffsets.append(read_uint32(f))
+                    fStart = 0
+                    fEnd = 0
+                    soundID = SoundID.NOTHING
                 else:
                     raise NotImplementedError("PacketSize unknown")
+                messageMetaDatas.append([fStart, fEnd, soundID])
             elif sectionMagic == b"DAT1":
                 assert i > 0, f"DAT1 found before INF1!"
                 data = f.read(sectionSize - 8)
@@ -402,8 +465,9 @@ class BMG():
                 assert i > 0, f"STR1 found before INF1!"
                 relOfs = f.tell()
                 for i, offset in enumerate(strIDOffsets):
-                    names.append(read_string(
-                        f, offset+relOfs))
+                    names.append(
+                        read_string(f, offset+relOfs)
+                    )
 
         bmg = cls(isPal, packetSize)
         for i in range(len(messages)):

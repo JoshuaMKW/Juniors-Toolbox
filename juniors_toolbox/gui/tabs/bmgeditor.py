@@ -605,7 +605,7 @@ class BMGMessagePreviewWidget(QWidget):
         optionsImgSize = QSize(112, 76)
         targetPos = QPoint(
             (backDrop.width() / 2) - (optionsImgSize.width() / 2),
-            37
+            36
         )
 
         optionsImg = QImage(optionsImgSize, QImage.Format_ARGB32)
@@ -999,9 +999,27 @@ class BMGMessageInterfaceWidget(QWidget):
         self.setLayout(layout)
 
     def set_values(self, soundID: SoundID, startFrame: int, endFrame: int):
-        self.__soundIdComboBox.setCurrentIndex(soundID.value)
+        index = self.__soundIdComboBox.findText(soundID.name, Qt.MatchFixedString)
+        index = max(0, index)
+        self.__soundIdComboBox.setCurrentIndex(index)
         self.__startFrameLineEdit.setText(str(startFrame))
         self.__endFrameLineEdit.setText(str(endFrame))
+
+    def repopulate_sound_list(self):
+        index = self.__soundIdComboBox.currentIndex()
+        self.__soundIdComboBox.blockSignals(True)
+        self.__soundIdComboBox.clear()
+        for sound in SoundID._member_names_:
+            self.__soundIdComboBox.addItem(sound)
+        if self.__soundIdComboBox.count() > index:
+            self.__soundIdComboBox.setCurrentIndex(index)
+        self.__soundIdComboBox.blockSignals(False)
+
+    def blockSignals(self, b: bool) -> bool:
+        super().blockSignals(b)
+        self.__soundIdComboBox.blockSignals(b)
+        self.__startFrameLineEdit.blockSignals(b)
+        self.__endFrameLineEdit.blockSignals(b)
 
     @Slot()
     def __push_update_request(self):
@@ -1088,6 +1106,16 @@ class BMGMessageTextBox(QPlainTextEdit):
 
         def __click(self):
             self.clicked.emit("{option:0:}")
+        
+    class RawCmdAction(QAction):
+        clicked: SignalInstance = Signal(str)
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.triggered.connect(self.__click)
+
+        def __click(self):
+            self.clicked.emit("{raw:0x}")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -1107,7 +1135,7 @@ class BMGMessageTextBox(QPlainTextEdit):
             items: List[str] = categories.setdefault(category, [])
             items.append(specifier)
 
-        menu.addSeparator()
+        menu.addSection("Formatters")
 
         optionAction = BMGMessageTextBox.OptionCmdAction("New Option", menu)
         optionAction.clicked.connect(self.insert_format_token)
@@ -1120,16 +1148,22 @@ class BMGMessageTextBox(QPlainTextEdit):
 
         if len(categories) > 0:
             menu.addSeparator()
+            for category, items in categories.items():
+                submenu = QMenu(category.capitalize(), menu)
+                for item in items:
+                    action = BMGMessageTextBox.CmdAction(item, submenu)
+                    action.clicked.connect(
+                        self.insert_token
+                    )
+                    submenu.addAction(action)
+                menu.addMenu(submenu)
 
-        for category, items in categories.items():
-            submenu = QMenu(category.capitalize(), menu)
-            for item in items:
-                action = BMGMessageTextBox.CmdAction(item, submenu)
-                action.clicked.connect(
-                    self.insert_token
-                )
-                submenu.addAction(action)
-            menu.addMenu(submenu)
+        menu.addSeparator()
+
+        rawAction = BMGMessageTextBox.RawCmdAction("Raw", menu)
+        rawAction.clicked.connect(self.insert_format_token)
+
+        menu.addAction(rawAction)
 
         menu.exec(self.mapToGlobal(point))
 
@@ -1386,6 +1420,7 @@ class BMGMessageEditor(QWidget, GenericTabWidget):
             bmg = BMG.from_bytes(f)
 
         self.populate(bmg, None)
+        self.messageInterface.repopulate_sound_list()
 
     @Slot()
     def close_bmg(self):
@@ -1437,11 +1472,13 @@ class BMGMessageEditor(QWidget, GenericTabWidget):
         message = item.message
         self.messageTextEdit.setPlainText(
             message.message.get_rich_text().replace("\x00", ""))
+        self.messageInterface.blockSignals(True)
         self.messageInterface.set_values(
             message.soundID,
             message.startFrame,
             message.endFrame
         )
+        self.messageInterface.blockSignals(False)
         self.messagePreview.message = message.message
         self.messagePreview.reset()
         self.messagePreview.update()

@@ -1,10 +1,10 @@
+aenum
+chardet
+nodeeditor
+numpy
+oead
+pillow
 PySide6
 PyOpenGL
-oead
-numpy
-pillow
-nodeeditor
-watchdog
-chardet
 pyrr
-qdarkstyle
+watchdog
