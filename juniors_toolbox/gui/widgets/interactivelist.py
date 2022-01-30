@@ -1,7 +1,7 @@
 from typing import Optional, Union
 
 from PySide6.QtCore import QPoint, Qt, Slot
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QKeyEvent
 from PySide6.QtWidgets import (QAbstractItemView, QListWidget, QListWidgetItem,
                                QMenu, QWidget)
 
@@ -84,7 +84,7 @@ class InteractiveListWidget(QListWidget):
         """
         if item is None:
             return
-            
+
         name = item.text()
         if name == "":
             if item._newItem_:
@@ -161,3 +161,7 @@ class InteractiveListWidget(QListWidget):
     def __handle_double_click(self, item: InteractiveListWidgetItem):
         item._prevName_ = item.text()
         item._newItem_ = False
+
+    def keyReleaseEvent(self, event: QKeyEvent):
+        if event.key() == Qt.Key_Delete:
+            self.takeItem(self.currentRow())
