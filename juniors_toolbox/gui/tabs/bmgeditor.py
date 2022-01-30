@@ -926,7 +926,7 @@ class BMGMessageListInterfaceWidget(QWidget):
 
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
-        self.setMinimumWidth(200)
+        self.setMinimumWidth(180)
         self.setFixedHeight(45)
 
         addButton = QPushButton("New", self)
@@ -1314,7 +1314,7 @@ class BMGMessageEditor(QWidget, GenericTabWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAcceptDrops(True)
-        self.setMinimumSize(664, 300)
+        self.setMinimumSize(685, 300)
 
         self.mainLayout = QVBoxLayout()
         self.mainLayout.setContentsMargins(10, 0, 10, 10)
