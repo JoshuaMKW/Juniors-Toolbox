@@ -1,21 +1,23 @@
+from io import BytesIO
 import struct
+from typing import BinaryIO
+from juniors_toolbox.utils import write_jsystem_padding
 #from collections import OrderedDict
 
 
 from juniors_toolbox.utils.iohelper import (read_float, read_sbyte, read_sint16, read_ubyte,
-                                           read_uint16, read_uint32,
-                                           write_float, write_sbyte,
-                                           write_sint16, write_ubyte,
-                                           write_uint16, write_uint32)
+                                            read_uint16, read_uint32,
+                                            write_float, write_sbyte,
+                                            write_sint16, write_ubyte,
+                                            write_uint16, write_uint32)
 from juniors_toolbox.utils.j3d.anim import general_animation as j3d
 from juniors_toolbox.utils.j3d.anim.general_animation import (BasicAnimation,
-                                                             find_sequence,
-                                                             write_padding)
+                                                              find_sequence)
 
 BVAFILEMAGIC = b"J3D1bva1"
 
 
-class VisibilityAnimation(object):
+class VisibilityAnimation():
     def __init__(self, index, name, frames):
         self.index = index
         self.name = name
@@ -44,41 +46,40 @@ class BVA(BasicAnimation):
         #self.unknown_address = unknown_address
 
     @classmethod
-    def from_data(cls, f):
-
-        size = read_uint32(f)
+    def from_bytes(cls, data: BinaryIO, *args, **kwargs):
+        size = read_uint32(data)
         #print("Size of brk: {} bytes".format(size))
-        sectioncount = read_uint32(f)
+        sectioncount = read_uint32(data)
         assert sectioncount == 1
 
-        svr_data = f.read(16)
+        svr_data = data.read(16)
 
-        vaf_start = f.tell()
+        vaf_start = data.tell()
 
-        vaf_magic = f.read(4)
-        vaf_sectionsize = read_uint32(f)
+        vaf_magic = data.read(4)
+        vaf_sectionsize = read_uint32(data)
 
-        loop_mode = read_ubyte(f)
-        padd = f.read(1)
+        loop_mode = read_ubyte(data)
+        padd = data.read(1)
         assert padd == b"\xFF"
-        duration = read_uint16(f)
+        duration = read_uint16(data)
         bva = cls(loop_mode, duration)
 
-        visibility_count = read_uint16(f)
-        show_table_count = read_uint16(f)
-        visibility_offset = read_uint32(f) + vaf_start
-        show_table_offset = read_uint32(f) + vaf_start
+        visibility_count = read_uint16(data)
+        show_table_count = read_uint16(data)
+        visibility_offset = read_uint32(data) + vaf_start
+        show_table_offset = read_uint32(data) + vaf_start
 
         for i in range(visibility_count):
 
-            f.seek(visibility_offset + 0x4*i)
-            show_count = read_uint16(f)  # duration
-            show_index = read_uint16(f)  # index into table
+            data.seek(visibility_offset + 0x4*i)
+            show_count = read_uint16(data)  # duration
+            show_index = read_uint16(data)  # index into table
 
             frames = []
-            f.seek(show_table_offset + show_index)
+            data.seek(show_table_offset + show_index)
             for j in range(show_count):
-                frames.append(read_ubyte(f))
+                frames.append(read_ubyte(data))
 
             anim = VisibilityAnimation(i, "Mesh " + str(i), frames)
             bva.animations.append(anim)
@@ -262,7 +263,8 @@ class BVA(BasicAnimation):
                 bva.write_bva(f)
                 f.close()
 
-    def write_bva(self, f):
+    def to_bytes(self) -> bytes:
+        f = BytesIO()
         f.write(BVAFILEMAGIC)
         filesize_offset = f.tell()
         f.write(b"ABCD")  # Placeholder for file size
@@ -286,13 +288,13 @@ class BVA(BasicAnimation):
         data_offsets = f.tell()
         f.write(b"ABCD"*2)  # Placeholder for data offsets
 
-        write_padding(f, multiple=32)
+        write_jsystem_padding(f, multiple=32)
         assert f.tell() == 0x40
 
         # now, time for the visiblity animations to be written as placeholders
         anim_start = f.tell()
         f.write(b"\x00"*(0x4*len(self.animations)))
-        write_padding(f, multiple=4)
+        write_jsystem_padding(f, multiple=4)
 
         table_offset = f.tell()
         # write the table
@@ -310,9 +312,9 @@ class BVA(BasicAnimation):
         for val in all_frames:
             write_ubyte(f, int(val))
 
-        write_padding(f, 4)
+        write_jsystem_padding(f, 4)
 
-        write_padding(f, multiple=32)
+        write_jsystem_padding(f, multiple=32)
         total_size = f.tell()
 
         f.seek(anim_start)
@@ -333,6 +335,8 @@ class BVA(BasicAnimation):
         f.seek(data_offsets)
         write_uint32(f, anim_start - vaf1_start)
         write_uint32(f, table_offset - vaf1_start)
+
+        return f.getvalue()
 
     @classmethod
     def match_bmd(cls, info, strings):

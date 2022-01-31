@@ -42,8 +42,8 @@ class RailListWidget(InteractiveListWidget):
 
     @Slot(RailListWidgetItem)
     def duplicate_item(self, item: RailListWidgetItem):
-        name = super().duplicate_item(item)
-        item.rail.name = name
+        nitem = super().duplicate_item(item)
+        nitem.rail.name = nitem.text()
 
 
 class RailViewerWidget(QWidget, GenericTabWidget):

@@ -1,6 +1,8 @@
+from io import BytesIO
 import struct
 from collections import OrderedDict
 from typing import BinaryIO
+from juniors_toolbox.utils import write_jsystem_padding
 
 from juniors_toolbox.utils.iohelper import read_sbyte
 from juniors_toolbox.utils.iohelper import (read_float, read_sint16, read_ubyte,
@@ -15,12 +17,11 @@ from juniors_toolbox.utils.j3d.anim.general_animation import (AnimComponent,
                                                              combine_dicts,
                                                              find_sequence,
                                                              make_tangents,
-                                                             write_padding,
                                                              write_values)
 
 BTKFILEMAGIC = b"J3D1btk1"
        
-class MatrixAnimation(object):
+class MatrixAnimation():
     def __init__(self, index, matindex, name, center):
         self._index = index 
         self.matindex = matindex 
@@ -56,12 +57,12 @@ class MatrixAnimation(object):
     def _set_translation_offsets(self, axis, val):
         self._translation_offsets[axis] = val
 
-    def has_components(self: BinaryIO):
+    def has_components(self):
         size = len( self.scale["U"] ) + len( self.scale["V"] ) + len( self.scale["W"] )
         size += len( self.rotation["U"] ) + len( self.rotation["V"] ) + len( self.rotation["W"] )
         size += len( self.translation["U"] ) + len( self.translation["V"] ) + len( self.translation["W"] )
         
-        return size
+        return bool(size > 0)
     
     
     
@@ -78,48 +79,48 @@ class BTK(BasicAnimation):
             self.tan_type = 1
 
     @classmethod
-    def from_data(cls, f: BinaryIO):
-        size = read_uint32(f)
+    def from_bytes(cls, data: BinaryIO, *args, **kwargs):
+        size = read_uint32(data)
         #print("Size of btk: {} bytes".format(size))
-        sectioncount = read_uint32(f)
+        sectioncount = read_uint32(data)
         assert sectioncount == 1
 
-        svr_data = f.read(16)
+        svr_data = data.read(16)
         
-        ttk_start = f.tell()
+        ttk_start = data.tell()
         
-        ttk_magic = f.read(4)
-        ttk_sectionsize = read_uint32(f)
+        ttk_magic = data.read(4)
+        ttk_sectionsize = read_uint32(data)
 
-        loop_mode = read_ubyte(f)
-        angle_scale = read_sbyte(f) 
+        loop_mode = read_ubyte(data)
+        angle_scale = read_sbyte(data) 
         rotscale = (2.0**angle_scale) * (180.0 / 32768.0)
-        duration = read_sint16(f)
+        duration = read_sint16(data)
         btk = cls(loop_mode, angle_scale, duration)
 
 
-        threetimestexmatanims = read_uint16(f)
-        scale_count = read_uint16(f)
-        rotation_count = read_uint16(f)
-        translation_count = read_uint16(f)
+        threetimestexmatanims = read_uint16(data)
+        scale_count = read_uint16(data)
+        rotation_count = read_uint16(data)
+        translation_count = read_uint16(data)
         """
         print("three times texmat anims", threetimestexmatanims)
         print("scale count", scale_count)
         print("rotation count", rotation_count)
         print("translation count", translation_count)
         """
-        texmat_anim_offset  = read_uint32(f) + ttk_start    # J3DAnmTransformKeyTable
-        index_offset        = read_uint32(f) + ttk_start    # unsigned short
-        stringtable_offset  = read_uint32(f) + ttk_start    # 0 terminated strings 
-        texmat_index_offset = read_uint32(f) + ttk_start    # unsigned byte
-        center_offset       = read_uint32(f) + ttk_start    # Vector with 3 entries
-        scale_offset        = read_uint32(f) + ttk_start    # float 
-        rotation_offset     = read_uint32(f) + ttk_start    # signed short 
-        translation_offset  = read_uint32(f) + ttk_start    # float 
+        texmat_anim_offset  = read_uint32(data) + ttk_start    # J3DAnmTransformKeyTable
+        index_offset        = read_uint32(data) + ttk_start    # unsigned short
+        stringtable_offset  = read_uint32(data) + ttk_start    # 0 terminated strings 
+        texmat_index_offset = read_uint32(data) + ttk_start    # unsigned byte
+        center_offset       = read_uint32(data) + ttk_start    # Vector with 3 entries
+        scale_offset        = read_uint32(data) + ttk_start    # float 
+        rotation_offset     = read_uint32(data) + ttk_start    # signed short 
+        translation_offset  = read_uint32(data) + ttk_start    # float 
 
 
         """
-        print("Position:", hex(f.tell()))
+        print("Position:", hex(data.tell()))
         print("tex anim offset", hex(texmat_anim_offset))
         print("index offset", hex(index_offset))
         print("mat name offset", hex(stringtable_offset))
@@ -133,43 +134,43 @@ class BTK(BasicAnimation):
         anim_count = threetimestexmatanims//3
         #print("Animation count:", anim_count)
 
-        f.seek(0x7C)
-        unknown_address = read_uint32(f)
+        data.seek(0x7C)
+        unknown_address = read_uint32(data)
         btk.unknown_address = unknown_address
         # Read indices
         indices = []
-        f.seek(index_offset)
+        data.seek(index_offset)
         for i in range(anim_count):
-            indices.append(read_uint16(f))
+            indices.append(read_uint16(data))
         
         # Read matrix indices 
         mat_indices = []
-        f.seek(texmat_index_offset)
+        data.seek(texmat_index_offset)
         for i in range(anim_count):
-            mat_indices.append(read_ubyte(f))
+            mat_indices.append(read_ubyte(data))
         
         # Read stringtable 
-        f.seek(stringtable_offset)
-        stringtable = StringTable.from_file(f)
+        data.seek(stringtable_offset)
+        stringtable = StringTable.from_file(data)
         
         
         # Read scales 
         scales = []
-        f.seek(scale_offset)
+        data.seek(scale_offset)
         for i in range(scale_count):
-            scales.append(read_float(f))
+            scales.append(read_float(data))
   
         # Read rotations
         rotations = []
-        f.seek(rotation_offset)
+        data.seek(rotation_offset)
         for i in range(rotation_count):
-            rotations.append((read_sint16(f)))
+            rotations.append((read_sint16(data)))
         
         # Read translations 
         translations = []
-        f.seek(translation_offset)
+        data.seek(translation_offset)
         for i in range(translation_count):
-            translations.append(read_float(f))
+            translations.append(read_float(data))
         
         tangent_type = 0
         
@@ -178,8 +179,8 @@ class BTK(BasicAnimation):
             mat_index = mat_indices[i]
             
             # Read center for this animation
-            f.seek(center_offset + 12*i)
-            center = struct.unpack(">fff", f.read(12))
+            data.seek(center_offset + 12*i)
+            center = struct.unpack(">fff", data.read(12))
             
             name = stringtable.strings[i]
             """
@@ -187,9 +188,9 @@ class BTK(BasicAnimation):
             print("anim", i)
             print("mat index", mat_index, "name", name, "center", center)
             """
-            f.seek(texmat_anim_offset + i*0x36)
+            data.seek(texmat_anim_offset + i*0x36)
             #print(hex(texmat_anim_offset + i*0x36))
-            values = struct.unpack(">"+"H"*27, f.read(0x36))
+            values = struct.unpack(">"+"H"*27, data.read(0x36))
             
             u_scale, u_rot, u_trans = values[:3], values[3:6], values[6:9]
             v_scale, v_rot, v_trans = values[9:12], values[12:15], values[15:18]
@@ -419,7 +420,8 @@ class BTK(BasicAnimation):
                 btk.write_btk(f)
                 f.close()
   
-    def write_btk(self, f: BinaryIO):
+    def to_bytes(self) -> bytes:
+        f = BytesIO()
         f.write(BTKFILEMAGIC)
         filesize_offset = f.tell()
         f.write(b"ABCD") # Placeholder for file size
@@ -448,13 +450,13 @@ class BTK(BasicAnimation):
 
         matrix_anim_start = f.tell()
         f.write(b"\x00"*(0x36*len(self.animations)))
-        write_padding(f, multiple=4)
+        write_jsystem_padding(f, multiple=4)
 
         index_start = f.tell()
         for i in range(len(self.animations)):
             write_uint16(f, i)
 
-        write_padding(f, multiple=4)
+        write_jsystem_padding(f, multiple=4)
 
         stringtable = StringTable()
 
@@ -464,20 +466,20 @@ class BTK(BasicAnimation):
         stringtable_start = f.tell()
         stringtable.write(f, stringtable.strings)
 
-        write_padding(f, multiple=4)
+        write_jsystem_padding(f, multiple=4)
 
         matindex_start = f.tell()
         for anim in self.animations:
             write_ubyte(f, anim.matindex)
 
-        write_padding(f, multiple=4)
+        write_jsystem_padding(f, multiple=4)
 
         center_start = f.tell()
         for anim in self.animations:
             for val in anim.center:
                 write_float(f, val)
 
-        write_padding(f, multiple=4)
+        write_jsystem_padding(f, multiple=4)
 
 
         all_scales = []
@@ -564,7 +566,7 @@ class BTK(BasicAnimation):
         for val in all_scales:
             write_float(f, val)
 
-        write_padding(f, 4)
+        write_jsystem_padding(f, 4)
 
         rotations_start = f.tell()
         for val in all_rotations:
@@ -576,14 +578,14 @@ class BTK(BasicAnimation):
                 angle = (angle/180.0)*(2**15)"""
             write_sint16(f, int(val))
 
-        write_padding(f, 4)
+        write_jsystem_padding(f, 4)
 
         translations_start = f.tell()
         for val in all_translations:
             #print(val)
             write_float(f, val)
 
-        write_padding(f, 32)
+        write_jsystem_padding(f, 32)
 
         total_size = f.tell()
 
@@ -625,6 +627,8 @@ class BTK(BasicAnimation):
         write_uint32(f, scale_start         - ttk1_start)
         write_uint32(f, rotations_start     - ttk1_start)
         write_uint32(f, translations_start  - ttk1_start)
+
+        return f.getvalue()
     
     @classmethod
     def match_bmd(cls, info, strings):

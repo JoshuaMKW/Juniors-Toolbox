@@ -1,42 +1,115 @@
-from cmath import exp
-from enum import Enum, IntEnum, auto
 import shutil
 import time
-
-from os import walk
+from cmath import exp
+from enum import Enum, IntEnum, auto
 from pathlib import Path
-from threading import Event
-from tkinter import EventType
-from tokenize import Pointfloat
-from typing import Any, Dict, List, Optional, Tuple, Union
-from queue import LifoQueue
-
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler, FileSystemEvent
-
-from PySide6.QtCore import QLine, QModelIndex, QObject, QSize, Qt, QTimer, Signal, SignalInstance, QThread, Slot, QAbstractItemModel, QPoint, QEvent, QMimeData, QUrl, QDataStream, QIODevice
-from PySide6.QtGui import QColor, QCursor, QDragEnterEvent, QDropEvent, QIcon, QImage, QKeyEvent, QUndoCommand, QUndoStack, QPixmap, QAction, QMouseEvent, QDragMoveEvent, QDragLeaveEvent, QDrag, QPaintDevice, QPaintEvent, QPalette, QPainter
-from PySide6.QtWidgets import (QBoxLayout, QFormLayout, QFrame, QGridLayout, QTableWidget, QTableWidgetItem, QStylePainter, QStyleOptionComboBox, QMenuBar, QToolBar,
-                               QGroupBox, QHBoxLayout, QLabel, QLayout,
-                               QLineEdit, QListView, QListWidget, QListWidgetItem, QPushButton,
-                               QScrollArea, QSizePolicy, QSpacerItem, QSplitter, QStyle, QTreeWidget, QComboBox,
-                               QTreeWidget, QTreeWidgetItem,
-                               QVBoxLayout, QWidget, QMenu)
-from juniors_toolbox import scene
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from juniors_toolbox.gui.images import get_icon, get_image
-from juniors_toolbox.gui.layouts.entrylayout import EntryLayout
-from juniors_toolbox.gui.layouts.framelayout import FrameLayout
 from juniors_toolbox.gui.tabs.generic import GenericTabWidget
 from juniors_toolbox.gui.tools import clear_layout, walk_layout
-from juniors_toolbox.gui.widgets.colorbutton import ColorButton
-from juniors_toolbox.gui.widgets.explicitlineedit import ExplicitLineEdit
-from juniors_toolbox.objects.object import GameObject
-from juniors_toolbox.objects.template import ObjectAttribute
-from juniors_toolbox.utils.filesystem import open_path_in_explorer
-from juniors_toolbox.utils.j3d.bmd import BMD
-from juniors_toolbox.utils.types import RGB32, RGB8, RGBA8, Vec3f
+from juniors_toolbox.gui.widgets.interactivelist import InteractiveListWidget, InteractiveListWidgetItem
 from juniors_toolbox.scene import SMSScene
+from juniors_toolbox.utils import Serializable
+from juniors_toolbox.utils.bmg import BMG
+from juniors_toolbox.utils.filesystem import open_path_in_explorer
+from juniors_toolbox.utils.j3d.anim.bca import BCA
+from juniors_toolbox.utils.j3d.anim.bck import BCK
+from juniors_toolbox.utils.j3d.anim.bla import BLA
+from juniors_toolbox.utils.j3d.anim.blk import BLK
+from juniors_toolbox.utils.j3d.anim.bpk import BPK
+from juniors_toolbox.utils.j3d.anim.brk import BRK
+from juniors_toolbox.utils.j3d.anim.btk import BTK
+from juniors_toolbox.utils.j3d.anim.btp import BTP
+from juniors_toolbox.utils.j3d.anim.bva import BVA
+from juniors_toolbox.utils.j3d.bmd import BMD
+from juniors_toolbox.utils.prm import PrmFile
+from juniors_toolbox.utils.types import RGB8, RGB32, RGBA8, Vec3f
+from PySide6.QtCore import (QAbstractItemModel, QDataStream, QEvent, QIODevice,
+                            QLine, QMimeData, QModelIndex, QObject, QPoint,
+                            QSize, Qt, QThread, QTimer, QUrl, Signal,
+                            SignalInstance, Slot)
+from PySide6.QtGui import (QAction, QColor, QCursor, QDrag, QDragEnterEvent,
+                           QDragLeaveEvent, QDragMoveEvent, QDropEvent, QIcon,
+                           QImage, QKeyEvent, QMouseEvent, QPaintDevice,
+                           QPainter, QPaintEvent, QPalette, QPixmap,
+                           QUndoCommand, QUndoStack)
+from PySide6.QtWidgets import (QBoxLayout, QComboBox, QFormLayout, QFrame,
+                               QGridLayout, QGroupBox, QHBoxLayout, QLabel,
+                               QLayout, QLineEdit, QListView, QListWidget,
+                               QListWidgetItem, QMenu, QMenuBar, QPushButton,
+                               QScrollArea, QSizePolicy, QSpacerItem,
+                               QSplitter, QStyle, QStyleOptionComboBox,
+                               QStylePainter, QTableWidget, QTableWidgetItem,
+                               QToolBar, QTreeWidget, QTreeWidgetItem,
+                               QVBoxLayout, QWidget)
+from watchdog.events import FileSystemEvent, FileSystemEventHandler
+from watchdog.observers import Observer
+
+_ASSET_INIT_TABLE = {
+    "Animation": {
+        BCA: {
+            "init_fn": BCA,
+            "name": "Joint All",
+            "icon": None
+        },
+        BCK: {
+            "init_fn": BCK,
+            "name": "Joint Key",
+            "icon": None
+        },
+        BLA: {
+            "init_fn": BLA,
+            "name": "Cluster All",
+            "icon": None
+        },
+        BLK: {
+            "init_fn": BLK,
+            "name": "Cluster Key",
+            "icon": None
+        },
+        BPK: {
+            "init_fn": BPK,
+            "name": "Color Key",
+            "icon": None
+        },
+        BRK: {
+            "init_fn": BRK,
+            "name": "TEV Register Key",
+            "icon": None
+        },
+        BTK: {
+            "init_fn": BTK,
+            "name": "Texture SRT Key",
+            "icon": None
+        },
+        BTP: {
+            "init_fn": BTP,
+            "name": "Texture Palette All",
+            "icon": None
+        },
+        BVA: {
+            "init_fn": BVA,
+            "name": "Mesh Visibility All",
+            "icon": None
+        },
+    },
+    SMSScene: {
+        "init_fn": SMSScene,
+        "name": "Empty Scene",
+        "icon": None
+    },
+    BMG: {
+        "init_fn": BMG,
+        "name": "Message Table",
+        "icon": None
+    },
+    PrmFile: {
+        "init_fn": PrmFile,
+        "name": "Parameter Table",
+        "icon": None
+    },
+}
 
 
 class ProjectAssetType(IntEnum):
@@ -59,8 +132,8 @@ class ProjectAssetType(IntEnum):
         return cls[extension.lstrip(".").upper()]
 
 
-class ProjectAssetListItem(QListWidgetItem):
-    doubleClicked: SignalInstance = Signal(QListWidgetItem)
+class ProjectAssetListItem(InteractiveListWidgetItem):
+    doubleClicked: SignalInstance = Signal(InteractiveListWidgetItem)
 
     MIME_FORMAT = __name__
 
@@ -68,18 +141,21 @@ class ProjectAssetListItem(QListWidgetItem):
     def extension_to_icon_fname(ext: str):
         return ext.lstrip(".") + ".png"
 
-    def __init__(self, name: str, isFolder: bool, icon: Optional[QIcon] = None):
-        if isFolder:
-            _type = ProjectAssetType.FOLDER
+    def __init__(self, item: Union["ProjectAssetListItem", str], isFolder: bool, icon: Optional[QIcon] = None):
+        if isinstance(item, str):
+            if isFolder:
+                _type = ProjectAssetType.FOLDER
+            else:
+                _type = ProjectAssetType.extension_to_flag(item.split(".")[-1])
+            super().__init__(item, type=_type.value)
         else:
-            _type = ProjectAssetType.extension_to_flag(name.split(".")[-1])
-        super().__init__(name, type=_type)
+            super().__init__(item)
+            item = item.text()
 
         self.__isFolder = isFolder
         self.__icon = icon
-        self._preRenameName = ""
 
-        name = name.lower()
+        name = item.lower()
         if icon is None:
             if isFolder:
                 self.__icon = get_icon("generic_folder.png")
@@ -107,6 +183,13 @@ class ProjectAssetListItem(QListWidgetItem):
         font = self.font()
         font.setPointSize(7)
         self.setFont(font)
+
+    def clone(self) -> "ProjectAssetListItem":
+        item = ProjectAssetListItem(
+            self,
+            self.__isFolder
+        )
+        return item
 
     def is_folder(self) -> bool:
         return self.__isFolder
@@ -163,6 +246,9 @@ class ProjectFocusedMenuBarAction(QAction):
 class FileSystemViewer():
     openExplorerRequested: SignalInstance = Signal(ProjectAssetListItem)
     openRequested: SignalInstance = Signal(ProjectAssetListItem)
+    createFolderRequested: SignalInstance = Signal(str)
+    copyRequested: SignalInstance = Signal(
+        ProjectAssetListItem, ProjectAssetListItem)
     renameRequested: SignalInstance = Signal(ProjectAssetListItem)
     deleteRequested: SignalInstance = Signal(ProjectAssetListItem)
     dropInRequested: SignalInstance = Signal(Path)
@@ -276,7 +362,7 @@ class ProjectFocusedMenuBar(QMenuBar):
             curSubPath = curSubPath / part
 
 
-class ProjectFolderViewWidget(QListWidget, FileSystemViewer):
+class ProjectFolderViewWidget(InteractiveListWidget, FileSystemViewer):
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.setFlow(QListView.LeftToRight)
@@ -287,17 +373,9 @@ class ProjectFolderViewWidget(QListWidget, FileSystemViewer):
         self.setWordWrap(True)
         self.setAcceptDrops(True)
         self.setUniformItemSizes(True)
-        self.setContextMenuPolicy(Qt.CustomContextMenu)
 
         self.__scenePath: Path = None
         self.__focusedPath: Path = None
-
-        self.itemChanged.connect(
-            lambda item: self.renameRequested.emit(item)
-        )
-        self.customContextMenuRequested.connect(
-            self.custom_context_menu
-        )
 
     @property
     def scenePath(self) -> Path:
@@ -336,9 +414,87 @@ class ProjectFolderViewWidget(QListWidget, FileSystemViewer):
         self.setSortingEnabled(True)
         self.sortItems(Qt.SortOrder.AscendingOrder)
 
-    def editItem(self, item: ProjectAssetListItem):
-        item._preRenameName = item.text()
-        super().editItem(item)
+    @Slot(InteractiveListWidgetItem, result=str)
+    def rename_item(self, item: InteractiveListWidgetItem) -> str:
+        """
+        Returns the new name of the item
+        """
+        name = super().rename_item(item)
+        if name == "":
+            return
+        self.renameRequested.emit(item)
+
+    @Slot(InteractiveListWidgetItem, result=str)
+    def duplicate_item(self, item: InteractiveListWidgetItem) -> str:
+        """
+        Returns the new name of the item
+        """
+        nitem = super().duplicate_item(item)
+        if nitem is None:
+            return
+        self.copyRequested.emit(item, nitem)
+
+    @Slot(QPoint)
+    def custom_context_menu(self, point: QPoint):
+        # Infos about the node selected.
+        item: ProjectHierarchyItem = self.itemAt(point)
+
+        createMenu = QMenu("Create", self)
+        folderAction = QAction("Folder")
+        folderAction.triggered.connect(
+            lambda triggered: self.create_item(None, True))
+
+        def traverse_structure(_menu: QMenu, initTable: dict):
+            for assetKind, assetInfo in initTable.items():
+                if isinstance(assetKind, str):
+                    subMenu = QMenu(assetKind)
+                    traverse_structure(subMenu, assetInfo)
+                    _menu.addMenu(subMenu)
+                    _menu.addSeparator()
+                else:
+                    if assetInfo["icon"] is None:
+                        action = QAction(assetInfo["name"], _menu)
+                    else:
+                        action = QAction(
+                            assetInfo["icon"], assetInfo["name"], _menu)
+                    action.triggered.connect(
+                        lambda triggered: self.create_item(assetInfo["init_fn"], False))
+                    _menu.addAction(action)
+
+        traverse_structure(createMenu, _ASSET_INIT_TABLE)
+
+        viewAction = QAction("Show in Explorer", self)
+        viewAction.triggered.connect(
+            lambda clicked=None: self.openExplorerRequested.emit(item)
+        )
+
+        # We build the menu.
+        if item is not None:
+            menu = self.get_context_menu(point)
+            openAction = QAction("Open", self)
+            openAction.triggered.connect(
+                lambda clicked=None: self.openRequested.emit(item)
+            )
+            beforeAction = menu.actions()
+            beforeAction = beforeAction[0]
+            menu.insertMenu(beforeAction, createMenu)
+            menu.insertSeparator(beforeAction)
+            menu.insertAction(beforeAction, viewAction)
+            menu.insertSeparator(beforeAction)
+            menu.insertAction(beforeAction, openAction)
+        else:
+            menu = QMenu(self)
+            menu.addMenu(createMenu)
+            menu.addSeparator()
+            menu.addAction(viewAction)
+
+        menu.exec(self.mapToGlobal(point))
+
+    def create_item(self, initFn: Callable[[], Serializable], isFolder: bool):
+        item = ProjectAssetListItem("untitled", isFolder)
+        item._init_fn_ = initFn
+        self.addItem(item)
+        self.editItem(item)
 
     def mouseDoubleClickEvent(self, event: QMouseEvent):
         item: ProjectAssetListItem = self.itemAt(event.pos())
@@ -385,39 +541,6 @@ class ProjectFolderViewWidget(QListWidget, FileSystemViewer):
                 else:
                     self.dropOutRequested.emit(path)
             event.acceptProposedAction()
-
-    @Slot(QPoint)
-    def custom_context_menu(self, point: QPoint):
-        # Infos about the node selected.
-        item: ProjectHierarchyItem = self.itemAt(point)
-
-        # We build the menu.
-        menu = QMenu(self)
-
-        viewAction = QAction("Open Path in Explorer", self)
-        viewAction.triggered.connect(
-            lambda clicked=None: self.openExplorerRequested.emit(item)
-        )
-        openAction = QAction("Open", self)
-        openAction.triggered.connect(
-            lambda clicked=None: self.openRequested.emit(item)
-        )
-        deleteAction = QAction("Delete", self)
-        deleteAction.triggered.connect(
-            lambda clicked=None: self.deleteRequested.emit(item)
-        )
-        renameAction = QAction("Rename", self)
-        renameAction.triggered.connect(
-            lambda clicked=None: self.editItem(item)
-        )
-
-        menu.addAction(viewAction)
-        menu.addSeparator()
-        menu.addAction(openAction)
-        menu.addAction(deleteAction)
-        menu.addAction(renameAction)
-
-        menu.exec(self.mapToGlobal(point))
 
 
 class ProjectHierarchyViewWidget(QTreeWidget, FileSystemViewer):
@@ -718,6 +841,7 @@ class ProjectViewerWidget(QWidget, GenericTabWidget):
             self.handle_view_double_click)
         self.folderViewWidget.openExplorerRequested.connect(self.explore_item)
         self.folderViewWidget.openRequested.connect(self.open_item)
+        self.folderViewWidget.copyRequested.connect(self.copy_item)
         self.folderViewWidget.deleteRequested.connect(self.delete_item)
         self.folderViewWidget.renameRequested.connect(self.rename_item)
         self.folderViewWidget.dropInRequested.connect(
@@ -808,11 +932,15 @@ class ProjectViewerWidget(QWidget, GenericTabWidget):
     @Slot(ProjectHierarchyItem)
     @Slot(ProjectAssetListItem)
     def explore_item(self, item: Union[ProjectHierarchyItem, ProjectAssetListItem]):
-        if isinstance(item, ProjectHierarchyItem):
-            open_path_in_explorer(self.scenePath / item.get_relative_path())
-        else:
+        if item is None:
             open_path_in_explorer(
-                self.scenePath / self.focusedPath / item.text())
+                self.scenePath / self.focusedPath)
+        else:
+            if isinstance(item, ProjectHierarchyItem):
+                open_path_in_explorer(self.scenePath / item.get_relative_path())
+            else:
+                open_path_in_explorer(
+                    self.scenePath / self.focusedPath / item.text())
 
     @Slot(ProjectHierarchyItem)
     @Slot(ProjectAssetListItem)
@@ -844,7 +972,8 @@ class ProjectViewerWidget(QWidget, GenericTabWidget):
                         self.folderViewWidget.row(items[0]))
         else:
             self.folderViewWidget.takeItem(self.folderViewWidget.row(item))
-            fsItem = self.get_fs_tree_item(path.relative_to(self.scenePath))
+            fsItem = self.fsTreeWidget.get_fs_tree_item(
+                path.relative_to(self.scenePath))
             if fsItem:
                 fsItem.parent().removeChild(fsItem)
 
@@ -865,12 +994,13 @@ class ProjectViewerWidget(QWidget, GenericTabWidget):
         isFsItem = isinstance(item, ProjectHierarchyItem)
 
         itemPath = item.get_relative_path() if isFsItem else self.focusedPath / item.text()
-        previousPath = item._preRenamePath if isFsItem else self.focusedPath / item._preRenameName
+        previousPath = self.focusedPath / item._prevName_
         if previousPath == itemPath:
             return
 
         oldPath = self.scenePath / previousPath
         newPath = self.scenePath / itemPath
+        """
         resolvePath = newPath
         i = 1
         while resolvePath.exists():  # Failsafe limit = 1000
@@ -892,6 +1022,7 @@ class ProjectViewerWidget(QWidget, GenericTabWidget):
             item.setText(0, newPath.name) if isFsItem else item.setText(
                 newPath.name)
             self.__ignoreItemRename = False
+        """
 
         oldPath.rename(newPath)
         if self.focusedPath == previousPath:
@@ -902,7 +1033,7 @@ class ProjectViewerWidget(QWidget, GenericTabWidget):
         else:
             self.folderViewWidget.sortItems(Qt.SortOrder.AscendingOrder)
             if newPath.is_dir():
-                fsItem = self.get_fs_tree_item(
+                fsItem = self.fsTreeWidget.get_fs_tree_item(
                     oldPath.relative_to(self.scenePath))
                 if fsItem:
                     self.__ignoreItemRename = True
@@ -911,6 +1042,50 @@ class ProjectViewerWidget(QWidget, GenericTabWidget):
                     self.fsTreeWidget.sortByColumn(
                         0, Qt.SortOrder.AscendingOrder)
         self.eventHandler.block_future_emit()
+
+    @Slot(ProjectHierarchyItem, ProjectHierarchyItem)
+    @Slot(ProjectAssetListItem, ProjectAssetListItem)
+    def copy_item(
+        self,
+        oldItem: Union[ProjectHierarchyItem, ProjectAssetListItem],
+        newItem: Union[ProjectHierarchyItem, ProjectAssetListItem]
+    ):
+        if self.__ignoreItemRename:
+            return
+
+        isFsItem = isinstance(oldItem, ProjectHierarchyItem)
+
+        itemPath = newItem.get_relative_path() if isFsItem else self.focusedPath / \
+            newItem.text()
+        previousPath = oldItem.get_relative_path() if isFsItem else self.focusedPath / \
+            oldItem.text()
+        if previousPath == itemPath:
+            return
+
+        oldPath = self.scenePath / previousPath
+        newPath = self.scenePath / itemPath
+
+        self.eventHandler.block_future_emit()
+        if oldPath.is_file():
+            shutil.copy(oldPath, newPath)
+        else:
+            shutil.copytree(oldPath, newPath, dirs_exist_ok=True)
+        if self.focusedPath == previousPath:
+            self.focusedPath = newPath
+
+        if isFsItem:
+            self.fsTreeWidget.sortByColumn(0, Qt.SortOrder.AscendingOrder)
+        else:
+            self.folderViewWidget.sortItems(Qt.SortOrder.AscendingOrder)
+            if newPath.is_dir():
+                fsItem = self.fsTreeWidget.get_fs_tree_item(
+                    oldPath.relative_to(self.scenePath))
+                if fsItem:
+                    self.__ignoreItemRename = True
+                    fsItem.setText(0, newPath.name)
+                    self.__ignoreItemRename = False
+                    self.fsTreeWidget.sortByColumn(
+                        0, Qt.SortOrder.AscendingOrder)
 
     @Slot(Path)
     def copy_path_to_focused(self, path: Path):

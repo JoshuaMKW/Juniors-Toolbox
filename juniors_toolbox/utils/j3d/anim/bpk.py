@@ -1,13 +1,16 @@
-import struct 
+from io import BytesIO
+import struct
+from typing import BinaryIO 
 #from collections import OrderedDict
 
-from animations.general_animation import *
-from animations.general_animation import basic_animation
-import animations.general_animation as j3d
+from juniors_toolbox.utils import write_jsystem_padding
+from juniors_toolbox.utils.iohelper import read_sint16, read_ubyte, read_uint16, read_uint32, write_sint16, write_ubyte, write_uint16, write_uint32
+from juniors_toolbox.utils.j3d.anim import general_animation as j3d
+from juniors_toolbox.utils.j3d.anim.general_animation import BasicAnimation, StringTable, write_values
 
 BPKFILEMAGIC = b"J3D1bpk1"
         
-class ColorAnimation(object):
+class ColorAnimation():
     def __init__(self, index, name):
         self._index = index 
         #self.matindex = matindex 
@@ -39,7 +42,7 @@ class ColorAnimation(object):
         self._component_offsets[colorcomp] = val
     
 
-class bpk(j3d.basic_animation):
+class BPK(BasicAnimation):
     def __init__(self, loop_mode, duration, tantype = 0):
         self.animations = []
         self.loop_mode = loop_mode
@@ -52,53 +55,52 @@ class bpk(j3d.basic_animation):
             self.tan_type = 1
 
     @classmethod
-    def from_data(cls, f):
-
-        size = read_uint32(f)
+    def from_bytes(cls, data: BinaryIO, *args, **kwargs):
+        size = read_uint32(data)
        
-        sectioncount = read_uint32(f)
+        sectioncount = read_uint32(data)
         assert sectioncount == 1
 
-        svr_data = f.read(16)
+        svr_data = data.read(16)
         
-        pak_start = f.tell()       
-        pak_magic = f.read(4)
-        pak_sectionsize = read_uint32(f)
+        pak_start = data.tell()       
+        pak_magic = data.read(4)
+        pak_sectionsize = read_uint32(data)
 
-        loop_mode = read_ubyte(f)
-        padd = f.read(3)
+        loop_mode = read_ubyte(data)
+        padd = data.read(3)
         #assert padd == b"\xFF"
         #now at 0x2c
-        duration = read_uint16(f)
+        duration = read_uint16(data)
         
         bpk = cls(loop_mode, duration)
 
-        color_anim_count = read_uint16(f)
+        color_anim_count = read_uint16(data)
 
         #print("num of anims: " + str(color_anim_count))
         #print(register_color_anim_count, "register color anims and", constant_color_anim_count, "constant collor anims")
         component_counts = {}      
             
         for comp in ("R", "G", "B", "A"):
-            component_counts[comp] = read_uint16(f)
+            component_counts[comp] = read_uint16(data)
             #print(comp, "count:", component_counts[comp])
         
-        color_animation_offset  = read_uint32(f) + pak_start    #        
-        index_offset            = read_uint32(f) + pak_start    #        
-        stringtable_offset      = read_uint32(f) + pak_start    #
+        color_animation_offset  = read_uint32(data) + pak_start    #        
+        index_offset            = read_uint32(data) + pak_start    #        
+        stringtable_offset      = read_uint32(data) + pak_start    #
 
         offsets = {}
         for comp in ("R", "G", "B", "A"):
-            offsets[comp] = read_uint32(f) + pak_start 
+            offsets[comp] = read_uint32(data) + pak_start 
             #print(animtype, comp, "offset:", offsets[animtype][comp])
     
         #print(hex(index_offset))
         
         # Read indices
         indices = []
-        f.seek(index_offset)
+        data.seek(index_offset)
         for i in range(color_anim_count):
-            index = read_uint16(f)
+            index = read_uint16(data)
             if i != index:
                 #print("warning: register index mismatch:", i, index)
                 assert(False)
@@ -106,8 +108,8 @@ class bpk(j3d.basic_animation):
        
         
         # Read stringtable 
-        f.seek(stringtable_offset)
-        stringtable = StringTable.from_file(f)
+        data.seek(stringtable_offset)
+        stringtable = StringTable.from_file(data)
         
         # read RGBA values 
         values = {}
@@ -115,15 +117,15 @@ class bpk(j3d.basic_animation):
         for comp in ("R", "G", "B", "A"):
             values[comp] = []
             count = component_counts[comp]
-            f.seek(offsets[comp])
+            data.seek(offsets[comp])
             #print(animtype, comp, hex(offsets[animtype][comp]), count)
             for i in range(count):
-                values[comp].append(read_sint16(f))
+                values[comp].append(read_sint16(data))
               
         for i in range(color_anim_count):
-            f.seek(color_animation_offset + 0x1C*i)
+            data.seek(color_animation_offset + 0x1C*i)
             name = stringtable.strings[i]
-            anim = ColorAnimation.from_bpk(f, i, name, (
+            anim = ColorAnimation.from_bpk(data, i, name, (
                 values["R"], values["G"], values["B"], values["A"]
                 ))
                           
@@ -236,7 +238,8 @@ class bpk(j3d.basic_animation):
                 f.close()
 
     
-    def write_bpk(self, f):
+    def to_bytes(self) -> bytes:
+        f = BytesIO()
         f.write(BPKFILEMAGIC)
         filesize_offset = f.tell()
         f.write(b"ABCD") # Placeholder for file size
@@ -264,13 +267,13 @@ class bpk(j3d.basic_animation):
         f.write(b"ABCD"*3) # Placeholder for data offsets 
         f.write(b"ABCD"*4) # Placeholder for rgba data offsets
         
-        write_padding(f, multiple=32)
+        write_jsystem_padding(f, multiple=32)
         assert f.tell() == 0x60
         
         
         anim_start = f.tell()
         f.write(b"\x00"*(0x18*len(self.animations)))
-        write_padding(f, multiple=4)
+        write_jsystem_padding(f, multiple=4)
 
         all_values = {}
         
@@ -311,14 +314,14 @@ class bpk(j3d.basic_animation):
             data_starts.append(f.tell())
             for val in all_values[comp]:
                 write_sint16(f, val)
-            write_padding(f, 4)
+            write_jsystem_padding(f, 4)
                 
                 
         # Write the indices for each animation
         index_start = f.tell()
         for i in range(len(self.animations)):
             write_uint16(f, i)
-        write_padding(f, multiple=4)
+        write_jsystem_padding(f, multiple=4)
        
         
         # Create string table of material names for register color animations
@@ -329,10 +332,10 @@ class bpk(j3d.basic_animation):
         
         stringtable_start = f.tell()
         stringtable.write(f, stringtable.strings)
-        write_padding(f, multiple=4)
+        write_jsystem_padding(f, multiple=4)
         
         
-        write_padding(f, multiple=32)
+        write_jsystem_padding(f, multiple=32)
         total_size = f.tell()
 
         f.seek(anim_start)
@@ -366,6 +369,8 @@ class bpk(j3d.basic_animation):
         # RGBA data starts 
         for data_start in data_starts:
             write_uint32(f, data_start - pak1_start)
+        
+        return f.getvalue()
 
     @classmethod
     def match_bmd(cls, info, strings):

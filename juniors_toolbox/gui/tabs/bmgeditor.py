@@ -915,8 +915,8 @@ class BMGMessageListWidget(InteractiveListWidget):
 
     @Slot(BMGMessageListItem)
     def duplicate_item(self, item: BMGMessageListItem):
-        name = super().duplicate_item(item)
-        item.message.name = name
+        nitem = super().duplicate_item(item)
+        nitem.message.name = nitem.text()
 
 
 class BMGMessageListInterfaceWidget(QWidget):
@@ -945,7 +945,6 @@ class BMGMessageListInterfaceWidget(QWidget):
         layout.addWidget(self.__addButton)
         layout.addWidget(self.__removeButton)
         layout.addWidget(self.__copyButton)
-        #layout.setContentsMargins(0, 0, 0, 0)
 
         self.setLayout(layout)
 

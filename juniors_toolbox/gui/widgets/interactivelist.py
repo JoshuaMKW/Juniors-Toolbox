@@ -7,14 +7,23 @@ from PySide6.QtWidgets import (QAbstractItemView, QListWidget, QListWidgetItem,
 
 
 class InteractiveListWidgetItem(QListWidgetItem):
-    def __init__(self, item: Union["InteractiveListWidgetItem", str]):
-        super().__init__(item)
+    _prevName_: str
+    _newItem_: bool
+
+    def __init__(self, item: Union["InteractiveListWidgetItem", str], type: int = QListWidgetItem.Type):
+        if isinstance(item, InteractiveListWidgetItem):
+            super().__init__(item)
+        else:
+            super().__init__(item, type=type)
         self.setFlags(
             Qt.ItemIsSelectable |
             Qt.ItemIsEnabled |
             Qt.ItemIsEditable |
             Qt.ItemIsDragEnabled
         )
+        
+        self._prevName_ = ""
+        self._newItem_ = True
 
     def clone(self) -> "InteractiveListWidgetItem":
         item = InteractiveListWidgetItem(self)
@@ -31,16 +40,11 @@ class InteractiveListWidget(QListWidget):
         self.itemDoubleClicked.connect(self.__handle_double_click)
         self.customContextMenuRequested.connect(self.custom_context_menu)
 
-        self._prevItemName = ""
-
     def get_context_menu(self, point: QPoint) -> QMenu:
         # Infos about the node selected.
-        index = self.indexAt(point)
-
-        if not index.isValid():
-            return
-
         item: InteractiveListWidgetItem = self.itemAt(point)
+        if item is None:
+            return
 
         # We build the menu.
         menu = QMenu(self)
@@ -83,7 +87,7 @@ class InteractiveListWidget(QListWidget):
         Returns the new name of the item
         """
         if item is None:
-            return
+            return ""
 
         name = item.text()
         if name == "":
@@ -104,12 +108,12 @@ class InteractiveListWidget(QListWidget):
         return newName
 
     @Slot(InteractiveListWidgetItem, result=str)
-    def duplicate_item(self, item: InteractiveListWidgetItem) -> str:
+    def duplicate_item(self, item: InteractiveListWidgetItem) -> InteractiveListWidgetItem:
         """
-        Returns the new name of the item
+        Returns the new item
         """
         if item is None:
-            return
+            return None
 
         newName = self._resolve_name(item.text())
 
@@ -120,7 +124,7 @@ class InteractiveListWidget(QListWidget):
 
         self.insertItem(self.row(item) + 1, newItem)
 
-        return newName
+        return newItem
 
     def _resolve_name(self, name: str, filterItem: InteractiveListWidgetItem = None) -> str:
         # for i, char in enumerate(name[::-1]):

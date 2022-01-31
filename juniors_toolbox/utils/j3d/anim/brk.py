@@ -13,12 +13,11 @@ from juniors_toolbox.utils.j3d.anim.general_animation import (AnimComponent,
                                                              combine_dicts,
                                                              find_sequence,
                                                              make_tangents,
-                                                             write_padding,
                                                              write_values)
 
 BRKFILEMAGIC = b"J3D1brk1"
 
-class ColorAnimation(object):
+class ColorAnimation():
     def __init__(self, index, name, unknown=0):
         self._index = index 
         #self.matindex = matindex 

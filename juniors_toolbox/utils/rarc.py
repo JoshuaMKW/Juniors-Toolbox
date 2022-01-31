@@ -21,7 +21,7 @@ def write_pad32(f: BinaryIO):
     f.write(b"\x00"*(next_aligned_pos - f.tell()))
 
 
-class CompressionSetting(object):
+class CompressionSetting():
     def __init__(self, yaz0_fast=False, wszst=False, compression_level="9"):
         self.yaz0_fast = yaz0_fast
         self.wszst = wszst
@@ -71,7 +71,7 @@ class ResourceAttribute(IntEnum):
     YAZ0_COMPRESSED = 0x80  # Uses YAZ0 compression
 
 
-class FileListing(object):
+class FileListing():
     def __init__(
         self,
         isFile: bool,
@@ -202,7 +202,7 @@ def _hash_name(name):
     return hash
 
 
-class StringTable(object):
+class StringTable():
     def __init__(self):
         self._strings = BytesIO()
         self._stringmap = {}
@@ -258,7 +258,7 @@ def split_path(path):  # Splits path at first backslash encountered
     return path, None
 
 
-class Directory(object):
+class Directory():
     def __init__(self, dirname, nodeindex=None):
         self.files = {}
         self.subdirs = {}
@@ -493,7 +493,7 @@ class File(BytesIO):
             f.write(self.getvalue())
 
 
-class Archive(object):
+class Archive():
     def __init__(self):
         self.root = None
 

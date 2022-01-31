@@ -5,7 +5,7 @@ from typing import Any, BinaryIO, Iterable, List, Optional, TextIO, Tuple, Union
 from numpy import array
 from juniors_toolbox.objects.template import AttributeType, ObjectAttribute, ObjectTemplate
 from juniors_toolbox.utils.types import RGB32, RGB8, RGBA8, Vec3f
-from juniors_toolbox.utils import jdrama
+from juniors_toolbox.utils import Serializable, jdrama
 from juniors_toolbox.utils.iohelper import read_string, read_uint16, read_uint32, write_string, write_uint16, write_uint32
 
 KNOWN_GROUP_HASHES = {
@@ -25,7 +25,7 @@ class ObjectCorruptedError(Exception):
     ...
 
 
-class GameObject():
+class GameObject(Serializable):
     """
     Class describing a generic game object
     """
@@ -41,7 +41,7 @@ class GameObject():
         self._values = []
 
     @classmethod
-    def from_bytes(cls, data: BinaryIO):
+    def from_bytes(cls, data: BinaryIO, *args, **kwargs):
         thisObj = cls()
 
         try:

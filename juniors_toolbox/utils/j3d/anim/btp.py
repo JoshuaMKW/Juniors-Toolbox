@@ -1,20 +1,22 @@
+from io import BytesIO
 import struct
+from typing import BinaryIO
+from juniors_toolbox.utils import write_jsystem_padding
 
-from animations.general_animation import *
-from animations.general_animation import basic_animation
-import animations.general_animation as j3d
+from juniors_toolbox.utils.iohelper import read_ubyte, read_uint16, read_uint32, write_ubyte, write_uint16, write_uint32
+from juniors_toolbox.utils.j3d.anim.general_animation import BTPFILEMAGIC, BasicAnimation, StringTable, find_sequence
 
-class btp_facial_entry(object):
+class BtpFacialEntry():
     def __init__(self, mat_name, frames):
         self.name = mat_name
         self.frames = frames
         
-        self._offset = 0;
+        self._offset = 0
         
     def _set_offset(self, val):
         self._offset = val
 
-class btp(j3d.basic_animation):
+class BTP(BasicAnimation):
   
     def __init__(self, flag, unknown1 = 1):
         self.animations = []
@@ -25,70 +27,69 @@ class btp(j3d.basic_animation):
         
     
     @classmethod
-    def from_data(cls, f):
+    def from_bytes(cls, data: BinaryIO, *args, **kwargs):
         #at this point, f is at 0x09
-        size = j3d.read_uint32(f)
+        size = read_uint32(data)
 
-        sectioncount = j3d.read_uint32(f)
+        sectioncount = read_uint32(data)
         assert sectioncount == 1
 
-        svr_data = f.read(16)
+        svr_data = data.read(16)
         #at this point, f is at the actual start of the documentaion
 
-        tpt_start = f.tell()
-        tpt_magic = f.read(4) #TPT1
+        tpt_start = data.tell()
+        tpt_magic = data.read(4) #TPT1
 
-        tpt_sectionsize = j3d.read_uint32(f)
+        tpt_sectionsize = read_uint32(data)
 
-        flag = j3d.read_ubyte(f)
-        j3d.read_ubyte(f)
+        flag = read_ubyte(data)
+        read_ubyte(data)
 
-        anim_length = j3d.read_uint16(f)
-        num_entries = j3d.read_uint16(f) #also known as "keyframe count in the documentation"
+        anim_length = read_uint16(data)
+        num_entries = read_uint16(data) #also known as "keyframe count in the documentation"
         #print("there are " + str(num_entries) + " entries")
         
-        unknown1 = j3d.read_uint16(f)
+        unknown1 = read_uint16(data)
         
         btp = cls(flag, anim_length)
 
         #offsets
-        facial_animation_entries_os = j3d.read_uint32(f) + tpt_start
-        texture_index_bank_os = j3d.read_uint32(f) + tpt_start
-        remap_table_os = j3d.read_uint32(f) + tpt_start
-        stringtable_os = j3d.read_uint32(f) + tpt_start
+        facial_animation_entries_os = read_uint32(data) + tpt_start
+        texture_index_bank_os = read_uint32(data) + tpt_start
+        remap_table_os = read_uint32(data) + tpt_start
+        stringtable_os = read_uint32(data) + tpt_start
 
         #at this point, we are at the facial animation entries
         
         
         #make string table
-        f.seek(stringtable_os)
-        stringtable = j3d.StringTable.from_file(f)
+        data.seek(stringtable_os)
+        stringtable = StringTable.from_file(data)
     
         read_animations = []
     
         for i in range(num_entries):
         
-            f.seek(facial_animation_entries_os + i * 8)
-            #print(f.tell())
+            data.seek(facial_animation_entries_os + i * 8)
+            #print(data.tell())
         
-            this_length = j3d.read_uint16(f)
+            this_length = read_uint16(data)
             #print("length of " + str(i) + " is " + str(this_length))
-            this_start = j3d.read_uint16(f)
+            this_start = read_uint16(data)
             
             indices = []
             
-            f.seek(texture_index_bank_os + 2 * this_start)
+            data.seek(texture_index_bank_os + 2 * this_start)
      
             for j in range(this_length):
-                indices.append(j3d.read_uint16(f))
+                indices.append(read_uint16(data))
             
-            animation = btp_facial_entry(stringtable.strings[i], indices)
+            animation = BtpFacialEntry(stringtable.strings[i], indices)
             
             read_animations.append(animation)
             
        
         btp.animations = read_animations
-        f.close()
         return btp
               
     def get_loading_information(self):
@@ -249,7 +250,7 @@ class btp(j3d.basic_animation):
             print("frames:")
             print(frames)
             
-            entry = btp_facial_entry(info[i][0], frames)
+            entry = BtpFacialEntry(info[i][0], frames)
             btp.animations.append(entry)
             btp.largest_duration = largest_duration
             
@@ -261,13 +262,14 @@ class btp(j3d.basic_animation):
                 btp.write_btp(f)
                 f.close()
         
-    def write_btp(self, f):
+    def to_bytes(self) -> bytes:
+        f = BytesIO()
 
         #header info 
-        f.write(j3d.BTPFILEMAGIC)
+        f.write(BTPFILEMAGIC)
         filesize_offset = f.tell()
         f.write(b"ABCD") # Placeholder for file size
-        j3d.write_uint32(f, 1) # Always a section count of 1
+        write_uint32(f, 1) # Always a section count of 1
         f.write(b"\xFF"*16)
          
         tpt1_start = f.tell()
@@ -276,13 +278,13 @@ class btp(j3d.basic_animation):
         tpt1_size_offset = f.tell()
         f.write(b"EFGH")  # Placeholder for tpt1 size
                     
-        j3d.write_ubyte(f, self.flag)
-        j3d.write_ubyte(f, 0xff)
-        j3d.write_uint16(f, self.largest_duration)
-        j3d.write_uint16(f, len(self.animations) )
-        j3d.write_uint16(f, self.unknown_address)
+        write_ubyte(f, self.flag)
+        write_ubyte(f, 0xff)
+        write_uint16(f, self.largest_duration)
+        write_uint16(f, len(self.animations) )
+        write_uint16(f, self.unknown_address)
         
-        tables_offset = f.tell();
+        tables_offset = f.tell()
         
         f.write(b"toadettebestgril")           
 
@@ -294,21 +296,21 @@ class btp(j3d.basic_animation):
         total_frames = 0;
        
         for i in range( len (btp.animations) ):
-            j3d.write_uint16(f, len ( btp.animations[i].frames ))
-            j3d.write_uint16(f, total_frames)
+            write_uint16(f, len ( btp.animations[i].frames ))
+            write_uint16(f, total_frames)
             total_frames += len (btp.animations[i].frames )
-            j3d.write_uint16(f, 0x00FF)
-            j3d.write_uint16(f, 0xFFFF)
+            write_uint16(f, 0x00FF)
+            write_uint16(f, 0xFFFF)
         """
         
-        j3d.write_padding(f, 4)
+        write_jsystem_padding(f, 4)
         
         texture_index_bank_os = f.tell()
         
         all_frames = []
         
         for anim in self.animations:
-            offset = j3d.find_sequence( all_frames, anim.frames )
+            offset = find_sequence( all_frames, anim.frames )
             if offset == -1:
                 offset = len(all_frames)
                 all_frames.extend(anim.frames)
@@ -316,52 +318,54 @@ class btp(j3d.basic_animation):
             anim._set_offset(offset)
        
         for val in all_frames:
-            j3d.write_uint16(f, int(val) )
+            write_uint16(f, int(val) )
             
-        j3d.write_padding(f, 4)
+        write_jsystem_padding(f, 4)
        
         """
         for i in range( len (btp.animations) ):
             for j in btp.animations[i].frames:
                 j = int(j)
-                j3d.write_uint16(f, j)
+                write_uint16(f, j)
         """
         
         remap_table_os = f.tell()
         
-        j3d.write_uint32(f, 0x00000001)
+        write_uint32(f, 0x00000001)
         
         stringtable_os = f.tell()
         
         strings = self.get_children_names()
         
-        j3d.StringTable.write(f, strings)
+        StringTable.write(f, strings)
         
-        j3d.write_padding(f, 32)
+        write_jsystem_padding(f, 32)
         
         total_size = f.tell()
         
         f.seek(filesize_offset)
-        j3d.write_uint32(f, total_size)
+        write_uint32(f, total_size)
         
         f.seek(tpt1_size_offset)
-        j3d.write_uint32(f, total_size - tpt1_start)
+        write_uint32(f, total_size - tpt1_start)
         
-        f.seek(facial_animation_entries_os);
+        f.seek(facial_animation_entries_os)
         for anim in self.animations:
-            j3d.write_uint16(f, len ( anim.frames ))
-            j3d.write_uint16(f, anim._offset)
-            j3d.write_uint16(f, 0x00FF)
-            j3d.write_uint16(f, 0xFFFF)
+            write_uint16(f, len ( anim.frames ))
+            write_uint16(f, anim._offset)
+            write_uint16(f, 0x00FF)
+            write_uint16(f, 0xFFFF)
                 
         f.seek(tables_offset)
-        j3d.write_uint32(f, facial_animation_entries_os - tpt1_start)
-        j3d.write_uint32(f, texture_index_bank_os - tpt1_start)
-        j3d.write_uint32(f, remap_table_os - tpt1_start)
-        j3d.write_uint32(f, stringtable_os - tpt1_start)
+        write_uint32(f, facial_animation_entries_os - tpt1_start)
+        write_uint32(f, texture_index_bank_os - tpt1_start)
+        write_uint32(f, remap_table_os - tpt1_start)
+        write_uint32(f, stringtable_os - tpt1_start)
+
+        return f.getvalue()
         
     @classmethod
     def match_bmd(cls, info, strings):
         btp = cls.from_table("", info)
-        info = j3d.basic_animation.match_bmd(btp, strings)
+        info = BasicAnimation.match_bmd(btp, strings)
         return btp.get_loading_information()

@@ -1,86 +1,137 @@
 import argparse
+from dataclasses import dataclass
+from io import BytesIO
 import struct
 from pathlib import Path
-from typing import Iterable, List, Optional, Union
+from typing import Any, Iterable, List, Optional, Union
+from juniors_toolbox.utils.iohelper import get_likely_encoding, read_string, read_uint16, read_uint32, write_string
+
+from juniors_toolbox.utils.jdrama import NameRef
+from juniors_toolbox.utils.types import RGBA8, RGB8, Vec3f
 
 
-def calc_key_code(key: str) -> int:
-    context = 0
-    for char in key:
-        context = ord(char) + (context * 3)
-        if context > 0xFFFFFFFF:
-            context -= 0x100000000
-    return context & 0xFFFF
+class PrmEntry():
+    __key: str
+    __keyCode: int
+    __keyLen: int
+    __valueLen: int
+    __value: object
 
-
-class PrmEntry(object):
-    _key: str
-    _keyCode: int
-    _keyLen: int
-    _valueLen: int
-    _value: bytes
-
-    def __init__(self, key: str, value: Union[int, bool, str, float, bytes]):
-        self.key = key
-        self.value = value
-
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({self.__dict__})"
+    def __init__(self, key: NameRef, value: Any, valueLen: int):
+        self.__key = str(key)
+        self.__keyCode = hash(key)
+        self.__keyLen = len(key)
+        self.__valueLen = valueLen
+        self.__value = value
 
     def __str__(self) -> str:
-        return f"[PRM] {self._key} = 0x{self._value.hex()}"
+        return f"[PRM] {self.__key} = 0x{self.__value.hex()}"
 
     @classmethod
-    def from_bytes(cls, data: bytes) -> "PrmEntry":
-        keyLen = int.from_bytes(data[2:4], "big", signed=False)
-        key = data[4:4+keyLen].decode()
-        valueLen = int.from_bytes(data[4+keyLen:8+keyLen], "big", signed=False)
-        value = data[8+keyLen:8+keyLen+valueLen]
-        entry = cls(key, value)
+    def from_bytes(cls, data: BytesIO, _type: type) -> "PrmEntry":
+        data.seek(2, 1)
+        keyLen = read_uint16(data)
+        key = NameRef(read_string(data, maxlen=keyLen))
+        valueLen = read_uint32(data)
+        value = data.read(valueLen)
+        if issubclass(_type, int):
+            ret = int.from_bytes(value, "big", signed=False)
+        elif issubclass(_type, bool):
+            ret = True if value == b"\x01" else False
+        elif issubclass(_type, str):
+            ret = value.decode(get_likely_encoding(value))
+        elif issubclass(_type, float):
+            ret = struct.unpack(">f", value)
+        elif issubclass(_type, Vec3f):
+            ret = Vec3f(struct.unpack(">fff", value))
+        elif issubclass(_type, RGB8):
+            ret = RGB8.from_tuple(struct.unpack(">bbb", value))
+        elif issubclass(_type, RGBA8):
+            ret = RGBA8.from_tuple(struct.unpack(">bbbb", value))
+        entry = cls(key, ret, valueLen)
         return entry
+
+    def to_bytes(self) -> bytes:
+        data = self.__keyCode.to_bytes(2, "big", signed=False)
+        data += self.__keyLen.to_bytes(2, "big", signed=False)
+        data += self.__key.encode("ascii")
+        data += self.__valueLen.to_bytes(4, "big", signed=False)
+        
+        v = self.__value
+        if isinstance(v, int):
+            data += v.to_bytes(self.__valueLen, "big", signed=(v < 0))
+        elif isinstance(v, bool):
+            data += b"\x00" if v is False else b"\x01"
+        elif isinstance(v, str):
+            _io = BytesIO()
+            write_string(_io, v)
+            data += _io.getvalue()
+        elif isinstance(v, float):
+            data += struct.pack(">f", v)
+        elif isinstance(v, Vec3f):
+            data += struct.pack(">fff", v.xyz)
+        elif isinstance(v, RGB8):
+            data += struct.pack(">bbb", v.tuple())
+        elif isinstance(v, RGBA8):
+            data += struct.pack(">bbbb", v.tuple())
+        else:
+            return None
+        
+        return data
 
     @property
     def key(self) -> str:
-        return self._key
+        return self.__key
 
     @key.setter
-    def key(self, k: str):
-        self._keyCode = calc_key_code(k)
-        self._keyLen = len(k)
-        self._key = k
+    def key(self, k: NameRef):
+        self.__keyCode = hash(k)
+        self.__keyLen = len(k)
+        self.__key = k
 
     @property
     def keyCode(self) -> int:
-        return self._keyCode
+        return self.__keyCode
 
     @property
     def keyLen(self) -> int:
-        return self._keyLen
+        return self.__keyLen
 
     @property
-    def value(self) -> bytes:
-        return self._value
+    def value(self) -> Any:
+        return self.__value
 
     @value.setter
-    def value(self, v: Union[int, bool, str, float, bytes]):
+    def value(self, v: Any):
+        self.__value = v
         if isinstance(v, int):
-            v = v.to_bytes(4, "big", signed=(True if v < 0 else False))
+            self.__valueLen = 4
         elif isinstance(v, bool):
-            v = b"\x00" if v is False else b"\x01"
+            self.__valueLen = 1
         elif isinstance(v, str):
-            v = v.encode("ascii")
+            self.__valueLen = len(v.encode(get_likely_encoding(v)))
         elif isinstance(v, float):
-            v = struct.pack(">f", v)
-
-        self._valueLen = len(v)
-        self._value = v
+            self.__valueLen = 4
+        elif isinstance(v, Vec3f):
+            self.__valueLen = 12
+        elif isinstance(v, RGB8):
+            self.__valueLen = 3
+        elif isinstance(v, RGBA8):
+            self.__valueLen = 4
 
     @property
     def valueLen(self) -> int:
-        return self._valueLen
+        return self.__valueLen
+
+    @valueLen.setter
+    def valueLen(self, _len: int):
+        self.__valueLen = _len
+
+    def __len__(self) -> int:
+        return 4 + self.__keyLen + 4 + self.__valueLen
 
 
-class PrmFile(object):
+class PrmFile():
     def __init__(self, entries: Optional[Union[PrmEntry, List[PrmEntry]]] = None):
         if entries:
             if isinstance(entries, list):
@@ -97,16 +148,16 @@ class PrmFile(object):
         return len(self._entries)
 
     @classmethod
-    def from_bytes(cls, data: bytes) -> "PrmFile":
+    def from_bytes(cls, data: BytesIO) -> "PrmFile":
         offset = 0
         entries = list()
 
-        entryNum = int.from_bytes(data[:4], "big", signed=False)
+        entryNum = int.from_bytes(data.read(4), "big", signed=False)
         print(entryNum)
         for _ in range(entryNum):
-            _entry = PrmEntry.from_bytes(data[4+offset:])
-            entries.append(PrmEntry.from_bytes(data[4+offset:]))
-            offset += 4 + _entry._keyLen + 4 + _entry._valueLen
+            _entry = PrmEntry.from_bytes(data, int)
+            entries.append(_entry)
+            offset += len(_entry)
 
         prm = cls(entries)
         return prm
@@ -116,7 +167,8 @@ class PrmFile(object):
         def encode_value(value: str) -> bytes:
             value = value.strip()
             if value.startswith("f32("):
-                value = struct.pack(">f", float(value[4:-1].strip().rstrip("f")))
+                value = struct.pack(">f", float(
+                    value[4:-1].strip().rstrip("f")))
             elif value.startswith("f64("):
                 value = struct.pack(">d", float(value[4:-1]))
             elif value.startswith("str("):
@@ -124,28 +176,38 @@ class PrmFile(object):
             elif value.startswith("\""):
                 value = value[1:-1].encode("ascii")
             elif value.startswith("s8("):
-                value = int(value[3:-1], 16 if value[3:5] in {"0x", "-0x"} else 10).to_bytes(1, "big", signed=True)
+                value = int(value[3:-1], 16 if value[3:5]
+                            in {"0x", "-0x"} else 10).to_bytes(1, "big", signed=True)
             elif value.startswith("s16("):
-                value = int(value[4:-1], 16 if value[4:6] in {"0x", "-0x"} else 10).to_bytes(2, "big", signed=True)
+                value = int(value[4:-1], 16 if value[4:6]
+                            in {"0x", "-0x"} else 10).to_bytes(2, "big", signed=True)
             elif value.startswith("s32("):
-                value = int(value[4:-1], 16 if value[4:6] in {"0x", "-0x"} else 10).to_bytes(4, "big", signed=True)
+                value = int(value[4:-1], 16 if value[4:6]
+                            in {"0x", "-0x"} else 10).to_bytes(4, "big", signed=True)
             elif value.startswith("s64("):
-                value = int(value[4:-1], 16 if value[4:6] in {"0x", "-0x"} else 10).to_bytes(8, "big", signed=True)
+                value = int(value[4:-1], 16 if value[4:6]
+                            in {"0x", "-0x"} else 10).to_bytes(8, "big", signed=True)
             elif value.startswith("u8("):
-                value = int(value[3:-1], 16 if value[3:5] in {"0x", "-0x"} else 10).to_bytes(1, "big", signed=False)
+                value = int(value[3:-1], 16 if value[3:5]
+                            in {"0x", "-0x"} else 10).to_bytes(1, "big", signed=False)
             elif value.startswith("u16("):
-                value = int(value[4:-1], 16 if value[4:6] in {"0x", "-0x"} else 10).to_bytes(2, "big", signed=False)
+                value = int(value[4:-1], 16 if value[4:6]
+                            in {"0x", "-0x"} else 10).to_bytes(2, "big", signed=False)
             elif value.startswith("u32("):
-                value = int(value[4:-1], 16 if value[4:6] in {"0x", "-0x"} else 10).to_bytes(4, "big", signed=False)
+                value = int(value[4:-1], 16 if value[4:6]
+                            in {"0x", "-0x"} else 10).to_bytes(4, "big", signed=False)
             elif value.startswith("u64("):
-                value = int(value[4:-1], 16 if value[4:6] in {"0x", "-0x"} else 10).to_bytes(8, "big", signed=False)
+                value = int(value[4:-1], 16 if value[4:6]
+                            in {"0x", "-0x"} else 10).to_bytes(8, "big", signed=False)
             elif value.startswith("bool("):
                 value = 1 if value[5:-1].lower() == "true" else 0
                 value = value.to_bytes(1, "big", signed=False)
             elif value.startswith("bytes("):
-                value = int(value[6:-1], 16).to_bytes(len(value[8:-1]) >> 1, "big", signed=False)
+                value = int(
+                    value[6:-1], 16).to_bytes(len(value[8:-1]) >> 1, "big", signed=False)
             else:
-                raise ValueError(f"Invalid value type found while parsing: {value.split('(')[0]}")
+                raise ValueError(
+                    f"Invalid value type found while parsing: {value.split('(')[0]}")
             return value
 
         entries = list()
@@ -170,11 +232,7 @@ class PrmFile(object):
         data = len(self).to_bytes(4, "big", signed=False)
 
         for entry in self.iter_entries():
-            data += entry.keyCode.to_bytes(2, "big", signed=False)
-            data += entry.keyLen.to_bytes(2, "big", signed=False)
-            data += entry.key.encode("ascii")
-            data += entry.valueLen.to_bytes(4, "big", signed=False)
-            data += entry.value
+            data += entry.to_bytes()
 
         return data
 
@@ -182,16 +240,27 @@ class PrmFile(object):
         text = ""
 
         for entry in self.iter_entries():
-            if entry.valueLen == 1:
-                text += f"{entry.key}\t\t=  u8(0x{int.from_bytes(entry.value, 'big', signed=False):02X})\n"
-            elif entry.valueLen == 2:
-                text += f"{entry.key}\t\t=  u16(0x{int.from_bytes(entry.value, 'big', signed=False):04X})\n"
-            elif entry.valueLen == 4:
-                text += f"{entry.key}\t\t=  u32(0x{int.from_bytes(entry.value, 'big', signed=False):08X})\n"
-            elif entry.valueLen == 8:
-                text += f"{entry.key}\t\t=  u64(0x{int.from_bytes(entry.value, 'big', signed=False):016X})\n"
-            else:
-                text += f"{entry.key}\t\t=  str({entry.value.decode()})\n"
+            if type(entry.value) == int:
+                if entry.valueLen == 1:
+                    text += f"{entry.key}\t\t=  u8(0x{entry.value:02X})\n"
+                elif entry.valueLen == 2:
+                    text += f"{entry.key}\t\t=  u16(0x{entry.value:04X})\n"
+                elif entry.valueLen == 4:
+                    text += f"{entry.key}\t\t=  u32(0x{entry.value:08X})\n"
+                elif entry.valueLen == 8:
+                    text += f"{entry.key}\t\t=  u64(0x{entry.value:016X})\n"
+            elif type(entry.value) == bool:
+                text += f"{entry.key}\t\t=  bool({entry.value})\n"
+            elif type(entry.value) == str:
+                text += f"{entry.key}\t\t=  str({entry.value})\n"
+            elif type(entry.value) == float:
+                text += f"{entry.key}\t\t=  float({entry.value})\n"
+            elif type(entry.value) == Vec3f:
+                text += f"{entry.key}\t\t=  Vec3f({entry.value})\n"
+            elif type(entry.value) == RGB8:
+                text += f"{entry.key}\t\t=  RGB({entry.value})\n"
+            elif type(entry.value) == RGBA8:
+                text += f"{entry.key}\t\t=  RGBA({entry.value})\n"
 
         return text.strip()
 
@@ -218,12 +287,13 @@ def decode_all(path: Path, dest: Path, suffix: str = ".prm"):
             if path.suffix != suffix:
                 print(f"[PRM-PARSER] (Invalid Extension) Ignoring {path}")
                 return
-                
+
             prm = PrmFile.from_bytes(path.read_bytes())
             if not dest.is_file() and dest.suffix == "":
                 dest.mkdir(parents=True, exist_ok=True)
                 try:
-                    dest = dest / path.relative_to(startPath).with_suffix(suffix)
+                    dest = dest / \
+                        path.relative_to(startPath).with_suffix(suffix)
                 except ValueError:
                     dest = dest.with_name(path.name).with_suffix(suffix)
             else:
@@ -253,7 +323,8 @@ def encode_all(path: Path, dest: Path, suffix: str = ".prm"):
             if not dest.is_file() and dest.suffix == "":
                 dest.mkdir(parents=True, exist_ok=True)
                 try:
-                    dest = dest / path.relative_to(startPath).with_suffix(suffix)
+                    dest = dest / \
+                        path.relative_to(startPath).with_suffix(suffix)
                 except ValueError:
                     dest = (dest / path.name).with_suffix(suffix)
             else:

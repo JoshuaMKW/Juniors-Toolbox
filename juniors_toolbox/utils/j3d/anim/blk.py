@@ -1,18 +1,21 @@
+from io import BytesIO
 import struct 
 from collections import OrderedDict
+from typing import BinaryIO
 
-from animations.general_animation import *
-from animations.general_animation import basic_animation
-import animations.general_animation as j3d
+from juniors_toolbox.utils import write_jsystem_padding
+from juniors_toolbox.utils.iohelper import read_float, read_ubyte, read_uint16, read_uint32, write_float, write_sbyte, write_ubyte, write_uint16, write_uint32
+from juniors_toolbox.utils.j3d.anim import general_animation as j3d
+from juniors_toolbox.utils.j3d.anim.general_animation import AnimComponent, BasicAnimation, combine_dicts, find_sequence, make_tangents, write_values
 
 BLKFILEMAGIC = b"J3D1blk1"
 
-class cluster_anim(object):
+class ClusterAnim():
     def __init__(self):
         self.seq = []
         self.scale_offset = 0
 
-class blk(j3d.basic_animation):
+class BLK(BasicAnimation):
     def __init__(self, loop_mode, duration, tantype = 1):
         self.loop_mode = loop_mode
         self.anglescale = 0
@@ -26,61 +29,61 @@ class blk(j3d.basic_animation):
             self.tan_type = 1
     
     @classmethod
-    def from_data(cls, f):
-        size = j3d.read_uint32(f)
+    def from_bytes(cls, data: BinaryIO, *args, **kwargs):
+        size = read_uint32(data)
         
-        sectioncount = j3d.read_uint32(f)
+        sectioncount = read_uint32(data)
         assert sectioncount == 1
         
-        svr_data = f.read(16)
+        svr_data = data.read(16)
         
-        clk_start = f.tell()
-        clk_magic = f.read(4) #clk1
-        clk_size = j3d.read_uint32(f)
+        clk_start = data.tell()
+        clk_magic = data.read(4) #clk1
+        clk_size = read_uint32(data)
         
-        loop_mode = j3d.read_ubyte(f)
-        j3d.read_ubyte(f)
+        loop_mode = read_ubyte(data)
+        read_ubyte(data)
         
-        duration = j3d.read_uint16(f)
+        duration = read_uint16(data)
         blk = cls(loop_mode, duration)
 
-        cluster_count = read_uint16(f)
-        scales_count = int(read_uint16(f))
+        cluster_count = read_uint16(data)
+        scales_count = int(read_uint16(data))
         
         #print("scales count " + str(scales_count) )
         
-        cluster_offset = read_uint32(f) + clk_start
-        scales_offset = read_uint32(f) + clk_start
+        cluster_offset = read_uint32(data) + clk_start
+        scales_offset = read_uint32(data) + clk_start
         
         scales = []
-        f.seek(scales_offset)
+        data.seek(scales_offset)
         for i in range(scales_count):
-            scales.append ( read_float(f)) 
+            scales.append ( read_float(data)) 
             """
-            time = read_float(f)
-            value = read_float(f)
-            tangentIn = read_float(f)
-            anim = j3d.AnimComponent( time, value, tangentIn )
+            time = read_float(data)
+            value = read_float(data)
+            tangentIn = read_float(data)
+            anim = AnimComponent( time, value, tangentIn )
             scales.append(anim) 
             """
             
 
         tangent_type = 0
         
-        f.seek(cluster_offset)
-        while ( f.read(2) != b'Th'):
-            f.seek (f.tell() - 2)
+        data.seek(cluster_offset)
+        while ( data.read(2) != b'Th'):
+            data.seek (data.tell() - 2)
             
-            new_anim = cluster_anim()
+            new_anim = ClusterAnim()
             
-            clus_durati = j3d.read_uint16(f)
-            clus_offset = int(j3d.read_uint16(f))
-            tan_type = j3d.read_uint16(f)
+            clus_durati = read_uint16(data)
+            clus_offset = int(read_uint16(data))
+            tan_type = read_uint16(data)
             tangent_type = max(tangent_type, tan_type )
 
             
             for j in range( clus_durati ):
-                comp = j3d.AnimComponent.from_array(clus_offset, j, clus_durati, scales, tan_type)
+                comp = AnimComponent.from_array(clus_offset, j, clus_durati, scales, tan_type)
                 #new_anim.seq.append( scales[j + clus_offset] ) 
                 new_anim.seq.append(comp)
                 
@@ -112,7 +115,7 @@ class blk(j3d.basic_animation):
             
             array = anim.seq
             
-            keyframes_dictionary = j3d.combine_dicts(array, keyframes_dictionary)
+            keyframes_dictionary = combine_dicts(array, keyframes_dictionary)
             
             i = len(info)
             
@@ -161,13 +164,13 @@ class blk(j3d.basic_animation):
         print (keyframes)
         
         for i in range( 2, len(info)   ): #for each cluster
-            current_anim = cluster_anim()           
+            current_anim = ClusterAnim()           
           
             for k in range(frame_offset, len(info[i])): #for each keyframe
                 if info[i][k] != "":
-                    comp = j3d.AnimComponent( keyframes[ k - frame_offset ], float(info[i][k]))
+                    comp = AnimComponent( keyframes[ k - frame_offset ], float(info[i][k]))
                     current_anim.seq.append(comp)                      
-                    current_anim.seq = j3d.make_tangents(current_anim.seq)
+                    current_anim.seq = make_tangents(current_anim.seq)
             
             blk.animations.append(current_anim)
        
@@ -179,11 +182,12 @@ class blk(j3d.basic_animation):
                 blk.write_blk(f)
                 f.close()
             
-    def write_blk(self, f):
+    def to_bytes(self) -> bytes:
+        f = BytesIO()
         f.write(BLKFILEMAGIC)
         filesize_offset = f.tell()
         f.write(b"ABCD") # Placeholder for file size
-        j3d.write_uint32(f, 1) # Always a section count of 1
+        write_uint32(f, 1) # Always a section count of 1
         f.write(b"\xFF"*16)
         
         clk1_start = f.tell()
@@ -191,9 +195,9 @@ class blk(j3d.basic_animation):
         
         ttk1_size_offset = f.tell()
         f.write(b"EFGH")  # Placeholder for clk1 size
-        j3d.write_ubyte(f, self.loop_mode)
-        j3d.write_sbyte(f, self.anglescale)        
-        j3d.write_uint16(f, self.duration)
+        write_ubyte(f, self.loop_mode)
+        write_sbyte(f, self.anglescale)        
+        write_uint16(f, self.duration)
         
         #0x30        
       
@@ -203,12 +207,12 @@ class blk(j3d.basic_animation):
         data_offsets = f.tell()
         f.write(b"toadette") #placeholder for offsets
         
-        j3d.write_padding(f, multiple=32)
+        write_jsystem_padding(f, multiple=32)
         cluster_anim_start = f.tell()
         
         f.write(b"\x00"*(0x6*len(self.animations))) #placeholder for stuff
         
-        j3d.write_padding(f, multiple=32)
+        write_jsystem_padding(f, multiple=32)
         
         all_scales = []
         for anim in self.animations:
@@ -224,7 +228,7 @@ class blk(j3d.basic_animation):
                     if self.tan_type == 1 :
                         sequence.append(comp.tangentOut)
                 
-            offset = j3d.find_sequence(all_scales,sequence)
+            offset = find_sequence(all_scales,sequence)
             if offset == -1:
                 offset = len(all_scales)
                 all_scales.extend(sequence)
@@ -236,33 +240,35 @@ class blk(j3d.basic_animation):
         for val in all_scales:
             write_float(f, val)
 
-        j3d.write_padding(f, 32)
+        write_jsystem_padding(f, 32)
 
        
         total_size = f.tell()
 
         f.seek(cluster_anim_start)
         for anim in self.animations:
-            j3d.write_uint16(f, len(anim.seq) ) # Scale count for this animation
-            j3d.write_uint16(f, anim.scale_offset)
-            j3d.write_uint16(f, self.tan_type) # Tangent type, 0 = only TangentIn; 1 = TangentIn and TangentOut
+            write_uint16(f, len(anim.seq) ) # Scale count for this animation
+            write_uint16(f, anim.scale_offset)
+            write_uint16(f, self.tan_type) # Tangent type, 0 = only TangentIn; 1 = TangentIn and TangentOut
     
 
         # Fill in all the placeholder values
         f.seek(filesize_offset)
-        j3d.write_uint32(f, total_size)
+        write_uint32(f, total_size)
 
         f.seek(ttk1_size_offset)
-        j3d.write_uint32(f, total_size - clk1_start)
+        write_uint32(f, total_size - clk1_start)
 
         f.seek(count_offset)
-        j3d.write_uint16(f, 1)
-        j3d.write_uint16(f, len(all_scales) )
+        write_uint16(f, 1)
+        write_uint16(f, len(all_scales) )
 
         # Next come the section offsets
 
-        j3d.write_uint32(f, cluster_anim_start  - clk1_start)
-        j3d.write_uint32(f, scale_start         - clk1_start)
+        write_uint32(f, cluster_anim_start  - clk1_start)
+        write_uint32(f, scale_start         - clk1_start)
+
+        return f.getvalue()
         
     @classmethod
     def get_blk(cls, info):
@@ -272,5 +278,5 @@ class blk(j3d.basic_animation):
     @classmethod
     def match_bmd(cls, info, strings):
         blk = cls.from_table("", info)
-        j3d.basic_animation.match_bmd(blk, strings)
+        BasicAnimation.match_bmd(blk, strings)
         return blk.get_loading_information()

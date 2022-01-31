@@ -3,6 +3,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, Union
 from PySide6.QtWidgets import QGridLayout, QMainWindow, QWidget
+from juniors_toolbox.gui.tabs.prmeditor import PrmEditorWidget
 from juniors_toolbox.gui.tabs.projectviewer import ProjectViewerWidget
 from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.gui.tabs.renderer import SceneRendererWidget
@@ -21,7 +22,7 @@ class TabWidgetManager():
         "Rail List": RailViewerWidget,
         "Rail Editor": None,
         "BMG Editor": BMGMessageEditor,
-        "PRM Editor": None,
+        "PRM Editor": PrmEditorWidget,
         "Demo Editor": None,
         "Data Viewer": None,
         "Scene Renderer": SceneRendererWidget
@@ -38,7 +39,7 @@ class TabWidgetManager():
             RailViewerWidget: RailViewerWidget(),
             "Rail Editor": None,
             BMGMessageEditor: BMGMessageEditor(),
-            "PRM Editor": None,
+            PrmEditorWidget: PrmEditorWidget(),
             "Demo Editor": None,
             "Data Viewer": None,
             SceneRendererWidget: SceneRendererWidget()

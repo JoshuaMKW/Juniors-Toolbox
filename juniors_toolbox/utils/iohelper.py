@@ -141,9 +141,9 @@ def read_string(
 
 def write_string(f: BinaryIO, val: str, encoding: Optional[str] = None):
     if encoding is None:
-        f.write(val.encode() + b"\x00")
-    else:
-        f.write(val.encode(encoding) + b"\x00")
+        encoding = get_likely_encoding(val.encode())
+        
+    f.write(val.encode(encoding) + b"\x00")
 
 
 def get_likely_encoding(data: bytes) -> str:

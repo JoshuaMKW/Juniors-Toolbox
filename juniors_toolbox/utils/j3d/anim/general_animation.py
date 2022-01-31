@@ -2,6 +2,9 @@ import struct
 
 import oead
 from io import BytesIO
+from juniors_toolbox.utils import Serializable
+
+from juniors_toolbox.utils.iohelper import read_float, read_sint16, read_uint16, read_uint32, write_uint16
 
 BTPFILEMAGIC = b"J3D1btp1"
 BTKFILEMAGIC = b"J3D1btk1"
@@ -12,68 +15,6 @@ BCAFILEMAGIC = b"J3D1bca1"
 BLAFILEMAGIC = b"J3D1bla1"
 BLKFILEMAGIC = b"J3D1blk1"
 BVAFILEMAGIC = b"J3D1bva1"
-
-
-PADDING = b"This is padding data to align"
-
-
-def read_uint32(f):
-    return struct.unpack(">I", f.read(4))[0]
-
-
-def read_uint16(f):
-    return struct.unpack(">H", f.read(2))[0]
-
-
-def read_sint16(f):
-    return struct.unpack(">h", f.read(2))[0]
-
-
-def read_ubyte(f):
-    return struct.unpack(">B", f.read(1))[0]
-
-
-def read_sbyte(f):
-    return struct.unpack(">b", f.read(1))[0]
-
-
-def read_float(f):
-    return struct.unpack(">f", f.read(4))[0]
-
-
-def write_uint32(f, val):
-    f.write(struct.pack(">I", val))
-
-
-def write_uint16(f, val):
-    f.write(struct.pack(">H", val))
-
-
-def write_sint16(f, val):
-    f.write(struct.pack(">h", val))
-
-
-def write_ubyte(f, val):
-    f.write(struct.pack(">B", val))
-
-
-def write_sbyte(f, val):
-    f.write(struct.pack(">b", val))
-
-
-def write_float(f, val):
-    f.write(struct.pack(">f", val))
-
-
-def write_padding(f, multiple):
-    next_aligned = (f.tell() + (multiple - 1)) & ~(multiple - 1)
-
-    diff = next_aligned - f.tell()
-
-    for i in range(diff):
-
-        pos = i % len(PADDING)
-        f.write(PADDING[pos:pos+1])
 
 
 def write_pad32(f):
@@ -89,7 +30,7 @@ loop_mode = ("Play once", "Play Once - Stop at 1st Frame",
 tan_type = ("Tan out only", "Tan in and out")
 
 
-class BasicAnimation(object):
+class BasicAnimation(Serializable):
     def __init__(self):
         pass
 
@@ -114,7 +55,7 @@ class BasicAnimation(object):
         return object
 
 
-class AnimComponent(object):
+class AnimComponent():
     def __init__(self, time, value, tangentIn=0, tangentOut=None, tantype="0"):
         self.time = time
         self.value = value
@@ -210,7 +151,7 @@ def write_values(info, keyframes_dictionary, row):
                 pass
 
 
-class StringTable(object):
+class StringTable():
     def __init__(self):
         self.strings = []
 
@@ -543,22 +484,22 @@ def make_tangents(array, inter=0):
 
 
 def convert_to_a(filepath, info):
-    from juniors_toolbox.utils.j3d.anim.bla import bla
-    from juniors_toolbox.utils.j3d.anim.blk import blk
-    from juniors_toolbox.utils.j3d.anim.bca import bca
+    from juniors_toolbox.utils.j3d.anim.bla import BLA
+    from juniors_toolbox.utils.j3d.anim.blk import BLK
+    from juniors_toolbox.utils.j3d.anim.bca import BCA
     from juniors_toolbox.utils.j3d.anim.bck import BCK
 
     if filepath.endswith(".bck") or filepath.endswith(".bca"):
         bck = BCK.get_bck(info)
-        bca = bca.from_bck(bck)
+        BCA = BCA.from_bck(bck)
 
-        return bca
+        return BCA
     if filepath.endswith(".blk") or filepath.endswith(".bla"):
 
-        _blk = blk.get_blk(info)
-        bla = bla.from_blk(_blk)
+        _blk = BLK.get_blk(info)
+        BLA = BLA.from_blk(_blk)
 
-        return bla
+        return BLA
 
 
 def import_anim_file(filepath):
@@ -571,14 +512,14 @@ def import_anim_file(filepath):
 
 
 def import_bvh_file(filepath, as_bca=False):
-    from juniors_toolbox.utils.j3d.anim.bca import bca
+    from juniors_toolbox.utils.j3d.anim.bca import BCA
     from juniors_toolbox.utils.j3d.anim.bck import BCK
     
     with open(filepath, "r") as f:
         info = BCK.from_blender_bvh(f)
 
         if as_bca:
-            info = bca.from_bck(info)
+            info = BCA.from_bck(info)
 
         f.close()
         return info
@@ -595,14 +536,14 @@ def import_fbx_file(filepath):
 
 def sort_file(filepath):
     from juniors_toolbox.utils.j3d.anim.bva import BVA
-    from juniors_toolbox.utils.j3d.anim.bla import bla
-    from juniors_toolbox.utils.j3d.anim.blk import blk
-    from juniors_toolbox.utils.j3d.anim.bca import bca
+    from juniors_toolbox.utils.j3d.anim.bla import BLA
+    from juniors_toolbox.utils.j3d.anim.blk import BLK
+    from juniors_toolbox.utils.j3d.anim.bca import BCA
     from juniors_toolbox.utils.j3d.anim.bck import BCK
-    from juniors_toolbox.utils.j3d.anim.bpk import bpk
+    from juniors_toolbox.utils.j3d.anim.bpk import BPK
     from juniors_toolbox.utils.j3d.anim.brk import BRK
     from juniors_toolbox.utils.j3d.anim.btk import BTK
-    from juniors_toolbox.utils.j3d.anim.btp import btp
+    from juniors_toolbox.utils.j3d.anim.btp import BTP
 
     with open(filepath, "rb") as f:
         magic = f.read(8)
@@ -619,7 +560,7 @@ def sort_file(filepath):
             print(magic)
 
         if magic == BTPFILEMAGIC:
-            return btp.from_data(f)
+            return BTP.from_data(f)
         elif magic == BTKFILEMAGIC:
             return BTK.from_data(f)
         elif magic == BRKFILEMAGIC:
@@ -627,13 +568,13 @@ def sort_file(filepath):
         elif magic == BCKFILEMAGIC:
             return BCK.from_data(f)
         elif magic == BPKFILEMAGIC:
-            return bpk.from_data(f)
+            return BPK.from_data(f)
         elif magic == BCAFILEMAGIC:
-            return bca.from_data(f)
+            return BCA.from_data(f)
         elif magic == BLAFILEMAGIC:
-            return bla.from_data(f)
+            return BLA.from_data(f)
         elif magic == BLKFILEMAGIC:
-            return blk.from_data(f)
+            return BLK.from_data(f)
         elif magic == BVAFILEMAGIC:
             return BVA.from_data(f)
         f.close()
@@ -641,18 +582,18 @@ def sort_file(filepath):
 
 def sort_filepath(filepath, information, sound_data=None):
     from juniors_toolbox.utils.j3d.anim.bva import BVA
-    from juniors_toolbox.utils.j3d.anim.bla import bla
-    from juniors_toolbox.utils.j3d.anim.blk import blk
-    from juniors_toolbox.utils.j3d.anim.bca import bca
+    from juniors_toolbox.utils.j3d.anim.bla import BLA
+    from juniors_toolbox.utils.j3d.anim.blk import BLK
+    from juniors_toolbox.utils.j3d.anim.bca import BCA
     from juniors_toolbox.utils.j3d.anim.bck import BCK
-    from juniors_toolbox.utils.j3d.anim.bpk import bpk
+    from juniors_toolbox.utils.j3d.anim.bpk import BPK
     from juniors_toolbox.utils.j3d.anim.brk import BRK
     from juniors_toolbox.utils.j3d.anim.btk import BTK
-    from juniors_toolbox.utils.j3d.anim.btp import btp
+    from juniors_toolbox.utils.j3d.anim.btp import BTP
 
     # print(filepath)
     if filepath.endswith(".btp"):
-        return btp.from_table(filepath, information)
+        return BTP.from_table(filepath, information)
     elif filepath.endswith(".btk"):
         return BTK.from_table(filepath, information)
     elif filepath.endswith(".brk"):
@@ -660,32 +601,32 @@ def sort_filepath(filepath, information, sound_data=None):
     elif filepath.endswith(".bck"):
         return BCK.from_table(filepath, information, sound_data)
     elif filepath.endswith(".bpk"):
-        return bpk.from_table(filepath, information)
+        return BPK.from_table(filepath, information)
     elif filepath.endswith(".bca"):
-        return bca.from_table(filepath, information)
+        return BCA.from_table(filepath, information)
     elif filepath.endswith(".bla"):
-        return bla.from_table(filepath, information)
+        return BLA.from_table(filepath, information)
     elif filepath.endswith(".blk"):
-        return blk.from_table(filepath, information)
+        return BLK.from_table(filepath, information)
     elif filepath.endswith(".bva"):
         return BVA.from_table(filepath, information)
 
 
 def create_empty(information):
     from juniors_toolbox.utils.j3d.anim.bva import BVA
-    from juniors_toolbox.utils.j3d.anim.bla import bla
-    from juniors_toolbox.utils.j3d.anim.blk import blk
-    from juniors_toolbox.utils.j3d.anim.bca import bca
+    from juniors_toolbox.utils.j3d.anim.bla import BLA
+    from juniors_toolbox.utils.j3d.anim.blk import BLK
+    from juniors_toolbox.utils.j3d.anim.bca import BCA
     from juniors_toolbox.utils.j3d.anim.bck import BCK
-    from juniors_toolbox.utils.j3d.anim.bpk import bpk
+    from juniors_toolbox.utils.j3d.anim.bpk import BPK
     from juniors_toolbox.utils.j3d.anim.brk import BRK
     from juniors_toolbox.utils.j3d.anim.btk import BTK
-    from juniors_toolbox.utils.j3d.anim.btp import btp
+    from juniors_toolbox.utils.j3d.anim.btp import BTP
 
     table = []
     filepath = information[0]
     if filepath.endswith(".btp"):
-        table = btp.empty_table(information)
+        table = BTP.empty_table(information)
     elif filepath.endswith(".btk"):
         table = BCK.empty_table(information)
     elif filepath.endswith(".brk"):
@@ -693,13 +634,13 @@ def create_empty(information):
     elif filepath.endswith(".bck"):
         table = BCK.empty_table(information)
     elif filepath.endswith(".bpk"):
-        table = bpk.empty_table(information)
+        table = BPK.empty_table(information)
     elif filepath.endswith(".bca"):
-        table = bca.empty_table(information)
+        table = BCA.empty_table(information)
     elif filepath.endswith(".bla"):
-        table = bla.empty_table(information)
+        table = BLA.empty_table(information)
     elif filepath.endswith(".blk"):
-        table = blk.empty_table(information)
+        table = BLK.empty_table(information)
     elif filepath.endswith(".bva"):
         table = BVA.empty_table(information)
     return table
@@ -708,15 +649,15 @@ def create_empty(information):
 def match_bmd(filepath, information, strings, filepathh):
     from juniors_toolbox.utils.j3d.anim.bva import BVA
     from juniors_toolbox.utils.j3d.anim.bck import BCK
-    from juniors_toolbox.utils.j3d.anim.bpk import bpk
+    from juniors_toolbox.utils.j3d.anim.bpk import BPK
     from juniors_toolbox.utils.j3d.anim.brk import BRK
     from juniors_toolbox.utils.j3d.anim.btk import BTK
-    from juniors_toolbox.utils.j3d.anim.btp import btp
+    from juniors_toolbox.utils.j3d.anim.btp import BTP
     
     # print(filepath)
 
     if filepath.endswith(".btp"):
-        table = btp.match_bmd(information, strings)
+        table = BTP.match_bmd(information, strings)
     elif filepath.endswith(".btk"):
         table = BTK.match_bmd(information, strings)
     elif filepath.endswith(".brk"):
@@ -724,7 +665,7 @@ def match_bmd(filepath, information, strings, filepathh):
     elif filepath.endswith(".bck") or filepath.endswith(".bca"):
         table = BCK.match_bmd(information, strings, filepathh)
     elif filepath.endswith(".bpk"):
-        table = bpk.match_bmd(information, strings)
+        table = BPK.match_bmd(information, strings)
         # elif filepath.endswith(".blk") or filepath.endswith(".bla"):
         #    table = blk_file.blk.match_bmd(information, strings)
     elif filepath.endswith(".bva"):
@@ -734,7 +675,7 @@ def match_bmd(filepath, information, strings, filepathh):
 
 def get_single_mat(extension):
     from juniors_toolbox.utils.j3d.anim.bck import BCK
-    from juniors_toolbox.utils.j3d.anim.bpk import bpk
+    from juniors_toolbox.utils.j3d.anim.bpk import BPK
     from juniors_toolbox.utils.j3d.anim.brk import BRK
     from juniors_toolbox.utils.j3d.anim.btk import BTK
     
@@ -745,7 +686,7 @@ def get_single_mat(extension):
     elif extension == ".brk":
         info = BRK.single_mat()
     elif extension == ".bpk":
-        info = bpk.single_mat()
+        info = BPK.single_mat()
     return info
 
 

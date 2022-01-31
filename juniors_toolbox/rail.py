@@ -7,11 +7,11 @@ from numpy import array, ndarray
 
 from juniors_toolbox.utils.iohelper import (align_int, read_float, read_sint16, read_string, read_uint32,
                                            write_float, write_sint16, write_string, write_uint16, write_uint32)
-from juniors_toolbox.utils import JSYSTEM_PADDING_TEXT
+from juniors_toolbox.utils import JSYSTEM_PADDING_TEXT, Serializable
 
 
 @dataclass
-class RailKeyFrame():
+class RailKeyFrame(Serializable):
     position: ndarray = array([0, 0, 0])
     unk: ndarray = array([0, 0, 0])
     rotation: ndarray = array([-1, -1, -1])
@@ -20,7 +20,7 @@ class RailKeyFrame():
     periods: List[float] = field(default_factory=lambda: [0]*8)
 
     @classmethod
-    def from_bytes(cls, data: BinaryIO) -> "RailKeyFrame":
+    def from_bytes(cls, data: BinaryIO, *args, **kwargs):
         frame = cls(
             position = array(
                 [read_sint16(data),
@@ -85,7 +85,7 @@ class RailKeyFrame():
         return 68
 
 
-class Rail():
+class Rail(Serializable):
     def __init__(self, name: str, frames: Optional[List[RailKeyFrame]] = None):
         if frames is None:
             frames = []
@@ -94,7 +94,7 @@ class Rail():
         self._frames = frames
 
     @classmethod
-    def from_bytes(cls, data: BinaryIO) -> "Rail":
+    def from_bytes(cls, data: BinaryIO, *args, **kwargs):
         """
         Returns a Rail from the given data
         """
@@ -202,7 +202,7 @@ class Rail():
         return self.size()
 
 
-class RalData():
+class RalData(Serializable):
     def __init__(self, rails: Optional[List[Rail]] = None):
         if rails is None:
             rails = []
@@ -210,7 +210,7 @@ class RalData():
         self._rails = rails
 
     @classmethod
-    def from_bytes(cls, data: BinaryIO) -> "RalData":
+    def from_bytes(cls, data: BinaryIO, *args, **kwargs):
         this = cls()
         while (rail := Rail.from_bytes(data)) is not None:
             this._rails.append(rail)

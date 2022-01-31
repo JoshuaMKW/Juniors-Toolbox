@@ -13,7 +13,7 @@ from qtpy import QtCore, QtGui, QtWidgets
 from juniors_toolbox.utils.filesystem import resource_path
 
 
-class Ui_ColorPicker(object):
+class Ui_ColorPicker():
     def setupUi(self, ColorPicker):
         ColorPicker.setObjectName("ColorPicker")
         ColorPicker.resize(460, 300)
