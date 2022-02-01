@@ -1,5 +1,6 @@
 aenum
 chardet
+discordsdk
 nodeeditor
 numpy
 oead

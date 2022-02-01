@@ -374,11 +374,11 @@ class BMG(Serializable):
 
     MAGIC = b"MESGbmg1"
 
-    def __init__(self, isPal: bool, flagSize: int):
+    def __init__(self, isStr1Present: bool = True, flagSize: int = 12):
         self.flagSize = flagSize
 
         self.__messages: List[BMG.MessageEntry] = []
-        self.__isStr1 = isPal
+        self.__isStr1 = isStr1Present
 
     @staticmethod
     def is_str1_present_f(f: BytesIO) -> bool:

@@ -1,9 +1,9 @@
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 from PySide6.QtCore import QPoint, Qt, Slot
-from PySide6.QtGui import QAction, QKeyEvent
+from PySide6.QtGui import QAction, QKeyEvent, QMouseEvent
 from PySide6.QtWidgets import (QAbstractItemView, QListWidget, QListWidgetItem,
-                               QMenu, QWidget)
+                               QMenu, QWidget, QApplication)
 
 
 class InteractiveListWidgetItem(QListWidgetItem):
@@ -36,6 +36,7 @@ class InteractiveListWidget(QListWidget):
         self.setAcceptDrops(True)
         self.setDragDropMode(QAbstractItemView.InternalMove)
         self.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.itemChanged.connect(self.rename_item)
         self.itemDoubleClicked.connect(self.__handle_double_click)
         self.customContextMenuRequested.connect(self.custom_context_menu)
@@ -51,7 +52,7 @@ class InteractiveListWidget(QListWidget):
 
         deleteAction = QAction("Delete", self)
         deleteAction.triggered.connect(
-            lambda clicked=None: self.takeItem(self.row(item))
+            lambda clicked=None: self.delete_items(self.selectedItems())
         )
         renameAction = QAction("Rename", self)
         renameAction.triggered.connect(
@@ -59,7 +60,7 @@ class InteractiveListWidget(QListWidget):
         )
         duplicateAction = QAction("Duplicate", self)
         duplicateAction.triggered.connect(
-            lambda clicked=None: self.duplicate_item(item)
+            lambda clicked=None: self.duplicate_items(self.selectedItems())
         )
 
         menu.addAction(deleteAction)
@@ -81,7 +82,12 @@ class InteractiveListWidget(QListWidget):
         item._newItem_ = new
         super().editItem(item)
 
-    @Slot(InteractiveListWidgetItem, result=str)
+    @Slot(list)
+    def delete_items(self, items: List[InteractiveListWidgetItem]):
+        for item in items:
+            self.takeItem(self.row(item))
+
+    @Slot(InteractiveListWidgetItem, result=InteractiveListWidgetItem)
     def rename_item(self, item: InteractiveListWidgetItem) -> str:
         """
         Returns the new name of the item
@@ -107,31 +113,25 @@ class InteractiveListWidget(QListWidget):
         item._newItem_ = False
         return newName
 
-    @Slot(InteractiveListWidgetItem, result=str)
-    def duplicate_item(self, item: InteractiveListWidgetItem) -> InteractiveListWidgetItem:
+    @Slot(list, result=List[InteractiveListWidgetItem])
+    def duplicate_items(self, items: List[InteractiveListWidgetItem]) -> InteractiveListWidgetItem:
         """
         Returns the new item
         """
-        if item is None:
-            return None
+        newItems = []
+        for item in items:
+            newName = self._resolve_name(item.text())
 
-        newName = self._resolve_name(item.text())
+            self.blockSignals(True)
+            newItem = item.clone()
+            newItem.setText(newName)
+            self.blockSignals(False)
 
-        self.blockSignals(True)
-        newItem = item.clone()
-        newItem.setText(newName)
-        self.blockSignals(False)
-
-        self.insertItem(self.row(item) + 1, newItem)
-
-        return newItem
+            self.insertItem(self.row(item) + 1, newItem)
+            newItems.append(newItem)
+        return newItems
 
     def _resolve_name(self, name: str, filterItem: InteractiveListWidgetItem = None) -> str:
-        # for i, char in enumerate(name[::-1]):
-        #    if not char.isdecimal():
-        #        name = name[:len(name)-i]
-        #        break
-
         renameContext = 1
         ogName = name
 
@@ -166,6 +166,70 @@ class InteractiveListWidget(QListWidget):
         item._prevName_ = item.text()
         item._newItem_ = False
 
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        mouseButton = event.button()
+        modifiers = QApplication.keyboardModifiers()
+        if mouseButton == Qt.LeftButton:
+            if modifiers == Qt.ShiftModifier:
+                event.accept()
+                return
+            elif modifiers == Qt.ControlModifier:
+                event.accept()
+                return
+        super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        mouseButton = event.button()
+        mousePos = event.pos()
+        modifiers = QApplication.keyboardModifiers()
+        item = self.itemAt(mousePos)
+        if mouseButton == Qt.LeftButton:
+            if modifiers == Qt.ShiftModifier:
+                self.__handle_shift_click(item)
+                event.accept()
+                return
+            elif modifiers == Qt.ControlModifier:
+                self.__handle_ctrl_click(item)
+                event.accept()
+                return
+        super().mouseReleaseEvent(event)
+
     def keyReleaseEvent(self, event: QKeyEvent):
         if event.key() == Qt.Key_Delete:
             self.takeItem(self.currentRow())
+
+    def __handle_shift_click(self, item: InteractiveListWidgetItem):
+        if item is None or item.isSelected():
+            return
+
+        selectedIndexes: List[InteractiveListWidgetItem] = self.selectedIndexes()
+        if len(selectedIndexes) == 0:
+            self.setCurrentItem(item)
+            return
+
+        curIndex = self.currentRow()
+        selectedIndex = self.row(item)
+
+        if selectedIndex < curIndex:
+            rows = range(selectedIndex, curIndex+1)
+        else:
+            rows = range(curIndex, selectedIndex+1)
+
+        for row in range(self.count()):
+            item = self.item(row)
+            item.setSelected(row in rows)
+
+
+    def __handle_ctrl_click(self, item: InteractiveListWidgetItem):
+        if item is None or item.isSelected():
+            return
+
+        selectedIndexes: List[InteractiveListWidgetItem] = self.selectedIndexes()
+        if len(selectedIndexes) == 0:
+            self.setCurrentItem(item)
+            return
+
+        if item.isSelected():
+            return
+
+        item.setSelected(True)
