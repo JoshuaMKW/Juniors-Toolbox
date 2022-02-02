@@ -1,7 +1,7 @@
 from typing import List, Optional, Union
 
-from PySide6.QtCore import QPoint, Qt, Slot
-from PySide6.QtGui import QAction, QKeyEvent, QMouseEvent
+from PySide6.QtCore import QPoint, Qt, Slot, QMimeData
+from PySide6.QtGui import QAction, QKeyEvent, QMouseEvent, QDragMoveEvent, QDragEnterEvent, QDrag, QPixmap, QPainter, QColor, QPen, QFont
 from PySide6.QtWidgets import (QAbstractItemView, QListWidget, QListWidgetItem,
                                QMenu, QWidget, QApplication)
 
@@ -196,7 +196,7 @@ class InteractiveListWidget(QListWidget):
 
     def keyReleaseEvent(self, event: QKeyEvent):
         if event.key() == Qt.Key_Delete:
-            self.takeItem(self.currentRow())
+            self.delete_items(self.selectedItems())
 
     def __handle_shift_click(self, item: InteractiveListWidgetItem):
         if item is None or item.isSelected():

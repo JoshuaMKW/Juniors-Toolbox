@@ -1,9 +1,11 @@
+from hashlib import new
 import shutil
 import time
 from cmath import exp
 from enum import Enum, IntEnum, auto
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from juniors_toolbox.gui.dialogs.moveconflict import MoveConflictDialog
 
 from juniors_toolbox.gui.images import get_icon, get_image
 from juniors_toolbox.gui.tabs.generic import GenericTabWidget
@@ -32,7 +34,7 @@ from PySide6.QtCore import (QAbstractItemModel, QDataStream, QEvent, QIODevice,
 from PySide6.QtGui import (QAction, QColor, QCursor, QDrag, QDragEnterEvent,
                            QDragLeaveEvent, QDragMoveEvent, QDropEvent, QIcon,
                            QImage, QKeyEvent, QMouseEvent, QPaintDevice,
-                           QPainter, QPaintEvent, QPalette, QPixmap,
+                           QPainter, QPaintEvent, QPalette, QPixmap, QPen,
                            QUndoCommand, QUndoStack)
 from PySide6.QtWidgets import (QBoxLayout, QComboBox, QFormLayout, QFrame,
                                QGridLayout, QGroupBox, QHBoxLayout, QLabel,
@@ -41,7 +43,7 @@ from PySide6.QtWidgets import (QBoxLayout, QComboBox, QFormLayout, QFrame,
                                QScrollArea, QSizePolicy, QSpacerItem,
                                QSplitter, QStyle, QStyleOptionComboBox,
                                QStylePainter, QTableWidget, QTableWidgetItem,
-                               QToolBar, QTreeWidget, QTreeWidgetItem,
+                               QToolBar, QTreeWidget, QTreeWidgetItem, QDialog, QDialogButtonBox,
                                QVBoxLayout, QWidget)
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
@@ -110,6 +112,39 @@ _ASSET_INIT_TABLE = {
         "icon": None
     },
 }
+
+def _fs_resolve_name(name: str, dir: Path):
+    maxIterations = 1000
+    parts = name.rsplit(".", 1)
+    name = parts[0]
+
+    renameContext = 1
+    ogName = name
+
+    possibleNames = []
+    for item in dir.iterdir():
+        if renameContext > maxIterations:
+            raise FileExistsError(
+                f"Name exists beyond {maxIterations} unique iterations!")
+        if item.name.startswith(ogName):
+            possibleNames.append(item.name.rsplit(".", 1)[0])
+
+    i = 0
+    while True:
+        if i >= len(possibleNames):
+            break
+        if renameContext > maxIterations:
+            raise FileExistsError(
+                f"Name exists beyond {maxIterations} unique iterations!")
+        if possibleNames[i] == name:
+            name = f"{ogName}{renameContext}"
+            renameContext += 1
+            i = 0
+        else:
+            i += 1
+    if len(parts) == 2:
+        name += f".{parts[1]}"
+    return name
 
 
 class ProjectAssetType(IntEnum):
@@ -269,6 +304,7 @@ class FileSystemViewer():
     createFolderRequested: SignalInstance = Signal(str)
     copyRequested: SignalInstance = Signal(
         list, list)
+    moveRequested: SignalInstance = Signal(list, ProjectAssetListItem)
     renameRequested: SignalInstance = Signal(ProjectAssetListItem)
     deleteRequested: SignalInstance = Signal(list)
     dropInRequested: SignalInstance = Signal(Path)
@@ -392,6 +428,8 @@ class ProjectFolderViewWidget(InteractiveListWidget, FileSystemViewer):
         self.setViewMode(QListView.IconMode)
         self.setWordWrap(True)
         self.setAcceptDrops(True)
+        self.setDragDropMode(InteractiveListWidget.DragDropMode.DragDrop)
+        self.setDefaultDropAction(Qt.DropAction.CopyAction)
         self.setUniformItemSizes(True)
 
         self.__scenePath: Path = None
@@ -457,6 +495,16 @@ class ProjectFolderViewWidget(InteractiveListWidget, FileSystemViewer):
             return None
         self.renameRequested.emit(item)
         return item
+
+    @Slot(list, result=list)
+    def move_items(self, items: List[ProjectAssetListItem], targetItem: ProjectAssetListItem) -> List[Path]:
+        """
+        Moves the items in the filesystem
+        """
+        if not targetItem.is_folder():
+            return
+
+        self.moveRequested.emit(items, targetItem)
 
     @Slot(list, result=list)
     def duplicate_items(self, items: List[ProjectAssetListItem]) -> List[ProjectAssetListItem]:
@@ -581,24 +629,78 @@ class ProjectFolderViewWidget(InteractiveListWidget, FileSystemViewer):
                 self.scenePath / self.focusedPath / item.text()))
         mime.setUrls(urlList)
         drag.setMimeData(mime)
+
+        # -- ICON -- #
+
+        if supportedActions & Qt.MoveAction:
+            items = self.selectedItems()
+            if len(items) == 0:
+                return
+
+            pixmap = QPixmap(70, 80)
+            pixmap.fill(Qt.transparent)
+
+            #pen = QPen()
+
+            painter = QPainter()
+            painter.begin(pixmap)
+
+            font = painter.font()
+            font.setPointSize(6)
+            font.setBold(True)
+            painter.setFont(font)
+            painter.setPen(Qt.NoPen)
+
+            painter.setBrush(QColor(20, 150, 220, 70))
+            painter.drawRoundedRect(0, 0, 70, 80, 5, 5)
+
+            if len(items) == 1:
+                icon = items[0].icon()
+                iconPixmap = QPixmap(icon.pixmap(icon.actualSize(QSize(64, 64)))).scaled(64, 64)
+                painter.drawPixmap(3, 8, iconPixmap)
+            else:
+                fontMetrics = painter.fontMetrics()
+                textWidth = fontMetrics.boundingRect(str(len(items))).width()
+                painter.setPen(Qt.white)
+                painter.setBrush(QColor(20, 110, 220, 255))
+                painter.drawRect(27, 32, 16, 16)
+                painter.drawText(35 - (textWidth/2), 43, str(len(items)))
+
+            painter.end()
+
+            drag.setPixmap(pixmap)
+            drag.setHotSpot(pixmap.rect().center() + QPoint(0, 20))
+
         drag.exec(supportedActions)
 
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
-        else:
-            event.ignore()
+            return
+        event.ignore()
 
     def dragMoveEvent(self, event: QDragMoveEvent):
+        item: ProjectAssetListItem = self.itemAt(event.pos())
         if event.mimeData().hasUrls():
-            event.acceptProposedAction()
-        else:
-            event.ignore()
+            if item is not None and item.is_folder():
+                if not item.isSelected():
+                    event.acceptProposedAction()
+                    return
+        event.ignore()
 
     def dropEvent(self, event: QDropEvent):
         from juniors_toolbox.gui.application import JuniorsToolbox
         md = event.mimeData()
+        dropAction = event.proposedAction()
         if md.hasUrls():
+            if dropAction == Qt.DropAction.MoveAction:
+                item: ProjectAssetListItem = self.itemAt(event.pos())
+                if item is not None and item.is_folder():
+                    self.move_items(self.selectedItems(), item)
+                    event.accept()
+                else:
+                    event.ignore()
+                return
             app = JuniorsToolbox.get_instance()
             appRect = app.gui.rect()
             for url in md.urls():
@@ -911,6 +1013,7 @@ class ProjectViewerWidget(QWidget, GenericTabWidget):
         self.folderViewWidget.copyRequested.connect(self.copy_items)
         self.folderViewWidget.deleteRequested.connect(self.delete_items)
         self.folderViewWidget.renameRequested.connect(self.rename_item)
+        self.folderViewWidget.moveRequested.connect(self.move_items)
         self.folderViewWidget.dropInRequested.connect(
             self.copy_path_to_focused)
 
@@ -1068,29 +1171,6 @@ class ProjectViewerWidget(QWidget, GenericTabWidget):
 
         oldPath = self.scenePath / previousPath
         newPath = self.scenePath / itemPath
-        """
-        resolvePath = newPath
-        i = 1
-        while resolvePath.exists():  # Failsafe limit = 1000
-            if i > 1000:
-                raise FileExistsError(
-                    "Path exists beyond 1000 unique iterations!")
-            resolvePath = resolvePath.with_name(f"{newPath.name} ({i})")
-            if resolvePath.name == previousPath.name:
-                self.__ignoreItemRename = True
-                item.setText(0, resolvePath.name) if isFsItem else item.setText(
-                    resolvePath.name)
-                self.__ignoreItemRename = False
-                return
-            i += 1
-        newPath = resolvePath
-
-        if i > 1:  # Resolved path
-            self.__ignoreItemRename = True
-            item.setText(0, newPath.name) if isFsItem else item.setText(
-                newPath.name)
-            self.__ignoreItemRename = False
-        """
 
         if oldPath.exists():
             oldPath.rename(newPath)
@@ -1115,6 +1195,69 @@ class ProjectViewerWidget(QWidget, GenericTabWidget):
                     self.fsTreeWidget.sortByColumn(
                         0, Qt.SortOrder.AscendingOrder)
         self.eventHandler.block_future_emit()
+
+    
+    @Slot(list, ProjectHierarchyItem)
+    @Slot(list, ProjectAssetListItem)
+    def move_items(
+        self,
+        items: Union[List[ProjectHierarchyItem], List[ProjectAssetListItem]],
+        targetItem: Union[ProjectHierarchyItem, ProjectAssetListItem]
+    ):
+        if self.__ignoreItemRename:
+            return
+
+        isFsItem = isinstance(targetItem, ProjectHierarchyItem)
+
+        targetItemPath = targetItem.get_relative_path() if isFsItem else self.focusedPath / targetItem.text()
+        role = None
+        isAll = False
+        for item in items:
+            itemPath = item.get_relative_path() if isFsItem else self.focusedPath / item.text()
+            oldPath = self.scenePath / itemPath
+            newPath = self.scenePath / targetItemPath / itemPath.name
+
+            if oldPath.parent == newPath.parent:
+                return
+
+            if oldPath.exists():
+                if newPath.exists():
+                    if isAll is False:
+                        action, role, isAll = self.__show_conflicting_move(oldPath, newPath, len(items) > 1)
+                        if action == QDialog.Rejected:
+                            continue
+                    if role == MoveConflictDialog.ActionRole.REPLACE:
+                        oldPath.replace(newPath)
+                        self.folderViewWidget.takeItem(self.folderViewWidget.row(item))
+                    elif role == MoveConflictDialog.ActionRole.KEEP:
+                        oldPath.rename(
+                            newPath.parent / _fs_resolve_name(
+                                newPath.name,
+                                newPath.parent
+                            )
+                        )
+                        self.folderViewWidget.takeItem(self.folderViewWidget.row(item))
+                    elif role == MoveConflictDialog.ActionRole.SKIP:
+                        pass
+                    else:
+                        pass
+                else:
+                    oldPath.rename(newPath)
+
+            if isFsItem:
+                self.fsTreeWidget.sortByColumn(0, Qt.SortOrder.AscendingOrder)
+            else:
+                self.folderViewWidget.sortItems(Qt.SortOrder.AscendingOrder)
+                if newPath.is_dir():
+                    fsItem = self.fsTreeWidget.get_fs_tree_item(
+                        oldPath.relative_to(self.scenePath))
+                    if fsItem:
+                        self.__ignoreItemRename = True
+                        fsItem.setText(0, newPath.name)
+                        self.__ignoreItemRename = False
+                        self.fsTreeWidget.sortByColumn(
+                            0, Qt.SortOrder.AscendingOrder)
+            self.eventHandler.block_future_emit()
 
     @Slot(list)
     def copy_items(
@@ -1189,3 +1332,7 @@ class ProjectViewerWidget(QWidget, GenericTabWidget):
 
         self.folderViewWidget.takeItem(
             self.folderViewWidget.findItems(name, Qt.MatchFlag.MatchExactly))
+
+    def __show_conflicting_move(self, path: Path, target: Path, isMulti: bool) -> Tuple[QDialog.DialogCode, MoveConflictDialog.ActionRole, bool]:
+        dialog = MoveConflictDialog(path, target, isMulti, self)
+        return dialog.exec(), dialog.actionRole, dialog.allCheckBox.isChecked()

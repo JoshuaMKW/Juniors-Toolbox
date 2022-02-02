@@ -1439,7 +1439,8 @@ class BMGMessageEditor(QWidget, GenericTabWidget):
 
         if self.messageListBox.count() > 0:
             self.messageListBox.setCurrentRow(0)
-            self.messageListWidget.setEnabled(True)
+            
+        self.messageListWidget.setEnabled(True)
 
     @Slot()
     def new_bmg(self):
