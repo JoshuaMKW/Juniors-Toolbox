@@ -1,6 +1,7 @@
 from pathlib import Path
 from tkinter import W
-from typing import Optional
+from typing import Optional, Tuple
+from unittest import skip
 from PySide6.QtCore import (QAbstractItemModel, QDataStream, QEvent, QIODevice,
                             QLine, QMimeData, QModelIndex, QObject, QPoint,
                             QSize, Qt, QThread, QTimer, QUrl, Signal,
@@ -28,11 +29,8 @@ class MoveConflictDialog(QDialog):
         SKIP = 1
         KEEP = 2
 
-    def __init__(self, src: Path, dst: Path, isMulti: bool = False, parent: Optional[QWidget] = None):
+    def __init__(self, isMulti: bool = False, parent: Optional[QWidget] = None):
         super().__init__(parent)
-        self.setWindowTitle(
-            f"Moving \"{src.name}\" from \"./{src.parent.name}\" to \"./{dst.parent.name}\""
-        )
         if isMulti:
             self.setFixedSize(400, 190)
         else:
@@ -45,23 +43,14 @@ class MoveConflictDialog(QDialog):
 
         allCheckBox = QCheckBox("Apply to all")
         allCheckBox.setCheckable(True)
+        allCheckBox.toggled.connect(self.block)
 
-        self.allCheckBox = allCheckBox
-
-        srcType = "folder" if src.is_dir() else "file"
-        dstType = "folder" if src.is_dir() else "file"
-
-        conflictMessage.setText(
-            f"The destination specified already has a {dstType} named \"{src.name}\""
-        )
-        replaceButton = QPushButton(f"Replace the {dstType}")
-        skipButton = QPushButton(f"Skip this {srcType}")
+        replaceButton = QPushButton()
+        skipButton = QPushButton()
         keepButton = QPushButton("Keep both (rename)")
-
         replaceButton.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
         skipButton.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
         keepButton.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
-
         replaceButton.clicked.connect(lambda: self.__accept_role(MoveConflictDialog.ActionRole.REPLACE))
         skipButton.clicked.connect(lambda: self.__accept_role(MoveConflictDialog.ActionRole.SKIP))
         keepButton.clicked.connect(lambda: self.__accept_role(MoveConflictDialog.ActionRole.KEEP))
@@ -73,6 +62,10 @@ class MoveConflictDialog(QDialog):
         choicesBox.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
 
         self.conflictMessage = conflictMessage
+        self.allCheckBox = allCheckBox
+        self.replaceButton = replaceButton
+        self.skipButton = skipButton
+        self.keepButton = keepButton
         self.choicesBox = choicesBox
 
         frame = QFrame()
@@ -85,8 +78,36 @@ class MoveConflictDialog(QDialog):
 
         self.setLayout(layout)
 
-        self.actionRole: QDialogButtonBox.ButtonRole = None
+        self.__actionRole: QDialogButtonBox.ButtonRole = None
+        self.__blocked = False
+
+    def set_paths(self, src: Path, dst: Path):
+        self.setWindowTitle(
+            f"Moving \"{src.name}\" from \"./{src.parent.name}\" to \"./{dst.parent.name}\""
+        )
+
+        srcType = "folder" if src.is_dir() else "file"
+        dstType = "folder" if src.is_dir() else "file"
+
+        self.conflictMessage.setText(
+            f"The destination specified already has a {dstType} named \"{src.name}\""
+        )
+        self.replaceButton.setText(f"Replace the {dstType}")
+        self.skipButton.setText(f"Skip this {srcType}")
+
+
+    def resolve(self) -> Tuple[QDialog.DialogCode, ActionRole]:
+        if not self.__blocked:
+            return self.exec(), self.__actionRole
+        return QDialog.DialogCode.Accepted, self.__actionRole
+
+    @Slot(bool)
+    def block(self, block: bool):
+        self.__blocked = block
+        self.allCheckBox.blockSignals(True)
+        self.allCheckBox.setChecked(block)
+        self.allCheckBox.blockSignals(False)
 
     def __accept_role(self, role: ActionRole):
-        self.actionRole = role
+        self.__actionRole = role
         self.accept()

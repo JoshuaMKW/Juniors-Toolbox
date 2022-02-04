@@ -1,7 +1,9 @@
+import time
+
 from typing import List, Optional, Union
 
-from PySide6.QtCore import QPoint, Qt, Slot, QMimeData
-from PySide6.QtGui import QAction, QKeyEvent, QMouseEvent, QDragMoveEvent, QDragEnterEvent, QDrag, QPixmap, QPainter, QColor, QPen, QFont
+from PySide6.QtCore import QPoint, Qt, Slot, QMimeData, QItemSelectionModel
+from PySide6.QtGui import QAction, QKeyEvent, QMouseEvent, QDragMoveEvent, QDragEnterEvent, QDragLeaveEvent, QDrag, QPixmap, QPainter, QColor, QPen, QFont
 from PySide6.QtWidgets import (QAbstractItemView, QListWidget, QListWidgetItem,
                                QMenu, QWidget, QApplication)
 
@@ -21,7 +23,7 @@ class InteractiveListWidgetItem(QListWidgetItem):
             Qt.ItemIsEditable |
             Qt.ItemIsDragEnabled
         )
-        
+
         self._prevName_ = ""
         self._newItem_ = True
 
@@ -40,6 +42,9 @@ class InteractiveListWidget(QListWidget):
         self.itemChanged.connect(self.rename_item)
         self.itemDoubleClicked.connect(self.__handle_double_click)
         self.customContextMenuRequested.connect(self.custom_context_menu)
+
+        self.__dragHoverItem: InteractiveListWidgetItem = None
+        self.__dragPreSelected = False
 
     def get_context_menu(self, point: QPoint) -> QMenu:
         # Infos about the node selected.
@@ -166,6 +171,47 @@ class InteractiveListWidget(QListWidget):
         item._prevName_ = item.text()
         item._newItem_ = False
 
+    @Slot(QDragEnterEvent)
+    def dragEnterEvent(self, event: QDragEnterEvent):
+        self.setSelectionMode(QListWidget.MultiSelection)
+        self.__dragHoverItem = self.itemAt(event.pos())
+        self.__dragPreSelected = False if self.__dragHoverItem is None else self.__dragHoverItem.isSelected()
+        event.acceptProposedAction()
+
+    @Slot(QDragEnterEvent)
+    def dragMoveEvent(self, event: QDragMoveEvent):
+        item = self.itemAt(event.pos())
+        if item != self.__dragHoverItem:
+            if not self.__dragPreSelected:
+                self.setSelection(
+                    self.visualItemRect(self.__dragHoverItem),
+                    QItemSelectionModel.Deselect
+                )
+            self.__dragHoverItem = item
+            self.__dragPreSelected = False if item is None else item.isSelected()
+
+        if not self.__dragHoverItem in self.selectedItems():
+            self.setSelection(
+                self.visualItemRect(self.__dragHoverItem),
+                QItemSelectionModel.Select
+            )
+
+        event.acceptProposedAction()
+
+    @Slot(QDragLeaveEvent)
+    def dragLeaveEvent(self, event: QDragLeaveEvent):
+        if self.__dragHoverItem is None:
+            event.accept()
+
+        if not self.__dragPreSelected:
+            self.setSelection(
+                self.visualItemRect(self.__dragHoverItem),
+                QItemSelectionModel.Deselect
+            )
+        self.__dragHoverItem = None
+        self.__dragPreSelected = False
+        self.setSelectionMode(QListWidget.SingleSelection)
+
     def mousePressEvent(self, event: QMouseEvent) -> None:
         mouseButton = event.button()
         modifiers = QApplication.keyboardModifiers()
@@ -197,12 +243,33 @@ class InteractiveListWidget(QListWidget):
     def keyReleaseEvent(self, event: QKeyEvent):
         if event.key() == Qt.Key_Delete:
             self.delete_items(self.selectedItems())
+            event.accept()
+            return
+
+        key = event.key()
+        modifiers = QApplication.keyboardModifiers()
+        if modifiers == Qt.ControlModifier:
+            if key == Qt.Key_C:
+                names = [i.text() for i in self.selectedItems()]
+                QApplication.clipboard().setText("__items__\n" + "\n".join(names))
+            elif key == Qt.Key_V:
+                text = QApplication.clipboard().text()
+                names = text.split("\n")
+                if names[0] != "__items__":
+                    return
+                for name in names:
+                    items = self.findItems(name, Qt.MatchExactly)
+                    if len(items) == 0:
+                        continue
+                    self.duplicate_items(items)
+        event.accept()
 
     def __handle_shift_click(self, item: InteractiveListWidgetItem):
         if item is None or item.isSelected():
             return
 
-        selectedIndexes: List[InteractiveListWidgetItem] = self.selectedIndexes()
+        selectedIndexes: List[InteractiveListWidgetItem] = self.selectedIndexes(
+        )
         if len(selectedIndexes) == 0:
             self.setCurrentItem(item)
             return
@@ -219,12 +286,12 @@ class InteractiveListWidget(QListWidget):
             item = self.item(row)
             item.setSelected(row in rows)
 
-
     def __handle_ctrl_click(self, item: InteractiveListWidgetItem):
         if item is None or item.isSelected():
             return
 
-        selectedIndexes: List[InteractiveListWidgetItem] = self.selectedIndexes()
+        selectedIndexes: List[InteractiveListWidgetItem] = self.selectedIndexes(
+        )
         if len(selectedIndexes) == 0:
             self.setCurrentItem(item)
             return
