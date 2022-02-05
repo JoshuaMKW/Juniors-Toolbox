@@ -312,12 +312,13 @@ class FileSystemViewer():
     dropOutRequested: SignalInstance = Signal(object)
 
 
-class ProjectFocusedMenuBar(QMenuBar):
+class ProjectFocusedMenuBar(QMenuBar, FileSystemViewer):
     folderChangeRequested: SignalInstance = Signal(Path)
 
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.setNativeMenuBar(False)
+        self.setAcceptDrops(True)
         # self.setFloatable(False)
 
         self.__scenePath: Path = None
@@ -417,6 +418,38 @@ class ProjectFocusedMenuBar(QMenuBar):
                     expandItem.addAction(action)
 
             curSubPath = curSubPath / part
+
+    def dragEnterEvent(self, event: QDragEnterEvent):
+        if not event.mimeData().hasUrls():
+            event.ignore()
+
+        event.acceptProposedAction()
+
+    def dragMoveEvent(self, event: QDragMoveEvent):
+        if not event.mimeData().hasUrls():
+            event.ignore()
+            return
+            
+        item: ProjectFocusedMenuBarAction = self.actionAt(event.pos())
+        if item is None or item.text() == ">":
+            event.ignore()
+            return
+            
+        event.acceptProposedAction()
+
+    def dropEvent(self, event: QDropEvent):
+        mimeData = event.mimeData()
+        if not mimeData.hasUrls():
+            event.ignore()
+            return
+
+        item: ProjectFocusedMenuBarAction = self.actionAt(event.pos())
+        if item is None:
+            event.ignore()
+
+        dst = self.get_focused_path_to(item, item.text())
+        paths = [Path(url.toLocalFile()) for url in mimeData.urls()]
+        self.moveRequested.emit(paths, dst)
 
 
 class ProjectFolderViewWidget(InteractiveListWidget, FileSystemViewer):
@@ -642,8 +675,6 @@ class ProjectFolderViewWidget(InteractiveListWidget, FileSystemViewer):
             pixmap = QPixmap(70, 80)
             pixmap.fill(Qt.transparent)
 
-            #pen = QPen()
-
             painter = QPainter()
             painter.begin(pixmap)
 
@@ -717,7 +748,7 @@ class ProjectFolderViewWidget(InteractiveListWidget, FileSystemViewer):
             self.dropInRequested.emit(paths)
             event.accept()
         if item is not None and item.is_folder():
-            self.move_items(self.selectedItems(), item)
+            self.move_items(self.__selectedItemsOnDrag, item)
             event.accept()
         else:
             event.ignore()
@@ -744,7 +775,6 @@ class ProjectFolderViewWidget(InteractiveListWidget, FileSystemViewer):
                 mimeData.setUrls(urlList)
                 clipboard.setMimeData(mimeData)
             elif key == Qt.Key_V:
-                text = QApplication.clipboard().text()
                 mimeData = QApplication.clipboard().mimeData()
                 paths = []
                 for url in mimeData.urls():
@@ -1142,6 +1172,8 @@ class ProjectViewerWidget(QWidget, GenericTabWidget):
         self.fsTreeWidget.dropInRequested.connect(
             self.copy_paths_to_focused
         )
+
+        self.focusedViewWidget.moveRequested.connect(self.move_items)
 
         #self.updateTimer = QTimer(self)
         # self.updateTimer.timeout.connect(self.update_tree)

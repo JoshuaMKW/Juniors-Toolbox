@@ -1171,7 +1171,18 @@ class BMGMessageTextBox(QPlainTextEdit):
             cursor.removeSelectedText()
             cursor.setPosition(targetPos, QTextCursor.MoveAnchor)
             cursor.insertText(token + textToWrap + resetToken)
-            cursor.movePosition(QTextCursor.Left, QTextCursor.MoveAnchor, len(textToWrap) + len(resetToken) + 1)
+            cursor.movePosition(QTextCursor.Left, QTextCursor.MoveAnchor, len(textToWrap) + len(resetToken))
+            cursor.select(QTextCursor.SelectionType.WordUnderCursor)
+            self.setTextCursor(cursor)
+        elif "text:slow" in token and abs(end - start) > 1:
+            textToWrap = cursor.selectedText()
+            resetToken = "{speed:0}"
+            targetPos = min(start, end)
+            cursor.removeSelectedText()
+            cursor.setPosition(targetPos, QTextCursor.MoveAnchor)
+            cursor.insertText(token + textToWrap + resetToken)
+            cursor.movePosition(QTextCursor.Left, QTextCursor.MoveAnchor, len(textToWrap) + len(resetToken))
+            cursor.select(QTextCursor.SelectionType.WordUnderCursor)
             self.setTextCursor(cursor)
         else:
             self.insertPlainText(token)

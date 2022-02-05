@@ -3,7 +3,7 @@ import time
 from typing import List, Optional, Union
 
 from PySide6.QtCore import QPoint, Qt, Slot, QMimeData, QItemSelectionModel
-from PySide6.QtGui import QAction, QKeyEvent, QMouseEvent, QDragMoveEvent, QDragEnterEvent, QDragLeaveEvent, QDrag, QPixmap, QPainter, QColor, QPen, QFont
+from PySide6.QtGui import QAction, QKeyEvent, QMouseEvent, QDragMoveEvent, QDragEnterEvent, QDragLeaveEvent, QDropEvent, QDrag, QPixmap, QPainter, QColor, QPen, QFont
 from PySide6.QtWidgets import (QAbstractItemView, QListWidget, QListWidgetItem,
                                QMenu, QWidget, QApplication)
 
@@ -173,9 +173,10 @@ class InteractiveListWidget(QListWidget):
 
     @Slot(QDragEnterEvent)
     def dragEnterEvent(self, event: QDragEnterEvent):
-        self.setSelectionMode(QListWidget.MultiSelection)
+        self.__selectionMode = self.selectionMode()
         self.__dragHoverItem = self.itemAt(event.pos())
         self.__dragPreSelected = False if self.__dragHoverItem is None else self.__dragHoverItem.isSelected()
+        self.setSelectionMode(QListWidget.MultiSelection)
         event.acceptProposedAction()
 
     @Slot(QDragEnterEvent)
@@ -210,7 +211,11 @@ class InteractiveListWidget(QListWidget):
             )
         self.__dragHoverItem = None
         self.__dragPreSelected = False
-        self.setSelectionMode(QListWidget.SingleSelection)
+        self.setSelectionMode(self.__selectionMode)
+
+    @Slot(QDropEvent)
+    def dropEvent(self, event: QDropEvent) -> None:
+        self.setSelectionMode(self.__selectionMode)
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         mouseButton = event.button()
