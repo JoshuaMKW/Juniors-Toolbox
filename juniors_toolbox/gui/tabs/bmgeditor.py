@@ -1160,12 +1160,43 @@ class BMGMessageTextBox(QPlainTextEdit):
 
     @Slot(str)
     def insert_token(self, token: str):
-        self.insertPlainText(token)
+        cursor = self.textCursor()
+        start = cursor.selectionStart()
+        end = cursor.selectionEnd()
+        self.blockSignals(True)
+        if "color" in token and abs(end - start) > 1:
+            textToWrap = cursor.selectedText()
+            resetToken = "{color:white}"
+            targetPos = min(start, end)
+            cursor.removeSelectedText()
+            cursor.setPosition(targetPos, QTextCursor.MoveAnchor)
+            cursor.insertText(token + textToWrap + resetToken)
+            cursor.movePosition(QTextCursor.Left, QTextCursor.MoveAnchor, len(textToWrap) + len(resetToken) + 1)
+            self.setTextCursor(cursor)
+        else:
+            self.insertPlainText(token)
+        self.blockSignals(False)
+        self.textChanged.emit()
 
     @Slot(str)
     def insert_format_token(self, token: str):
-        self.insertPlainText(token)
-        self.moveCursor(QTextCursor.Left, QTextCursor.MoveAnchor)
+        cursor = self.textCursor()
+        start = cursor.selectionStart()
+        end = cursor.selectionEnd()
+        self.blockSignals(True)
+        if "speed" in token and abs(end - start) > 1:
+            textToWrap = cursor.selectedText()
+            targetPos = min(start, end)
+            cursor.removeSelectedText()
+            cursor.setPosition(targetPos, QTextCursor.MoveAnchor)
+            cursor.insertText(token + textToWrap + token)
+            cursor.movePosition(QTextCursor.Left, QTextCursor.MoveAnchor, len(textToWrap) + len(token) + 1)
+            self.setTextCursor(cursor)
+        else:
+            self.insertPlainText(token)
+            self.moveCursor(QTextCursor.Left, QTextCursor.MoveAnchor)
+        self.blockSignals(False)
+        self.textChanged.emit()
 
 
 class BMGMessageMenuBar(QMenuBar):
@@ -1439,7 +1470,7 @@ class BMGMessageEditor(QWidget, GenericTabWidget):
 
         if self.messageListBox.count() > 0:
             self.messageListBox.setCurrentRow(0)
-            
+
         self.messageListWidget.setEnabled(True)
 
     @Slot()
