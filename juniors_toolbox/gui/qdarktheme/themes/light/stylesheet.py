@@ -446,7 +446,7 @@ QComboBox {
     border-radius: 4px;
     min-height: 1.5em;
     padding: 0 4px;
-    background: rgba(255.000, 255.000, 255.000, 0.000);
+    background: #FFFFFF;
 }
 QComboBox:focus,
 QComboBox:open {
@@ -938,12 +938,19 @@ QAbstractSpinBox {
     border: 1px solid #dadce0;
     padding: 3px 4px;
     min-height: 1em;
-    background: rgba(255.000, 255.000, 255.000, 0.000);
+    background: #FFFFFF;
     border-radius: 4px;
 }
 QLineEdit:focus,
 QAbstractSpinBox:focus {
     border: 1px solid #0081db;
+}
+SpinBoxLineEdit {
+    border: 1px solid #dadce0;
+    padding: 0px 0px;
+    min-height: 1em;
+    background: #FFFFFF;
+    border-radius: 4px;
 }
 QAbstractSpinBox::up-button,
 QAbstractSpinBox::down-button {

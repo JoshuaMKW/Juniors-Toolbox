@@ -4,7 +4,7 @@ import time
 
 from typing import List, Optional, Union
 
-from PySide6.QtCore import QLine, QModelIndex, QObject, Qt, QTimer, Signal, SignalInstance
+from PySide6.QtCore import QLine, QModelIndex, QObject, Qt, QTimer, Signal, SignalInstance, Property
 from PySide6.QtGui import QColor, QCursor, QDragEnterEvent, QDropEvent, QKeyEvent, QUndoCommand, QUndoStack, QMouseEvent
 from PySide6.QtWidgets import (QBoxLayout, QFormLayout, QFrame, QGridLayout,
                                QGroupBox, QHBoxLayout, QLabel, QLayout,
@@ -17,6 +17,7 @@ from aenum import IntEnum
 
 class SpinBoxLineEdit(QLineEdit):
     dragOffsetChanged: SignalInstance = Signal(float)
+    borderlessChanged: SignalInstance = Signal(bool)
 
     def __init__(self, isFloat: bool, min: int, max: int, parent: Optional[QWidget] = None):
         super().__init__(parent)
@@ -25,6 +26,7 @@ class SpinBoxLineEdit(QLineEdit):
         self.max = max
         self.__mouseLastPos = None
         self.__mouseLoopCounter = 0
+        self.__borderless = True
         self._startValue = None
 
     def mousePressEvent(self, event: QMouseEvent):
@@ -59,7 +61,6 @@ class SpinBoxLineEdit(QLineEdit):
         yDiff = wPos.y() - ePos.y()
         multiplier = max(pow(1.0 + yDiff / windowSize.height(), 19), minDif / 50)
         valueOffset = self._klass_(ePos.x() - mPos.x()) * multiplier
-        print(yDiff, multiplier, valueOffset)
         if abs(valueOffset) >= minDif:
             self.dragOffsetChanged.emit(valueOffset)
             self.__mouseLastPos = ePos
@@ -73,6 +74,19 @@ class SpinBoxLineEdit(QLineEdit):
 
         super().mouseReleaseEvent(event)
 
+    def is_borderless(self) -> bool:
+        return self.__borderless
+
+    def set_borderless(self, borderless: bool):
+        self.__borderless = borderless
+        self.borderlessChanged.emit(borderless)
+
+    borderless = Property(
+        bool,
+        is_borderless, set_borderless,
+        doc="Makes the Line Edit have no padding",
+        notify=borderlessChanged
+    )
 
 class SpinBoxDragDouble(QDoubleSpinBox):
     valueChangedExplicit: SignalInstance = Signal(QDoubleSpinBox, float)
@@ -84,6 +98,7 @@ class SpinBoxDragDouble(QDoubleSpinBox):
         
         lineEdit = SpinBoxLineEdit(True, 0, 0)
         lineEdit.dragOffsetChanged.connect(self.__update_value)
+        print(lineEdit.metaObject().className())
         lineEdit.setMouseTracking(False)
         lineEdit.setDragEnabled(True)
         self.__lineEdit = lineEdit

@@ -1,5 +1,5 @@
 from PySide6.QtCore import QPoint, QPointF, Signal
-from PySide6.QtGui import QColor, QMouseEvent, QPaintEvent, QPainter, QPolygonF
+from PySide6.QtGui import QColor, QMouseEvent, QPaintEvent, QPainter, QPolygonF, QPalette
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 class FrameLayout(QFrame):
@@ -53,9 +53,9 @@ class FrameLayout(QFrame):
         def __init__(self, parent=None, title="", collapsed=False):
             super().__init__(parent)
 
+            self.setFrameShape(QFrame.Shape.Box)
             self.setMinimumHeight(24)
             self.move(QPoint(24, 0))
-            self.setStyleSheet("border:1px solid rgb(41, 41, 41); ")
 
             self._hlayout = QHBoxLayout(self)
             self._hlayout.setContentsMargins(0, 0, 0, 0)
@@ -80,6 +80,9 @@ class FrameLayout(QFrame):
             self._title.setStyleSheet("border:0px")
 
             return self._title
+
+        def paintEvent(self, event: QPaintEvent):
+            super().paintEvent(event)
 
         def mousePressEvent(self, event: QMouseEvent):
             self.clicked.emit(event)

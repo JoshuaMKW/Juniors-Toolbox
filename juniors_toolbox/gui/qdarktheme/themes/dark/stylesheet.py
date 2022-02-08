@@ -945,6 +945,13 @@ QLineEdit:focus,
 QAbstractSpinBox:focus {
     border: 1px solid #8ab4f7;
 }
+SpinBoxLineEdit {
+    border: 1px solid #dadce0;
+    padding: 0px 0px;
+    min-height: 1em;
+    background: #424348;
+    border-radius: 4px;
+}
 QAbstractSpinBox::up-button,
 QAbstractSpinBox::down-button {
     subcontrol-origin: border;
