@@ -99,6 +99,13 @@ class JuniorsToolbox(QApplication):
     def get_instance() -> "JuniorsToolbox":
         return JuniorsToolbox.__singleton
 
+    @staticmethod
+    def get_instance_size() -> QSize:
+        if JuniorsToolbox.__singleton:
+            return JuniorsToolbox.__singleton.gui.size()
+        else:
+            return None
+
     @property
     def scene(self) -> SMSScene:
         return self.__scene

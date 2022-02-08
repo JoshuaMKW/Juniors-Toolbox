@@ -1,25 +1,25 @@
+from multiprocessing.dummy import Value
 from os import walk
 from pathlib import Path
 from threading import Event
 from typing import Any, Dict, List, Tuple, Union
 from queue import LifoQueue
 
-from PySide6.QtCore import QLine, QModelIndex, QObject, Qt, QTimer
-from PySide6.QtGui import QColor, QCursor, QDragEnterEvent, QDropEvent, QKeyEvent, QUndoCommand, QUndoStack
-from PySide6.QtWidgets import (QBoxLayout, QFormLayout, QFrame, QGridLayout,
-                               QGroupBox, QHBoxLayout, QLabel, QLayout,
-                               QLineEdit, QListWidget, QPushButton,
-                               QScrollArea, QSizePolicy, QSpacerItem, QStyle,
-                               QTreeWidget, QTreeWidgetItem,
-                               QVBoxLayout, QWidget)
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QDragEnterEvent, QDropEvent, QKeyEvent, QUndoCommand, QUndoStack
+from PySide6.QtWidgets import (QFormLayout, QFrame, QGridLayout,
+                               QLabel, QScrollArea,
+                               QTreeWidget, QTreeWidgetItem, QWidget)
+from pyparsing import line
 from juniors_toolbox.gui.layouts.entrylayout import EntryLayout
 from juniors_toolbox.gui.layouts.framelayout import FrameLayout
 from juniors_toolbox.gui.tabs.generic import GenericTabWidget
 from juniors_toolbox.gui.tools import clear_layout, walk_layout
 from juniors_toolbox.gui.widgets.colorbutton import ColorButton
 from juniors_toolbox.gui.widgets.explicitlineedit import ExplicitLineEdit
+from juniors_toolbox.gui.widgets.spinboxdrag import SpinBoxDragDouble, SpinBoxDragInt
 from juniors_toolbox.objects.object import GameObject
-from juniors_toolbox.objects.template import ObjectAttribute
+from juniors_toolbox.objects.template import AttributeType, ObjectAttribute
 from juniors_toolbox.utils.types import RGB32, RGB8, RGBA8, Vec3f
 from juniors_toolbox.scene import SMSScene
 
@@ -184,12 +184,12 @@ class ObjectPropertiesWidget(QScrollArea, GenericTabWidget):
 
         def inner_struct_populate(
             parent: QGridLayout,
-            attribute: Tuple[str, Union[int, float, str, bytes, RGBA8, RGB8, RGB32, Vec3f]],
+            attribute: GameObject.Value,
             nestedDepth: int = 0,
             readOnly: bool = False
         ):
             nonlocal row
-            scopeNames = attribute[0].split(".")
+            scopeNames = attribute.name.split(".")
             parentScopes = scopeNames[:nestedDepth]
             thisScope = scopeNames[nestedDepth]
             childScopes = scopeNames[nestedDepth+1:]
@@ -205,7 +205,7 @@ class ObjectPropertiesWidget(QScrollArea, GenericTabWidget):
                 layout = container.layout()
                 layout.setContentsMargins(0, 0, 0, 10)
                 inner_struct_populate(
-                    layout, [attribute[0], attribute[1]], nestedDepth+1)
+                    layout, GameObject.Value(attribute.name, attribute.value, attribute.type), nestedDepth+1)
                 if firstPass:
                     child = FrameLayout(title=thisScope)
                     child.addWidget(container)
@@ -218,12 +218,12 @@ class ObjectPropertiesWidget(QScrollArea, GenericTabWidget):
                     row += 1
                 return
 
-            if isinstance(attribute[1], RGBA8):
+            if isinstance(attribute.value, RGBA8):
                 layout = QFormLayout()
-                label = QLabel(attribute[0].split(".")[-1])
+                label = QLabel(attribute.name.split(".")[-1])
                 label.setFixedWidth(100 - (indentWidth * nestedDepth))
-                colorbutton = ColorButton("", color=attribute[1])
-                colorbutton.setColor(attribute[1])
+                colorbutton = ColorButton("", color=attribute.value)
+                colorbutton.setColor(attribute.value)
                 colorbutton.setFrameStyle(QFrame.Box)
                 colorbutton.setMinimumHeight(20)
                 colorbutton.setObjectName(qualname)
@@ -231,7 +231,7 @@ class ObjectPropertiesWidget(QScrollArea, GenericTabWidget):
                 container = EntryLayout(
                     thisScope,
                     colorbutton,
-                    Vec3f,
+                    RGBA8,
                     [],
                     labelWidth=100 - (indentWidth * nestedDepth),
                     minEntryWidth=180 + (indentWidth * nestedDepth)
@@ -239,7 +239,7 @@ class ObjectPropertiesWidget(QScrollArea, GenericTabWidget):
                 layout.addRow(container)
                 parent.addLayout(layout, row, 0, 1, 1)
                 row += 1
-            elif isinstance(attribute[1], Vec3f):
+            elif isinstance(attribute.value, Vec3f):
                 layout = QFormLayout()
                 widget = QWidget()
                 containerLayout = QGridLayout()
@@ -255,16 +255,15 @@ class ObjectPropertiesWidget(QScrollArea, GenericTabWidget):
                     minEntryWidth=260  # + (indentWidth * nestedDepth)
                 )
                 container.setObjectName(qualname)
-                for i, component in enumerate(attribute[1]):
+                for i, component in enumerate(attribute.value):
                     axis = "XYZ"[i]
-                    lineEdit = ExplicitLineEdit(
-                        f"{attribute[0]}.{axis}", ExplicitLineEdit.FilterKind.FLOAT)
-                    lineEdit.setMinimumWidth(20)
-                    lineEdit.setText(str(component))
-                    lineEdit.setCursorPosition(0)
+                    spinBox = SpinBoxDragDouble(isFloat=True)
+                    spinBox.setObjectName(f"{attribute.name}.{axis}")
+                    spinBox.setMinimumWidth(20)
+                    spinBox.setValue(component)
                     entry = EntryLayout(
                         axis,
-                        lineEdit,
+                        spinBox,
                         float,
                         [],
                         labelWidth=14,
@@ -272,11 +271,12 @@ class ObjectPropertiesWidget(QScrollArea, GenericTabWidget):
                         labelFixed=True
                     )
                     entry.entryModified.connect(self.updateObjectValue)
-                    lineEdit.textChangedNamed.connect(
-                        container.updateFromChild)
+                    spinBox.valueChangedExplicit.connect(
+                        container.updateFromChild
+                    )
                     containerLayout.addLayout(entry, 0, i, 1, 1)
                     containerLayout.setColumnStretch(i, 0)
-                    container.addDirectChild(lineEdit)
+                    container.addDirectChild(spinBox)
                 container.entryModified.connect(self.updateObjectValue)
                 widget.setLayout(containerLayout)
                 layout.addRow(container)
@@ -284,30 +284,55 @@ class ObjectPropertiesWidget(QScrollArea, GenericTabWidget):
                 row += 1
             else:
                 layout = QFormLayout()
-                layout.setObjectName("EntryForm " + attribute[0])
-                lineEdit = ExplicitLineEdit(
-                    attribute[0], ExplicitLineEdit.FilterKind.type_to_filter(attribute[1].__class__))
-                lineEdit.setText(str(attribute[1]))
-                lineEdit.setCursorPosition(0)
-                lineEdit.setEnabled(not readOnly)
-                entry = EntryLayout(
-                    thisScope,
-                    lineEdit,
-                    attribute[1].__class__,
-                    [lineEdit],
-                    labelWidth=100 - (indentWidth * nestedDepth),
-                    minEntryWidth=180 + (indentWidth * nestedDepth)
-                )
+                layout.setObjectName("EntryForm " + attribute.name)
+                if isinstance(attribute.value, str):
+                    lineEdit = ExplicitLineEdit(attribute.name, ExplicitLineEdit.FilterKind.STR)
+                    lineEdit.setText(attribute.value)
+                    lineEdit.setCursorPosition(0)
+                    lineEdit.setEnabled(not readOnly)
+                    entry = EntryLayout(
+                        thisScope,
+                        lineEdit,
+                        attribute.type.to_type(),
+                        [lineEdit],
+                        labelWidth=100 - (indentWidth * nestedDepth),
+                        minEntryWidth=180 + (indentWidth * nestedDepth)
+                    )
+                    lineEdit.textChangedNamed.connect(entry.updateFromChild)
+                else:
+                    if isinstance(attribute.value, float):
+                        lineEdit = SpinBoxDragDouble(isFloat=True)
+                        lineEdit.setObjectName(attribute.name)
+                        lineEdit.setMinimumWidth(20)
+                        lineEdit.setValue(attribute.value)
+                    else:
+                        lineEdit = SpinBoxDragInt(
+                            intSize=SpinBoxDragInt.IntSize(attribute.type.get_size()),
+                            signed=attribute.type.is_signed()
+                        )
+                        lineEdit.setObjectName(attribute.name)
+                        lineEdit.setMinimumWidth(20)
+                        lineEdit.setValue(attribute.value)
+                    entry = EntryLayout(
+                        thisScope,
+                        lineEdit,
+                        attribute.type.to_type(),
+                        [lineEdit],
+                        labelWidth=100 - (indentWidth * nestedDepth),
+                        minEntryWidth=180 + (indentWidth * nestedDepth)
+                    )
+                    lineEdit.valueChangedExplicit.connect(entry.updateFromChild)
+                    
+
                 entry.setObjectName(qualname)
                 entry.entryModified.connect(self.updateObjectValue)
-                lineEdit.textChangedNamed.connect(entry.updateFromChild)
                 layout.addRow(entry)
                 parent.addLayout(layout, row, 0, 1, 1)
                 row += 1
 
         for attr in data.iter_values():
             inner_struct_populate(self.gridLayout, attr,
-                                  readOnly=data.is_group() and attr[0] == "Grouped")
+                                  readOnly=data.is_group() and attr.name == "Grouped")
 
         for i in range(row):
             self.gridLayout.setRowStretch(i, 0)

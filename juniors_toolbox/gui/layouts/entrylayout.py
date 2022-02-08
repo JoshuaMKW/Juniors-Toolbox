@@ -144,7 +144,7 @@ class EntryLayout(QGridLayout):
             self.addWidget(self.entryWidget, 0, 1, 1, 1)
             self.newLineActive = False
 
-    def updateFromChild(self, child: QLineEdit):
+    def updateFromChild(self, child: QWidget, value: object):
         if issubclass(self.entryKind, Vec3f):
             try:
                 vec = Vec3f(*[float(c.text()) for c in self.directChildren])
@@ -152,5 +152,5 @@ class EntryLayout(QGridLayout):
             except ValueError:
                 return
         else:
-            self.entryModified.emit(self.objectName(), self.entryKind(child.text()))
+            self.entryModified.emit(self.objectName(), self.entryKind(value))
         

@@ -1,4 +1,6 @@
+from dataclasses import dataclass
 from io import BytesIO
+from pipes import Template
 from struct import Struct
 from typing import Any, BinaryIO, Iterable, List, Optional, TextIO, Tuple, Union
 
@@ -29,6 +31,11 @@ class GameObject(Serializable):
     """
     Class describing a generic game object
     """
+    @dataclass
+    class Value():
+        name: str
+        value: object
+        type: AttributeType
 
     def __init__(self):
         self.name = jdrama.NameRef("(null)")
@@ -38,7 +45,7 @@ class GameObject(Serializable):
         self._grouped: List[GameObject] = []
 
         self._template = ObjectTemplate()
-        self._values = []
+        self._values: List[GameObject.Value] = []
 
     @classmethod
     def from_bytes(cls, data: BinaryIO, *args, **kwargs):
@@ -99,6 +106,7 @@ class GameObject(Serializable):
                                 attrdata["index"],
                                 attrdata['name'],
                                 attrdata["value"],
+                                attrdata["type"],
                                 attrdata["comment"]
                             )
 
@@ -107,12 +115,13 @@ class GameObject(Serializable):
                         "index": -1,
                         "name": f"{nestedNamePrefix}{name}",
                         "value": attr.read_from(data),
+                        "type": attr.type,
                         "comment": attr.comment
                     })
 
             isStruct = attr.is_struct()
             if attr.is_count_referenced():
-                count = thisObj.get_value(attr.countRef.name)
+                count = thisObj.get_value(attr.countRef.name).value
             else:
                 count = attr.countRef
 
@@ -128,8 +137,6 @@ class GameObject(Serializable):
             for i in range(count):
                 if data.tell() >= objEndPos:
                     break
-                if thisObj.name == "MapObjFlag":
-                    ...
                 construct(i)
             return instances
 
@@ -139,12 +146,13 @@ class GameObject(Serializable):
                     attrdata["index"],
                     attrdata["name"],
                     attrdata["value"],
+                    attrdata["type"],
                     attrdata["comment"]
                 )
 
         groupNum = thisObj.get_value("Grouped")
         if nameHash in KNOWN_GROUP_HASHES and groupNum is not None:
-            for _ in range(groupNum):
+            for _ in range(groupNum.value):
                 thisObj.add_to_group(GameObject.from_bytes(data))
 
         thisObj._parent = None
@@ -211,7 +219,7 @@ class GameObject(Serializable):
         if not any([attrname == a.name for a in self._template.iter_attributes()]):
             return False
 
-        return any(attrname == v[0] for v in self._values)
+        return any(attrname == v.name for v in self._values)
 
     def is_group(self) -> bool:
         """
@@ -219,9 +227,9 @@ class GameObject(Serializable):
         """
         return hash(self.name) in KNOWN_GROUP_HASHES  # and self.is_value("Grouped")
 
-    def get_value(self, attrname: str) -> Union[int, float, str, bytes, RGBA8, RGB8, RGB32, Vec3f]:
+    def get_value(self, attrname: str) -> Value:
         """
-        Get a value by name from this object
+        Get a `Value` by name from this object
         """
         attrname = attrname.strip()
 
@@ -229,18 +237,18 @@ class GameObject(Serializable):
             return None
 
         for value in self._values:
-            if value[0] == attrname:
-                return value[1]
+            if value.name == attrname:
+                return value
 
-    def get_value_pair_by_index(self, index: int) -> Tuple[str, Union[int, float, str, bytes, RGBA8, RGB8, RGB32, Vec3f]]:
+    def get_value_by_index(self, index: int) -> Value:
         """
-        Return a tuple containing the name and value at the specified index
+        Return a `Value` at the specified index
         """
         return self._values[index]
 
-    def set_value(self, attrname: str, value: Union[int, float, str, bytes, RGBA8, RGB8, RGB32, Vec3f]) -> bool:
+    def set_value(self, attrname: str, value: object) -> bool:
         """
-        Set a value by name if it exists in this object
+        Set a `Value` by name if it exists in this object
 
         Returns `True` if successful
         """
@@ -251,21 +259,27 @@ class GameObject(Serializable):
             return False
 
         for val in self._values:
-            if val[0] == attrname:
-                if isinstance(val[1], Vec3f):
-                    val[1] = value
+            if val.name == attrname:
+                klass = val.type.to_type()
+                if issubclass(klass, Vec3f):
+                    val.value = value
                 else:
-                    val[1] = val[1].__class__(value)
+                    val.value = klass(value)
                 return True
         return False
 
-    def set_value_by_index(self, index: int, value: Union[int, float, str, bytes, RGBA8, RGB8, RGB32, Vec3f]):
+    def set_value_by_index(self, index: int, value: object):
         """
         Set a value by index if it exists in this object
         """
-        self._values[index][1] = value
+        val = self._values[index]
+        klass = val.type.to_type()
+        if issubclass(klass, Vec3f):
+            val.value = value
+        else:
+            val.value = klass(value)
 
-    def create_value(self, index: int, attrname: str, value: Union[int, float, str, bytes, RGBA8, RGB8, RGB32, Vec3f], comment: str = "", strict: bool = False) -> bool:
+    def create_value(self, index: int, attrname: str, value: object, type: AttributeType, comment: str = "", strict: bool = False) -> bool:
         """
         Create a named value for this object if it doesn't exist
 
@@ -287,7 +301,7 @@ class GameObject(Serializable):
                 return False
         else:
             i = 0
-            while any([a[0] == easyname.strip() for a in self._values]):
+            while any([a.name == easyname.strip() for a in self._values]):
                 i += 1
                 isVeryUnique = False
                 easyname = f"{attrname}{i}"
@@ -299,8 +313,7 @@ class GameObject(Serializable):
                 scopedNames = attrname.split(".")
                 nestingDepth = len(scopedNames)
                 nestingDepth = 1 # FIXME: fix scoping lookup issue
-                attribute = ObjectAttribute(
-                    attrname, AttributeType.type_to_enum(value.__class__), comment)
+                attribute = ObjectAttribute(attrname, type, comment)
                 if nestingDepth == 1:
                     self._template.add_attribute(attribute, index)
                 else:
@@ -322,19 +335,19 @@ class GameObject(Serializable):
                 return False
 
         for val in self._values:
-            if val[0] == attrname:
-                val[1] = value
+            if val.name == attrname:
+                val.value = value
                 return True
 
         if index != -1:
-            self._values.insert(index, [attrname, value])
+            self._values.insert(index, GameObject.Value(attrname, value, type))
         else:
-            self._values.append([attrname, value])
+            self._values.append(GameObject.Value(attrname, value, type))
         return True
 
-    def iter_values(self) -> Iterable[Tuple[str, Union[int, float, str, bytes, RGBA8, RGB8, RGB32, Vec3f]]]:
+    def iter_values(self) -> Iterable[Value]:
         """
-        Yield all of this object's values
+        Yield all of this object's `Value`s
         """
         for v in self._values:
             yield v

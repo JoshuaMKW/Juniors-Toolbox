@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from io import BytesIO
 from pathlib import Path
+from pickle import FALSE
 from typing import (BinaryIO, Dict, Iterable, Iterator, List, TextIO, Tuple,
                     Union)
 
@@ -49,58 +50,6 @@ class AttributeType(str, Enum):
     COMMENT = "COMMENT"
     TEMPLATE = "TEMPLATE"
 
-    __ENUM_TO_TYPE_TABLE = {
-        BOOL: bool,
-        BYTE: int,
-        CHAR: int,
-        S8: int,
-        U8: int,
-        S16: int,
-        U16: int,
-        S32: int,
-        INT: int,
-        U32: int,
-        F32: float,
-        FLOAT: float,
-        F64: float,
-        DOUBLE: float,
-        STR: str,
-        STRING: str,
-        C_RGB8: RGB8,
-        C_RGBA8: RGBA8,
-        C_RGB32: RGB8,
-        C_RGBA: RGBA8,
-        VECTOR3: Vec3f,
-        COMMENT: str,
-        TEMPLATE: None
-    }
-
-    __ENUM_TO_SIZE_TABLE = {
-        BOOL: 1,
-        BYTE: 1,
-        CHAR: 1,
-        S8: 1,
-        U8: 1,
-        S16: 2,
-        U16: 2,
-        S32: 4,
-        INT: 4,
-        U32: 4,
-        F32: 4,
-        FLOAT: 4,
-        F64: 8,
-        DOUBLE: 8,
-        STR: None,
-        STRING: None,
-        C_RGB8: 3,
-        C_RGBA8: 4,
-        C_RGB32: 12,
-        C_RGBA: 4,
-        VECTOR3: 12,
-        COMMENT: None,
-        TEMPLATE: None
-    }
-
     @staticmethod
     def type_to_enum(_ty: type):
         """
@@ -108,17 +57,23 @@ class AttributeType(str, Enum):
         """
         return AttributeType(_ty.__name__.upper())
 
-    def enum_to_type(self) -> type:
+    def to_type(self) -> type:
         """
         Convert this to a type
         """
-        return self.__ENUM_TO_TYPE_TABLE[self]
+        return _ENUM_TO_TYPE_TABLE[self]
+
+    def is_signed(self) -> bool:
+        """
+        Return if the type is signed
+        """
+        return _ENUM_TO_SIGNED_TABLE[self]
 
     def get_size(self) -> int:
         """
         Return the physical size of the data type
         """
-        return self.__ENUM_TO_SIZE_TABLE[self]
+        return _ENUM_TO_SIZE_TABLE[self.name]
 
 
 def __read_bin_string(f: BinaryIO) -> str:
@@ -132,6 +87,85 @@ def __write_bin_string(f: BinaryIO, val: str):
     raw = val.encode()
     write_uint16(f, len(raw))
     f.write(raw)
+
+
+_ENUM_TO_TYPE_TABLE = {
+    AttributeType.BOOL: bool,
+    AttributeType.BYTE: int,
+    AttributeType.CHAR: int,
+    AttributeType.S8: int,
+    AttributeType.U8: int,
+    AttributeType.S16: int,
+    AttributeType.U16: int,
+    AttributeType.S32: int,
+    AttributeType.INT: int,
+    AttributeType.U32: int,
+    AttributeType.F32: float,
+    AttributeType.FLOAT: float,
+    AttributeType.F64: float,
+    AttributeType.DOUBLE: float,
+    AttributeType.STR: str,
+    AttributeType.STRING: str,
+    AttributeType.C_RGB8: RGB8,
+    AttributeType.C_RGBA8: RGBA8,
+    AttributeType.C_RGB32: RGB8,
+    AttributeType.C_RGBA: RGBA8,
+    AttributeType.VECTOR3: Vec3f,
+    AttributeType.COMMENT: str,
+    AttributeType.TEMPLATE: None
+}
+
+_ENUM_TO_SIZE_TABLE = {
+    AttributeType.BOOL: 1,
+    AttributeType.BYTE: 1,
+    AttributeType.CHAR: 1,
+    AttributeType.S8: 1,
+    AttributeType.U8: 1,
+    AttributeType.S16: 2,
+    AttributeType.U16: 2,
+    AttributeType.S32: 4,
+    AttributeType.INT: 4,
+    AttributeType.U32: 4,
+    AttributeType.F32: 4,
+    AttributeType.FLOAT: 4,
+    AttributeType.F64: 8,
+    AttributeType.DOUBLE: 8,
+    AttributeType.STR: None,
+    AttributeType.STRING: None,
+    AttributeType.C_RGB8: 3,
+    AttributeType.C_RGBA8: 4,
+    AttributeType.C_RGB32: 12,
+    AttributeType.C_RGBA: 4,
+    AttributeType.VECTOR3: 12,
+    AttributeType.COMMENT: None,
+    AttributeType.TEMPLATE: None
+}
+
+_ENUM_TO_SIGNED_TABLE = {
+    AttributeType.BOOL: False,
+    AttributeType.BYTE: True,
+    AttributeType.CHAR: True,
+    AttributeType.S8: True,
+    AttributeType.U8: False,
+    AttributeType.S16: True,
+    AttributeType.U16: False,
+    AttributeType.S32: True,
+    AttributeType.INT: True,
+    AttributeType.U32: False,
+    AttributeType.F32: False,
+    AttributeType.FLOAT: False,
+    AttributeType.F64: False,
+    AttributeType.DOUBLE: False,
+    AttributeType.STR: False,
+    AttributeType.STRING: False,
+    AttributeType.C_RGB8: False,
+    AttributeType.C_RGBA8: False,
+    AttributeType.C_RGB32: False,
+    AttributeType.C_RGBA: False,
+    AttributeType.VECTOR3: False,
+    AttributeType.COMMENT: False,
+    AttributeType.TEMPLATE: False
+}
 
 
 TEMPLATE_TYPE_READ_TABLE = {
@@ -278,7 +312,7 @@ class ObjectAttribute():
             return sum([a.get_size() for a in self._subattrs])
         return self.type.get_size()
 
-    def read_from(self, f: BinaryIO) -> Union[int, float, str, bytes, RGBA8, RGB8, RGB32, Vec3f]:
+    def read_from(self, f: BinaryIO) -> object:
         """
         Read data from a stream following the map of this template attribute
         """
@@ -286,7 +320,7 @@ class ObjectAttribute():
             return [attr.read_from(f) for attr in self.iter_attributes()]
         return TEMPLATE_TYPE_READ_TABLE[self.type](f)
 
-    def write_to(self, f: BinaryIO, data: Union[int, float, str, bytes, RGBA8, RGB8, RGB32, Vec3f]):
+    def write_to(self, f: BinaryIO, data: object):
         """
         Write data to a stream following the map of this template attribute
         """

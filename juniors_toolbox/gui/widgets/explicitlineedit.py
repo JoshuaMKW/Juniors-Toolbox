@@ -1,10 +1,10 @@
 from enum import Enum
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Signal, SignalInstance
 from PySide6.QtGui import QDoubleValidator, QIntValidator
 from PySide6.QtWidgets import QLineEdit
 
 class ExplicitLineEdit(QLineEdit):
-    textChangedNamed = Signal(QLineEdit)
+    textChangedNamed: SignalInstance = Signal(QLineEdit, str)
 
     class FilterKind(Enum):
         STR = None
@@ -22,4 +22,4 @@ class ExplicitLineEdit(QLineEdit):
         self.textChanged.connect(self._catch_and_name_text)
 
     def _catch_and_name_text(self, text: str):
-        self.textChangedNamed.emit(self)
+        self.textChangedNamed.emit(self, text)

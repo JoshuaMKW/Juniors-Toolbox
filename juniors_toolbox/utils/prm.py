@@ -17,7 +17,7 @@ class PrmEntry():
     __valueLen: int
     __value: object
 
-    def __init__(self, key: NameRef, value: Any, valueLen: int):
+    def __init__(self, key: NameRef, value: object, valueLen: int):
         self.__key = str(key)
         self.__keyCode = hash(key)
         self.__keyLen = len(key)
@@ -98,11 +98,11 @@ class PrmEntry():
         return self.__keyLen
 
     @property
-    def value(self) -> Any:
+    def value(self) -> object:
         return self.__value
 
     @value.setter
-    def value(self, v: Any):
+    def value(self, v: object):
         self.__value = v
         if isinstance(v, int):
             self.__valueLen = 4

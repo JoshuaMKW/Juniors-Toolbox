@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Union
+from typing import Optional, Union
 
 from juniors_toolbox.gui.tabs.generic import GenericTabWidget
 from juniors_toolbox.gui.widgets.interactivelist import (
@@ -35,6 +35,12 @@ class RailNodeListWidgetItem(QListWidgetItem):
 
 
 class RailListWidget(InteractiveListWidget):
+    def __init__(self, parent: Optional[QWidget] = None):
+        super().__init__(parent)
+        self.setAcceptDrops(False)
+        self.setDragDropMode(InteractiveListWidget.DragDropMode.InternalMove)
+        #self.setDefaultDropAction(Qt.MoveAction)
+
     @Slot(RailListWidgetItem)
     def rename_item(self, item: RailListWidgetItem):
         name = super().rename_item(item)

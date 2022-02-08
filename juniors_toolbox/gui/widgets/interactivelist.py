@@ -43,6 +43,7 @@ class InteractiveListWidget(QListWidget):
         self.itemDoubleClicked.connect(self.__handle_double_click)
         self.customContextMenuRequested.connect(self.custom_context_menu)
 
+        self.__selectedItems: List[InteractiveListWidgetItem] = []
         self.__dragHoverItem: InteractiveListWidgetItem = None
         self.__dragPreSelected = False
 
@@ -171,9 +172,15 @@ class InteractiveListWidget(QListWidget):
         item._prevName_ = item.text()
         item._newItem_ = False
 
+    @Slot(Qt.DropActions)
+    def startDrag(self, supportedActions: Qt.DropActions):
+        self.__selectedItems = self.selectedItems()
+        return super().startDrag(supportedActions)
+
     @Slot(QDragEnterEvent)
     def dragEnterEvent(self, event: QDragEnterEvent):
         self.__selectionMode = self.selectionMode()
+        self.__selectedItems = self.selectedItems()
         self.__dragHoverItem = self.itemAt(event.pos())
         self.__dragPreSelected = False if self.__dragHoverItem is None else self.__dragHoverItem.isSelected()
         self.setSelectionMode(QListWidget.MultiSelection)
@@ -191,11 +198,14 @@ class InteractiveListWidget(QListWidget):
             self.__dragHoverItem = item
             self.__dragPreSelected = False if item is None else item.isSelected()
 
-        if not self.__dragHoverItem in self.selectedItems():
+        if not self.__dragHoverItem in self.__selectedItems:
             self.setSelection(
                 self.visualItemRect(self.__dragHoverItem),
                 QItemSelectionModel.Select
             )
+        else:
+            event.ignore()
+            return
 
         event.acceptProposedAction()
 
@@ -212,10 +222,16 @@ class InteractiveListWidget(QListWidget):
         self.__dragHoverItem = None
         self.__dragPreSelected = False
         self.setSelectionMode(self.__selectionMode)
+        event.accept()
 
     @Slot(QDropEvent)
     def dropEvent(self, event: QDropEvent) -> None:
+        if self.__dragHoverItem and not self.__dragPreSelected:
+            self.__dragHoverItem.setSelected(False)
+        self.__dragHoverItem = None
+        self.__dragPreSelected = False
         self.setSelectionMode(self.__selectionMode)
+        super().dropEvent(event)
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         mouseButton = event.button()
