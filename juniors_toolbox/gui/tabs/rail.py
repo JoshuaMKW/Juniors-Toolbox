@@ -1,23 +1,20 @@
 from pathlib import Path
 from typing import Optional, Union
 
+from pip import List
+from juniors_toolbox.gui.layouts.framelayout import FrameLayout
+
 from juniors_toolbox.gui.tabs.generic import GenericTabWidget
 from juniors_toolbox.gui.widgets.interactivelist import (
     InteractiveListWidget, InteractiveListWidgetItem)
+from juniors_toolbox.objects.object import GameObject
+from juniors_toolbox.objects.template import AttributeType
 from juniors_toolbox.rail import Rail, RailKeyFrame
 from juniors_toolbox.scene import SMSScene
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import QGridLayout, QListWidget, QSplitter, QWidget, QListWidgetItem
 
-
-class RailListWidgetItem(InteractiveListWidgetItem):
-    def __init__(self, item: Union["RailListWidgetItem", str], rail: Rail):
-        super().__init__(item)
-        self.rail = rail
-
-    def clone(self) -> "RailListWidgetItem":
-        item = RailListWidgetItem(self, self.rail.copy())
-        return item
+from juniors_toolbox.utils.types import Vec3f
 
 
 class RailNodeListWidgetItem(QListWidgetItem):
@@ -34,6 +31,34 @@ class RailNodeListWidgetItem(QListWidgetItem):
         return item
 
 
+class RailListWidgetItem(InteractiveListWidgetItem):
+    def __init__(self, item: Union["RailListWidgetItem", str], rail: Rail):
+        super().__init__(item)
+        self.rail = rail
+
+    def clone(self) -> "RailListWidgetItem":
+        item = RailListWidgetItem(self, self.rail.copy())
+        return item
+
+
+class RailNodeListWidget(InteractiveListWidget):
+    def __init__(self, parent: Optional[QWidget] = None):
+        super().__init__(parent)
+        self.setAcceptDrops(False)
+        self.setDragDropMode(InteractiveListWidget.DragDropMode.InternalMove)
+        #self.setDefaultDropAction(Qt.MoveAction)
+
+    @Slot(RailNodeListWidgetItem)
+    def rename_item(self, item: RailNodeListWidgetItem):
+        name = super().rename_item(item)
+        item.node.name = name
+
+    @Slot(RailNodeListWidgetItem)
+    def duplicate_items(self, items: List[RailNodeListWidgetItem]):
+        nitem = super().duplicate_items(items)
+        nitem.node.name = nitem.text()
+
+
 class RailListWidget(InteractiveListWidget):
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
@@ -47,8 +72,8 @@ class RailListWidget(InteractiveListWidget):
         item.rail.name = name
 
     @Slot(RailListWidgetItem)
-    def duplicate_item(self, item: RailListWidgetItem):
-        nitem = super().duplicate_item(item)
+    def duplicate_items(self, items: List[RailListWidgetItem]):
+        nitem = super().duplicate_items(items)
         nitem.rail.name = nitem.text()
 
 
@@ -64,7 +89,8 @@ class RailViewerWidget(QWidget, GenericTabWidget):
         railList.currentItemChanged.connect(self.__populate_nodelist)
         self.railList = railList
 
-        nodeList = QListWidget()
+        nodeList = RailNodeListWidget()
+        nodeList.currentItemChanged.connect(self.__populate_properties_view)
         self.nodeList = nodeList
 
         splitter = QSplitter()
@@ -78,6 +104,8 @@ class RailViewerWidget(QWidget, GenericTabWidget):
         self.setLayout(mainLayout)
 
     def populate(self, data: SMSScene, scenePath: Path):
+        self.railList.blockSignals(True)
+        self.nodeList.blockSignals(True)
         self.railList.clear()
         self.nodeList.clear()
         for rail in data.iter_rails():
@@ -86,11 +114,14 @@ class RailViewerWidget(QWidget, GenericTabWidget):
         if self.railList.count() > 0:
             self.railList.setCurrentRow(0)
             self.__populate_nodelist(self.railList.currentItem())
+        self.railList.blockSignals(False)
+        self.nodeList.blockSignals(False)
 
     def __populate_nodelist(self, item: RailListWidgetItem):
         if item is None:
             return
 
+        self.nodeList.blockSignals(True)
         self.nodeList.clear()
 
         rail = item.rail
@@ -101,3 +132,16 @@ class RailViewerWidget(QWidget, GenericTabWidget):
                 Qt.ItemIsEnabled
             )
             self.nodeList.addItem(item)
+        
+        self.nodeList.blockSignals(False)
+        self.nodeList.setCurrentRow(0)
+
+        # self.nodeList.currentItemChanged.emit()
+
+    def __populate_properties_view(self, item: RailNodeListWidgetItem):
+        from juniors_toolbox.gui.tabs import TabWidgetManager
+        propertiesTab = TabWidgetManager.get_tab("Selected Properties")
+        if propertiesTab is None or item is None:
+            return
+        propertiesTab.setWindowTitle("Fuckin hell")
+        propertiesTab.populate(item.node, None)

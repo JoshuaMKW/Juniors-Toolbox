@@ -1,7 +1,9 @@
-from typing import List
-from PySide6.QtCore import QPoint, QPointF, QRect, QSize, Qt, Signal
+from typing import List, Union
+from PySide6.QtCore import QPoint, QPointF, QRect, QSize, Qt, Signal, SignalInstance
 from PySide6.QtGui import QColor, QCursor, QMouseEvent, QPaintEvent, QPainter, QPolygonF
-from PySide6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QLayout, QLineEdit, QSizePolicy, QSpacerItem, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QAbstractSpinBox, QFrame, QGridLayout, QHBoxLayout, QLabel, QLayout, QLineEdit, QSizePolicy, QSpacerItem, QVBoxLayout, QWidget
+from juniors_toolbox.gui.widgets.explicitlineedit import ExplicitLineEdit
+from juniors_toolbox.gui.widgets.spinboxdrag import SpinBoxDragDouble, SpinBoxDragInt
 from juniors_toolbox.objects.object import GameObject
 
 from juniors_toolbox.gui.tools import walk_layout
@@ -12,7 +14,7 @@ class EntryLayout(QGridLayout):
     SpacerWidth = 10
     FieldMinWidth = 100
 
-    entryModified = Signal(str, object)
+    entryModified: SignalInstance = Signal(str, object)
 
     def __init__(
         self, 
@@ -40,7 +42,7 @@ class EntryLayout(QGridLayout):
             self.SpacerWidth, 20, QSizePolicy.Fixed, QSizePolicy.Expanding)
         self.entryWidget = entry
         self.entryKind = entryKind
-        self.directChildren = directChildren
+        self.__directChildren = directChildren
         self.newLineActive = False
         self.minEntryWidth = minEntryWidth
         self.recordedFlagSize = QRect(QPoint(0, 0), QSize(0, 0))
@@ -67,11 +69,22 @@ class EntryLayout(QGridLayout):
     def setExpandFactor(self, factor: float):
         self.expandFactor = factor
 
-    def addDirectChild(self, child: QLineEdit):
-        self.directChildren.append(child)
+    def addDirectChild(self, child: Union[ExplicitLineEdit, SpinBoxDragInt, SpinBoxDragDouble]):
+        self.__directChildren.append(child)
+        if isinstance(child, ExplicitLineEdit):
+            child.textChangedNamed.connect(self.updateFromChild)
+        else:
+            child.valueChangedExplicit.connect(self.updateFromChild)
 
-    def removeDirectChild(self, child: QLineEdit):
-        self.directChildren.remove(child)
+    def removeDirectChild(self, child: Union[ExplicitLineEdit, SpinBoxDragInt, SpinBoxDragDouble]):
+        self.__directChildren.remove(child)
+        if isinstance(child, ExplicitLineEdit):
+            child.textChangedNamed.disconnect(self.updateFromChild)
+        else:
+            child.valueChangedExplicit.disconnect(self.updateFromChild)
+
+    def directChildren(self) -> List[Union[ExplicitLineEdit, SpinBoxDragInt, SpinBoxDragDouble]]:
+        return self.__directChildren
 
     def isNewLineReady(self, bounds: QSize, _out: bool) -> bool:
         if not self.newLining:
@@ -79,23 +92,6 @@ class EntryLayout(QGridLayout):
 
         textRect: QRect = self.entryLabel.fontMetrics().boundingRect(self.entryLabel.text())
         isTextTooLong = textRect.width() > self.entryLabelWidth
-        """
-        isWidgetTooSmall = False
-        if not _out:
-            for item in walk_layout(self):
-                widget = item.widget()
-                if widget is None:
-                    continue
-                if isinstance(widget, QLineEdit):
-                    #print(bounds, self.recordedFlagSize)
-                    #print(widget.width(), widget.minimumSizeHint().width(), widget.objectName())
-                    if widget.width() <= widget.minimumSizeHint().width():
-                        isWidgetTooSmall = True
-                        self.recordedFlagSize = bounds
-                        break
-        else:
-            isWidgetTooSmall = bounds.width() <= self.recordedFlagSize.width()
-        """
 
         minpos = 0
         maxpos = 0
@@ -106,17 +102,8 @@ class EntryLayout(QGridLayout):
             minpos = min(minpos, widget.pos().x())
             maxpos = max(maxpos, widget.pos().x() + widget.size().width())
                 
-        #print(self.objectName(), (maxpos - minpos) - textRect.width(), self.minEntryWidth)
         isWidgetTooSmall = (maxpos - minpos) < self.minEntryWidth
         return isTextTooLong or isWidgetTooSmall
-
-        ##print(bounds.width() - textRect.width())
-        ##print(self.entryWidget.pos(), self.entryWidget.sizeHint(),
-        #      self.entryWidget.size())
-        #if not _out:
-        #    return (textRect.width() + self.SpacerWidth) >= self.entryWidget.pos().x()
-        #return (bounds.width() - textRect.width()) < self.FieldMinWidth
-        return textRect.width() > self.entryLabelWidth
 
     def checkNewLine(self, bounds: QSize):
         newLineReady = self.isNewLineReady(bounds, self.newLineActive)
@@ -147,7 +134,7 @@ class EntryLayout(QGridLayout):
     def updateFromChild(self, child: QWidget, value: object):
         if issubclass(self.entryKind, Vec3f):
             try:
-                vec = Vec3f(*[float(c.text()) for c in self.directChildren])
+                vec = Vec3f(*[float(c.text()) for c in self.__directChildren])
                 self.entryModified.emit(self.objectName(), vec)
             except ValueError:
                 return

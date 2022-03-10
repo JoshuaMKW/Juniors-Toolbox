@@ -1,11 +1,12 @@
 from enum import Enum
 from genericpath import isfile
 import time
+from turtle import title
 
 from typing import List, Optional, Union
 
-from PySide6.QtCore import QLine, QModelIndex, QObject, Qt, QTimer, Signal, SignalInstance, Property
-from PySide6.QtGui import QColor, QCursor, QDragEnterEvent, QDropEvent, QKeyEvent, QUndoCommand, QUndoStack, QMouseEvent
+from PySide6.QtCore import QLine, QModelIndex, QObject, Qt, QTimer, Signal, SignalInstance, Property, QPoint, QPointF
+from PySide6.QtGui import QColor, QCursor, QDragEnterEvent, QDropEvent, QKeyEvent, QUndoCommand, QUndoStack, QMouseEvent, QEventPoint
 from PySide6.QtWidgets import (QBoxLayout, QFormLayout, QFrame, QGridLayout,
                                QGroupBox, QHBoxLayout, QLabel, QLayout,
                                QLineEdit, QListWidget, QPushButton, QDoubleSpinBox, QSpinBox, QApplication,
@@ -13,6 +14,8 @@ from PySide6.QtWidgets import (QBoxLayout, QFormLayout, QFrame, QGridLayout,
                                QTreeWidget, QTreeWidgetItem,
                                QVBoxLayout, QWidget)
 from aenum import IntEnum
+
+from juniors_toolbox.gui import windows
 
 
 class SpinBoxLineEdit(QLineEdit):
@@ -25,15 +28,14 @@ class SpinBoxLineEdit(QLineEdit):
         self.min = min
         self.max = max
         self.__mouseLastPos = None
-        self.__mouseLoopCounter = 0
-        self.__borderless = True
+        self.__mouseLoopCounter = [0, 0]
         self._startValue = None
 
     def mousePressEvent(self, event: QMouseEvent):
         super().mousePressEvent(event)
         if event.button() == Qt.MiddleButton:
             self.__mouseLastPos = event.pos()
-            self.__mouseLoopCounter = 0
+            self.__mouseLoopCounter = [0, 0]
             self._startValue = self._klass_(self.text())
             self.selectAll()
 
@@ -43,24 +45,62 @@ class SpinBoxLineEdit(QLineEdit):
         if self.__mouseLastPos is None:
             return
 
+        self.setCursor(Qt.SizeHorCursor)
+
         ePos = event.pos()
         mPos = self.__mouseLastPos
         wPos = self.pos()
 
         from juniors_toolbox.gui.application import JuniorsToolbox
-        windowSize = JuniorsToolbox.get_instance_size()
+        window = JuniorsToolbox.get_instance_window()
+        windowSize = window.size()
+        titleHeight = QApplication.style().pixelMetric(QStyle.PM_TitleBarHeight)
+        cursor = self.cursor()
+        now = time.time_ns() / (10 ** 9) # convert to floating-point seconds
 
-        self.setCursor(Qt.SizeHorCursor)
-        #print(event.points())
+
+        point = event.point(0)
+        pointPos = self.mapTo(window, point.position())
+        
+        xLooped = 0
+        if pointPos.x() < 0.0:
+            self.__mouseLoopCounter[0] -= 1
+            cursor.setPos(
+                (window.pos().x() + windowSize.width()) - 1.0,
+                cursor.pos().y()
+            )
+            xLooped = -1
+        elif pointPos.x() > windowSize.width():
+            self.__mouseLoopCounter[0] += 1
+            cursor.setPos(
+                window.pos().x() + 1.0,
+                cursor.pos().y()
+            )
+            xLooped = 1
+        if pointPos.y() < 0.0:
+            self.__mouseLoopCounter[1] = min(max(self.__mouseLoopCounter[1] - 1, -2), 4)
+            print("down")
+            cursor.setPos(
+                cursor.pos().x(),
+                (window.pos().y() + windowSize.height() + titleHeight) - 1.0,
+            )
+        elif pointPos.y() > windowSize.height():
+            print("up")
+            self.__mouseLoopCounter[1] = min(max(self.__mouseLoopCounter[1] + 1, -2), 4)
+            cursor.setPos(
+                cursor.pos().x(),
+                window.pos().y() + titleHeight + 6.0,
+            )
         
         if self._klass_ == float:
             minDif = 0.0000000000000001
         else:
             minDif = 1
 
-        yDiff = wPos.y() - ePos.y()
-        multiplier = max(pow(1.0 + yDiff / windowSize.height(), 19), minDif / 50)
-        valueOffset = self._klass_(ePos.x() - mPos.x()) * multiplier
+        yDiff = (wPos.y() - ((windowSize.height() - titleHeight) * self.__mouseLoopCounter[1])) - ePos.y()
+        xDiff = (ePos.x() - mPos.x()) + windowSize.width() * xLooped
+        multiplier = max(pow(1.0 + yDiff / windowSize.height(), 13), minDif / 50)
+        valueOffset = self._klass_(xDiff) * multiplier
         if abs(valueOffset) >= minDif:
             self.dragOffsetChanged.emit(valueOffset)
             self.__mouseLastPos = ePos
@@ -74,20 +114,6 @@ class SpinBoxLineEdit(QLineEdit):
 
         super().mouseReleaseEvent(event)
 
-    def is_borderless(self) -> bool:
-        return self.__borderless
-
-    def set_borderless(self, borderless: bool):
-        self.__borderless = borderless
-        self.borderlessChanged.emit(borderless)
-
-    borderless = Property(
-        bool,
-        is_borderless, set_borderless,
-        doc="Makes the Line Edit have no padding",
-        notify=borderlessChanged
-    )
-
 class SpinBoxDragDouble(QDoubleSpinBox):
     valueChangedExplicit: SignalInstance = Signal(QDoubleSpinBox, float)
     contextUpdated: SignalInstance = Signal()
@@ -98,7 +124,6 @@ class SpinBoxDragDouble(QDoubleSpinBox):
         
         lineEdit = SpinBoxLineEdit(True, 0, 0)
         lineEdit.dragOffsetChanged.connect(self.__update_value)
-        print(lineEdit.metaObject().className())
         lineEdit.setMouseTracking(False)
         lineEdit.setDragEnabled(True)
         self.__lineEdit = lineEdit
@@ -166,6 +191,7 @@ class SpinBoxDragInt(QSpinBox):
 
     def __init__(self, intSize: IntSize = IntSize.WORD, signed: bool = True, parent: Optional[QWidget] = None):
         super().__init__(parent)
+        self.setWrapping(True)
 
         lineEdit = SpinBoxLineEdit(False, 0, 0)
         lineEdit.dragOffsetChanged.connect(self.__update_value)

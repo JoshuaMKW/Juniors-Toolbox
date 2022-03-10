@@ -100,9 +100,16 @@ class JuniorsToolbox(QApplication):
         return JuniorsToolbox.__singleton
 
     @staticmethod
-    def get_instance_size() -> QSize:
+    def get_instance_window_size() -> QSize:
         if JuniorsToolbox.__singleton:
             return JuniorsToolbox.__singleton.gui.size()
+        else:
+            return None
+
+    @staticmethod
+    def get_instance_window() -> MainWindow:
+        if JuniorsToolbox.__singleton:
+            return JuniorsToolbox.__singleton.gui
         else:
             return None
 
