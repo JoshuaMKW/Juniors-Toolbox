@@ -3,9 +3,9 @@ from PySide6.QtCore import Signal, SignalInstance
 from PySide6.QtGui import QDoubleValidator, QIntValidator
 from PySide6.QtWidgets import QLineEdit
 
-from juniors_toolbox.gui.widgets.property import ValuePropertyWidget
+from juniors_toolbox.gui.widgets.property import ValueProperty
 
-class ExplicitLineEdit(QLineEdit, ValuePropertyWidget):
+class ExplicitLineEdit(QLineEdit, ValueProperty):
     textChangedNamed: SignalInstance = Signal(QLineEdit, str)
 
     class FilterKind(Enum):

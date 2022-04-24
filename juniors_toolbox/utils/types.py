@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 import math
 from typing import Optional, Tuple, Union
 from enum import Enum, IntEnum
@@ -22,7 +23,120 @@ class BasicColors(IntEnum):
     TRANSPARENT = 0x00000000
 
 
-class RGBA8():
+class DigitalColor(ABC):
+    """
+    Abstract base class representing color
+    """
+
+    def __init__(self, value: object):
+        raise RuntimeError("DigitalColor can not be instantiated directly!")
+
+    @abstractmethod
+    @classmethod
+    def from_tuple(cls, rgba: tuple) -> "DigitalColor": ...
+
+    @abstractmethod
+    @classmethod
+    def from_hex(cls, rgba: str) -> "DigitalColor": ...
+
+    @abstractmethod
+    @property
+    def red(self) -> int: ...
+
+    @abstractmethod
+    @red.setter
+    def red(self, value: int): ...
+
+    @abstractmethod
+    @property
+    def green(self) -> int: ...
+
+    @abstractmethod
+    @green.setter
+    def green(self, value: int): ...
+
+    @abstractmethod
+    @property
+    def blue(self) -> int: ...
+
+    @abstractmethod
+    @blue.setter
+    def blue(self, value: int): ...
+
+    @abstractmethod
+    @property
+    def alpha(self) -> int: ...
+
+    @abstractmethod
+    @alpha.setter
+    def alpha(self, value: int): ...
+
+    @abstractmethod
+    def hex(self) -> str: ...
+
+    @abstractmethod
+    def raw(self) -> int: ...
+
+    @abstractmethod
+    def tuple(self) -> tuple: ...
+
+    @abstractmethod
+    def inverse(self, preserveAlpha: bool = True) -> "DigitalColor": ...
+
+    @abstractmethod
+    def chooseContrastBW(self) -> "DigitalColor": ...
+
+    @abstractmethod
+    def saturation(self) -> float: ...
+
+    def __getitem__(self, index: int) -> int:
+        if index not in range(4):
+            raise IndexError(
+                f"Index into {self.__class__.__name__} is out of range ([0-3])")
+        return self.tuple()[index]
+
+    def __setitem__(self, index: int, value: int) -> int:
+        if index not in range(4):
+            raise IndexError(
+                f"Index into {self.__class__.__name__} is out of range ([0-3])")
+        if index == 0:
+            self.red = value
+        elif index == 1:
+            self.green = value
+        elif index == 2:
+            self.blue = value
+        else:
+            self.alpha = value
+
+    def __eq__(self, other: Union["DigitalColor", int, tuple]) -> bool:
+        if isinstance(other, DigitalColor):
+            return self.hex() == other.hex()
+        if isinstance(other, list):
+            return self.tuple() == other
+        return self.hex() == other
+
+    def __ne__(self, other: Union["DigitalColor", int, tuple]) -> bool:
+        if isinstance(other, DigitalColor):
+            return self.hex() != other.hex()
+        if isinstance(other, list):
+            return self.tuple() != other
+        return self.hex() != other
+
+    def __repr__(self) -> str:
+        red = self.red
+        green = self.green
+        blue = self.blue
+        alpha = self.alpha
+        return f"{self.__class__.__name__}({red=}, {green=}, {blue=}, {alpha=})"
+
+    def __str__(self) -> str:
+        return self.hex()
+
+    def __int__(self) -> int:
+        return self.raw()
+
+
+class RGBA8(DigitalColor):
     """
     Class representing 8bit RGBA
     """
@@ -105,39 +219,6 @@ class RGBA8():
     def saturation(self) -> float:
         return ((self.red + self.green + self.blue) / 3) / 255
 
-    def __getitem__(self, index: int) -> int:
-        if index not in range(4):
-            raise IndexError(
-                f"Index into {self.__class__.__name__} is out of range ([0-3])")
-        return self.tuple()[index]
-
-    def __setitem__(self, index: int, value: int) -> int:
-        if index not in range(4):
-            raise IndexError(
-                f"Index into {self.__class__.__name__} is out of range ([0-3])")
-        if index == 0:
-            self.red = value
-        elif index == 1:
-            self.green = value
-        elif index == 2:
-            self.blue = value
-        else:
-            self.alpha = value
-
-    def __eq__(self, other: Union["RGBA8", int, Tuple[int, int, int, int]]) -> bool:
-        if isinstance(other, RGBA8):
-            return self.value == other.value
-        if isinstance(other, list):
-            return self.tuple() == other
-        return self.value == other
-
-    def __ne__(self, other: Union["RGBA8", int, Tuple[int, int, int, int]]) -> bool:
-        if isinstance(other, RGBA8):
-            return self.value != other.value
-        if isinstance(other, list):
-            return self.tuple() != other
-        return self.value != other
-
     def __repr__(self) -> str:
         red = self.red
         green = self.green
@@ -145,20 +226,14 @@ class RGBA8():
         alpha = self.alpha
         return f"{self.__class__.__name__}({red=}, {green=}, {blue=}, {alpha=})"
 
-    def __str__(self) -> str:
-        return self.hex()
 
-    def __int__(self) -> int:
-        return self.value
-
-
-class RGB8():
+class RGB8(DigitalColor):
     """
     Class representing 8bit RGB
     """
 
     def __init__(self, value: Union[int, "RGB8"]):
-        self.value = int(value)
+        self._value = int(value)
 
     @classmethod
     def from_tuple(cls, rgba: Tuple[int, int, int]) -> "RGB8":
@@ -176,30 +251,41 @@ class RGB8():
 
     @property
     def red(self) -> int:
-        return (self.value >> 16) & 0xFF
+        return (self._value >> 16) & 0xFF
 
     @red.setter
     def red(self, value: int):
-        self.value = ((int(value) & 0xFF) << 16) | (self.value & 0x00FFFF)
+        self._value = ((int(value) & 0xFF) << 16) | (self._value & 0x00FFFF)
 
     @property
     def green(self) -> int:
-        return (self.value >> 8) & 0xFF
+        return (self._value >> 8) & 0xFF
 
     @green.setter
     def green(self, value: int):
-        self.value = ((int(value) & 0xFF) << 8) | (self.value & 0xFF00FF)
+        self._value = ((int(value) & 0xFF) << 8) | (self._value & 0xFF00FF)
 
     @property
     def blue(self) -> int:
-        return self.value & 0xFF
+        return self._value & 0xFF
 
     @blue.setter
     def blue(self, value: int):
-        self.value = (int(value) & 0xFF) | (self.value & 0xFFFF00)
+        self._value = (int(value) & 0xFF) | (self._value & 0xFFFF00)
+
+    @property
+    def alpha(self) -> int:
+        return None
+
+    @alpha.setter
+    def alpha(self, value: int):
+        pass
 
     def hex(self) -> str:
-        return f"#{self.value:06X}"
+        return f"#{self._value:06X}"
+
+    def raw(self) -> int:
+        return self._value
 
     def tuple(self) -> Tuple[int, int, int]:
         return self.red, self.green, self.blue
@@ -220,48 +306,11 @@ class RGB8():
     def saturation(self) -> float:
         return ((self.red + self.green + self.blue) / 3) / 255
 
-    def __getitem__(self, index: int) -> int:
-        if index not in range(3):
-            raise IndexError(
-                f"Index into {self.__class__.__name__} is out of range ([0-2])")
-        return self.tuple()[index]
-
-    def __setitem__(self, index: int, value: int) -> int:
-        if index not in range(3):
-            raise IndexError(
-                f"Index into {self.__class__.__name__} is out of range ([0-2])")
-        if index == 0:
-            self.red = value
-        elif index == 1:
-            self.green = value
-        else:
-            self.blue = value
-
-    def __eq__(self, other: Union["RGB8", int, Tuple[int, int, int]]) -> bool:
-        if isinstance(other, RGB8):
-            return self.value == other.value
-        if isinstance(other, list):
-            return self.tuple() == other
-        return self.value == other
-
-    def __ne__(self, other: Union["RGB8", int, Tuple[int, int, int]]) -> bool:
-        if isinstance(other, RGB8):
-            return self.value != other.value
-        if isinstance(other, list):
-            return self.tuple() != other
-        return self.value != other
-
     def __repr__(self) -> str:
         red = self.red
         green = self.green
         blue = self.blue
         return f"{self.__class__.__name__}({red=}, {green=}, {blue=})"
-
-    def __str__(self) -> str:
-        return self.hex()
-
-    def __int__(self) -> int:
-        return self.value
 
 
 class RGB32(RGB8):
@@ -295,6 +344,55 @@ class RGB32(RGB8):
     def blue(self, value: int):
         self.value = (int(value) & 0xFF) | (
             self.value & 0xFFFFFFFFFFFFFFFF00000000)
+
+    @property
+    def alpha(self) -> int:
+        return None
+
+    @alpha.setter
+    def alpha(self, value: int):
+        pass
+
+class RGBA32(RGBA8):
+    """
+    Clamps to 256, but represented by int sized data
+    """
+
+    @property
+    def red(self) -> int:
+        return (self.value >> 64) & 0xFF
+
+    @red.setter
+    def red(self, value: int):
+        self.value = ((int(value) & 0xFF) << 96) | (
+            self.value & 0x00000000FFFFFFFFFFFFFFFFFFFFFFFF)
+
+    @property
+    def green(self) -> int:
+        return (self.value >> 32) & 0xFF
+
+    @green.setter
+    def green(self, value: int):
+        self.value = ((int(value) & 0xFF) << 64) | (
+            self.value & 0xFFFFFFFF00000000FFFFFFFFFFFFFFFF)
+
+    @property
+    def blue(self) -> int:
+        return self.value & 0xFF
+
+    @blue.setter
+    def blue(self, value: int):
+        self.value = ((int(value) & 0xFF) << 32) | (
+            self.value & 0xFFFFFFFFFFFFFFFF00000000FFFFFFFF)
+
+    @property
+    def alpha(self) -> int:
+        return None
+
+    @alpha.setter
+    def alpha(self, value: int):
+        self.value = (int(value) & 0xFF) | (
+            self.value & 0xFFFFFFFFFFFFFFFFFFFFFFFF00000000)
 
 
 class Vec2f(list):

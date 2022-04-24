@@ -47,6 +47,7 @@ class AttributeType(str, Enum):
     C_RGB32 = "RGB32"
     C_RGBA = "COLOR"
     VECTOR3 = "VEC3F"
+    TRANSFORM = "TRANSFORM"
     COMMENT = "COMMENT"
     TEMPLATE = "TEMPLATE"
 

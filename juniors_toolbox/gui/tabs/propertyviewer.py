@@ -19,7 +19,7 @@ from juniors_toolbox.gui.layouts.entrylayout import EntryLayout
 from juniors_toolbox.gui.layouts.framelayout import FrameLayout
 from juniors_toolbox.gui.tabs.generic import GenericTabWidget
 from juniors_toolbox.gui.tools import clear_layout, walk_layout
-from juniors_toolbox.gui.widgets.property import ValuePropertyWidget
+from juniors_toolbox.gui.widgets.property import ValueProperty
 from juniors_toolbox.gui.widgets.colorbutton import ColorButton
 from juniors_toolbox.gui.widgets.explicitlineedit import ExplicitLineEdit
 from juniors_toolbox.gui.widgets.spinboxdrag import SpinBoxDragDouble, SpinBoxDragInt
@@ -214,7 +214,7 @@ class SelectedPropertiesWidget(QScrollArea, GenericTabWidget):
         clear_layout(self.gridLayout)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 
-    def __populate_properties(self, properties: List[ValuePropertyWidget]):
+    def __populate_properties(self, properties: List[ValueProperty]):
         self.reset()
         for property in properties:
             self.gridLayout.addWidget(property)
