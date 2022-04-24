@@ -1213,7 +1213,7 @@ class Transform():
         rotation: Union[Quaternion, Vec3f] = Quaternion(),
         scale: Vec3f = Vec3f.one
     ):
-        self.position = position
+        self.translation = position
         if isinstance(rotation, Quaternion):
             self.rotation = rotation
         else:
@@ -1254,7 +1254,7 @@ class Transform():
 
     def to_matrix(self) -> Matrix44:
         mtx = Matrix44()
-        translate = Matrix44.from_translation(self.position)
+        translate = Matrix44.from_translation(self.translation)
         rotate = Matrix44.from_quaternion(self.rotation)
         scale = Matrix44.from_scale(self.scale)
         return mtx * translate * rotate * scale
@@ -1264,11 +1264,11 @@ class Transform():
         Translate this transform by `translation`
         """
         if isinstance(translation, Vec3f):
-            self.position += translation
+            self.translation += translation
         else:
-            self.position.x += translation[0]
-            self.position.y += translation[1]
-            self.position.z += translation[2]
+            self.translation.x += translation[0]
+            self.translation.y += translation[1]
+            self.translation.z += translation[2]
 
     def rotate(self, eulers: Union[Vec3f, Tuple[float, float, float]]):
         """
@@ -1286,9 +1286,9 @@ class Transform():
         Rotate this transform around `point` along `axis` in world space by `angle` degrees
         """
         quat = Quaternion.from_angle_axis(angle, axis)
-        dif = quat * (self.position - point)
-        self.position = point + dif
+        dif = quat * (self.translation - point)
+        self.translation = point + dif
 
     def look_at(self, target: Union["Transform", Vec3f], worldUp: Vec3f = Vec3f.up):
-        pos = target.position if isinstance(target, Transform) else target
+        pos = target.translation if isinstance(target, Transform) else target
         target.rotation.set_look_rotation(pos, worldUp)

@@ -204,8 +204,8 @@ class SceneCamera():
 
     def get_view_matrix(self) -> Matrix44:
         return Matrix44.look_at(
-            self.transform.position,
-            self.transform.position + self.transform.forward,
+            self.transform.translation,
+            self.transform.translation + self.transform.forward,
             self.transform.up
         )
 
@@ -359,7 +359,7 @@ class SceneRendererWidget(QOpenGLWidget, GenericTabWidget):
 
         self.lightingShader.use()
         self.lightingShader.setVec3(
-            "u_viewPos", self.camera.transform.position)
+            "u_viewPos", self.camera.transform.translation)
 
         glMatrixMode(GL_MODELVIEW_MATRIX)
 
@@ -373,7 +373,7 @@ class SceneRendererWidget(QOpenGLWidget, GenericTabWidget):
         print(relPos)
 
     def initializeGL(self):
-        self.camera.transform.position = Vec3f(0, 0, 0)
+        self.camera.transform.translation = Vec3f(0, 0, 0)
         self.lightingShader = self.compile_shader_program()
         self.lightingShader.use()
         glEnable(GL_DEPTH_TEST)

@@ -29,6 +29,7 @@ class EntryLayout(QGridLayout):
         labelFixed: bool = True
     ):
         super().__init__(parent)
+        self.setObjectName(name)
         self.entryLabelWidth = labelWidth
         self.entryLabel = QLabel(name, parent)
         if labelFixed:
