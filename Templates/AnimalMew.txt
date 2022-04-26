@@ -10,3 +10,25 @@ Manager STRING
 Rail STRING
 ObjCount INT
 DisplayModel COMMENT mew/kamome_high.bmd
+
+{
+    "Seagull": {
+        "Attributes": {
+            "Transform": {
+                "Type": "Transform",
+                "Default": [
+                    [0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0],
+                ]
+            }
+        },
+        "RenderInfo": {
+            "BMD": "seagull/bmd/seagull.bmd",
+            "BMT": "",
+            "PolTex": "",
+            "ColorMat": ["", 1],
+            "
+        }
+    }
+}

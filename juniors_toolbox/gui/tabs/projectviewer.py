@@ -8,11 +8,11 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from juniors_toolbox.gui.dialogs.moveconflict import MoveConflictDialog
 
 from juniors_toolbox.gui.images import get_icon, get_image
-from juniors_toolbox.gui.tabs.generic import GenericTabWidget
+from juniors_toolbox.gui.tabs import GenericTabWidget
 from juniors_toolbox.gui.tools import clear_layout, walk_layout
 from juniors_toolbox.gui.widgets.interactivelist import InteractiveListWidget, InteractiveListWidgetItem
 from juniors_toolbox.scene import SMSScene
-from juniors_toolbox.utils import Serializable
+from juniors_toolbox.utils import A_Serializable
 from juniors_toolbox.utils.bmg import BMG
 from juniors_toolbox.utils.filesystem import open_path_in_explorer
 from juniors_toolbox.utils.j3d.anim.bca import BCA
@@ -171,7 +171,7 @@ class ProjectAssetListItem(InteractiveListWidgetItem):
     doubleClicked: SignalInstance = Signal(InteractiveListWidgetItem)
 
     MIME_FORMAT = __name__
-    _init_fn_: Callable[[], Serializable]
+    _init_fn_: Callable[[], A_Serializable]
 
     @staticmethod
     def extension_to_icon_fname(ext: str):
@@ -248,7 +248,7 @@ class ProjectAssetListItem(InteractiveListWidgetItem):
 
 
 class ProjectHierarchyItem(QTreeWidgetItem):
-    _init_fn_: Callable[[], Serializable]
+    _init_fn_: Callable[[], A_Serializable]
 
     def __init__(self, name: str, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -275,7 +275,7 @@ class ProjectHierarchyItem(QTreeWidgetItem):
 class ProjectCreateAction(QAction):
     clicked: SignalInstance = Signal(QAction)
 
-    def __init__(self, initFn: Callable[[], Serializable], parent: Optional[QWidget] = None):
+    def __init__(self, initFn: Callable[[], A_Serializable], parent: Optional[QWidget] = None):
         super().__init__(parent)
 
         self._init_fn_ = initFn

@@ -10,15 +10,21 @@ from juniors_toolbox.gui.tabs.renderer import SceneRendererWidget
 from juniors_toolbox.gui.tabs.object import ObjectHierarchyWidget, ObjectPropertiesWidget
 from juniors_toolbox.gui.tabs.rail import RailViewerWidget
 from juniors_toolbox.gui.tabs.bmgeditor import BMGMessageEditor
-from juniors_toolbox.gui.tabs.generic import GenericTabWidget
+from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
 from juniors_toolbox.gui.widgets.synceddock import SyncedDockWidget
+
+
+class GenericTabWidget():
+    def populate(self, data: Any, scenePath: Path): ...
+
+    def __del__(self): ...
 
 
 class TabWidgetManager():
     _STR_TO_TYPE = {
         "Project Viewer": ProjectViewerWidget,
         "Scene Hierarchy": ObjectHierarchyWidget,
-        "Selected Properties": ObjectPropertiesWidget,
+        "Selected Properties": SelectedPropertiesWidget,
         "Rail List": RailViewerWidget,
         "Rail Editor": None,
         "BMG Editor": BMGMessageEditor,
@@ -28,22 +34,21 @@ class TabWidgetManager():
         "Scene Renderer": SceneRendererWidget
     }
 
-    _TAB_WIDGETS: Dict[type, QWidget] = None
+    _TAB_WIDGETS: Dict[type, QWidget] = {
+        _STR_TO_TYPE["Project Viewer"]: _STR_TO_TYPE["Project Viewer"](),
+        _STR_TO_TYPE["Scene Hierarchy"]: _STR_TO_TYPE["Scene Hierarchy"](),
+        _STR_TO_TYPE["Selected Properties"]: _STR_TO_TYPE["Selected Properties"](),
+        _STR_TO_TYPE["Rail List"]: _STR_TO_TYPE["Rail List"](),
+        _STR_TO_TYPE["Rail Editor"]: _STR_TO_TYPE["Rail Editor"](),
+        _STR_TO_TYPE["BMG Editor"]: _STR_TO_TYPE["BMG Editor"](),
+        _STR_TO_TYPE["PRM Editor"]: _STR_TO_TYPE["PRM Editor"](),
+        _STR_TO_TYPE["Demo Editor"]: _STR_TO_TYPE["Demo Editor"](),
+        _STR_TO_TYPE["Data Viewer"]: _STR_TO_TYPE["Data Viewer"](),
+        _STR_TO_TYPE["Scene Renderer"]: _STR_TO_TYPE["Scene Renderer"]()
+    }
 
     @staticmethod
     def init():
-        TabWidgetManager._TAB_WIDGETS = {
-            ProjectViewerWidget: ProjectViewerWidget(),
-            ObjectHierarchyWidget: ObjectHierarchyWidget(),
-            ObjectPropertiesWidget: ObjectPropertiesWidget(),
-            RailViewerWidget: RailViewerWidget(),
-            "Rail Editor": None,
-            BMGMessageEditor: BMGMessageEditor(),
-            PrmEditorWidget: PrmEditorWidget(),
-            "Demo Editor": None,
-            "Data Viewer": None,
-            SceneRendererWidget: SceneRendererWidget()
-        }
         for tab in TabWidgetManager.iter_tabs():
             tab.setVisible(False)
 
@@ -67,4 +72,3 @@ class TabWidgetManager():
     def is_tab_open(key: Union[str, type]) -> bool:
         tab = TabWidgetManager.get_tab(key)
         return False if tab is None else tab.isVisible()
-    

@@ -5,13 +5,13 @@ from os import write
 from typing import Iterable, List, Optional, Tuple, Union
 
 from aenum import extend_enum
-from juniors_toolbox.utils import Serializable
+from juniors_toolbox.utils import A_Serializable
 
 from juniors_toolbox.utils.iohelper import align_int, decode_raw_string, get_likely_encoding, read_string, read_ubyte, read_uint16, read_uint32, write_string, write_ubyte, write_uint16, write_uint32
 
 
 @dataclass
-class RichMessage(Serializable):
+class RichMessage(A_Serializable):
     components: list = field(default_factory=lambda: [])
     encoding: str = None
 
@@ -356,7 +356,7 @@ class SoundID(IntEnum):
         return cls._member_map_[name]
 
 
-class BMG(Serializable):
+class BMG(A_Serializable):
     """
     Class representing the Nintendo Binary Message Format
     """

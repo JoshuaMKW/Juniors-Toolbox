@@ -16,21 +16,21 @@ from PySide6.QtWidgets import (QFormLayout, QFrame, QGridLayout, QComboBox,
 from pyparsing import line
 from juniors_toolbox.gui.layouts.entrylayout import EntryLayout
 from juniors_toolbox.gui.layouts.framelayout import FrameLayout
-from juniors_toolbox.gui.tabs.generic import GenericTabWidget
+from juniors_toolbox.gui.tabs import GenericTabWidget
 from juniors_toolbox.gui.tools import clear_layout, walk_layout
-from juniors_toolbox.gui.widgets.property import ValueProperty
-from juniors_toolbox.gui.widgets.colorbutton import ColorButton
+from juniors_toolbox.gui.widgets.property import A_ValueProperty
+from juniors_toolbox.gui.widgets.colorbutton import A_ColorButton
 from juniors_toolbox.gui.widgets.explicitlineedit import ExplicitLineEdit
 from juniors_toolbox.gui.widgets.spinboxdrag import SpinBoxDragDouble, SpinBoxDragInt
-from juniors_toolbox.objects.object import GameObject
-from juniors_toolbox.objects.template import AttributeType, ObjectAttribute
+from juniors_toolbox.objects.object import BaseObject
+from juniors_toolbox.objects.template import ValueType, ObjectAttribute
 from juniors_toolbox.rail import RailKeyFrame
 from juniors_toolbox.utils.types import RGB32, RGB8, RGBA8, Vec3f
 from juniors_toolbox.scene import SMSScene
 
 
 class ObjectHierarchyWidgetItem(QTreeWidgetItem):
-    def __init__(self, obj: GameObject, *args, **kwargs):
+    def __init__(self, obj: BaseObject, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.object = obj
         flags = Qt.ItemIsSelectable | Qt.ItemIsDragEnabled | Qt.ItemIsEnabled
@@ -106,7 +106,7 @@ class ObjectHierarchyWidget(QTreeWidget, GenericTabWidget):
         self.undoStack.setUndoLimit(32)
 
     def populate(self, data: SMSScene, scenePath: Path):
-        def inner_populate(obj: GameObject, parentNode: ObjectHierarchyWidgetItem, column: int) -> List[ObjectHierarchyWidgetItem]:
+        def inner_populate(obj: BaseObject, parentNode: ObjectHierarchyWidgetItem, column: int) -> List[ObjectHierarchyWidgetItem]:
             for g in obj.iter_grouped():
                 childNode = ObjectHierarchyWidgetItem(g)
                 childNode.setText(column, g.get_explicit_name())
@@ -196,30 +196,29 @@ class ObjectPropertiesWidget(QScrollArea, GenericTabWidget):
     def populate(self, data: Any, scenePath: Path):
         self.reset()
 
-        INDENT_WIDTH = 25
-        ROW = 0
-        if isinstance(data, GameObject):
+        if isinstance(data, BaseObject):
             self.object = data
-
-            self._structs: Dict[str, QWidget] = {}
+            self._structs: Dict[str, A_ValueProperty] = {}
 
             def inner_struct_populate(
                 parent: QGridLayout,
-                attribute: GameObject.Value,
+                attribute: BaseObject.Value,
                 nestedDepth: int = 0,
                 readOnly: bool = False
             ):
-                nonlocal ROW
                 scopeNames = attribute.name.split(".")
                 parentScopes = scopeNames[:nestedDepth]
-                thisScope = scopeNames[nestedDepth]
                 childScopes = scopeNames[nestedDepth+1:]
-                prefixQual = "" if len(
-                    parentScopes) == 0 else ".".join(parentScopes) + "."
-                qualname = f"{prefixQual}{thisScope}"
+                thisScope = scopeNames[nestedDepth]
+                endScope = scopeNames[-1]
+
+                _prefixScope = ""
+                if len(parentScopes) > 0:
+                    _prefixScope = ".".join(parentScopes) + "."
+                qualifiedName = f"{_prefixScope}{thisScope}"
 
                 if len(childScopes) > 0:
-                    container = self._structs.setdefault(qualname, QWidget())
+                    container = self._structs.setdefault(qualifiedName, QWidget())
                     firstPass = container.layout() is None
                     if firstPass:
                         container.setLayout(QGridLayout())
@@ -230,7 +229,7 @@ class ObjectPropertiesWidget(QScrollArea, GenericTabWidget):
                     if firstPass:
                         child = FrameLayout(title=thisScope)
                         child.addWidget(container)
-                        child.setObjectName(qualname)
+                        child.setObjectName(qualifiedName)
                         child._main_v_layout.setContentsMargins(0, 0, 0, 0)
                         child._main_v_layout.setAlignment(
                             container, Qt.AlignRight)
@@ -244,11 +243,11 @@ class ObjectPropertiesWidget(QScrollArea, GenericTabWidget):
                     layout = QFormLayout()
                     label = QLabel(attribute.name.split(".")[-1])
                     label.setFixedWidth(100 - (INDENT_WIDTH * nestedDepth))
-                    colorbutton = ColorButton("", color=attribute.value)
+                    colorbutton = A_ColorButton("", color=attribute.value)
                     colorbutton.setColor(attribute.value)
                     colorbutton.setFrameStyle(QFrame.Box)
                     colorbutton.setMinimumHeight(20)
-                    colorbutton.setObjectName(qualname)
+                    colorbutton.setObjectName(qualifiedName)
                     colorbutton.colorChanged.connect(self.updateObjectValue)
                     container = EntryLayout(
                         thisScope,
@@ -293,10 +292,10 @@ class ObjectPropertiesWidget(QScrollArea, GenericTabWidget):
                                       readOnly=data.is_group() and attr.name == "Grouped")
 
         elif isinstance(data, RailKeyFrame):
-            position = GameObject.Value(
+            position = BaseObject.Value(
                 "Position",
                 Vec3f(*data.position),
-                AttributeType.VECTOR3
+                ValueType.VECTOR3
             )
             positionEntry = create_vec3f_entry(position)
 

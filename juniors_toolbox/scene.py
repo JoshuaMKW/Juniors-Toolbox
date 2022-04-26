@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 from typing import BinaryIO, Iterable, List, Optional, TextIO
 
-from juniors_toolbox.objects.object import GameObject
+from juniors_toolbox.objects.object import BaseObject
 from juniors_toolbox.rail import Rail, RalData
 
 class SMSScene():
@@ -33,7 +33,7 @@ class SMSScene():
             f.seek(_startPos, 0)
 
             while f.tell() < end:
-                this._objects.append(GameObject.from_bytes(f))
+                this._objects.append(BaseObject.from_bytes(f))
         
         with railPath.open("rb") as f:
             this._raildata = RalData.from_bytes(f)
@@ -45,7 +45,7 @@ class SMSScene():
             f.seek(_startPos, 0)
 
             while f.tell() < end:
-                this._tables.append(GameObject.from_bytes(f))
+                this._tables.append(BaseObject.from_bytes(f))
 
         return this
 
@@ -53,8 +53,8 @@ class SMSScene():
         """
         Reset the scene back to an empty state
         """
-        self._objects: List[GameObject] = []
-        self._tables: List[GameObject] = []
+        self._objects: List[BaseObject] = []
+        self._tables: List[BaseObject] = []
         self._raildata: RalData = None
 
     def dump(self, out: Optional[TextIO] = None, indentwidth: int = 2):
@@ -68,24 +68,24 @@ class SMSScene():
         for rail in self.iter_rails():
             out.write(rail + "\n")
 
-    def iter_objects(self, deep: bool = False) -> Iterable[GameObject]:
+    def iter_objects(self, deep: bool = False) -> Iterable[BaseObject]:
         for obj in self._objects:
             yield obj
             if deep and obj.is_group():
                 yield from obj.iter_grouped(True)
 
-    def get_object(self, name: str, desc: str) -> GameObject:
+    def get_object(self, name: str, desc: str) -> BaseObject:
         for obj in self.iter_objects(True):
             if obj.name == name and obj.desc == desc:
                 return obj
 
-    def iter_tables(self, deep: bool = False) -> Iterable[GameObject]:
+    def iter_tables(self, deep: bool = False) -> Iterable[BaseObject]:
         for obj in self._tables:
             yield obj
             if deep and obj.is_group():
                 yield from obj.iter_grouped(True)
 
-    def get_table(self, name: str, desc: str) -> GameObject:
+    def get_table(self, name: str, desc: str) -> BaseObject:
         for obj in self.iter_tables(True):
             if obj.name == name and obj.desc == desc:
                 return obj
@@ -133,5 +133,5 @@ class SMSScene():
                 return True
         return False
 
-    def __contains__(self, other: GameObject) -> bool:
+    def __contains__(self, other: BaseObject) -> bool:
         return other in self._objects

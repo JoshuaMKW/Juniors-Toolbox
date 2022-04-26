@@ -14,12 +14,12 @@ from PySide6.QtWidgets import (QBoxLayout, QFormLayout, QFrame, QGridLayout,
                                QVBoxLayout, QWidget)
 from juniors_toolbox.gui.layouts.entrylayout import EntryLayout
 from juniors_toolbox.gui.layouts.framelayout import FrameLayout
-from juniors_toolbox.gui.tabs.generic import GenericTabWidget
+from juniors_toolbox.gui.tabs import GenericTabWidget
 from juniors_toolbox.gui.tools import clear_layout, walk_layout
-from juniors_toolbox.gui.widgets.colorbutton import ColorButton
+from juniors_toolbox.gui.widgets.colorbutton import A_ColorButton
 from juniors_toolbox.gui.widgets.explicitlineedit import ExplicitLineEdit
 from juniors_toolbox.gui.widgets.interactivelist import InteractiveListWidget, InteractiveListWidgetItem
-from juniors_toolbox.objects.object import GameObject
+from juniors_toolbox.objects.object import BaseObject
 from juniors_toolbox.objects.template import ObjectAttribute
 from juniors_toolbox.utils.jdrama import NameRef
 from juniors_toolbox.utils.prm import PrmEntry, PrmFile
@@ -164,7 +164,7 @@ class PrmPropertyEditorWidget(QScrollArea):
             layout = QFormLayout()
             label = QLabel(qualname)
             label.setFixedWidth(100)
-            colorbutton = ColorButton("", color=value)
+            colorbutton = A_ColorButton("", color=value)
             colorbutton.setColor(value)
             colorbutton.setFrameStyle(QFrame.Box)
             colorbutton.setMinimumHeight(20)

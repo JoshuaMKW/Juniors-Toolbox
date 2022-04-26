@@ -17,172 +17,17 @@ from PySide6.QtWidgets import (QFormLayout, QFrame, QGridLayout, QComboBox,
 
 from juniors_toolbox.gui.layouts.entrylayout import EntryLayout
 from juniors_toolbox.gui.layouts.framelayout import FrameLayout
-from juniors_toolbox.gui.tabs.generic import GenericTabWidget
+from juniors_toolbox.gui.tabs import GenericTabWidget
 from juniors_toolbox.gui.tools import clear_layout, walk_layout
-from juniors_toolbox.gui.widgets.property import ValueProperty
-from juniors_toolbox.gui.widgets.colorbutton import ColorButton
+from juniors_toolbox.gui.widgets.property import A_ValueProperty
+from juniors_toolbox.gui.widgets.colorbutton import A_ColorButton
 from juniors_toolbox.gui.widgets.explicitlineedit import ExplicitLineEdit
 from juniors_toolbox.gui.widgets.spinboxdrag import SpinBoxDragDouble, SpinBoxDragInt
-from juniors_toolbox.objects.object import GameObject
-from juniors_toolbox.objects.template import AttributeType, ObjectAttribute
+from juniors_toolbox.objects.object import BaseObject
+from juniors_toolbox.objects.template import ValueType, ObjectAttribute
 from juniors_toolbox.rail import RailKeyFrame
-from juniors_toolbox.utils.types import RGB32, RGB8, RGBA8, Vec3f
+from juniors_toolbox.utils.types import RGB32, RGB8, RGBA8, Transform, Vec3f
 from juniors_toolbox.scene import SMSScene
-
-
-def create_vec3f_entry(
-    attribute: GameObject.Value,
-    nestedDepth: int = 0,
-    indentWidth: int = 25,
-    readOnly: bool = False
-):
-    _qualname = attribute.name
-    _attrname = _qualname.split(".")[-1]
-    _attrtype = attribute.type
-    _attrvalue = attribute.value
-
-    if _attrtype != AttributeType.VECTOR3:
-        return None
-
-    widget = QWidget()
-    containerLayout = QGridLayout()
-    containerLayout.setContentsMargins(0, 0, 0, 0)
-    containerLayout.setRowStretch(0, 0)
-    containerLayout.setRowStretch(1, 0)
-    container = EntryLayout(
-        _attrname,
-        widget,
-        Vec3f,
-        [],
-        labelWidth=100 - (indentWidth * nestedDepth),
-        minEntryWidth=260
-    )
-    container.setObjectName(attribute.name)
-    for i, component in enumerate(_attrvalue):
-        axis = "XYZ"[i]
-        spinBox = SpinBoxDragDouble(isFloat=True)
-        spinBox.setObjectName(f"{_attrname}.{axis}")
-        spinBox.setMinimumWidth(20)
-        spinBox.setValue(component)
-        entry = EntryLayout(
-            axis,
-            spinBox,
-            float,
-            [],
-            labelWidth=14,
-            newlining=False,
-            labelFixed=True
-        )
-        containerLayout.addLayout(entry, 0, i, 1, 1)
-        containerLayout.setColumnStretch(i, 0)
-        container.addDirectChild(spinBox)
-    widget.setLayout(containerLayout)
-    container.setEnabled(not readOnly)
-    return container
-
-
-def create_single_entry(
-    attribute: GameObject.Value,
-    nestedDepth: int = 0,
-    indentWidth: int = 25,
-    readOnly: bool = False
-):
-    _qualname = attribute.name
-    _attrname = _qualname.split(".")[-1]
-    _attrtype = attribute.type
-    _attrvalue = attribute.value
-
-    if _attrtype not in {
-        AttributeType.BOOL,
-        AttributeType.BYTE,
-        AttributeType.CHAR,
-        AttributeType.S8,
-        AttributeType.U8,
-        AttributeType.S16,
-        AttributeType.U16,
-        AttributeType.S32,
-        AttributeType.INT,
-        AttributeType.U32,
-        AttributeType.F32,
-        AttributeType.FLOAT,
-        AttributeType.F64,
-        AttributeType.DOUBLE,
-        AttributeType.STR,
-        AttributeType.STRING
-    }:
-        print(_attrtype)
-        return None
-
-    layout = QFormLayout()
-    layout.setObjectName("EntryForm " + _attrname)
-    if _attrtype in {
-        AttributeType.STR,
-        AttributeType.STRING
-    }:
-        lineEdit = ExplicitLineEdit(_attrname, ExplicitLineEdit.FilterKind.STR)
-        lineEdit.setText(_attrvalue)
-        lineEdit.setCursorPosition(0)
-        entry = EntryLayout(
-            _attrname,
-            lineEdit,
-            attribute.type.to_type(),
-            [lineEdit],
-            labelWidth=100 - (indentWidth * nestedDepth),
-            minEntryWidth=180 + (indentWidth * nestedDepth)
-        )
-        lineEdit.textChangedNamed.connect(entry.updateFromChild)
-        lineEdit.setEnabled(not readOnly)
-    elif _attrtype == AttributeType.BOOL:
-        lineEdit = QComboBox()
-        lineEdit.addItem("False")
-        lineEdit.addItem("True")
-        lineEdit.setObjectName(attribute.name)
-        lineEdit.setMinimumWidth(20)
-        lineEdit.setCurrentIndex(int(_attrvalue))
-        entry = EntryLayout(
-            _attrname,
-            lineEdit,
-            attribute.type.to_type(),
-            [lineEdit],
-            labelWidth=100 - (indentWidth * nestedDepth),
-            minEntryWidth=180 + (indentWidth * nestedDepth)
-        )
-        lineEdit.currentIndexChanged.connect(
-            lambda index: entry.updateFromChild(lineEdit, index))
-        lineEdit.setEnabled(not readOnly)
-    else:
-        if _attrtype in {
-            AttributeType.F32,
-            AttributeType.FLOAT,
-            AttributeType.F64,
-            AttributeType.DOUBLE
-        }:
-            lineEdit = SpinBoxDragDouble(isFloat=True)
-            lineEdit.setObjectName(attribute.name)
-            lineEdit.setMinimumWidth(20)
-            lineEdit.setValue(_attrvalue)
-        else:
-            lineEdit = SpinBoxDragInt(
-                intSize=SpinBoxDragInt.IntSize(attribute.type.get_size()),
-                signed=attribute.type.is_signed()
-            )
-            lineEdit.setObjectName(attribute.name)
-            lineEdit.setMinimumWidth(20)
-            lineEdit.setValue(_attrvalue)
-        entry = EntryLayout(
-            _attrname,
-            lineEdit,
-            attribute.type.to_type(),
-            [lineEdit],
-            labelWidth=100 - (indentWidth * nestedDepth),
-            minEntryWidth=180 + (indentWidth * nestedDepth)
-        )
-        lineEdit.valueChangedExplicit.connect(entry.updateFromChild)
-        lineEdit.setEnabled(not readOnly)
-
-    entry.setObjectName(attribute.name)
-    return entry
-
 
 class SelectedPropertiesWidget(QScrollArea, GenericTabWidget):
     def __init__(self, parent: Optional[QWidget] = None):
@@ -197,9 +42,9 @@ class SelectedPropertiesWidget(QScrollArea, GenericTabWidget):
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.centralWidget.setLayout(self.gridLayout)
 
-        self.updateTimer = QTimer(self.centralWidget)
-        self.updateTimer.timeout.connect(self.checkVerticalIndents)
-        self.updateTimer.start(10)
+        # self.updateTimer = QTimer(self.centralWidget)
+        # self.updateTimer.timeout.connect(self.checkVerticalIndents)
+        # self.updateTimer.start(10)
 
         self.setMinimumSize(300, 80)
 
@@ -209,14 +54,18 @@ class SelectedPropertiesWidget(QScrollArea, GenericTabWidget):
     def populate(self, data: Any, scenePath: Path):
         if not isinstance(data, list):
             return
+        self.__populate_properties(data)
     
     def reset(self):
         clear_layout(self.gridLayout)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 
-    def __populate_properties(self, properties: List[ValueProperty]):
+    def __populate_properties(self, properties: List[A_ValueProperty]):
         self.reset()
-        for property in properties:
-            self.gridLayout.addWidget(property)
-
-import cv2
+        form = QFormLayout()
+        for prop in properties:
+            if isinstance(prop.get_value(), Transform):
+                form.addWidget(prop)
+                continue
+            form.addRow(prop.get_name(), prop)
+        self.gridLayout.addLayout(form)

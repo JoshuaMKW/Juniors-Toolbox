@@ -7,16 +7,17 @@ from PySide6.QtWidgets import QWidget, QGridLayout, QFormLayout, QComboBox, QLab
 
 from juniors_toolbox.gui.layouts.entrylayout import EntryLayout
 from juniors_toolbox.gui.layouts.framelayout import FrameLayout
-from juniors_toolbox.gui.widgets.colorbutton import ColorButton
+from juniors_toolbox.gui.widgets.colorbutton import A_ColorButton, ColorButtonRGB8, ColorButtonRGBA8
 from juniors_toolbox.gui.widgets.explicitlineedit import ExplicitLineEdit
 from juniors_toolbox.gui.widgets.spinboxdrag import SpinBoxDragDouble, SpinBoxDragInt
 from juniors_toolbox.gui.widgets import ABCMetaWidget
-from juniors_toolbox.objects.template import AttributeType
+from juniors_toolbox.objects.template import ValueType
+from juniors_toolbox.utils.gx import color
 from juniors_toolbox.utils.types import RGB8, RGBA8, BasicColors, Transform, Vec3f
 from juniors_toolbox.utils import clamp
 
 
-class ValueProperty(QWidget, ABC, metaclass=ABCMetaWidget):
+class A_ValueProperty(QWidget, metaclass=ABCMetaWidget):
     """
     Represents an abstract widget that interfaces a property
     """
@@ -53,12 +54,12 @@ class ValueProperty(QWidget, ABC, metaclass=ABCMetaWidget):
     def get_nested_depth(self) -> int:
         i = 0
         parent = self.parent()
-        if not isinstance(parent, ValueProperty):
+        if not isinstance(parent, A_ValueProperty):
             return 0
         while parent:
             i += 1
             parent = parent.parent()
-            if not isinstance(parent, ValueProperty):
+            if not isinstance(parent, A_ValueProperty):
                 break
         return i
 
@@ -76,8 +77,7 @@ class ValueProperty(QWidget, ABC, metaclass=ABCMetaWidget):
     def set_inputs(self): ...
 
 
-
-class BoolProperty(ValueProperty):
+class BoolProperty(A_ValueProperty):
     def __init__(self, name: str, readOnly: bool, parent: Optional[QWidget] = None):
         super().__init__(name, readOnly, parent)
         self._resetValue = False
@@ -90,7 +90,8 @@ class BoolProperty(ValueProperty):
         lineEdit.setMinimumWidth(20)
         lineEdit.setCurrentIndex(0)
         lineEdit.setEnabled(not self.is_read_only())
-        lineEdit.currentIndexChanged.connect(lambda value: self.set_value(bool(value)))
+        lineEdit.currentIndexChanged.connect(
+            lambda value: self.set_value(bool(value)))
         self.__input = lineEdit
 
         entry = QGridLayout()
@@ -112,7 +113,7 @@ class BoolProperty(ValueProperty):
         super().set_value(value)
 
 
-class ByteProperty(ValueProperty):
+class ByteProperty(A_ValueProperty):
     def __init__(self, name: str, readOnly: bool, signed: bool, parent: Optional[QWidget] = None):
         super().__init__(name, readOnly, parent)
         self._signed = signed
@@ -127,7 +128,8 @@ class ByteProperty(ValueProperty):
         lineEdit.setMinimumWidth(20)
         lineEdit.setValue(0)
         lineEdit.setEnabled(not self.is_read_only())
-        lineEdit.valueChangedExplicit.connect(lambda _, value: self.set_value(value))
+        lineEdit.valueChangedExplicit.connect(
+            lambda _, value: self.set_value(value))
         self.__input = lineEdit
 
         entry = QGridLayout()
@@ -152,7 +154,7 @@ class ByteProperty(ValueProperty):
         super().set_value(value)
 
 
-class ShortProperty(ValueProperty):
+class ShortProperty(A_ValueProperty):
     def __init__(self, name: str, readOnly: bool, signed: bool, parent: Optional[QWidget] = None):
         super().__init__(name, readOnly, parent)
         self._signed = signed
@@ -167,7 +169,8 @@ class ShortProperty(ValueProperty):
         lineEdit.setMinimumWidth(20)
         lineEdit.setValue(0)
         lineEdit.setEnabled(not self.is_read_only())
-        lineEdit.valueChangedExplicit.connect(lambda _, value: self.set_value(value))
+        lineEdit.valueChangedExplicit.connect(
+            lambda _, value: self.set_value(value))
         self.__input = lineEdit
 
         entry = QGridLayout()
@@ -192,7 +195,7 @@ class ShortProperty(ValueProperty):
         super().set_value(value)
 
 
-class IntProperty(ValueProperty):
+class IntProperty(A_ValueProperty):
     def __init__(self, name: str, readOnly: bool, signed: bool, parent: Optional[QWidget] = None):
         super().__init__(name, readOnly, parent)
         self._signed = signed
@@ -207,7 +210,8 @@ class IntProperty(ValueProperty):
         lineEdit.setMinimumWidth(20)
         lineEdit.setValue(0)
         lineEdit.setEnabled(not self.is_read_only())
-        lineEdit.valueChangedExplicit.connect(lambda _, value: self.set_value(value))
+        lineEdit.valueChangedExplicit.connect(
+            lambda _, value: self.set_value(value))
         self.__input = lineEdit
 
         entry = QGridLayout()
@@ -232,7 +236,7 @@ class IntProperty(ValueProperty):
         super().set_value(value)
 
 
-class FloatProperty(ValueProperty):
+class FloatProperty(A_ValueProperty):
     def __init__(self, name: str, readOnly: bool, parent: Optional[QWidget] = None):
         super().__init__(name, readOnly, parent)
         self._resetValue = 0.0
@@ -245,7 +249,8 @@ class FloatProperty(ValueProperty):
         lineEdit.setMinimumWidth(20)
         lineEdit.setValue(0)
         lineEdit.setEnabled(not self.is_read_only())
-        lineEdit.valueChangedExplicit.connect(lambda _, value: self.set_value(value))
+        lineEdit.valueChangedExplicit.connect(
+            lambda _, value: self.set_value(value))
         self.__input = lineEdit
 
         entry = QGridLayout()
@@ -267,7 +272,7 @@ class FloatProperty(ValueProperty):
         super().set_value(value)
 
 
-class DoubleProperty(ValueProperty):
+class DoubleProperty(A_ValueProperty):
     def __init__(self, name: str, readOnly: bool, parent: Optional[QWidget] = None):
         super().__init__(name, readOnly, parent)
         self._resetValue = 0.0
@@ -280,7 +285,8 @@ class DoubleProperty(ValueProperty):
         lineEdit.setMinimumWidth(20)
         lineEdit.setValue(0)
         lineEdit.setEnabled(not self.is_read_only())
-        lineEdit.valueChangedExplicit.connect(lambda _, value: self.set_value(value))
+        lineEdit.valueChangedExplicit.connect(
+            lambda _, value: self.set_value(value))
         self.__input = lineEdit
 
         entry = QGridLayout()
@@ -302,7 +308,7 @@ class DoubleProperty(ValueProperty):
         super().set_value(value)
 
 
-class StringProperty(ValueProperty):
+class StringProperty(A_ValueProperty):
     def __init__(self, name: str, readOnly: bool, parent: Optional[QWidget] = None):
         super().__init__(name, readOnly, parent)
         self._resetValue = ""
@@ -313,7 +319,8 @@ class StringProperty(ValueProperty):
         lineEdit.setText("")
         lineEdit.setCursorPosition(0)
         lineEdit.setEnabled(not self.is_read_only())
-        lineEdit.textChangedNamed.connect(lambda _, value: self.set_value(value))
+        lineEdit.textChangedNamed.connect(
+            lambda _, value: self.set_value(value))
         self.__input = lineEdit
 
         entry = QGridLayout()
@@ -338,7 +345,7 @@ class StringProperty(ValueProperty):
         super().set_value(value)
 
 
-class Vector3Property(ValueProperty):
+class Vector3Property(A_ValueProperty):
     def __init__(self, name: str, readOnly: bool, parent: Optional[QWidget] = None):
         super().__init__(name, readOnly, parent)
         self._resetValue = Vec3f.zero
@@ -382,7 +389,7 @@ class Vector3Property(ValueProperty):
         super().set_value(value)
 
 
-class TransformProperty(ValueProperty):
+class TransformProperty(A_ValueProperty):
     def __init__(self, name: str, readOnly: bool, parent: Optional[QWidget] = None):
         super().__init__(name, readOnly, parent)
         self._resetValue = Transform()
@@ -426,14 +433,15 @@ class TransformProperty(ValueProperty):
         super().set_value(value)
 
 
-class RGBA8Property(ValueProperty):
+class RGBA8Property(A_ValueProperty):
     def __init__(self, name: str, readOnly: bool, parent: Optional[QWidget] = None):
         super().__init__(name, readOnly, parent)
         self._resetValue = RGBA8(BasicColors.WHITE)
 
     def construct(self):
         layout = QGridLayout()
-        colorbutton = ColorButton("", color=RGBA8(BasicColors.WHITE))
+        colorbutton = ColorButtonRGBA8()
+        colorbutton.set_color(RGBA8(BasicColors.WHITE))
         colorbutton.setFrameStyle(QFrame.Box)
         colorbutton.setMinimumHeight(20)
         colorbutton.setObjectName(self.get_name())
@@ -446,7 +454,7 @@ class RGBA8Property(ValueProperty):
     @Slot(QWidget, object)
     def set_inputs(self):
         self.__input.blockSignals(True)
-        self.__input.setColor(self.get_value())
+        self.__input.set_color(self.get_value())
         self.__input.blockSignals(False)
 
     def get_value(self) -> RGBA8:
@@ -458,15 +466,15 @@ class RGBA8Property(ValueProperty):
         super().set_value(value)
 
 
-class RGB8Property(ValueProperty):
+class RGB8Property(A_ValueProperty):
     def __init__(self, name: str, readOnly: bool, parent: Optional[QWidget] = None):
         super().__init__(name, readOnly, parent)
         self._resetValue = RGB8(BasicColors.WHITE)
 
     def construct(self):
         layout = QGridLayout()
-        colorbutton = ColorButton("", color=RGBA8(BasicColors.WHITE))
-        
+        colorbutton = ColorButtonRGB8()
+        colorbutton.set_color(RGB8(BasicColors.WHITE))
         colorbutton.setFrameStyle(QFrame.Box)
         colorbutton.setMinimumHeight(20)
         colorbutton.setObjectName(self.get_name())
@@ -478,22 +486,23 @@ class RGB8Property(ValueProperty):
 
     @Slot(QWidget, object)
     def set_inputs(self):
-        self.__trsInputs[0].set_value(self.get_value().translation)
-        self.__trsInputs[1].set_value(self.get_value().rotation)
-        self.__trsInputs[2].set_value(self.get_value().scale)
+        self.__input.blockSignals(True)
+        self.__input.set_color(self.get_value())
+        self.__input.blockSignals(False)
 
-    def get_value(self) -> Transform:
+    def get_value(self) -> RGB8:
         return super().get_value()
 
-    def set_value(self, value: Transform):
-        if not isinstance(value, Transform):
-            raise ValueError("Value is not a Transform type")
+    def set_value(self, value: RGB8):
+        if not isinstance(value, RGB8):
+            raise ValueError("Value is not a RGB8 type")
         super().set_value(value)
 
 
-class RGB32Property(ValueProperty):
+class RGB32Property(A_ValueProperty):
     def __init__(self, name: str, readOnly: bool, parent: Optional[QWidget] = None):
-        raise NotImplementedError("RGB32 has not been implemented as a property yet")
+        raise NotImplementedError(
+            "RGB32 has not been implemented as a property yet")
 
 
 class PropertyFactory():
@@ -501,176 +510,73 @@ class PropertyFactory():
     def create_property(
         *,
         name: str,
-        valueType: AttributeType,
+        valueType: ValueType,
         value: Optional[object] = None,
         readOnly: bool = False
     ):
         """
         Creates a property. `valueType` must corrispond to `value`
         """
-        if valueType == AttributeType.BOOL:
+        if valueType == ValueType.BOOL:
             prop = BoolProperty(
                 name, readOnly
             )
-        elif valueType == AttributeType.S8:
+        elif valueType == ValueType.S8:
             prop = ByteProperty(
                 name, readOnly, True
             )
-        elif valueType in {AttributeType.BYTE, AttributeType.CHAR, AttributeType.U8}:
+        elif valueType in {ValueType.BYTE, ValueType.CHAR, ValueType.U8}:
             prop = ByteProperty(
                 name, readOnly, False
             )
-        elif valueType == AttributeType.S16:
+        elif valueType == ValueType.S16:
             prop = ShortProperty(
                 name, readOnly, True
             )
-        elif valueType == AttributeType.U16:
+        elif valueType == ValueType.U16:
             prop = ShortProperty(
                 name, readOnly, False
             )
-        elif valueType in {AttributeType.S32, AttributeType.INT}:
+        elif valueType in {ValueType.S32, ValueType.INT}:
             prop = IntProperty(
                 name, readOnly, True
             )
-        elif valueType == AttributeType.U32:
+        elif valueType == ValueType.U32:
             prop = IntProperty(
                 name, readOnly, False
             )
-        elif valueType in {AttributeType.F32, AttributeType.FLOAT}:
+        elif valueType in {ValueType.F32, ValueType.FLOAT}:
             prop = FloatProperty(
                 name, readOnly
             )
-        elif valueType in {AttributeType.F64, AttributeType.DOUBLE}:
+        elif valueType in {ValueType.F64, ValueType.DOUBLE}:
             prop = DoubleProperty(
                 name, readOnly
             )
-        elif valueType in {AttributeType.STR, AttributeType.STRING}:
+        elif valueType in {ValueType.STR, ValueType.STRING}:
             prop = StringProperty(
                 name, readOnly
             )
-        elif valueType == AttributeType.VECTOR3:
+        elif valueType == ValueType.VECTOR3:
             prop = Vector3Property(
                 name, readOnly
             )
-        elif valueType in {AttributeType.C_RGBA, AttributeType.C_RGBA8}:
+        elif valueType in {ValueType.C_RGBA, ValueType.C_RGBA8}:
             prop = RGBA8Property(
                 name, readOnly
             )
-        elif valueType == AttributeType.C_RGB8:
+        elif valueType == ValueType.C_RGB8:
             prop = RGB8Property(
                 name, readOnly
             )
-        elif valueType == AttributeType.C_RGB32:
+        elif valueType == ValueType.C_RGB32:
             prop = RGB32Property(
                 name, readOnly
             )
-        elif valueType == AttributeType.TRANSFORM:
+        elif valueType == ValueType.TRANSFORM:
             prop = TransformProperty(
                 name, readOnly
             )
 
         prop.set_value(value)
         return prop
-
-
-def create_single_entry(
-    attribute: GameObject.Value,
-    nestedDepth: int = 0,
-    indentWidth: int = 25,
-    readOnly: bool = False
-):
-    _qualname = attribute.name
-    _attrname = _qualname.split(".")[-1]
-    _attrtype = attribute.type
-    _attrvalue = attribute.value
-
-    if _attrtype not in {
-        AttributeType.BOOL,
-        AttributeType.BYTE,
-        AttributeType.CHAR,
-        AttributeType.S8,
-        AttributeType.U8,
-        AttributeType.S16,
-        AttributeType.U16,
-        AttributeType.S32,
-        AttributeType.INT,
-        AttributeType.U32,
-        AttributeType.F32,
-        AttributeType.FLOAT,
-        AttributeType.F64,
-        AttributeType.DOUBLE,
-        AttributeType.STR,
-        AttributeType.STRING
-    }:
-        print(_attrtype)
-        return None
-
-    layout = QFormLayout()
-    layout.setObjectName("EntryForm " + _attrname)
-    if _attrtype in {
-        AttributeType.STR,
-        AttributeType.STRING
-    }:
-        lineEdit = ExplicitLineEdit(_attrname, ExplicitLineEdit.FilterKind.STR)
-        lineEdit.setText(_attrvalue)
-        lineEdit.setCursorPosition(0)
-        entry = EntryLayout(
-            _attrname,
-            lineEdit,
-            attribute.type.to_type(),
-            [lineEdit],
-            labelWidth=100 - (indentWidth * nestedDepth),
-            minEntryWidth=180 + (indentWidth * nestedDepth)
-        )
-        lineEdit.textChangedNamed.connect(entry.updateFromChild)
-        lineEdit.setEnabled(not readOnly)
-    elif _attrtype == AttributeType.BOOL:
-        lineEdit = QComboBox()
-        lineEdit.addItem("False")
-        lineEdit.addItem("True")
-        lineEdit.setObjectName(attribute.name)
-        lineEdit.setMinimumWidth(20)
-        lineEdit.setCurrentIndex(int(_attrvalue))
-        entry = EntryLayout(
-            _attrname,
-            lineEdit,
-            attribute.type.to_type(),
-            [lineEdit],
-            labelWidth=100 - (indentWidth * nestedDepth),
-            minEntryWidth=180 + (indentWidth * nestedDepth)
-        )
-        lineEdit.currentIndexChanged.connect(
-            lambda index: entry.updateFromChild(lineEdit, index))
-        lineEdit.setEnabled(not readOnly)
-    else:
-        if _attrtype in {
-            AttributeType.F32,
-            AttributeType.FLOAT,
-            AttributeType.F64,
-            AttributeType.DOUBLE
-        }:
-            lineEdit = SpinBoxDragDouble(isFloat=True)
-            lineEdit.setObjectName(attribute.name)
-            lineEdit.setMinimumWidth(20)
-            lineEdit.setValue(_attrvalue)
-        else:
-            lineEdit = SpinBoxDragInt(
-                intSize=SpinBoxDragInt.IntSize(attribute.type.get_size()),
-                signed=attribute.type.is_signed()
-            )
-            lineEdit.setObjectName(attribute.name)
-            lineEdit.setMinimumWidth(20)
-            lineEdit.setValue(_attrvalue)
-        entry = EntryLayout(
-            _attrname,
-            lineEdit,
-            attribute.type.to_type(),
-            [lineEdit],
-            labelWidth=100 - (indentWidth * nestedDepth),
-            minEntryWidth=180 + (indentWidth * nestedDepth)
-        )
-        lineEdit.valueChangedExplicit.connect(entry.updateFromChild)
-        lineEdit.setEnabled(not readOnly)
-
-    entry.setObjectName(attribute.name)
-    return entry

@@ -4,11 +4,11 @@ from typing import Optional, Union
 from pip import List
 from juniors_toolbox.gui.layouts.framelayout import FrameLayout
 
-from juniors_toolbox.gui.tabs.generic import GenericTabWidget
+from juniors_toolbox.gui.tabs import GenericTabWidget
 from juniors_toolbox.gui.widgets.interactivelist import (
     InteractiveListWidget, InteractiveListWidgetItem)
-from juniors_toolbox.objects.object import GameObject
-from juniors_toolbox.objects.template import AttributeType
+from juniors_toolbox.objects.object import BaseObject
+from juniors_toolbox.objects.template import ValueType
 from juniors_toolbox.rail import Rail, RailKeyFrame
 from juniors_toolbox.scene import SMSScene
 from PySide6.QtCore import Qt, Slot

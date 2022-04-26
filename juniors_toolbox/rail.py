@@ -7,11 +7,11 @@ from numpy import array, ndarray
 
 from juniors_toolbox.utils.iohelper import (align_int, read_float, read_sint16, read_string, read_uint32,
                                            write_float, write_sint16, write_string, write_uint16, write_uint32)
-from juniors_toolbox.utils import JSYSTEM_PADDING_TEXT, Serializable
+from juniors_toolbox.utils import JSYSTEM_PADDING_TEXT, A_Serializable
 
 
 @dataclass
-class RailKeyFrame(Serializable):
+class RailKeyFrame(A_Serializable):
     position: ndarray = array([0, 0, 0])
     unk: ndarray = array([0, 0, 0])
     rotation: ndarray = array([-1, -1, -1])
@@ -85,7 +85,7 @@ class RailKeyFrame(Serializable):
         return 68
 
 
-class Rail(Serializable):
+class Rail(A_Serializable):
     def __init__(self, name: str, frames: Optional[List[RailKeyFrame]] = None):
         if frames is None:
             frames = []
@@ -202,7 +202,7 @@ class Rail(Serializable):
         return self.size()
 
 
-class RalData(Serializable):
+class RalData(A_Serializable):
     def __init__(self, rails: Optional[List[Rail]] = None):
         if rails is None:
             rails = []

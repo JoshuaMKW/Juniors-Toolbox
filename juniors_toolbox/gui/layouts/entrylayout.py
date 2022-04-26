@@ -4,7 +4,7 @@ from PySide6.QtGui import QColor, QCursor, QMouseEvent, QPaintEvent, QPainter, Q
 from PySide6.QtWidgets import QAbstractSpinBox, QFrame, QGridLayout, QHBoxLayout, QLabel, QLayout, QLineEdit, QSizePolicy, QSpacerItem, QVBoxLayout, QWidget
 from juniors_toolbox.gui.widgets.explicitlineedit import ExplicitLineEdit
 from juniors_toolbox.gui.widgets.spinboxdrag import SpinBoxDragDouble, SpinBoxDragInt
-from juniors_toolbox.objects.object import GameObject
+from juniors_toolbox.objects.object import BaseObject
 
 from juniors_toolbox.gui.tools import walk_layout
 from juniors_toolbox.utils.types import Vec3f

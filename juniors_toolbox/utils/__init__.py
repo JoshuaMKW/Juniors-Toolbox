@@ -27,7 +27,7 @@ def write_jsystem_padding(f: BinaryIO, multiple: int):
         f.write(JSYSTEM_PADDING_TEXT[pos:pos+1])
         
 
-class Serializable(ABC):
+class A_Serializable(ABC):
     """
     Interface that ensures compatibility with generic object streaming
     """

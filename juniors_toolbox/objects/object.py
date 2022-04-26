@@ -3,11 +3,13 @@ from io import BytesIO
 from pipes import Template
 from struct import Struct
 from typing import Any, BinaryIO, Iterable, List, Optional, TextIO, Tuple, Union
+from attr import field
 
 from numpy import array
-from juniors_toolbox.objects.template import AttributeType, ObjectAttribute, ObjectTemplate
+from juniors_toolbox.objects.template import ValueType, ObjectAttribute, ObjectTemplate
+from juniors_toolbox.objects.value import A_Member
 from juniors_toolbox.utils.types import RGB32, RGB8, RGBA8, Vec3f
-from juniors_toolbox.utils import Serializable, jdrama
+from juniors_toolbox.utils import A_Serializable, jdrama
 from juniors_toolbox.utils.iohelper import read_string, read_uint16, read_uint32, write_string, write_uint16, write_uint32
 
 KNOWN_GROUP_HASHES = {
@@ -27,25 +29,23 @@ class ObjectCorruptedError(Exception):
     ...
 
 
-class GameObject(Serializable):
+
+
+
+class BaseObject(jdrama.NameRef):
     """
     Class describing a generic game object
     """
-    @dataclass
-    class Value():
-        name: str
-        value: object
-        type: AttributeType
 
     def __init__(self):
         self.name = jdrama.NameRef("(null)")
-        self.desc = jdrama.NameRef("(null)1")
+        self.desc = jdrama.NameRef("(null)")
 
         self._parent = None
-        self._grouped: List[GameObject] = []
+        self._grouped: List[BaseObject] = []
 
         self._template = ObjectTemplate()
-        self._values: List[GameObject.Value] = []
+        self._values: List[A_Member] = []
 
     @classmethod
     def from_bytes(cls, data: BinaryIO, *args, **kwargs):
@@ -92,7 +92,7 @@ class GameObject(Serializable):
         nameHash = hash(thisObj.name)
         if nameHash in KNOWN_GROUP_HASHES:
             template.add_attribute(ObjectAttribute(
-                "Grouped", AttributeType.U32), int(nameHash in {15406, 9858}))
+                "Grouped", ValueType.U32), int(nameHash in {15406, 9858}))
 
         def gen_attr(attr: ObjectAttribute, nestedNamePrefix: str = "") -> dict:
             def construct(index: int) -> dict:
@@ -153,7 +153,7 @@ class GameObject(Serializable):
         groupNum = thisObj.get_value("Grouped")
         if nameHash in KNOWN_GROUP_HASHES and groupNum is not None:
             for _ in range(groupNum.value):
-                thisObj.add_to_group(GameObject.from_bytes(data))
+                thisObj.add_to_group(BaseObject.from_bytes(data))
 
         thisObj._parent = None
         return thisObj
@@ -190,11 +190,11 @@ class GameObject(Serializable):
             attr.write_to(data, self.get_value(attr.name))
         return data
 
-    def clone(self) -> "GameObject":
+    def clone(self) -> "BaseObject":
         """
         Creates a copy of this object
         """
-        obj = GameObject()
+        obj = BaseObject()
         obj.name = jdrama.NameRef(self.name)
         obj.desc = jdrama.NameRef(self.desc)
         obj._parent = self._parent
@@ -227,7 +227,7 @@ class GameObject(Serializable):
         """
         return hash(self.name) in KNOWN_GROUP_HASHES  # and self.is_value("Grouped")
 
-    def get_value(self, attrname: str) -> Value:
+    def get_value(self, attrname: str) -> A_Member:
         """
         Get a `Value` by name from this object
         """
@@ -240,7 +240,7 @@ class GameObject(Serializable):
             if value.name == attrname:
                 return value
 
-    def get_value_by_index(self, index: int) -> Value:
+    def get_value_by_index(self, index: int) -> A_Member:
         """
         Return a `Value` at the specified index
         """
@@ -279,7 +279,16 @@ class GameObject(Serializable):
         else:
             val.value = klass(value)
 
-    def create_value(self, index: int, attrname: str, value: object, type: AttributeType, comment: str = "", strict: bool = False) -> bool:
+    def create_value(
+        self,
+        index: int,
+        name: str,
+        value: object,
+        type: ValueType,
+        comment: str = "",
+        strict: bool = False,
+        parent: Optional[A_Member] = None
+    ) -> A_Member:
         """
         Create a named value for this object if it doesn't exist
 
@@ -290,10 +299,10 @@ class GameObject(Serializable):
         if value is None:
             return False
             
-        attrname = attrname.strip()
-        easyname = attrname
+        name = name.strip()
+        easyname = name
 
-        isStructMember = "." in attrname
+        isStructMember = "." in name
 
         isVeryUnique = True
         if strict:
@@ -304,16 +313,16 @@ class GameObject(Serializable):
             while any([a.name == easyname.strip() for a in self._values]):
                 i += 1
                 isVeryUnique = False
-                easyname = f"{attrname}{i}"
+                easyname = f"{name}{i}"
 
-        attrname = easyname
+        name = easyname
 
         if isVeryUnique:
             try:
-                scopedNames = attrname.split(".")
+                scopedNames = name.split(".")
                 nestingDepth = len(scopedNames)
                 nestingDepth = 1 # FIXME: fix scoping lookup issue
-                attribute = ObjectAttribute(attrname, type, comment)
+                attribute = ObjectAttribute(name, type, comment)
                 if nestingDepth == 1:
                     self._template.add_attribute(attribute, index)
                 else:
@@ -335,30 +344,30 @@ class GameObject(Serializable):
                 return False
 
         for val in self._values:
-            if val.name == attrname:
+            if val.name == name:
                 val.value = value
                 return True
 
         if index != -1:
-            self._values.insert(index, GameObject.Value(attrname, value, type))
+            self._values.insert(index, A_Member(name, value, type))
         else:
-            self._values.append(GameObject.Value(attrname, value, type))
+            self._values.append(A_Member(name, value, type))
         return True
 
-    def iter_values(self) -> Iterable[Value]:
+    def iter_values(self) -> Iterable[A_Member]:
         """
         Yield all of this object's `Value`s
         """
         for v in self._values:
             yield v
 
-    def get_parent(self) -> "GameObject":
+    def get_parent(self) -> "BaseObject":
         """
         Get this object's parent group object
         """
         return self._parent
 
-    def add_to_group(self, obj: "GameObject"):
+    def add_to_group(self, obj: "BaseObject"):
         """
         Add an object to this group object
         """
@@ -369,7 +378,7 @@ class GameObject(Serializable):
         self._grouped.append(obj)
         obj._parent = self
 
-    def remove_from_group(self, obj: "GameObject") -> bool:
+    def remove_from_group(self, obj: "BaseObject") -> bool:
         """
         Remove an object from this group object
         """
@@ -384,7 +393,7 @@ class GameObject(Serializable):
         except ValueError:
             return False
 
-    def iter_grouped(self, deep: bool = False) -> Iterable["GameObject"]:
+    def iter_grouped(self, deep: bool = False) -> Iterable["BaseObject"]:
         """
         Yield all of the grouped objects
         """
@@ -392,6 +401,14 @@ class GameObject(Serializable):
             yield g
             if deep and g.is_group():
                 yield from g.iter_grouped()
+
+    def search(self, name: str) -> "BaseObject":
+        if not self.is_group():
+            return None
+
+        for subobj in self.iter_grouped():
+            if super(BaseObject, subobj).__eq__(name):
+                return subobj
 
     def print_map(self, out: TextIO, indention: int = 0, indentionWidth: int = 2):
         """
@@ -416,20 +433,37 @@ class GameObject(Serializable):
 
     def get_explicit_name(self) -> str:
         """
-        Return the described name of thie object
+        Return the described name of this object
         """
         return f"{self.name} ({self.desc})"
 
-    def __str__(self) -> str:
+    def get_map_graph(self) -> str:
         header = f"{self.name} ({self.desc})"
         body = ""
         for v in self.iter_values():
             body += f"  {v[0]} = {v[1]}\n"
         return header + " {\n" + body + "}"
 
-    def __contains__(self, other: Union[str, "GameObject"]) -> bool:
+    def __eq__(self, other: "BaseObject") -> bool:
+        nameEQ = super().__eq__(other)
+        descEQ = self.desc == other.desc
+        return nameEQ and descEQ
+
+    def __ne__(self, other: "BaseObject") -> bool:
+        nameNEQ = super().__ne__(other)
+        descNEQ = self.desc != other.desc
+        return nameNEQ and descNEQ
+
+    def __contains__(self, other: Union[str, "BaseObject"]) -> bool:
         if not self.is_group():
             return False
-        if isinstance(other, GameObject):
+        if isinstance(other, BaseObject):
             return other in self._grouped
-        return any([g.name == other for g in self._grouped])
+        return any([g == other for g in self._grouped])
+
+
+class GroupObject(BaseObject):
+    def is_group(self) -> bool:
+        return True
+
+    

@@ -12,9 +12,9 @@ from tkinter import font
 from turtle import back
 from typing import Any, Callable, Dict, List, Optional, Union
 
-from juniors_toolbox.gui.tabs.generic import GenericTabWidget
+from juniors_toolbox.gui.tabs import GenericTabWidget
 from juniors_toolbox.gui.widgets.interactivelist import InteractiveListWidget, InteractiveListWidgetItem
-from juniors_toolbox.objects.object import GameObject
+from juniors_toolbox.objects.object import BaseObject
 from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.utils.bmg import BMG, RichMessage, SoundID
 from juniors_toolbox.utils.filesystem import resource_path
@@ -156,7 +156,6 @@ class BMGMessagePreviewWidget(QWidget):
             transform.translate(-center.x(), -center.y())
             poly = transform.mapToPolygon(rect)
             return poly.containsPoint(point, Qt.WindingFill)
-        
 
     class PolygonButton(ButtonCB):
         def __init__(self, polygon: QPolygon, cb: Callable[[], None]):
@@ -189,7 +188,6 @@ class BMGMessagePreviewWidget(QWidget):
             transform.translate(-center.x(), -center.y())
             poly = transform.map(self._polygon)
             return poly.containsPoint(point, Qt.WindingFill)
-
 
     def __init__(self, message: RichMessage = None, parent=None):
         super().__init__(parent)
@@ -364,7 +362,7 @@ class BMGMessagePreviewWidget(QWidget):
             else:
                 size = len(cmp)
 
-            if _len < self.__curFrame < _len+size:
+            if _len < self.__curFrame < _len + size:
                 curComponent = cmp
                 break
 
@@ -421,7 +419,7 @@ class BMGMessagePreviewWidget(QWidget):
             hFactor = self.height() / backgroundImg.height()
 
             factor = min(wFactor, hFactor)
-            
+
             button.set_position(
                 QPoint(
                     (messageImgOfs.x() + button.position().x()) * factor,
@@ -432,7 +430,7 @@ class BMGMessagePreviewWidget(QWidget):
             button.scale(factor)
 
             self.__buttons.append(button)
-        
+
         painter.restore()
 
     def __render_any(self, painter: QPainter) -> List[ButtonCB]:
@@ -504,7 +502,8 @@ class BMGMessagePreviewWidget(QWidget):
                         queueSize = 0
                     fruitNum = str(self.get_fruit(component[-1]))
                     for char in fruitNum:
-                        charWidth = self.__render_char_on_path(painter, char, path, pathLerp)
+                        charWidth = self.__render_char_on_path(
+                            painter, char, path, pathLerp)
                         pathLerp += charWidth / plen
                         lastChar = char
                 elif component.startswith(b"\x1A\x05\x02\x00"):
@@ -515,7 +514,8 @@ class BMGMessagePreviewWidget(QWidget):
                         queueSize = 0
                     text = self.get_record(component[-1])
                     for char in text:
-                        charWidth = self.__render_char_on_path(painter, char, path, pathLerp)
+                        charWidth = self.__render_char_on_path(
+                            painter, char, path, pathLerp)
                         pathLerp += charWidth / plen
                         lastChar = char
                 elif component[2:4] == b"\x01\x00":
@@ -546,7 +546,8 @@ class BMGMessagePreviewWidget(QWidget):
                     queueLine = False
                     queueSize = 0
 
-                charWidth = self.__render_char_on_path(painter, char, path, pathLerp)
+                charWidth = self.__render_char_on_path(
+                    painter, char, path, pathLerp)
                 pathLerp += charWidth / plen
 
                 lastChar = char
@@ -1000,7 +1001,8 @@ class BMGMessageInterfaceWidget(QWidget):
     def set_values(self, soundID: SoundID, startFrame: int, endFrame: int):
         startFrame = min(startFrame, 65535)
         endFrame = min(endFrame, 65535)
-        index = self.__soundIdComboBox.findText(soundID.name, Qt.MatchFixedString)
+        index = self.__soundIdComboBox.findText(
+            soundID.name, Qt.MatchFixedString)
         index = max(0, index)
         self.__soundIdComboBox.setCurrentIndex(index)
         self.__startFrameLineEdit.setText(str(startFrame))
@@ -1097,7 +1099,7 @@ class BMGMessageTextBox(QPlainTextEdit):
 
         def __click(self):
             self.clicked.emit("{option:0:}")
-        
+
     class RawCmdAction(QAction):
         clicked: SignalInstance = Signal(str)
 
@@ -1171,7 +1173,8 @@ class BMGMessageTextBox(QPlainTextEdit):
             cursor.removeSelectedText()
             cursor.setPosition(targetPos, QTextCursor.MoveAnchor)
             cursor.insertText(token + textToWrap + resetToken)
-            cursor.movePosition(QTextCursor.Left, QTextCursor.MoveAnchor, len(textToWrap) + len(resetToken))
+            cursor.movePosition(QTextCursor.Left, QTextCursor.MoveAnchor, len(
+                textToWrap) + len(resetToken))
             cursor.select(QTextCursor.SelectionType.WordUnderCursor)
             self.setTextCursor(cursor)
         elif "text:slow" in token and abs(end - start) > 1:
@@ -1181,7 +1184,8 @@ class BMGMessageTextBox(QPlainTextEdit):
             cursor.removeSelectedText()
             cursor.setPosition(targetPos, QTextCursor.MoveAnchor)
             cursor.insertText(token + textToWrap + resetToken)
-            cursor.movePosition(QTextCursor.Left, QTextCursor.MoveAnchor, len(textToWrap) + len(resetToken))
+            cursor.movePosition(QTextCursor.Left, QTextCursor.MoveAnchor, len(
+                textToWrap) + len(resetToken))
             cursor.select(QTextCursor.SelectionType.WordUnderCursor)
             self.setTextCursor(cursor)
         else:
@@ -1201,7 +1205,8 @@ class BMGMessageTextBox(QPlainTextEdit):
             cursor.removeSelectedText()
             cursor.setPosition(targetPos, QTextCursor.MoveAnchor)
             cursor.insertText(token + textToWrap + token)
-            cursor.movePosition(QTextCursor.Left, QTextCursor.MoveAnchor, len(textToWrap) + len(token) + 1)
+            cursor.movePosition(QTextCursor.Left, QTextCursor.MoveAnchor, len(
+                textToWrap) + len(token) + 1)
             self.setTextCursor(cursor)
         else:
             self.insertPlainText(token)
