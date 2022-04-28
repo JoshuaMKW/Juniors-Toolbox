@@ -3,7 +3,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from io import BytesIO
 from pathlib import Path
-from pickle import FALSE
 from typing import (BinaryIO, Dict, Iterable, Iterator, List, TextIO, Tuple,
                     Union)
 

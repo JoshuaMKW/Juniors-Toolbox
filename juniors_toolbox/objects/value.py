@@ -2,7 +2,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import BinaryIO, Iterable
+from typing import BinaryIO, Iterable, List, Union
 
 from juniors_toolbox.objects.template import ValueType
 from juniors_toolbox.utils.iohelper import (read_bool, read_double, read_float,
@@ -18,6 +18,54 @@ from juniors_toolbox.utils.iohelper import (read_bool, read_double, read_float,
                                             write_vec3f)
 from juniors_toolbox.utils.types import RGB8, RGB32, RGBA8, Vec3f
 
+
+class QualifiedName():
+    def __init__(self, *scopes: str):
+        self.__scopes = []
+        for scope in scopes:
+            self.__scopes.extend(scope.split("::"))
+        self.__iter = -1
+
+    def scopes(self, other: "QualifiedName") -> bool:
+        """
+        Check if this scopes another qualified name
+        """
+        return str(other).startswith(str(self))
+    
+    def __iter__(self):
+        self.__iter = -1
+        return self
+
+    def __next__(self) -> str:
+        self.__iter += 1
+        if self.__iter > len(self.__scopes):
+            raise StopIteration
+        return self.__scopes[self.__iter]
+
+    def __getitem__(self, index: Union[int, slice]) -> str:
+        if isinstance(index, slice):
+            return self.__scopes[index.start, index.stop, index.step]
+        return self.__scopes[index]
+
+    def __setitem__(self, index: int, scope: str) -> str:
+        self.__scopes[index] = scope
+
+    def __str__(self) -> str:
+        return "::".join(self.__scopes)
+
+    def __eq__(self, other: "QualifiedName") -> bool:
+        return str(self) == str(other)
+
+    def __ne__(self, other: "QualifiedName") -> bool:
+        return str(self) != str(other)
+
+    def __add__(self, other: str) -> "QualifiedName":
+        return QualifiedName(str(self), str(other))
+
+    def __iadd__(self, other: str) -> "QualifiedName":
+        self.__scopes.append(other)
+        return self
+        
 
 class ValueType(str, Enum):
     BOOL = "BOOL"
@@ -43,7 +91,7 @@ class ValueType(str, Enum):
     VECTOR3 = "VEC3F"
     TRANSFORM = "TRANSFORM"
     COMMENT = "COMMENT"
-    TEMPLATE = "TEMPLATE"
+    STRUCT = "STRUCT"
 
     @staticmethod
     def type_to_enum(_ty: type):
@@ -107,7 +155,7 @@ _ENUM_TO_TYPE_TABLE = {
     ValueType.C_RGBA: RGBA8,
     ValueType.VECTOR3: Vec3f,
     ValueType.COMMENT: str,
-    ValueType.TEMPLATE: None
+    ValueType.STRUCT: None
 }
 
 _ENUM_TO_SIZE_TABLE = {
@@ -133,7 +181,7 @@ _ENUM_TO_SIZE_TABLE = {
     ValueType.C_RGBA: 4,
     ValueType.VECTOR3: 12,
     ValueType.COMMENT: None,
-    ValueType.TEMPLATE: None
+    ValueType.STRUCT: None
 }
 
 _ENUM_TO_SIGNED_TABLE = {
@@ -159,7 +207,7 @@ _ENUM_TO_SIGNED_TABLE = {
     ValueType.C_RGBA: False,
     ValueType.VECTOR3: False,
     ValueType.COMMENT: False,
-    ValueType.TEMPLATE: False
+    ValueType.STRUCT: False
 }
 
 
@@ -186,7 +234,7 @@ TEMPLATE_TYPE_READ_TABLE = {
     ValueType.C_RGBA: lambda f: RGBA8(read_uint32(f)),
     ValueType.VECTOR3: lambda f: Vec3f(*read_vec3f(f)),
     ValueType.COMMENT: lambda f: None,
-    ValueType.TEMPLATE: lambda f: None
+    ValueType.STRUCT: lambda f: None
 }
 
 
@@ -214,7 +262,7 @@ TEMPLATE_TYPE_WRITE_TABLE = {
     ValueType.C_RGBA: write_uint32,
     ValueType.VECTOR3: write_vec3f,
     ValueType.COMMENT: lambda f, val: None,
-    ValueType.TEMPLATE: lambda f, val: None
+    ValueType.STRUCT: lambda f, val: None
 }
 
 
@@ -250,7 +298,7 @@ class A_Member(SimpleValue, ABC):
         """
         return self._parent
 
-    def get_qualified_name(self) -> str:
+    def get_qualified_name(self) -> QualifiedName:
         """
         Get the full name of this `Member`, as is scoped from its parents
         """
@@ -259,12 +307,19 @@ class A_Member(SimpleValue, ABC):
         while parent is not None:
             scopes.append(parent.name)
             parent = parent.get_parent()
-        return "::".join(scopes[::-1])
+        return QualifiedName(scopes[::-1])
 
     @abstractmethod
     def is_struct(self) -> bool:
         """
         Check is this `Member` is a struct, meaning it has children `Member`s
+        """
+        ...
+
+    @abstractmethod
+    def has_child(self, name: str) -> bool:
+        """
+        Check if a child of the given name exists
         """
         ...
 
@@ -319,6 +374,9 @@ class MemberValue(A_Member):
     def is_struct(self) -> bool:
         return False
 
+    def has_child(self, name: str) -> bool:
+        return False
+
     def get_child(self, name: str) -> "A_Member":
         return None
 
@@ -343,9 +401,15 @@ class MemberStruct(A_Member):
     Class describing a member structure
     """
     _children = field(default_factory=lambda: {})
+    
+    def __init__(self, name: str, value: object):
+        super().__init__(name, value, ValueType.STRUCT)
 
     def is_struct(self) -> bool:
         return True
+
+    def has_child(self, name: str) -> bool:
+        return name in self._children
 
     def get_child(self, name: str) -> "A_Member":
         if name in self._children:
@@ -382,10 +446,13 @@ class MemberStruct(A_Member):
 
         return header + body + "}"
 
+
 class MemberComment(A_Member):
     """
     Class describing a member comment
     """
+    def __init__(self, name: str, value: object):
+        super().__init__(name, value, ValueType.STRUCT)
     
     def is_struct(self) -> bool:
         return False

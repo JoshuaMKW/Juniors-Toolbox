@@ -1,3 +1,4 @@
+from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import BinaryIO
 
@@ -33,7 +34,15 @@ class A_Serializable(ABC):
     """
     @classmethod
     @abstractmethod
-    def from_bytes(cls, data: BinaryIO, *args, **kwargs): ...
+    def from_bytes(cls, data: BinaryIO, *args, **kwargs) -> A_Serializable: ...
     
     @abstractmethod
     def to_bytes(self) -> bytes: ...
+
+
+class A_Clonable(ABC):
+    """
+    Interface that ensures this object supports deep copying
+    """
+    @abstractmethod
+    def copy(self, *, deep: bool = False) -> A_Clonable: ...

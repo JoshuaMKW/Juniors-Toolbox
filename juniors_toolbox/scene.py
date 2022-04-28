@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 from typing import BinaryIO, Iterable, List, Optional, TextIO
 
-from juniors_toolbox.objects.object import BaseObject
+from juniors_toolbox.objects.object import A_SceneObject, BaseObject
 from juniors_toolbox.rail import Rail, RalData
 
 class SMSScene():
@@ -53,8 +53,8 @@ class SMSScene():
         """
         Reset the scene back to an empty state
         """
-        self._objects: List[BaseObject] = []
-        self._tables: List[BaseObject] = []
+        self._objects: List[A_SceneObject] = []
+        self._tables: List[A_SceneObject] = []
         self._raildata: RalData = None
 
     def dump(self, out: Optional[TextIO] = None, indentwidth: int = 2):
@@ -68,26 +68,26 @@ class SMSScene():
         for rail in self.iter_rails():
             out.write(rail + "\n")
 
-    def iter_objects(self, deep: bool = False) -> Iterable[BaseObject]:
+    def iter_objects(self, deep: bool = False) -> Iterable[A_SceneObject]:
         for obj in self._objects:
             yield obj
             if deep and obj.is_group():
                 yield from obj.iter_grouped(True)
 
-    def get_object(self, name: str, desc: str) -> BaseObject:
+    def get_object(self, name: str, desc: str) -> A_SceneObject:
         for obj in self.iter_objects(True):
-            if obj.name == name and obj.desc == desc:
+            if obj.name == name and obj.key == desc:
                 return obj
 
-    def iter_tables(self, deep: bool = False) -> Iterable[BaseObject]:
+    def iter_tables(self, deep: bool = False) -> Iterable[A_SceneObject]:
         for obj in self._tables:
             yield obj
             if deep and obj.is_group():
                 yield from obj.iter_grouped(True)
 
-    def get_table(self, name: str, desc: str) -> BaseObject:
+    def get_table(self, name: str, desc: str) -> A_SceneObject:
         for obj in self.iter_tables(True):
-            if obj.name == name and obj.desc == desc:
+            if obj.name == name and obj.key == desc:
                 return obj
         
     def iter_rails(self) -> Iterable[Rail]:
@@ -133,5 +133,5 @@ class SMSScene():
                 return True
         return False
 
-    def __contains__(self, other: BaseObject) -> bool:
+    def __contains__(self, other: A_SceneObject) -> bool:
         return other in self._objects
