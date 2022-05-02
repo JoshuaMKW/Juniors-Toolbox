@@ -3,25 +3,14 @@ from dataclasses import dataclass
 from io import BytesIO
 import json
 from pathlib import Path
-from pipes import Template
-from struct import Struct
 from typing import Any, BinaryIO, Dict, Iterable, List, Optional, TextIO, Tuple, Union
 from attr import field
 
 from numpy import array
-from juniors_toolbox.objects.template import ValueType
-from juniors_toolbox.objects.value import A_Member, MemberComment, MemberStruct, MemberValue, QualifiedName
+from juniors_toolbox.objects.value import A_Member, MemberComment, MemberStruct, MemberValue, QualifiedName, ValueType
 from juniors_toolbox.utils.types import RGB32, RGB8, RGBA8, Transform, Vec3f
-from juniors_toolbox.utils import A_Serializable, jdrama
+from juniors_toolbox.utils import A_Serializable, VariadicArgs, VariadicKwargs, jdrama
 from juniors_toolbox.utils.iohelper import read_string, read_uint16, read_uint32, write_string, write_uint16, write_uint32
-
-KNOWN_GROUP_HASHES = {
-    16824, 15406, 28318, 18246,
-    43971, 9858, 25289,  # levels
-    33769, 49941, 13756, 65459,
-    38017, 47488,  # tables
-    8719, 22637
-}
 
 
 class ObjectGroupError(Exception):
@@ -37,37 +26,113 @@ class A_SceneObject(jdrama.NameRef, ABC):
     Class describing a generic scene object
     """
     TEMPLATE_PATH = Path("Templates")
+    
+    _KNOWN_GROUP_HASHES = {
+        16824, 15406, 28318, 18246,
+        43971, 9858, 25289,  # levels
+        33769, 49941, 13756, 65459,
+        38017, 47488,  # tables
+        8719, 22637
+    }
+
+    @staticmethod
+    def is_data_group(data: BinaryIO) -> bool:
+        _pos = data.tell()
+        data.seek(4, 1)
+        nhash = read_uint16(data)
+        data.seek(_pos, 0)
+        return nhash in A_SceneObject._KNOWN_GROUP_HASHES
+
+    @staticmethod
+    def is_name_group(name: str) -> bool:
+        return jdrama.get_key_code(name) in A_SceneObject._KNOWN_GROUP_HASHES
 
     def __init__(self, nameref: str, subkind: str = "Default"):
         super().__init__(nameref)
         self.key = jdrama.NameRef("(null)")
         self._members: List[A_Member] = []
-        self._parent: A_SceneObject = None
+        self._parent: Optional[GroupObject] = None
 
         self.init_members(subkind)
+
+    def get_explicit_name(self) -> str:
+        """
+        Return the described name of this object
+        """
+        return f"{self.get_nameref()} ({self.key})"
 
     def get_map_graph(self) -> str:
         header = f"{self.get_nameref()} ({self.key})"
         body = ""
         for v in self.get_members():
-            body += f"  {v[0]} = {v[1]}\n"
+            body += f"  {v.name} = {v.value}\n"
         return header + " {\n" + body + "}"
 
-    def get_parent(self) -> "GroupObject":
+    def get_parent(self) -> Optional["GroupObject"]:
         """
         Get this object's parent group object
         """
         return self._parent
 
+    def get_member(self, name: QualifiedName) -> Optional[A_Member]:
+        """
+        Get a `Value` by name from this object
+        """
+        def get(member: A_Member, name: QualifiedName) -> Optional[A_Member]:
+            for child in member.get_children():
+                if child.get_qualified_name() == name:
+                    return child
+                if child.get_qualified_name().scopes(name):
+                    return get(child, name)
+            return None
+
+        for member in self._members:
+            m = get(member, name)
+            if m is not None:
+                return m
+
+        return None
+
     def get_members(self) -> Iterable[A_Member]:
         return self._members
+
+    def get_member_by_index(self, index: int) -> A_Member:
+        """
+        Return a `Value` at the specified index
+        """
+        return self._members[index]
+
+    def set_member(self, attrname: str, value: Any) -> bool:
+        """
+        Set a `Value` by name if it exists in this object
+
+        Returns `True` if successful
+        """
+
+        attrname = attrname.strip()
+
+        if not self.has_member(attrname):
+            return False
+
+        for val in self._members:
+            if val.name == attrname:
+                val.value = value
+                return True
+        return False
+
+    def set_member_by_index(self, index: int, value: Any):
+        """
+        Set a member by index if it exists in this object
+        """
+        val = self._members[index]
+        val.value = value
 
     def get_member_data(self) -> BytesIO:
         """
         Get the raw data of this object's values
         """
         data = BytesIO()
-        for member in self.iter_values():
+        for member in self.get_members():
             member.save(data)
         return data
 
@@ -128,63 +193,16 @@ class A_SceneObject(jdrama.NameRef, ABC):
 
             self._members.append(member)
 
-    def get_member(self, attrname: str) -> A_Member:
-        """
-        Get a `Value` by name from this object
-        """
-        attrname = attrname.strip()
-
-        for member in self._members:
-            if member.name == attrname:
-                return member
-
-    def get_member_by_index(self, index: int) -> A_Member:
-        """
-        Return a `Value` at the specified index
-        """
-        return self._members[index]
-
-    def set_member(self, attrname: str, value: object) -> bool:
-        """
-        Set a `Value` by name if it exists in this object
-
-        Returns `True` if successful
-        """
-
-        attrname = attrname.strip()
-
-        if not self.has_member(attrname):
-            return False
-
-        for val in self._members:
-            if val.name == attrname:
-                klass = val.type.to_type()
-                if issubclass(klass, Vec3f):
-                    val.value = value
-                else:
-                    val.value = klass(value)
-                return True
-        return False
-
-    def set_member_by_index(self, index: int, value: object):
-        """
-        Set a member by index if it exists in this object
-        """
-        val = self._members[index]
-        klass = val.type.to_type()
-        if issubclass(klass, Vec3f):
-            val.value = value
-        else:
-            val.value = klass(value)
+        return True
 
     def create_member(
         self, *,
         index: int,
         qualifiedName: QualifiedName,
-        value: object,
+        value: Any,
         type: ValueType,
         strict: bool = False
-    ) -> A_Member:
+    ) -> Optional[A_Member]:
         """
         Create a named value for this object if it doesn't exist
 
@@ -196,15 +214,17 @@ class A_SceneObject(jdrama.NameRef, ABC):
             return None
 
         memberName = qualifiedName[-1]
+        member: A_Member
         if type == ValueType.STRUCT:
-            member = MemberStruct(qualifiedName[-1], value, type)
+            member = MemberStruct(memberName, value)
         elif type == ValueType.COMMENT:
-            member = MemberComment(qualifiedName[-1], value, type)
+            member = MemberComment(memberName, value)
         else:
-            member = MemberValue(qualifiedName[-1], value, type)
+            member = MemberValue(memberName, value, type)
 
         for i in range(100):
-            parentMember: MemberStruct = self.get_member(qualifiedName[:-1])
+            parentMember = self.get_member(QualifiedName(*qualifiedName[:-1]))
+            member.name = memberName
             if parentMember is None:
                 if not self.has_member(memberName):
                     if index != -1:
@@ -213,40 +233,27 @@ class A_SceneObject(jdrama.NameRef, ABC):
                         self._members.append(member)
                     return member
             else:
-                if parentMember.has_child(memberName):
-                    parentMember._children[memberName] = member
+                if not parentMember.has_child(memberName):
+                    parentMember.add_child(member)
                     return member
 
             if strict:
                 return None
 
-            member.name = f"{qualifiedName[-1]}{i}"
+            member.name = f"{memberName}{i}"
 
-    def get_member(self, name: QualifiedName) -> A_Member:
-        def get(member: A_Member, name: QualifiedName) -> A_Member:
-            for child in member.get_children():
-                if child.get_qualified_name() == name:
-                    return child
-                if child.get_qualified_name().scopes(name):
-                    return get(child, name)
-            return None
-
-        for member in self._members:
-            m = get(self, member, name)
-            if m is not None:
-                return m
-
-        return None
+        self._members.append(member)
+        return member
 
     @abstractmethod
-    def add_to_group(self, obj: "BaseObject"):
+    def add_to_group(self, obj: "BaseObject", /):
         """
         Add an object as a child to this object
         """
         ...
 
     @abstractmethod
-    def remove_from_group(self, obj: "BaseObject"):
+    def remove_from_group(self, obj: "BaseObject", /):
         """
         Remove a child object from this object
         """
@@ -254,7 +261,7 @@ class A_SceneObject(jdrama.NameRef, ABC):
 
     @abstractmethod
     def iter_grouped_children(
-        self, deep: bool = False) -> Iterable["BaseObject"]: ...
+        self, *, deep: bool = False) -> Iterable["BaseObject"]: ...
 
     @abstractmethod
     def get_data_size(self) -> int: ...
@@ -266,6 +273,13 @@ class A_SceneObject(jdrama.NameRef, ABC):
         """
         ...
 
+    @abstractmethod
+    def print_map(self, out: TextIO, *, indention: int = 0, indentionWidth: int = 2):
+        """
+        Print a complete map of this object to `out`
+        """
+        ...
+        
 
 class BaseObject(A_SceneObject):
     """
@@ -278,7 +292,7 @@ class BaseObject(A_SceneObject):
         self._grouped: List[BaseObject] = []
 
     @classmethod
-    def from_bytes(cls, data: BinaryIO, *args, **kwargs):
+    def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **kwargs: VariadicKwargs) -> Optional["BaseObject"]:
         objLength = read_uint32(data)
         objEndPos = data.tell() + objLength - 4
 
@@ -292,93 +306,22 @@ class BaseObject(A_SceneObject):
             raise ObjectCorruptedError(
                 f"Object name is corrupted! {hash(objName)} ({objName}) != {objNameHash}")
 
-        # -- Desc -- #
-        objDescHash = read_uint16(data)
-        objDescLength = read_uint16(data)
+        # -- Key -- #
+        objKeyHash = read_uint16(data)
+        objKeyLength = read_uint16(data)
 
-        objDesc = jdrama.NameRef(read_string(
-            data, maxlen=objDescLength-1, encoding="shift-jis"))
+        objKey = jdrama.NameRef(read_string(
+            data, maxlen=objKeyLength-1, encoding="shift-jis"))
 
-        if hash(objDesc) != objDescHash or len(objDesc.encode("shift-jis")) != objDescLength:
+        if hash(objKey) != objKeyHash or len(objKey.encode("shift-jis")) != objKeyLength:
             raise ObjectCorruptedError(
-                f"Object desc is corrupted! {hash(objDesc)} ({objDesc}) != {objDescHash}")
+                f"Object desc is corrupted! {hash(objKey)} ({objKey}) != {objKeyHash}")
 
-        thisObj = cls(objName)
-        thisObj.key = objDesc
+        thisObj = cls(objName.get_nameref())
+        thisObj.key = objKey
 
-        # -- Template Specific -- #
-        template = ObjectTemplate.from_template(
-            ObjectTemplate.TEMPLATE_PATH / f"{thisObj.get_nameref}.json"
-        )
-
-        if template is None:
-            template = ObjectTemplate()
-
-        nameHash = hash(thisObj.name)
-        if nameHash in KNOWN_GROUP_HASHES:
-            template.add_attribute(ObjectAttribute(
-                "Grouped", ValueType.U32), int(nameHash in {15406, 9858}))
-
-        def gen_attr(attr: ObjectAttribute, nestedNamePrefix: str = "") -> dict:
-            def construct(index: int) -> dict:
-                char = "abcdefghijklmnopqrstuvwxyz"[index]
-                name = attr.get_formatted_name(char, index)
-
-                if isStruct:
-                    for subattr in attr.iter_attributes():
-                        for attrdata in gen_attr(subattr, f"{nestedNamePrefix}{name}."):
-                            thisObj.create_member(
-                                attrdata["index"],
-                                attrdata['name'],
-                                attrdata["value"],
-                                attrdata["type"],
-                                attrdata["comment"]
-                            )
-
-                else:
-                    instances.append({
-                        "index": -1,
-                        "name": f"{nestedNamePrefix}{name}",
-                        "value": attr.read_from(data),
-                        "type": attr.type,
-                        "comment": attr.comment
-                    })
-
-            isStruct = attr.is_struct()
-            if attr.is_count_referenced():
-                count = thisObj.get_value(attr.countRef.name).value
-            else:
-                count = attr.countRef
-
-            instances = []
-            if count == -1:
-                i = 0
-                while data.tell() < objEndPos:
-                    x = data.tell()
-                    construct(i)
-                    i += 1
-                return instances
-
-            for i in range(count):
-                if data.tell() >= objEndPos:
-                    break
-                construct(i)
-            return instances
-
-        for attribute in template.iter_attributes():
-            for attrdata in gen_attr(attribute):
-                thisObj.create_member(
-                    attrdata["index"],
-                    attrdata["name"],
-                    attrdata["value"],
-                    attrdata["type"],
-                    attrdata["comment"]
-                )
-
-        groupNum = thisObj.get_value("Grouped")
-        if nameHash in KNOWN_GROUP_HASHES and groupNum is not None:
-            for _ in range(groupNum.value):
-                thisObj.add_to_group(BaseObject.from_bytes(data))
+        for member in thisObj.get_members():
+            member.load(data)
 
         thisObj._parent = None
         return thisObj
@@ -388,53 +331,64 @@ class BaseObject(A_SceneObject):
         Converts this object to raw bytes
         """
         data = BytesIO()
+        nameref = self.get_nameref()
+        keyref = self.key.get_nameref()
 
-        write_uint32(data, self.get_data_length())
-        write_uint16(data, hash(self))
-        write_uint16(data, len(self.get_nameref()))
-        write_string(data, self.get_nameref())
-        write_uint16(data, hash(self.key))
-        write_uint16(data, len(self.key))
-        write_string(data, self.key)
+        write_uint32(data, self.get_data_size())
+        write_uint16(data, hash(nameref))
+        write_uint16(data, len(nameref))
+        write_string(data, nameref)
+        write_uint16(data, hash(keyref))
+        write_uint16(data, len(keyref))
+        write_string(data, keyref)
         data.write(self.get_member_data().getvalue())
-
-        if hash(self) in KNOWN_GROUP_HASHES:
-            write_uint32(data, len(self._grouped))
-            for obj in self._grouped:
-                data.write(obj.to_bytes())
 
         return data.getvalue()
 
-    def copy(self, *, deep: bool = False) -> "A_SceneObject":
+    def copy(self, *, deep: bool = False) -> "BaseObject":
         cls = self.__class__
 
         _copy = cls(self.get_nameref())
         _copy.key = self.key.copy(deep=deep)
-        _copy._parent = self._parent.copy(deep=deep)
-        if deep:
-            ...
+
+        if self._parent:
+            _copy._parent = self._parent.copy(deep=deep)
+
+        for i, member in enumerate(self.get_members()):
+            if deep:
+                self.create_member(
+                    index=i,
+                    qualifiedName=member.get_qualified_name(),
+                    value=member.value,
+                    type=member.type,
+                    strict=True
+                )
+            else:
+                self._members.append(member)
+        
+        return _copy
 
     def clone(self) -> "BaseObject":
         """
         Creates a copy of this object
         """
         obj = BaseObject(self.get_nameref())
-        obj.key = jdrama.NameRef(self.key)
+        obj.key = jdrama.NameRef(self.key.get_nameref())
         obj._parent = self._parent
         obj._grouped = self._grouped.copy()
         return obj
 
-    def get_data_length(self) -> int:
+    def get_data_size(self) -> int:
         """
         Gets the length of this object in bytes
         """
-        return 12 + len(self.get_nameref()) + len(self.key) + len(self.data)
+        return 12 + len(self.get_nameref()) + len(self.key) + len(self.get_member_data().getbuffer())
 
     def is_value(self, attrname: str) -> bool:
         """
         Check if a named value exists in this object
         """
-        return any(attrname == v.name for v in self._values)
+        return any(attrname == v.name for v in self._members)
 
     def is_group(self) -> bool:
         """
@@ -442,50 +396,42 @@ class BaseObject(A_SceneObject):
         """
         return False
 
-    def add_to_group(self, obj: "BaseObject"):
+    def add_to_group(self, obj: "BaseObject", /):
         raise ObjectGroupError(
             f"Cannot add an object ({obj.get_nameref()}) to {self.get_nameref()} which is not a Group Object!")
 
-    def remove_from_group(self, obj: "BaseObject"):
+    def remove_from_group(self, obj: "BaseObject", /):
         raise ObjectGroupError(
             f"Cannot remove an object ({obj.get_nameref()}) from {self.get_nameref()} which is not a Group Object!")
 
-    def iter_grouped_children(self, deep: bool = False) -> Iterable["BaseObject"]:
+    def iter_grouped_children(self, *, deep: bool = False) -> Iterable["BaseObject"]:
         return []
 
-    def search(self, name: str) -> "BaseObject":
+    def search(self, name: str, /) -> Optional["BaseObject"]:
         return None
 
-    def print_map(self, out: TextIO, indention: int = 0, indentionWidth: int = 2):
-        """
-        Print a complete map of this object to `out`
-        """
+    def print_map(self, out: TextIO, *, indention: int = 0, indentionWidth: int = 2):
         indentedStr = " "*indention*indentionWidth
 
         out.write(indentedStr + f"{self.get_nameref()} ({self.key})" + " {\n")
         values = indentedStr + "  [Values]\n"
-        with open("sussy.baka", "a") as f:
-            f.write(self.get_nameref() + "\n")
-            for v in self.get_member():
-                f.write(f" {v[0]} {v[1]}\n")
-                values += indentedStr + f"  {v[0]} = {v[1]}\n"
-        out.write(values + indentedStr + "}")
+        for member in self.get_members():
+            values += indentedStr + f"  {member.name} = {member.value}\n"
+        out.write(values)
 
-    def get_explicit_name(self) -> str:
-        """
-        Return the described name of this object
-        """
-        return f"{self.get_nameref()} ({self.key})"
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, BaseObject):
+            nameEQ = super().__eq__(other)
+            descEQ = self.key == other.key
+            return nameEQ and descEQ
+        return NotImplemented
 
-    def __eq__(self, other: "BaseObject") -> bool:
-        nameEQ = super().__eq__(other)
-        descEQ = self.key == other.key
-        return nameEQ and descEQ
-
-    def __ne__(self, other: "BaseObject") -> bool:
-        nameNEQ = super().__ne__(other)
-        descNEQ = self.key != other.key
-        return nameNEQ and descNEQ
+    def __ne__(self, other: object) -> bool:
+        if isinstance(other, BaseObject):
+            nameNEQ = super().__ne__(other)
+            descNEQ = self.key != other.key
+            return nameNEQ and descNEQ
+        return NotImplemented
 
     def __contains__(self, other: Union[str, "BaseObject"]) -> bool:
         return False
@@ -493,7 +439,7 @@ class BaseObject(A_SceneObject):
 
 class GroupObject(BaseObject):
     @classmethod
-    def from_bytes(cls, data: BinaryIO, *args, **kwargs):
+    def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **kwargs: VariadicKwargs) -> Optional["GroupObject"]:
         objLength = read_uint32(data)
         objEndPos = data.tell() + objLength - 4
 
@@ -508,117 +454,117 @@ class GroupObject(BaseObject):
                 f"Object name is corrupted! {hash(objName)} ({objName}) != {objNameHash}")
 
         # -- Desc -- #
-        objDescHash = read_uint16(data)
-        objDescLength = read_uint16(data)
+        objKeyHash = read_uint16(data)
+        objKeyLength = read_uint16(data)
 
-        objDesc = jdrama.NameRef(read_string(
-            data, maxlen=objDescLength-1, encoding="shift-jis"))
+        objKey = jdrama.NameRef(read_string(
+            data, maxlen=objKeyLength-1, encoding="shift-jis"))
 
-        if hash(objDesc) != objDescHash or len(objDesc.encode("shift-jis")) != objDescLength:
+        if hash(objKey) != objKeyHash or len(objKey.encode("shift-jis")) != objKeyLength:
             raise ObjectCorruptedError(
-                f"Object desc is corrupted! {hash(objDesc)} ({objDesc}) != {objDescHash}")
+                f"Object desc is corrupted! {hash(objKey)} ({objKey}) != {objKeyHash}")
 
-        thisObj = cls(objName)
-        thisObj.key = objDesc
+        thisObj = cls(objName.get_nameref())
+        thisObj.key = objKey
 
-        nameHash = hash(thisObj)
-        if nameHash in KNOWN_GROUP_HASHES:
-            thisObj.create_member(
-                index=int(nameHash in {15406, 9858}),
-                qualifiedName=QualifiedName("Grouped"),
-                value=0,
-                type=ValueType.U32,
-                strict=True,
-            )
+        nameHash = hash(thisObj.get_nameref())
 
-        def gen_attr(attr: ObjectAttribute, nestedNamePrefix: str="") -> dict:
-            def construct(index: int) -> dict:
-                char="abcdefghijklmnopqrstuvwxyz"[index]
-                name=attr.get_formatted_name(char, index)
+        # GroupNum gets assigned to in the future load loop
+        groupNum = thisObj.create_member(
+            index=int(nameHash in {15406, 9858}),
+            qualifiedName=QualifiedName("Grouped"),
+            value=0,
+            type=ValueType.U32,
+            strict=True,
+        )
 
-                if isStruct:
-                    for subattr in attr.iter_attributes():
-                        for attrdata in gen_attr(subattr, f"{nestedNamePrefix}{name}."):
-                            thisObj.create_member(
-                                attrdata["index"],
-                                attrdata['name'],
-                                attrdata["value"],
-                                attrdata["type"],
-                                attrdata["comment"]
-                            )
+        for member in thisObj.get_members():
+            member.load(data)
 
-                else:
-                    instances.append({
-                        "index": -1,
-                        "name": f"{nestedNamePrefix}{name}",
-                        "value": attr.read_from(data),
-                        "type": attr.type,
-                        "comment": attr.comment
-                    })
-
-            isStruct = attr.is_struct()
-            if attr.is_count_referenced():
-                count = thisObj.get_value(attr.countRef.name).value
-            else:
-                count = attr.countRef
-
-            instances = []
-            if count == -1:
-                i = 0
-                while data.tell() < objEndPos:
-                    x = data.tell()
-                    construct(i)
-                    i += 1
-                return instances
-
-            for i in range(count):
-                if data.tell() >= objEndPos:
-                    break
-                construct(i)
-            return instances
-
-        for attribute in template.iter_attributes():
-            for attrdata in gen_attr(attribute):
-                thisObj.create_member(
-                    attrdata["index"],
-                    attrdata["name"],
-                    attrdata["value"],
-                    attrdata["type"],
-                    attrdata["comment"]
-                )
-
-        groupNum = thisObj.get_value("Grouped")
-        if nameHash in KNOWN_GROUP_HASHES and groupNum is not None:
+        if groupNum is not None:
             for _ in range(groupNum.value):
-                thisObj.add_to_group(BaseObject.from_bytes(data))
+                obj = BaseObject.from_bytes(data)
+                if obj is not None:
+                    thisObj.add_to_group(obj)
 
         thisObj._parent = None
         return thisObj
 
+    def to_bytes(self) -> bytes:
+        """
+        Converts this object to raw bytes
+        """
+        data = BytesIO()
+        nameref = self.get_nameref()
+        keyref = self.key.get_nameref()
+
+        write_uint32(data, self.get_data_size())
+        write_uint16(data, hash(nameref))
+        write_uint16(data, len(nameref))
+        write_string(data, nameref)
+        write_uint16(data, hash(keyref))
+        write_uint16(data, len(keyref))
+        write_string(data, keyref)
+        data.write(self.get_member_data().getvalue())
+
+        write_uint32(data, len(self._grouped))
+        for obj in self._grouped:
+            data.write(obj.to_bytes())
+
+        return data.getvalue()
+
+    def copy(self, *, deep: bool = False) -> "GroupObject":
+        cls = self.__class__
+
+        _copy = cls(self.get_nameref())
+        _copy.key = self.key.copy(deep=deep)
+        
+        if self._parent:
+            _copy._parent = self._parent.copy(deep=deep)
+
+        for child in self.iter_grouped_children():
+            if deep:
+                self.add_to_group(child.copy(deep=True))
+            self.add_to_group(child)
+
+        for i, member in enumerate(self.get_members()):
+            if deep:
+                self.create_member(
+                    index=i,
+                    qualifiedName=member.get_qualified_name(),
+                    value=member.value,
+                    type=member.type,
+                    strict=True
+                )
+            else:
+                self._members.append(member)
+        
+        return _copy
+
     def is_group(self) -> bool:
         return True
 
-    def get_data_length(self) -> int:
+    def get_data_size(self) -> int:
         """
         Gets the length of this object in bytes
         """
-        length = 12 + len(self.get_nameref()) + len(self.key) + len(self.data)
+        length = 12 + len(self.get_nameref()) + len(self.key) + len(self.get_member_data().getbuffer())
         for obj in self._grouped:
-            length += obj.get_data_length()
+            length += obj.get_data_size()
         return length
 
-    def add_to_group(self, obj: "BaseObject"):
+    def add_to_group(self, obj: "BaseObject", /):
         self._grouped.append(obj)
         obj._parent = self
 
-    def remove_from_group(self, obj: "BaseObject"):
+    def remove_from_group(self, obj: "BaseObject", /):
         try:
             self._grouped.remove(obj)
             obj._parent = None
         except ValueError:
             pass
 
-    def iter_grouped_children(self, deep: bool = False) -> Iterable["BaseObject"]:
+    def iter_grouped_children(self, *, deep: bool = False) -> Iterable["BaseObject"]:
         """
         Yield all of the grouped objects
         """
@@ -627,29 +573,28 @@ class GroupObject(BaseObject):
             if deep and g.is_group():
                 yield from g.iter_grouped_children()
 
-    def search(self, name: str) -> "BaseObject":
+    def search(self, name: str, /) -> Optional["BaseObject"]:
         for subobj in self.iter_grouped_children():
             if super(BaseObject, subobj).__eq__(name):
                 return subobj
+        return None
 
-    def print_map(self, out: TextIO, indention: int = 0, indentionWidth: int = 2):
-        """
-        Print a complete map of this object to `out`
-        """
+    def print_map(self, out: TextIO, *, indention: int = 0, indentionWidth: int = 2):
         indentedStr = " "*indention*indentionWidth
 
         out.write(indentedStr + f"{self.get_nameref()} ({self.key})" + " {\n")
         values = indentedStr + "  [Values]\n"
-        with open("sussy.baka", "a") as f:
-            f.write(self.get_nameref() + "\n")
-            for v in self.iter_values():
-                f.write("  " + v[0] + " " + str(v[1]) + "\n")
-                values += indentedStr + f"  {v[0]} = {v[1]}\n"
+        for member in self.get_members():
+            values += indentedStr + f"  {member.name} = {member.value}\n"
         out.write(values)
         if self.is_group():
             out.write("\n" + indentedStr + "  [Grouped]\n")
             for g in self.iter_grouped_children():
-                g.print_map(out, indention+1, indentionWidth)
+                g.print_map(
+                    out,
+                    indention=indention+1,
+                    indentionWidth=indentionWidth
+                )
                 out.write("\n")
         out.write(indentedStr + "}")
 
@@ -659,3 +604,18 @@ class GroupObject(BaseObject):
         if isinstance(other, BaseObject):
             return other in self._grouped
         return any([g == other for g in self._grouped])
+
+
+class ObjectFactory:
+    @staticmethod
+    def create_object(nameref: jdrama.NameRef, /) -> A_SceneObject:
+        name = nameref.get_nameref()
+        if A_SceneObject.is_name_group(name):
+            return GroupObject(name)
+        return BaseObject(name)
+
+    @staticmethod
+    def create_object_f(data: BinaryIO, /) -> Optional[A_SceneObject]:
+        if A_SceneObject.is_data_group(data):
+            return GroupObject.from_bytes(data)
+        return BaseObject.from_bytes(data)

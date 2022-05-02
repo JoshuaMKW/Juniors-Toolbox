@@ -63,7 +63,7 @@ class ColorPicker(QDialog):
             self.ui.setupUi(self)
 
         # Make Frameless
-        self.setWindowFlags(Qt.FramelessWindowHint)
+        self.setWindowFlag(Qt.FramelessWindowHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setWindowTitle("Color Picker")
 
@@ -212,7 +212,7 @@ class ColorPicker(QDialog):
         self.setHex(self.rgba2hex(self.hsv2rgba(self.color)))
 
     def useScreenCapture(self):
-        self.color_grabber_screen.setDismissColor(RGBA8.from_tuple(
+        self.color_grabber_screen.set_dismiss_color(RGBA8.from_tuple(
             [*self.hsv2rgba(self.color), int(self.ui.alpha.text())]))
         self.color_grabber_screen.reset()
         self.color_grabber_screen.show()

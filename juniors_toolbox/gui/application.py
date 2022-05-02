@@ -1,18 +1,19 @@
-import pickle
-import subprocess
 import sys
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 from PySide6.QtCore import QPoint, QSize, Slot
 from PySide6.QtGui import QResizeEvent, Qt, QFontDatabase
 
-from PySide6.QtWidgets import QApplication, QDockWidget, QFileDialog, QLabel, QMainWindow, QSizePolicy, QStyleFactory, QWidget
+from PySide6.QtWidgets import QApplication, QFileDialog, QLabel, QSizePolicy, QStyleFactory, QWidget
 from juniors_toolbox import __version__
 from juniors_toolbox.gui.tabs import TabWidgetManager
-from juniors_toolbox.gui.tabs.object import ObjectHierarchyWidget, ObjectHierarchyWidgetItem, ObjectPropertiesWidget
-from juniors_toolbox.gui.widgets.synceddock import SyncedDockWidget
+from juniors_toolbox.gui.tabs.hierarchyviewer import NameRefHierarchyWidget
+from juniors_toolbox.gui.tabs.projectviewer import ProjectViewerWidget
+from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
+from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.gui.windows.mainwindow import MainWindow
 from juniors_toolbox.scene import SMSScene
+from juniors_toolbox.utils import VariadicArgs, VariadicKwargs
 from juniors_toolbox.utils.filesystem import get_program_folder, resource_path
 from juniors_toolbox.gui.settings import SMSBinEditorSettings
 
@@ -21,10 +22,10 @@ class JuniorsToolbox(QApplication):
     """
     Junior's Toolbox Application
     """
-    __singleton: "JuniorsToolbox" = None
+    __singleton: Optional["JuniorsToolbox"] = None
     __singleton_ready = False
 
-    def __new__(cls, *args, **kwargs) -> "JuniorsToolbox":
+    def __new__(cls, *args: VariadicArgs, **kwargs: VariadicKwargs) -> "JuniorsToolbox":
         if cls.__singleton is None:
             cls.__singleton = super().__new__(cls, *args, **kwargs)
         return cls.__singleton
@@ -46,17 +47,17 @@ class JuniorsToolbox(QApplication):
         self.gui = MainWindow()
         self.settings: SMSBinEditorSettings = None
 
-        self.__scene = SMSScene()
-        self.__scenePath = None
-        self.__openTabs: Dict[str, SyncedDockWidget] = {}
-        self.__tabs: Dict[str, SyncedDockWidget] = {}
+        self.__scene: Optional[SMSScene] = None
+        self.__scenePath: Optional[Path] = None
+        self.__openTabs: Dict[str, A_DockingInterface] = {}
+        self.__tabs: Dict[str, A_DockingInterface] = {}
 
         TabWidgetManager.init()
 
         # Set up tab syncing
-        objectPropertyTab = TabWidgetManager.get_tab(ObjectPropertiesWidget)
-        objectHierarchyTab = TabWidgetManager.get_tab(ObjectHierarchyWidget)
-        objectHierarchyTab.currentItemChanged.connect(
+        objectPropertyTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
+        objectHierarchyTab = TabWidgetManager.get_tab(NameRefHierarchyWidget)
+        objectHierarchyTab.treeWidget.currentItemChanged.connect(
             lambda cur, prev: objectPropertyTab.populate(cur.object, self.scenePath))
 
         self.gui.setWindowTitle(self.get_window_title())
@@ -96,40 +97,41 @@ class JuniorsToolbox(QApplication):
     # --- GETTER / SETTER --- #
 
     @staticmethod
-    def get_instance() -> "JuniorsToolbox":
+    def get_instance() -> Optional["JuniorsToolbox"]:
         return JuniorsToolbox.__singleton
 
     @staticmethod
-    def get_instance_window_size() -> QSize:
+    def get_instance_window_size() -> Optional[QSize]:
         if JuniorsToolbox.__singleton:
             return JuniorsToolbox.__singleton.gui.size()
         else:
             return None
 
     @staticmethod
-    def get_instance_window() -> MainWindow:
+    def get_instance_window() -> Optional[MainWindow]:
         if JuniorsToolbox.__singleton:
             return JuniorsToolbox.__singleton.gui
         else:
             return None
 
     @property
-    def scene(self) -> SMSScene:
+    def scene(self) -> Optional[SMSScene]:
         return self.__scene
 
     @scene.setter
-    def scene(self, scene: SMSScene):
+    def scene(self, scene: SMSScene | None):
         self.__scene = scene
-        self.update_elements(scene)
+        if scene is not None:
+            self.update_elements(scene)
 
     @property
-    def scenePath(self) -> Path:
+    def scenePath(self) -> Optional[Path]:
         return self.__scenePath
 
     @scenePath.setter
     def scenePath(self, path: Path):
         self.__scenePath = path
-        projectViewer = TabWidgetManager.get_tab("Project Viewer")
+        projectViewer = TabWidgetManager.get_tab(ProjectViewerWidget)
         projectViewer.scenePath = path
         self.scene = SMSScene.from_path(path)
         self.update_elements(self.scene)
@@ -247,13 +249,14 @@ class JuniorsToolbox(QApplication):
 
             path = Path(dialog.selectedFiles()[0]).resolve()
         self.scenePath = path
+        return True
 
     @Slot(str)
     def openDockerTab(self, name: str):
-        tab = TabWidgetManager.get_tab(name)
-        if name in self.__openTabs:
+        tab = TabWidgetManager.get_tab_n(name)
+        if name in self.__openTabs or tab is None:
             return
-        deTab = self.__tabs.setdefault(name, SyncedDockWidget(name))
+        deTab = self.__tabs.setdefault(name, tab)
         deTab.setObjectName(name)
         deTab.setWidget(tab)
         deTab.setFloating(len(self.__openTabs) > 0)
@@ -273,7 +276,7 @@ class JuniorsToolbox(QApplication):
         self.set_central_status(self.is_docker_empty())
 
     @Slot(str)
-    def closeDockerTab(self, tab: SyncedDockWidget):
+    def closeDockerTab(self, tab: A_DockingInterface):
         if tab.windowTitle() not in self.__openTabs:
             return
         tab.setWidget(None)

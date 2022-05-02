@@ -5,7 +5,7 @@ from typing import BinaryIO
 
 import oead
 
-from juniors_toolbox.utils import write_jsystem_padding
+from juniors_toolbox.utils import VariadicArgs, VariadicKwargs, write_jsystem_padding
 from juniors_toolbox.utils.iohelper import (read_float, read_sbyte, read_sint16, read_ubyte,
                                             read_uint16, read_uint32,
                                             write_float, write_sbyte,
@@ -87,7 +87,7 @@ class BCK(BasicAnimation):
             self.tan_type = 1
 
     @classmethod
-    def from_bytes(cls, data: BinaryIO, *args, **kwargs):
+    def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **kwargs: VariadicKwargs):
         size = read_uint32(data)
 
         sectioncount = read_uint32(data)

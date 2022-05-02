@@ -1,7 +1,7 @@
 from io import BytesIO
 import struct
 from typing import BinaryIO
-from juniors_toolbox.utils import write_jsystem_padding
+from juniors_toolbox.utils import VariadicArgs, VariadicKwargs, write_jsystem_padding
 
 from juniors_toolbox.utils.iohelper import read_ubyte, read_uint16, read_uint32, write_ubyte, write_uint16, write_uint32
 from juniors_toolbox.utils.j3d.anim.general_animation import BTPFILEMAGIC, BasicAnimation, StringTable, find_sequence
@@ -27,7 +27,7 @@ class BTP(BasicAnimation):
         
     
     @classmethod
-    def from_bytes(cls, data: BinaryIO, *args, **kwargs):
+    def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **kwargs: VariadicKwargs):
         #at this point, f is at 0x09
         size = read_uint32(data)
 

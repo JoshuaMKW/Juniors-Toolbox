@@ -1,4 +1,3 @@
-from curses.ascii import CR
 import discordsdk
 from discordsdk import CreateFlags, Discord, DiscordException, ApplicationManager, ActivityManager, UserManager, Activity, ActivityTimestamps, Presence
 
@@ -23,7 +22,7 @@ class DiscordPresence():
         """
         ...
 
-    def disconnect(self):
+    def disconnect(self) -> None:
         """
         Disconnects the application from Discord
         """

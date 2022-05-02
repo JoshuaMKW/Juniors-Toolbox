@@ -7,7 +7,7 @@ from numpy import array, ndarray
 
 from juniors_toolbox.utils.iohelper import (align_int, read_float, read_sint16, read_string, read_uint32,
                                            write_float, write_sint16, write_string, write_uint16, write_uint32)
-from juniors_toolbox.utils import JSYSTEM_PADDING_TEXT, A_Serializable
+from juniors_toolbox.utils import JSYSTEM_PADDING_TEXT, A_Serializable, VariadicArgs, VariadicKwargs
 
 
 @dataclass
@@ -20,7 +20,7 @@ class RailKeyFrame(A_Serializable):
     periods: List[float] = field(default_factory=lambda: [0]*8)
 
     @classmethod
-    def from_bytes(cls, data: BinaryIO, *args, **kwargs):
+    def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **kwargs: VariadicKwargs):
         frame = cls(
             position = array(
                 [read_sint16(data),
@@ -94,14 +94,13 @@ class Rail(A_Serializable):
         self._frames = frames
 
     @classmethod
-    def from_bytes(cls, data: BinaryIO, *args, **kwargs):
+    def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **kwargs: VariadicKwargs) -> Optional["Rail"]:
         """
         Returns a Rail from the given data
         """
         size = read_uint32(data)
         if size == 0:
             return None
-
 
         namePos = read_uint32(data)
         dataPos = read_uint32(data)
@@ -116,21 +115,13 @@ class Rail(A_Serializable):
         data.seek(_oldPos)
         return this
 
-    def to_bytes(self, data: BinaryIO, headerloc: int, nameloc: int, dataloc: int):
+    def to_bytes(self) -> bytes:
         """
         Stores the data form of this Rail
         """
-        data.seek(headerloc, 0)
-        write_uint32(data, len(self._frames))
-        write_uint32(data, nameloc)
-        write_uint32(data, dataloc)
-
-        data.seek(nameloc, 0)
-        write_string(data, self.name)
-
-        data.seek(dataloc)
-        for frame in self._frames:
-            data.write(frame.to_bytes())
+        data = BytesIO()
+        self.save(data, 0, 0, 0)
+        return data.getvalue()
 
     def iter_frames(self) -> Iterable[RailKeyFrame]:
         for frame in self._frames:
@@ -186,6 +177,22 @@ class Rail(A_Serializable):
             copy._frames.append(frame.copy())
         return copy
 
+    def save(self, data: BinaryIO, headerloc: int, nameloc: int, dataloc: int):
+        """
+        Stores the data form of this Rail
+        """
+        data.seek(headerloc, 0)
+        write_uint32(data, len(self._frames))
+        write_uint32(data, nameloc)
+        write_uint32(data, dataloc)
+
+        data.seek(nameloc, 0)
+        write_string(data, self.name)
+
+        data.seek(dataloc)
+        for frame in self._frames:
+            data.write(frame.to_bytes())
+
     def size(self) -> int:
         return self.header_size() + self.name_size() + self.data_size()
 
@@ -210,7 +217,7 @@ class RalData(A_Serializable):
         self._rails = rails
 
     @classmethod
-    def from_bytes(cls, data: BinaryIO, *args, **kwargs):
+    def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **kwargs: VariadicKwargs):
         this = cls()
         while (rail := Rail.from_bytes(data)) is not None:
             this._rails.append(rail)
@@ -223,7 +230,7 @@ class RalData(A_Serializable):
 
         data = BytesIO()
         for rail in self._rails:
-            rail.to_bytes(data, headerloc, nameloc, dataloc)
+            rail.save(data, headerloc, nameloc, dataloc)
             headerloc += rail.header_size()
             nameloc += rail.name_size()
             dataloc += rail.data_size()
@@ -236,12 +243,13 @@ class RalData(A_Serializable):
         for frame in self._rails:
             yield frame
 
-    def get_rail(self, name: str) -> Rail:
+    def get_rail(self, name: str) -> Optional[Rail]:
         for rail in self._rails:
             if rail.name == name:
-                return name
+                return rail
+        return None
 
-    def get_rail_by_index(self, idx: int) -> Rail:
+    def get_rail_by_index(self, idx: int) -> Optional[Rail]:
         try:
             return self._rails[idx]
         except IndexError:
@@ -276,7 +284,7 @@ class RalData(A_Serializable):
         return False
 
     def size(self) -> int:
-        return align_int(sum([r.size() for r in self._rails]))
+        return align_int(sum([r.size() for r in self._rails]), 32)
 
     def header_start(self) -> int:
         return 0

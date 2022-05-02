@@ -1,29 +1,19 @@
-from abc import ABC, abstractmethod
-from enum import Enum
-from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, Union
-from PySide6.QtWidgets import QGridLayout, QMainWindow, QWidget
+from typing import Dict, Iterable, Optional, TypeVar
+from juniors_toolbox.gui.tabs.hierarchyviewer import NameRefHierarchyWidget
 from juniors_toolbox.gui.tabs.prmeditor import PrmEditorWidget
 from juniors_toolbox.gui.tabs.projectviewer import ProjectViewerWidget
-from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.gui.tabs.renderer import SceneRendererWidget
-from juniors_toolbox.gui.tabs.object import ObjectHierarchyWidget, ObjectPropertiesWidget
 from juniors_toolbox.gui.tabs.rail import RailViewerWidget
 from juniors_toolbox.gui.tabs.bmgeditor import BMGMessageEditor
 from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
-from juniors_toolbox.gui.widgets.synceddock import SyncedDockWidget
+from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 
-
-class GenericTabWidget():
-    def populate(self, data: Any, scenePath: Path): ...
-
-    def __del__(self): ...
-
+T = TypeVar("T", bound=A_DockingInterface)
 
 class TabWidgetManager():
     _STR_TO_TYPE = {
         "Project Viewer": ProjectViewerWidget,
-        "Scene Hierarchy": ObjectHierarchyWidget,
+        "Scene Hierarchy": NameRefHierarchyWidget,
         "Selected Properties": SelectedPropertiesWidget,
         "Rail List": RailViewerWidget,
         "Rail Editor": None,
@@ -34,34 +24,33 @@ class TabWidgetManager():
         "Scene Renderer": SceneRendererWidget
     }
 
-    _TAB_WIDGETS: Dict[type, QWidget] = {
-        _STR_TO_TYPE["Project Viewer"]: _STR_TO_TYPE["Project Viewer"](),
-        _STR_TO_TYPE["Scene Hierarchy"]: _STR_TO_TYPE["Scene Hierarchy"](),
-        _STR_TO_TYPE["Selected Properties"]: _STR_TO_TYPE["Selected Properties"](),
-        _STR_TO_TYPE["Rail List"]: _STR_TO_TYPE["Rail List"](),
-        _STR_TO_TYPE["Rail Editor"]: _STR_TO_TYPE["Rail Editor"](),
-        _STR_TO_TYPE["BMG Editor"]: _STR_TO_TYPE["BMG Editor"](),
-        _STR_TO_TYPE["PRM Editor"]: _STR_TO_TYPE["PRM Editor"](),
-        _STR_TO_TYPE["Demo Editor"]: _STR_TO_TYPE["Demo Editor"](),
-        _STR_TO_TYPE["Data Viewer"]: _STR_TO_TYPE["Data Viewer"](),
-        _STR_TO_TYPE["Scene Renderer"]: _STR_TO_TYPE["Scene Renderer"]()
-    }
+    _TAB_WIDGETS: Dict[type, Optional[A_DockingInterface]] = {}
 
     @staticmethod
     def init():
+        for name, tab in TabWidgetManager._STR_TO_TYPE.items():
+            if tab is None:
+                continue
+            TabWidgetManager._TAB_WIDGETS[tab] = tab(name)
+
         for tab in TabWidgetManager.iter_tabs():
             tab.setVisible(False)
 
     @staticmethod
-    def get_tab(key: Union[str, type]) -> Union[QWidget, GenericTabWidget]:
-        if isinstance(key, str):
-            key = TabWidgetManager._STR_TO_TYPE[key]
+    def get_tab(key: type[T]) -> Optional[T]:
         if key in TabWidgetManager._TAB_WIDGETS:
             return TabWidgetManager._TAB_WIDGETS[key]
         return None
 
     @staticmethod
-    def iter_tabs(open: bool = False) -> Iterable[Union[QWidget, GenericTabWidget]]:
+    def get_tab_n(key: str) -> Optional[A_DockingInterface]:
+        _key = TabWidgetManager._STR_TO_TYPE[key]
+        if _key in TabWidgetManager._TAB_WIDGETS:
+            return TabWidgetManager._TAB_WIDGETS[_key]
+        return None
+
+    @staticmethod
+    def iter_tabs(open: bool = False) -> Iterable[A_DockingInterface]:
         for tab in TabWidgetManager._TAB_WIDGETS.values():
             if tab is None:
                 continue
@@ -69,6 +58,11 @@ class TabWidgetManager():
                 yield tab
 
     @staticmethod
-    def is_tab_open(key: Union[str, type]) -> bool:
+    def is_tab_open(key: type[T]) -> bool:
         tab = TabWidgetManager.get_tab(key)
+        return False if tab is None else tab.isVisible()
+
+    @staticmethod
+    def is_tab_open_n(key: str) -> bool:
+        tab = TabWidgetManager.get_tab_n(key)
         return False if tab is None else tab.isVisible()

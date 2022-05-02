@@ -4,9 +4,10 @@ from PySide6.QtGui import QDoubleValidator, QIntValidator
 from PySide6.QtWidgets import QLineEdit
 
 from juniors_toolbox.gui.widgets.property import A_ValueProperty
+from juniors_toolbox.utils import VariadicArgs, VariadicKwargs
 
 class ExplicitLineEdit(QLineEdit, A_ValueProperty):
-    textChangedNamed: SignalInstance = Signal(QLineEdit, str)
+    textChangedNamed = Signal(QLineEdit, str)
 
     class FilterKind(Enum):
         STR = None
@@ -17,7 +18,7 @@ class ExplicitLineEdit(QLineEdit, A_ValueProperty):
         def type_to_filter(cls, _ty: type):
             return cls[_ty.__name__.upper()]
 
-    def __init__(self, name: str, filter: FilterKind, *args, **kwargs):
+    def __init__(self, name: str, filter: FilterKind, *args: VariadicArgs, **kwargs: VariadicKwargs):
         super().__init__(*args, **kwargs)
         self.setObjectName(name)
         self.setValidator(filter.value)

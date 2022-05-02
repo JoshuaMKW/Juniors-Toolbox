@@ -10,11 +10,11 @@ from OpenGL.GL import *
 from OpenGL.GLU import *
 from OpenGL.GLUT import *
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QDialog, QSizePolicy
+from PySide6.QtWidgets import QDialog, QSizePolicy, QWidget
 from PySide6.QtOpenGLWidgets import QOpenGLWidget
 from pyrr import Vector3, Vector4, Matrix33, Matrix44
 from juniors_toolbox.utils.gx.color import ColorF32, Color
-from juniors_toolbox.gui.tabs import GenericTabWidget
+from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.utils.types import Transform, Vec2f, Vec3f
 from juniors_toolbox.objects.object import BaseObject
 from juniors_toolbox.scene import SMSScene
@@ -247,7 +247,7 @@ class SceneCamera():
             model.render(lights, ambLights, self._renderStyle)
 
 
-class SceneRendererWidget(QOpenGLWidget, GenericTabWidget):
+class SceneRendererWidget(A_DockingInterface):
     MAP_FILE = "map.bmd"
     SKY_FILE = "sky.bmd"
     SEA_FILE = "sea.bmd"
@@ -256,10 +256,13 @@ class SceneRendererWidget(QOpenGLWidget, GenericTabWidget):
     SEAANIM_FILE = "sea.btk"
     WAVEIMG_FILE = "wave.bti"
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.setObjectName(self.__class__.__name__)
-        self.setMinimumSize(640, 480)
+
+        self.openGLView = QOpenGLWidget()
+        self.openGLView.setMinimumSize(640, 480)
+        self.setWidget(self.openGLView)
         #self.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
         self.reset_shaders()
 

@@ -3,28 +3,26 @@ from ctypes.wintypes import BYTE, SHORT
 from typing import List, Optional
 
 from PySide6.QtCore import Qt, Signal, SignalInstance, Slot
-from PySide6.QtWidgets import QWidget, QGridLayout, QFormLayout, QComboBox, QLabel, QFrame
+from PySide6.QtWidgets import QWidget, QGridLayout, QFormLayout, QComboBox, QLabel, QFrame, QLineEdit
 
-from juniors_toolbox.gui.layouts.entrylayout import EntryLayout
 from juniors_toolbox.gui.layouts.framelayout import FrameLayout
 from juniors_toolbox.gui.widgets.colorbutton import A_ColorButton, ColorButtonRGB8, ColorButtonRGBA8
-from juniors_toolbox.gui.widgets.explicitlineedit import ExplicitLineEdit
 from juniors_toolbox.gui.widgets.spinboxdrag import SpinBoxDragDouble, SpinBoxDragInt
-from juniors_toolbox.gui.widgets import ABCMetaWidget
-from juniors_toolbox.objects.template import ValueType
+from juniors_toolbox.gui.widgets import ABCWidget
+from juniors_toolbox.objects.value import ValueType
 from juniors_toolbox.utils.gx import color
 from juniors_toolbox.utils.types import RGB8, RGBA8, BasicColors, Transform, Vec3f
 from juniors_toolbox.utils import clamp
 
 
-class A_ValueProperty(QWidget, metaclass=ABCMetaWidget):
+class A_ValueProperty(QWidget, ABCWidget):
     """
     Represents an abstract widget that interfaces a property
     """
-    valueChanged: SignalInstance = Signal(QWidget, object)
+    valueChanged = Signal(QWidget, object)
     IndentionWidth = 20
 
-    def __init__(self, name: str, readOnly: bool, parent: Optional[QWidget] = None):
+    def __init__(self, name: str, readOnly: bool, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self._name = name
         self._value = None
@@ -38,17 +36,17 @@ class A_ValueProperty(QWidget, metaclass=ABCMetaWidget):
     def get_name(self) -> str:
         return self._name
 
-    def set_name(self, name: str):
+    def set_name(self, name: str) -> None:
         self._name = name
 
     def get_value(self) -> object:
         return self._value
 
-    def set_value(self, value: object):
+    def set_value(self, value: Any) -> None:
         self._value = value
         self.valueChanged.emit(self, value)
 
-    def set_reset_value(self, value: object):
+    def set_reset_value(self, value: Any) -> None:
         self._resetValue = value
 
     def get_nested_depth(self) -> int:
@@ -66,23 +64,23 @@ class A_ValueProperty(QWidget, metaclass=ABCMetaWidget):
     def is_read_only(self) -> bool:
         return self._readOnly
 
-    def reset(self):
+    def reset(self) -> None:
         self.set_value(self._resetValue)
 
     @abstractmethod
-    def construct(self): ...
+    def construct(self) -> None: ...
 
     @abstractmethod
     @Slot(QWidget, object)
-    def set_inputs(self): ...
+    def set_inputs(self) -> None: ...
 
 
 class BoolProperty(A_ValueProperty):
-    def __init__(self, name: str, readOnly: bool, parent: Optional[QWidget] = None):
+    def __init__(self, name: str, readOnly: bool, parent: Optional[QWidget] = None) -> None:
         super().__init__(name, readOnly, parent)
         self._resetValue = False
 
-    def construct(self):
+    def construct(self) -> None:
         lineEdit = QComboBox()
         lineEdit.addItem("False")
         lineEdit.addItem("True")
@@ -99,29 +97,29 @@ class BoolProperty(A_ValueProperty):
         self.setLayout(entry)
 
     @Slot(QWidget, object)
-    def set_inputs(self):
+    def set_inputs(self) -> None:
         self.__input.blockSignals(True)
         self.__input.setCurrentIndex(int(self.get_value()))
         self.__input.blockSignals(False)
 
     def get_value(self) -> bool:
-        return super().get_value()
+        return bool(super().get_value())
 
-    def set_value(self, value: bool):
+    def set_value(self, value: Any) -> None:
         if not isinstance(value, bool):
             raise ValueError("Value is not an bool type")
         super().set_value(value)
 
 
 class ByteProperty(A_ValueProperty):
-    def __init__(self, name: str, readOnly: bool, signed: bool, parent: Optional[QWidget] = None):
+    def __init__(self, name: str, readOnly: bool, signed: bool, parent: Optional[QWidget] = None) -> None:
         super().__init__(name, readOnly, parent)
         self._signed = signed
         self._resetValue = 0
 
-    def construct(self):
+    def construct(self) -> None:
         lineEdit = SpinBoxDragInt(
-            intSize=SpinBoxDragInt.IntSize.BYTE,
+            intSize=int(SpinBoxDragInt.IntSize.BYTE),
             signed=self._signed
         )
         lineEdit.setObjectName(self.get_name())
@@ -314,8 +312,8 @@ class StringProperty(A_ValueProperty):
         self._resetValue = ""
 
     def construct(self):
-        lineEdit = ExplicitLineEdit(
-            self.get_name(), ExplicitLineEdit.FilterKind.STR)
+        lineEdit = QLineEdit(
+            self.get_name(), QLineEdit.FilterKind.STR)
         lineEdit.setText("")
         lineEdit.setCursorPosition(0)
         lineEdit.setEnabled(not self.is_read_only())

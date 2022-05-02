@@ -5,7 +5,7 @@ from os import walk
 from pathlib import Path
 from threading import Event
 from types import LambdaType
-from typing import Any, Callable, Dict, List, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from queue import LifoQueue
 
 from PySide6.QtCore import Qt, QTimer
@@ -13,13 +13,14 @@ from PySide6.QtGui import QDragEnterEvent, QDropEvent, QKeyEvent, QUndoCommand, 
 from PySide6.QtWidgets import (QFormLayout, QFrame, QGridLayout, QComboBox,
                                QLabel, QScrollArea,
                                QTreeWidget, QTreeWidgetItem, QWidget)
-from juniors_toolbox.gui.tabs import GenericTabWidget
-from juniors_toolbox.objects.object import BaseObject
+from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
+from juniors_toolbox.objects.object import A_SceneObject, BaseObject
 from juniors_toolbox.scene import SMSScene
+from juniors_toolbox.utils import VariadicArgs, VariadicKwargs
 
 
 class NameRefHierarchyWidgetItem(QTreeWidgetItem):
-    def __init__(self, obj: BaseObject, *args, **kwargs):
+    def __init__(self, obj: A_SceneObject, *args: VariadicArgs, **kwargs: VariadicKwargs):
         super().__init__(*args, **kwargs)
         self.object = obj
         flags = Qt.ItemIsSelectable | Qt.ItemIsDragEnabled | Qt.ItemIsEnabled
@@ -28,7 +29,7 @@ class NameRefHierarchyWidgetItem(QTreeWidgetItem):
         self.setFlags(flags)
 
 
-class NameRefHierarchyWidget(QTreeWidget, GenericTabWidget):
+class NameRefHierarchyWidget(A_DockingInterface):
     class UndoCommand(QUndoCommand):
         def __init__(self, target: "NameRefHierarchyWidget"):
             super().__init__("Cmd")
@@ -78,25 +79,29 @@ class NameRefHierarchyWidget(QTreeWidget, GenericTabWidget):
             self.prevparent.insertChild(self.previndex, item)
             self.target.setCurrentIndex(self.prevgblindex)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
 
-        self.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.setAlternatingRowColors(False)
-        self.setRootIsDecorated(True)
-        self.setAcceptDrops(True)
-        self.setDragEnabled(True)
-        self.setDragDropMode(self.InternalMove)
-        self.setDefaultDropAction(Qt.MoveAction)
-        self.setHeaderHidden(True)
-        self.setMinimumSize(300, 80)
+        self.treeWidget = QTreeWidget()
+
+        self.treeWidget.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.treeWidget.setAlternatingRowColors(False)
+        self.treeWidget.setRootIsDecorated(True)
+        self.treeWidget.setAcceptDrops(True)
+        self.treeWidget.setDragEnabled(True)
+        self.treeWidget.setDragDropMode(QTreeWidget.InternalMove)
+        self.treeWidget.setDefaultDropAction(Qt.MoveAction)
+        self.treeWidget.setHeaderHidden(True)
+        self.treeWidget.setMinimumSize(300, 80)
+
+        self.setWidget(self.treeWidget)
 
         self.undoStack = QUndoStack(self)
         self.undoStack.setUndoLimit(32)
 
-    def populate(self, data: SMSScene, scenePath: Path):
-        def inner_populate(obj: BaseObject, parentNode: NameRefHierarchyWidgetItem, column: int) -> List[NameRefHierarchyWidgetItem]:
-            for g in obj.iter_grouped():
+    def populate(self, *args: VariadicArgs, **kwargs: VariadicKwargs) -> None:
+        def inner_populate(obj: A_SceneObject, parentNode: NameRefHierarchyWidgetItem, column: int) -> List[NameRefHierarchyWidgetItem]:
+            for g in obj.iter_grouped_children():
                 childNode = NameRefHierarchyWidgetItem(g)
                 childNode.setText(column, g.get_explicit_name())
                 parentNode.addChild(childNode)
@@ -105,24 +110,25 @@ class NameRefHierarchyWidget(QTreeWidget, GenericTabWidget):
 
         self.clear()
 
+        data: SMSScene = args[0]
         for obj in data.iter_objects():
             node = NameRefHierarchyWidgetItem(obj)
             node.setText(0, obj.get_explicit_name())
-            self.addTopLevelItem(node)
+            self.treeWidget.addTopLevelItem(node)
             if obj.is_group():
                 inner_populate(obj, node, 0)
 
         for table in data.iter_tables():
             node = NameRefHierarchyWidgetItem(table)
             node.setText(0, table.get_explicit_name())
-            self.addTopLevelItem(node)
+            self.treeWidget.addTopLevelItem(node)
             if table.is_group():
                 inner_populate(table, node, 0)
 
         # self.expandAll()
 
     def startDrag(self, supportedActions: Qt.DropActions):
-        self.draggedItem = self.currentItem()
+        self.draggedItem = self.treeWidget.currentItem()
         super().startDrag(supportedActions)
 
     def dragEnterEvent(self, event: QDragEnterEvent):

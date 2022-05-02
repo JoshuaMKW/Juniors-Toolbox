@@ -131,8 +131,11 @@ dmypy.json
 # test scene
 scene.bin
 
-#Binary Messages
+# Binary Messages
 *.bmg
 
 # Line counter
 getnumlines.py
+
+# SQL Database
+*.sqlite3

@@ -1,34 +1,27 @@
-import pickle
-import subprocess
-import sys
 from enum import Enum, IntEnum
 from pathlib import Path
 from typing import Dict, Iterable, List, Union
 
-from PySide6.QtCore import QCoreApplication, QEvent, QMetaObject, QMimeData, QObject, QRect, QSize, Qt, Signal, SignalInstance, Slot
-from PySide6.QtGui import QDrag, QDragEnterEvent, QDragLeaveEvent, QDropEvent, QFont, QIcon, QMouseEvent, QResizeEvent, QAction
-from PySide6.QtWidgets import (QApplication, QDialog, QFileDialog,
-                               QFrame, QGridLayout, QHBoxLayout, QMainWindow, QMenu, QMenuBar, QMessageBox, QScrollArea, QSizePolicy,
-                               QTabWidget, QVBoxLayout, QWidget)
+from PySide6.QtCore import QCoreApplication, QMetaObject, QRect, Signal, Slot
+from PySide6.QtGui import QIcon, QResizeEvent, QAction
+from PySide6.QtWidgets import (QMainWindow, QMenu, QMenuBar,
+                               QTabWidget)
 from juniors_toolbox import __name__, __version__
-from juniors_toolbox.gui.tabs import TabWidgetManager
-from juniors_toolbox.gui.tabs.object import (ObjectHierarchyWidget, ObjectPropertiesWidget,
-                                               ObjectHierarchyWidgetItem)
-from juniors_toolbox.gui.tabs.rail import RailViewerWidget
+from juniors_toolbox.utils import VariadicArgs, VariadicKwargs
 from juniors_toolbox.utils.filesystem import get_program_folder, resource_path
 
 class TabMenuAction(QAction):
-    clicked: SignalInstance = Signal(str, bool)
+    clicked = Signal(str, bool)
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: VariadicArgs, **kwargs: VariadicKwargs) -> None:
         super().__init__(*args, **kwargs)
         self.triggered.connect(self._named_trigger)
         self.toggled.connect(self._named_toggle)
 
-    def _named_trigger(self):
+    def _named_trigger(self) -> None:
         self.clicked.emit(self.text(), self.isChecked() if self.isCheckable() else True)
 
-    def _named_toggle(self):
+    def _named_toggle(self) -> None:
         self.clicked.emit(self.text(), self.isChecked())
 
 
@@ -37,11 +30,11 @@ class MainWindow(QMainWindow):
         LIGHT = 0
         DARK = 1
 
-    tabActionRequested: SignalInstance = Signal(str, bool)
-    themeChanged: SignalInstance = Signal(Theme)
-    resized: SignalInstance = Signal(QResizeEvent)
+    tabActionRequested = Signal(str, bool)
+    themeChanged = Signal(Theme)
+    resized = Signal(QResizeEvent)
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: VariadicArgs, **kwargs: VariadicKwargs):
         super().__init__(*args, **kwargs)
         self.setObjectName(self.__class__.__name__)
         self.setAnimated(True)

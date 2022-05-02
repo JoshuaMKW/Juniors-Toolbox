@@ -12,15 +12,13 @@ from PySide6.QtWidgets import (QBoxLayout, QFormLayout, QFrame, QGridLayout,
                                QScrollArea, QSizePolicy, QSpacerItem, QStyle,
                                QTreeWidget, QTreeWidgetItem, QSplitter, QFileDialog,
                                QVBoxLayout, QWidget)
-from juniors_toolbox.gui.layouts.entrylayout import EntryLayout
-from juniors_toolbox.gui.layouts.framelayout import FrameLayout
-from juniors_toolbox.gui.tabs import GenericTabWidget
+from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.gui.tools import clear_layout, walk_layout
 from juniors_toolbox.gui.widgets.colorbutton import A_ColorButton
 from juniors_toolbox.gui.widgets.explicitlineedit import ExplicitLineEdit
 from juniors_toolbox.gui.widgets.interactivelist import InteractiveListWidget, InteractiveListWidgetItem
 from juniors_toolbox.objects.object import BaseObject
-from juniors_toolbox.objects.template import ObjectAttribute
+from juniors_toolbox.utils import VariadicArgs, VariadicKwargs
 from juniors_toolbox.utils.jdrama import NameRef
 from juniors_toolbox.utils.prm import PrmEntry, PrmFile
 from juniors_toolbox.utils.types import RGB32, RGB8, RGBA8, Vec3f
@@ -59,9 +57,9 @@ class PrmEntryListWidget(InteractiveListWidget):
 
 
 class PrmEntryListInterfaceWidget(QWidget):
-    addRequested: SignalInstance = Signal()
-    removeRequested: SignalInstance = Signal()
-    copyRequested: SignalInstance = Signal()
+    addRequested = Signal()
+    removeRequested = Signal()
+    copyRequested = Signal()
 
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
@@ -89,10 +87,10 @@ class PrmEntryListInterfaceWidget(QWidget):
 
 
 class PrmEditorMenuBar(QMenuBar):
-    newRequested: SignalInstance = Signal()
-    openRequested: SignalInstance = Signal()
-    closeRequested: SignalInstance = Signal()
-    saveRequested: SignalInstance = Signal(bool)
+    newRequested = Signal()
+    openRequested = Signal()
+    closeRequested = Signal()
+    saveRequested = Signal(bool)
 
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
@@ -137,7 +135,7 @@ class PrmEditorMenuBar(QMenuBar):
 
 
 class PrmPropertyEditorWidget(QScrollArea):
-    entryUpdateRequested: SignalInstance = Signal(str, object)
+    entryUpdateRequested = Signal(str, object)
 
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
@@ -155,113 +153,27 @@ class PrmPropertyEditorWidget(QScrollArea):
 
         self.setWidget(mainWidget)
 
-    def set_entry(self, _entry: PrmEntry):
-        qualname = _entry.key
-        value = _entry.value
-        grid = self.gridLayout
-
-        if isinstance(value, RGBA8):
-            layout = QFormLayout()
-            label = QLabel(qualname)
-            label.setFixedWidth(100)
-            colorbutton = A_ColorButton("", color=value)
-            colorbutton.setColor(value)
-            colorbutton.setFrameStyle(QFrame.Box)
-            colorbutton.setMinimumHeight(20)
-            colorbutton.setObjectName(qualname)
-            colorbutton.colorChanged.connect(self.updateObjectValue)
-            container = EntryLayout(
-                qualname,
-                colorbutton,
-                Vec3f,
-                [],
-                labelWidth=100,
-                minEntryWidth=180
-            )
-            layout.addRow(container)
-            grid.addLayout(layout, 0, 0, 1, 1)
-        elif isinstance(value, Vec3f):
-            layout = QFormLayout()
-            widget = QWidget()
-            containerLayout = QGridLayout()
-            containerLayout.setContentsMargins(0, 0, 0, 0)
-            containerLayout.setRowStretch(0, 0)
-            containerLayout.setRowStretch(1, 0)
-            container = EntryLayout(
-                qualname,
-                widget,
-                Vec3f,
-                [],
-                labelWidth=100,
-                minEntryWidth=260  # + (indentWidth * nestedDepth)
-            )
-            container.setObjectName(qualname)
-            for i, component in enumerate(value):
-                axis = "XYZ"[i]
-                lineEdit = ExplicitLineEdit(
-                    f"{qualname}.{axis}", ExplicitLineEdit.FilterKind.FLOAT)
-                lineEdit.setMinimumWidth(20)
-                lineEdit.setText(str(component))
-                lineEdit.setCursorPosition(0)
-                entry = EntryLayout(
-                    axis,
-                    lineEdit,
-                    float,
-                    [],
-                    labelWidth=14,
-                    newlining=False,
-                    labelFixed=True
-                )
-                entry.entryModified.connect(self.updateObjectValue)
-                lineEdit.textChangedNamed.connect(
-                    container.updateFromChild)
-                containerLayout.addLayout(entry, 0, i, 1, 1)
-                containerLayout.setColumnStretch(i, 0)
-                container.addDirectChild(lineEdit)
-            container.entryModified.connect(self.updateObjectValue)
-            widget.setLayout(containerLayout)
-            layout.addRow(container)
-            grid.addLayout(layout, 0, 0, 1, 1)
-        else:
-            layout = QFormLayout()
-            layout.setObjectName("EntryForm " + qualname)
-            lineEdit = ExplicitLineEdit(
-                qualname, ExplicitLineEdit.FilterKind.type_to_filter(value.__class__))
-            lineEdit.setText(str(value))
-            lineEdit.setCursorPosition(0)
-            entry = EntryLayout(
-                qualname,
-                lineEdit,
-                value.__class__,
-                [lineEdit],
-                labelWidth=100,
-                minEntryWidth=180
-            )
-            entry.setObjectName(qualname)
-            entry.entryModified.connect(self.updateObjectValue)
-            lineEdit.textChangedNamed.connect(entry.updateFromChild)
-            layout.addRow(entry)
-            grid.addLayout(layout, 0, 0, 1, 1)
+    def set_entry(self, _entry: PrmEntry): ...
     
 
-    def checkVerticalIndents(self):
-        for item in walk_layout(self.gridLayout):
-            layout = item.layout()
-            if layout and isinstance(layout, EntryLayout):
-                layout.checkNewLine(self.geometry())
+    def checkVerticalIndents(self): ...
 
-    def updateObjectValue(self, qualname: str, value: object):
+    def updateObjectValue(self, qualname: str, value: Any):
         self.entryUpdateRequested.emit(qualname, value)
 
 
-class PrmEditorWidget(QScrollArea, GenericTabWidget):
+class PrmEditorWidget(A_DockingInterface):
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.setAcceptDrops(True)
         self.setMinimumSize(685, 300)
 
-        self.mainLayout = QVBoxLayout()
-        self.mainLayout.setContentsMargins(10, 0, 10, 10)
+        self.mainLayout = QGridLayout()
+
+        self.scrollArea = QScrollArea()
+
+        self.vBoxLayout = QVBoxLayout()
+        self.vBoxLayout.setContentsMargins(10, 0, 10, 10)
 
         prmEntryListBox = PrmEntryListWidget()
         prmEntryListBox.currentItemChanged.connect(self.show_message)
@@ -304,16 +216,20 @@ class PrmEditorWidget(QScrollArea, GenericTabWidget):
             lambda saveAs: self.save_bmg(saveAs=saveAs))
         self.menuBar = menuBar
 
-        self.mainLayout.addWidget(self.menuBar)
-        self.mainLayout.addWidget(self.splitter)
+        self.vBoxLayout.addWidget(self.menuBar)
+        self.vBoxLayout.addWidget(self.splitter)
 
+        self.scrollArea.setLayout(self.vBoxLayout)
+        
+        self.mainLayout.addWidget(self.scrollArea)
         self.setLayout(self.mainLayout)
 
         self.entries: List[PrmEntry] = []
 
         self.__cachedOpenPath: Path = None
 
-    def populate(self, data: Any, scenePath: Path):
+    def populate(self, *args: VariadicArgs, **kwargs: VariadicKwargs):
+        data: PrmFile = args[0]
         if not isinstance(data, PrmFile):
             return
 
@@ -331,10 +247,7 @@ class PrmEditorWidget(QScrollArea, GenericTabWidget):
 
     @Slot()
     def new_bmg(self):
-        self.populate(
-            PrmFile(),
-            None
-        )
+        self.populate(PrmFile())
         self.prmEntryListWidget.setEnabled(True)
 
     @Slot(Path)
@@ -361,7 +274,7 @@ class PrmEditorWidget(QScrollArea, GenericTabWidget):
         with path.open("rb") as f:
             prm = PrmFile.from_bytes(f)
 
-        self.populate(prm, None)
+        self.populate(prm)
 
     @Slot()
     def close_bmg(self):

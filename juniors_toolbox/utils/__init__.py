@@ -1,32 +1,37 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import BinaryIO
+from typing import Any, BinaryIO, Callable, Dict, List, Optional, Type, TypeVar, Union
 
 
 JSYSTEM_PADDING_TEXT = "This is padding data to alignment....."
 
+_T = TypeVar("_T")
 
-# pylint: disable=invalid-name
+
 class classproperty(property):
-    def __get__(self, cls, owner):
-        return classmethod(self.fget).__get__(None, owner)()
-# pylint: enable=invalid-name
+    def __get__(self, __obj: Any, __type: type | None = None) -> Any:
+        return classmethod(self.fget).__get__(None, __type)()
 
 
-clamp = lambda x, min, max: min if x < min else max if x > max else x
-clamp01 = lambda x: clamp(x, 0, 1)
-sign = lambda x: 1 if x >= 0 else -1
+Numeric = Union[int, float]
+VariadicArgs = Any
+VariadicKwargs = Any
+
+clamp: Callable[[Numeric, Numeric, Numeric],
+                Numeric] = lambda x, min, max: min if x < min else max if x > max else x
+clamp01: Callable[[Numeric], Numeric] = lambda x: clamp(x, 0, 1)
+sign: Callable[[Numeric], Numeric] = lambda x: 1 if x >= 0 else -1
 
 
-def write_jsystem_padding(f: BinaryIO, multiple: int):
+def write_jsystem_padding(f: BinaryIO, multiple: int) -> None:
     next_aligned = (f.tell() + (multiple - 1)) & ~(multiple - 1)
 
     diff = next_aligned - f.tell()
 
     for i in range(diff):
         pos = i % len(JSYSTEM_PADDING_TEXT)
-        f.write(JSYSTEM_PADDING_TEXT[pos:pos+1])
-        
+        f.write(JSYSTEM_PADDING_TEXT[pos:pos+1].encode())
+
 
 class A_Serializable(ABC):
     """
@@ -34,8 +39,9 @@ class A_Serializable(ABC):
     """
     @classmethod
     @abstractmethod
-    def from_bytes(cls, data: BinaryIO, *args, **kwargs) -> A_Serializable: ...
-    
+    def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **
+                   kwargs: VariadicKwargs) -> Optional[A_Serializable]: ...
+
     @abstractmethod
     def to_bytes(self) -> bytes: ...
 

@@ -2,9 +2,8 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import BinaryIO, Iterable, List, Union
+from typing import Any, BinaryIO, Callable, Dict, Iterable, List, Optional, overload
 
-from juniors_toolbox.objects.template import ValueType
 from juniors_toolbox.utils.iohelper import (read_bool, read_double, read_float,
                                             read_sbyte, read_sint16,
                                             read_sint32, read_string,
@@ -42,22 +41,30 @@ class QualifiedName():
             raise StopIteration
         return self.__scopes[self.__iter]
 
-    def __getitem__(self, index: Union[int, slice]) -> str:
+    @overload
+    def __getitem__(self, index: slice) -> List[str]: ...
+    @overload
+    def __getitem__(self, index: int) -> str: ...
+    def __getitem__(self, index: int | slice) -> str | List[str]:
         if isinstance(index, slice):
-            return self.__scopes[index.start, index.stop, index.step]
+            return self.__scopes[index.start:index.stop:index.step]
         return self.__scopes[index]
 
-    def __setitem__(self, index: int, scope: str) -> str:
+    def __setitem__(self, index: int, scope: str):
         self.__scopes[index] = scope
 
     def __str__(self) -> str:
         return "::".join(self.__scopes)
 
-    def __eq__(self, other: "QualifiedName") -> bool:
-        return str(self) == str(other)
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, (QualifiedName, str)):
+            return str(self) == str(other)
+        return NotImplemented
 
-    def __ne__(self, other: "QualifiedName") -> bool:
-        return str(self) != str(other)
+    def __ne__(self, other: object) -> bool:
+        if isinstance(other, (QualifiedName, str)):
+            return str(self) != str(other)
+        return NotImplemented
 
     def __add__(self, other: str) -> "QualifiedName":
         return QualifiedName(str(self), str(other))
@@ -100,7 +107,7 @@ class ValueType(str, Enum):
         """
         return ValueType(_ty.__name__.upper())
 
-    def to_type(self) -> type:
+    def to_type(self) -> Optional[type]:
         """
         Convert this to a type
         """
@@ -112,11 +119,11 @@ class ValueType(str, Enum):
         """
         return _ENUM_TO_SIGNED_TABLE[self]
 
-    def get_size(self) -> int:
+    def get_size(self) -> Optional[int]:
         """
         Return the physical size of the data type
         """
-        return _ENUM_TO_SIZE_TABLE[self.name]
+        return _ENUM_TO_SIZE_TABLE[self]
 
 
 def __read_bin_string(f: BinaryIO) -> str:
@@ -211,7 +218,7 @@ _ENUM_TO_SIGNED_TABLE = {
 }
 
 
-TEMPLATE_TYPE_READ_TABLE = {
+TEMPLATE_TYPE_READ_TABLE: dict[ValueType, Callable[[BinaryIO], Any]] = {
     ValueType.BOOL: read_bool,
     ValueType.BYTE: read_ubyte,
     ValueType.CHAR: read_ubyte,
@@ -228,9 +235,9 @@ TEMPLATE_TYPE_READ_TABLE = {
     ValueType.DOUBLE: read_double,
     ValueType.STR: __read_bin_string,
     ValueType.STRING: __read_bin_string,
-    ValueType.C_RGB8: lambda f: RGB8.from_tuple([read_ubyte(f), read_ubyte(f), read_ubyte(f)]),
+    ValueType.C_RGB8: lambda f: RGB8.from_tuple((read_ubyte(f), read_ubyte(f), read_ubyte(f))),
     ValueType.C_RGBA8: lambda f: RGBA8(read_uint32(f)),
-    ValueType.C_RGB32: lambda f: RGB32.from_tuple([read_uint32(f), read_uint32(f), read_uint32(f)]),
+    ValueType.C_RGB32: lambda f: RGB32.from_tuple((read_uint32(f), read_uint32(f), read_uint32(f))),
     ValueType.C_RGBA: lambda f: RGBA8(read_uint32(f)),
     ValueType.VECTOR3: lambda f: Vec3f(*read_vec3f(f)),
     ValueType.COMMENT: lambda f: None,
@@ -238,7 +245,7 @@ TEMPLATE_TYPE_READ_TABLE = {
 }
 
 
-TEMPLATE_TYPE_WRITE_TABLE = {
+TEMPLATE_TYPE_WRITE_TABLE: dict[ValueType, Callable[[BinaryIO, Any], None]] = {
     ValueType.BOOL: write_bool,
     ValueType.BYTE: write_ubyte,
     ValueType.CHAR: write_ubyte,
@@ -272,7 +279,7 @@ class SimpleValue:
     Class describing a value
     """
     name: str
-    value: object
+    value: Any
     type: ValueType
 
 
@@ -280,7 +287,7 @@ class A_Member(SimpleValue, ABC):
     """
     Class describing a member of a structure
     """
-    _parent: object = None
+    _parent: Optional["MemberStruct"] = None
 
     @staticmethod
     def get_formatted_template_name(name: str, char: str, num: int) -> str:
@@ -292,7 +299,7 @@ class A_Member(SimpleValue, ABC):
         templateName = templateName.replace("{i}", str(num))
         return templateName
 
-    def get_parent(self) -> "MemberStruct":
+    def get_parent(self) -> Optional["MemberStruct"]:
         """
         Get the parent of this `Member`, which is a `Member` representing a struct
         """
@@ -307,7 +314,7 @@ class A_Member(SimpleValue, ABC):
         while parent is not None:
             scopes.append(parent.name)
             parent = parent.get_parent()
-        return QualifiedName(scopes[::-1])
+        return QualifiedName(*scopes[::-1])
 
     @abstractmethod
     def is_struct(self) -> bool:
@@ -324,7 +331,23 @@ class A_Member(SimpleValue, ABC):
         ...
 
     @abstractmethod
-    def get_child(self, name: str) -> "A_Member":
+    def add_child(self, member: "A_Member") -> bool:
+        """
+        Add a child to this `Member`, which implies this `Member` be a struct
+
+        Returns False if the member already existed
+        """
+        ...
+
+    @abstractmethod
+    def remove_child(self, member: str):
+        """
+        Remove a child from this `Member`, which implies this `Member` be a struct
+        """
+        ...
+
+    @abstractmethod
+    def get_child(self, name: str) -> Optional["A_Member"]:
         """
         Get a child of the given name from this `Member`, which implies this `Member` be a struct
         """
@@ -377,19 +400,28 @@ class MemberValue(A_Member):
     def has_child(self, name: str) -> bool:
         return False
 
-    def get_child(self, name: str) -> "A_Member":
+    def add_child(self, member: "A_Member") -> bool:
+        return False
+
+    def remove_child(self, member: str) -> None:
+        pass
+
+    def get_child(self, name: str) -> Optional["A_Member"]:
         return None
 
     def get_children(self) -> Iterable["A_Member"]:
         return []
 
     def get_data_size(self) -> int:
-        return self.type.get_size()
+        size = self.type.get_size()
+        if size is None:
+            return 0
+        return size
 
-    def load(self, stream: BinaryIO):
+    def load(self, stream: BinaryIO) -> None:
         self.value = TEMPLATE_TYPE_READ_TABLE[self.type](stream)
 
-    def save(self, stream: BinaryIO):
+    def save(self, stream: BinaryIO) -> None:
         TEMPLATE_TYPE_WRITE_TABLE[self.type](stream, self.value)
 
     def as_template(self) -> str:
@@ -400,9 +432,9 @@ class MemberStruct(A_Member):
     """
     Class describing a member structure
     """
-    _children = field(default_factory=lambda: {})
+    _children: Dict[str, A_Member] = field(default_factory=lambda: {})
     
-    def __init__(self, name: str, value: object):
+    def __init__(self, name: str, value: Any):
         super().__init__(name, value, ValueType.STRUCT)
 
     def is_struct(self) -> bool:
@@ -411,9 +443,20 @@ class MemberStruct(A_Member):
     def has_child(self, name: str) -> bool:
         return name in self._children
 
-    def get_child(self, name: str) -> "A_Member":
+    def add_child(self, member: "A_Member") -> bool:
+        if self.has_child(member.name):
+            return False
+
+        self._children[member.name] = member
+        return True
+
+    def remove_child(self, name: str) -> None:
+        self._children.pop(name)
+
+    def get_child(self, name: str) -> Optional["A_Member"]:
         if name in self._children:
             return self._children[name]
+        return None
 
     def get_children(self) -> Iterable["A_Member"]:
         return self._children.values()
@@ -421,10 +464,10 @@ class MemberStruct(A_Member):
     def get_data_size(self) -> int:
         return sum([member.get_data_size() for member in self.get_children()])
 
-    def load(self, stream: BinaryIO):
+    def load(self, stream: BinaryIO) -> None:
         self.value = [member.load(stream) for member in self.get_children()]
 
-    def save(self, stream: BinaryIO):
+    def save(self, stream: BinaryIO) -> None:
         for member in self.get_children():
             value = member.value
             ty = ValueType.type_to_enum(value.__class__)
@@ -447,29 +490,20 @@ class MemberStruct(A_Member):
         return header + body + "}"
 
 
-class MemberComment(A_Member):
+class MemberComment(MemberValue):
     """
     Class describing a member comment
     """
-    def __init__(self, name: str, value: object):
+    def __init__(self, name: str, value: Any):
         super().__init__(name, value, ValueType.STRUCT)
-    
-    def is_struct(self) -> bool:
-        return False
-
-    def get_child(self, name: str) -> "A_Member":
-        return None
-
-    def get_children(self) -> Iterable["A_Member"]:
-        return []
 
     def get_data_size(self) -> int:
         return 0
 
-    def load(self, stream: BinaryIO):
+    def load(self, stream: BinaryIO) -> None:
         pass
 
-    def save(self, stream: BinaryIO):
+    def save(self, stream: BinaryIO) -> None:
         pass
 
     def as_template(self) -> str:

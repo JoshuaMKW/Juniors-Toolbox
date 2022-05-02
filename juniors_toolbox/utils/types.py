@@ -28,54 +28,54 @@ class DigitalColor(ABC):
     Abstract base class representing color
     """
 
-    def __init__(self, value: object):
-        raise RuntimeError("DigitalColor can not be instantiated directly!")
+    def __init__(self, value: int):
+        self._value = int(value)
 
-    @abstractmethod
+    def raw(self) -> int:
+        return self._value
+
     @classmethod
+    @abstractmethod
     def from_tuple(cls, rgba: tuple) -> "DigitalColor": ...
 
-    @abstractmethod
     @classmethod
+    @abstractmethod
     def from_hex(cls, rgba: str) -> "DigitalColor": ...
 
-    @abstractmethod
     @property
+    @abstractmethod
     def red(self) -> int: ...
 
-    @abstractmethod
     @red.setter
+    @abstractmethod
     def red(self, value: int): ...
 
-    @abstractmethod
     @property
+    @abstractmethod
     def green(self) -> int: ...
 
-    @abstractmethod
     @green.setter
+    @abstractmethod
     def green(self, value: int): ...
 
-    @abstractmethod
     @property
+    @abstractmethod
     def blue(self) -> int: ...
 
-    @abstractmethod
     @blue.setter
+    @abstractmethod
     def blue(self, value: int): ...
 
-    @abstractmethod
     @property
+    @abstractmethod
     def alpha(self) -> int: ...
 
-    @abstractmethod
     @alpha.setter
+    @abstractmethod
     def alpha(self, value: int): ...
 
     @abstractmethod
     def hex(self) -> str: ...
-
-    @abstractmethod
-    def raw(self) -> int: ...
 
     @abstractmethod
     def tuple(self) -> tuple: ...
@@ -140,12 +140,8 @@ class RGBA8(DigitalColor):
     """
     Class representing 8bit RGBA
     """
-
-    def __init__(self, value: Union[int, "RGBA8"]):
-        self.value = int(value)
-
     @classmethod
-    def from_tuple(cls, rgba: Tuple[int, int, int, Optional[int]]) -> "RGBA8":
+    def from_tuple(cls, rgba: tuple) -> "RGBA8":
         color = cls(0)
         color.red = rgba[0]
         color.green = rgba[1]
@@ -163,38 +159,38 @@ class RGBA8(DigitalColor):
 
     @property
     def red(self) -> int:
-        return (self.value >> 24) & 0xFF
+        return (self._value >> 24) & 0xFF
 
     @red.setter
     def red(self, value: int):
-        self.value = ((int(value) & 0xFF) << 24) | (self.value & 0x00FFFFFF)
+        self._value = ((int(value) & 0xFF) << 24) | (self._value & 0x00FFFFFF)
 
     @property
     def green(self) -> int:
-        return (self.value >> 16) & 0xFF
+        return (self._value >> 16) & 0xFF
 
     @green.setter
     def green(self, value: int):
-        self.value = ((int(value) & 0xFF) << 16) | (self.value & 0xFF00FFFF)
+        self._value = ((int(value) & 0xFF) << 16) | (self._value & 0xFF00FFFF)
 
     @property
     def blue(self) -> int:
-        return (self.value >> 8) & 0xFF
+        return (self._value >> 8) & 0xFF
 
     @blue.setter
     def blue(self, value: int):
-        self.value = ((int(value) & 0xFF) << 8) | (self.value & 0xFFFF00FF)
+        self._value = ((int(value) & 0xFF) << 8) | (self._value & 0xFFFF00FF)
 
     @property
     def alpha(self) -> int:
-        return self.value & 0xFF
+        return self._value & 0xFF
 
     @alpha.setter
     def alpha(self, value: int):
-        self.value = (int(value) & 0xFF) | (self.value & 0xFFFFFF00)
+        self._value = (int(value) & 0xFF) | (self._value & 0xFFFFFF00)
 
     def hex(self) -> str:
-        return f"#{self.value:08X}"
+        return f"#{self._value:08X}"
 
     def tuple(self) -> Tuple[int, int, int, int]:
         return self.red, self.green, self.blue, self.alpha
@@ -231,12 +227,8 @@ class RGB8(DigitalColor):
     """
     Class representing 8bit RGB
     """
-
-    def __init__(self, value: Union[int, "RGB8"]):
-        self._value = int(value)
-
     @classmethod
-    def from_tuple(cls, rgba: Tuple[int, int, int]) -> "RGB8":
+    def from_tuple(cls, rgba: tuple) -> "RGB8":
         color = cls(0)
         color.red = rgba[0]
         color.green = rgba[1]
@@ -284,10 +276,7 @@ class RGB8(DigitalColor):
     def hex(self) -> str:
         return f"#{self._value:06X}"
 
-    def raw(self) -> int:
-        return self._value
-
-    def tuple(self) -> Tuple[int, int, int]:
+    def tuple(self) -> tuple:
         return self.red, self.green, self.blue
 
     def inverse(self) -> "RGB8":
@@ -320,30 +309,30 @@ class RGB32(RGB8):
 
     @property
     def red(self) -> int:
-        return (self.value >> 64) & 0xFF
+        return (self._value >> 64) & 0xFF
 
     @red.setter
     def red(self, value: int):
-        self.value = ((int(value) & 0xFF) << 64) | (
-            self.value & 0x00000000FFFFFFFFFFFFFFFF)
+        self._value = ((int(value) & 0xFF) << 64) | (
+            self._value & 0x00000000FFFFFFFFFFFFFFFF)
 
     @property
     def green(self) -> int:
-        return (self.value >> 32) & 0xFF
+        return (self._value >> 32) & 0xFF
 
     @green.setter
     def green(self, value: int):
-        self.value = ((int(value) & 0xFF) << 32) | (
-            self.value & 0xFFFFFFFF00000000FFFFFFFF)
+        self._value = ((int(value) & 0xFF) << 32) | (
+            self._value & 0xFFFFFFFF00000000FFFFFFFF)
 
     @property
     def blue(self) -> int:
-        return self.value & 0xFF
+        return self._value & 0xFF
 
     @blue.setter
     def blue(self, value: int):
-        self.value = (int(value) & 0xFF) | (
-            self.value & 0xFFFFFFFFFFFFFFFF00000000)
+        self._value = (int(value) & 0xFF) | (
+            self._value & 0xFFFFFFFFFFFFFFFF00000000)
 
     @property
     def alpha(self) -> int:
@@ -353,6 +342,7 @@ class RGB32(RGB8):
     def alpha(self, value: int):
         pass
 
+
 class RGBA32(RGBA8):
     """
     Clamps to 256, but represented by int sized data
@@ -360,30 +350,30 @@ class RGBA32(RGBA8):
 
     @property
     def red(self) -> int:
-        return (self.value >> 64) & 0xFF
+        return (self._value >> 64) & 0xFF
 
     @red.setter
     def red(self, value: int):
-        self.value = ((int(value) & 0xFF) << 96) | (
-            self.value & 0x00000000FFFFFFFFFFFFFFFFFFFFFFFF)
+        self._value = ((int(value) & 0xFF) << 96) | (
+            self._value & 0x00000000FFFFFFFFFFFFFFFFFFFFFFFF)
 
     @property
     def green(self) -> int:
-        return (self.value >> 32) & 0xFF
+        return (self._value >> 32) & 0xFF
 
     @green.setter
     def green(self, value: int):
-        self.value = ((int(value) & 0xFF) << 64) | (
-            self.value & 0xFFFFFFFF00000000FFFFFFFFFFFFFFFF)
+        self._value = ((int(value) & 0xFF) << 64) | (
+            self._value & 0xFFFFFFFF00000000FFFFFFFFFFFFFFFF)
 
     @property
     def blue(self) -> int:
-        return self.value & 0xFF
+        return self._value & 0xFF
 
     @blue.setter
     def blue(self, value: int):
-        self.value = ((int(value) & 0xFF) << 32) | (
-            self.value & 0xFFFFFFFFFFFFFFFF00000000FFFFFFFF)
+        self._value = ((int(value) & 0xFF) << 32) | (
+            self._value & 0xFFFFFFFFFFFFFFFF00000000FFFFFFFF)
 
     @property
     def alpha(self) -> int:
@@ -391,8 +381,8 @@ class RGBA32(RGBA8):
 
     @alpha.setter
     def alpha(self, value: int):
-        self.value = (int(value) & 0xFF) | (
-            self.value & 0xFFFFFFFFFFFFFFFFFFFFFFFF00000000)
+        self._value = (int(value) & 0xFF) | (
+            self._value & 0xFFFFFFFFFFFFFFFFFFFFFFFF00000000)
 
 
 class Vec2f(list):
@@ -487,11 +477,11 @@ class Vec2f(list):
         return sqrt(self.dot(self))
 
     @property
-    def normalized(self) -> "Vec3f":
+    def normalized(self) -> "Vec2f":
         magnitude = self.magnitude
         if magnitude > self.Epsilon:
             return self / magnitude
-        return Vec3f.zero
+        return Vec2f.zero
 
     @property
     def components(self) -> Tuple[float, float]:

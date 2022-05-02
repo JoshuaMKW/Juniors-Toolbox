@@ -15,9 +15,9 @@ class PrmEntry():
     __keyCode: int
     __keyLen: int
     __valueLen: int
-    __value: object
+    __value: Any
 
-    def __init__(self, key: NameRef, value: object, valueLen: int):
+    def __init__(self, key: NameRef, value: Any, valueLen: int):
         self.__key = str(key)
         self.__keyCode = hash(key)
         self.__keyLen = len(key)

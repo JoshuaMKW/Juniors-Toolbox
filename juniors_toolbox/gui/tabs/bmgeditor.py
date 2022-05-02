@@ -10,12 +10,13 @@ from enum import Enum, IntEnum
 from pathlib import Path
 from tkinter import font
 from turtle import back
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, BinaryIO, Callable, Dict, List, Optional, Union
 
-from juniors_toolbox.gui.tabs import GenericTabWidget
+from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.gui.widgets.interactivelist import InteractiveListWidget, InteractiveListWidgetItem
 from juniors_toolbox.objects.object import BaseObject
 from juniors_toolbox.scene import SMSScene
+from juniors_toolbox.utils import VariadicArgs, VariadicKwargs
 from juniors_toolbox.utils.bmg import BMG, RichMessage, SoundID
 from juniors_toolbox.utils.filesystem import resource_path
 from PySide6.QtCore import (QLine, QModelIndex, QObject, QPoint, QPointF,
@@ -189,7 +190,7 @@ class BMGMessagePreviewWidget(QWidget):
             poly = transform.map(self._polygon)
             return poly.containsPoint(point, Qt.WindingFill)
 
-    def __init__(self, message: RichMessage = None, parent=None):
+    def __init__(self, message: RichMessage = None, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.setMinimumSize(200, 113)
         self.__message = message
@@ -877,7 +878,7 @@ class BMGMessagePreviewWidget(QWidget):
 
         painter.end()
 
-    def mousePressEvent(self, event: QMouseEvent):
+    def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             ePos = event.pos()
             for button in self.__buttons:
@@ -921,9 +922,9 @@ class BMGMessageListWidget(InteractiveListWidget):
 
 
 class BMGMessageListInterfaceWidget(QWidget):
-    addRequested: SignalInstance = Signal()
-    removeRequested: SignalInstance = Signal()
-    copyRequested: SignalInstance = Signal()
+    addRequested = Signal()
+    removeRequested = Signal()
+    copyRequested = Signal()
 
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
@@ -951,7 +952,7 @@ class BMGMessageListInterfaceWidget(QWidget):
 
 
 class BMGMessageInterfaceWidget(QWidget):
-    attributeUpdateRequested: SignalInstance = Signal(str, int, int)
+    attributeUpdateRequested = Signal(str, int, int)
 
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
@@ -1034,8 +1035,8 @@ class BMGMessageInterfaceWidget(QWidget):
 
 
 class BMGMessagePreviewBGSelectWidget(QWidget):
-    bgUpdateRequested: SignalInstance = Signal(str)
-    boxChangeRequested: SignalInstance = Signal(bool)
+    bgUpdateRequested = Signal(str)
+    boxChangeRequested = Signal(bool)
 
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
@@ -1067,9 +1068,9 @@ class BMGMessagePreviewBGSelectWidget(QWidget):
 
 class BMGMessageTextBox(QPlainTextEdit):
     class CmdAction(QAction):
-        clicked: SignalInstance = Signal(str)
+        clicked = Signal(str)
 
-        def __init__(self, *args, **kwargs):
+        def __init__(self, *args: VariadicArgs, **kwargs: VariadicKwargs):
             super().__init__(*args, **kwargs)
             self.triggered.connect(self.__click)
 
@@ -1081,9 +1082,9 @@ class BMGMessageTextBox(QPlainTextEdit):
             self.clicked.emit("{" + category.lower() + ":" + subname + "}")
 
     class SpeedCmdAction(QAction):
-        clicked: SignalInstance = Signal(str)
+        clicked = Signal(str)
 
-        def __init__(self, *args, **kwargs):
+        def __init__(self, *args: VariadicArgs, **kwargs: VariadicKwargs):
             super().__init__(*args, **kwargs)
             self.triggered.connect(self.__click)
 
@@ -1091,9 +1092,9 @@ class BMGMessageTextBox(QPlainTextEdit):
             self.clicked.emit("{speed:0}")
 
     class OptionCmdAction(QAction):
-        clicked: SignalInstance = Signal(str)
+        clicked = Signal(str)
 
-        def __init__(self, *args, **kwargs):
+        def __init__(self, *args: VariadicArgs, **kwargs: VariadicKwargs):
             super().__init__(*args, **kwargs)
             self.triggered.connect(self.__click)
 
@@ -1101,16 +1102,16 @@ class BMGMessageTextBox(QPlainTextEdit):
             self.clicked.emit("{option:0:}")
 
     class RawCmdAction(QAction):
-        clicked: SignalInstance = Signal(str)
+        clicked = Signal(str)
 
-        def __init__(self, *args, **kwargs):
+        def __init__(self, *args: VariadicArgs, **kwargs: VariadicKwargs):
             super().__init__(*args, **kwargs)
             self.triggered.connect(self.__click)
 
         def __click(self):
             self.clicked.emit("{raw:0x}")
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: VariadicArgs, **kwargs: VariadicKwargs):
         super().__init__(*args, **kwargs)
         self.setLineWrapMode(QPlainTextEdit.NoWrap)
         self.setMinimumSize(130, 100)
@@ -1216,10 +1217,10 @@ class BMGMessageTextBox(QPlainTextEdit):
 
 
 class BMGMessageMenuBar(QMenuBar):
-    newRequested: SignalInstance = Signal()
-    openRequested: SignalInstance = Signal()
-    closeRequested: SignalInstance = Signal()
-    saveRequested: SignalInstance = Signal(bool)
+    newRequested = Signal()
+    openRequested = Signal()
+    closeRequested = Signal()
+    saveRequested = Signal(bool)
 
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
@@ -1356,8 +1357,8 @@ class BMGMessageMenuBar(QMenuBar):
             return 12
 
 
-class BMGMessageEditor(QWidget, GenericTabWidget):
-    def __init__(self, parent=None):
+class BMGMessageEditor(A_DockingInterface):
+    def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.setAcceptDrops(True)
         self.setMinimumSize(685, 300)
@@ -1468,7 +1469,8 @@ class BMGMessageEditor(QWidget, GenericTabWidget):
 
         self.__cachedOpenPath: Path = None
 
-    def populate(self, data: Any, scenePath: Path):
+    def populate(self, *args: VariadicArgs, **kwargs: VariadicKwargs):
+        data: BinaryIO = args[0]
         if not isinstance(data, BMG):
             return
 
@@ -1491,10 +1493,7 @@ class BMGMessageEditor(QWidget, GenericTabWidget):
 
     @Slot()
     def new_bmg(self):
-        self.populate(
-            BMG(self.menuBar.is_region_pal(), 12),
-            None
-        )
+        self.populate(BMG(self.menuBar.is_region_pal(), 12))
         self.messageListWidget.setEnabled(True)
 
     @Slot(Path)
@@ -1521,7 +1520,7 @@ class BMGMessageEditor(QWidget, GenericTabWidget):
         with path.open("rb") as f:
             bmg = BMG.from_bytes(f)
 
-        self.populate(bmg, None)
+        self.populate(bmg)
 
     @Slot()
     def close_bmg(self):

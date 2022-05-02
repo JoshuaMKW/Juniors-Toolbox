@@ -5,7 +5,7 @@ from PySide6.QtGui import QBrush, QColor, QCursor, QImage, QMouseEvent, QPaintEv
 from PySide6.QtWidgets import QColorDialog, QFrame, QLabel, QListWidget, QPushButton, QTreeWidget, QTreeWidgetItem, QWidget
 from numpy.lib.arraysetops import isin
 from juniors_toolbox.gui.images import CommonCursor, get_common_cursor
-from juniors_toolbox.gui.widgets import ABCMetaWidget
+from juniors_toolbox.gui.widgets import ABCMetaWidget, ABCWidget
 
 from juniors_toolbox.gui.widgets.colorpicker import ColorPicker
 from juniors_toolbox.objects.object import BaseObject
@@ -14,15 +14,15 @@ from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.utils.filesystem import resource_path
 
 
-class A_ColorButton(QLabel, metaclass=ABCMetaWidget):
+class A_ColorButton(QLabel, ABCWidget):
     """
     Custom Qt Widget to show a chosen color.
 
     Left-clicking the button shows the color-picker, while
     right-clicking resets the color to the default.
     """
-    colorChanged: SignalInstance = Signal(str, DigitalColor)
-    pressed: SignalInstance = Signal()
+    colorChanged = Signal(str, DigitalColor)
+    pressed = Signal()
 
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent=parent)

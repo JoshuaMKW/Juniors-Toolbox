@@ -1,11 +1,11 @@
 import sys
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 from juniors_toolbox.gui.application import JuniorsToolbox
 from juniors_toolbox import __version__
 
-def main(argv: Optional[Tuple] = None):
+def main(argv: Optional[List[str]] = None):
     if argv is None:
         argv = sys.argv[1:]
 

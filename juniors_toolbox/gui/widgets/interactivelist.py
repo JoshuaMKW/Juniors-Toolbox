@@ -12,7 +12,7 @@ class InteractiveListWidgetItem(QListWidgetItem):
     _prevName_: str
     _newItem_: bool
 
-    def __init__(self, item: Union["InteractiveListWidgetItem", str], type: int = QListWidgetItem.Type):
+    def __init__(self, item: Union["InteractiveListWidgetItem", str], type: int = 0) -> None:
         if isinstance(item, InteractiveListWidgetItem):
             super().__init__(item)
         else:
@@ -33,7 +33,7 @@ class InteractiveListWidgetItem(QListWidgetItem):
 
 
 class InteractiveListWidget(QListWidget):
-    def __init__(self, parent: Optional[QWidget] = None):
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setAcceptDrops(True)
         self.setDragDropMode(QAbstractItemView.InternalMove)
@@ -44,14 +44,14 @@ class InteractiveListWidget(QListWidget):
         self.customContextMenuRequested.connect(self.custom_context_menu)
 
         self.__selectedItems: List[InteractiveListWidgetItem] = []
-        self.__dragHoverItem: InteractiveListWidgetItem = None
+        self.__dragHoverItem: Optional[InteractiveListWidgetItem] = None
         self.__dragPreSelected = False
 
-    def get_context_menu(self, point: QPoint) -> QMenu:
+    def get_context_menu(self, point: QPoint) -> Optional[QMenu]:
         # Infos about the node selected.
-        item: InteractiveListWidgetItem = self.itemAt(point)
+        item: Optional[InteractiveListWidgetItem] = self.itemAt(point)
         if item is None:
-            return
+            return None
 
         # We build the menu.
         menu = QMenu(self)
@@ -77,13 +77,13 @@ class InteractiveListWidget(QListWidget):
         return menu
 
     @Slot(QPoint)
-    def custom_context_menu(self, point: QPoint):
+    def custom_context_menu(self, point: QPoint) -> None:
         menu = self.get_context_menu(point)
         if menu is None:
             return
         menu.exec(self.mapToGlobal(point))
 
-    def editItem(self, item: InteractiveListWidgetItem, new: bool = False):
+    def editItem(self, item: InteractiveListWidgetItem, new: bool = False) -> None:
         item._prevName_ = item.text()
         item._newItem_ = new
         super().editItem(item)
@@ -93,8 +93,8 @@ class InteractiveListWidget(QListWidget):
         for item in items:
             self.takeItem(self.row(item))
 
-    @Slot(InteractiveListWidgetItem, result=InteractiveListWidgetItem)
-    def rename_item(self, item: InteractiveListWidgetItem) -> str:
+    @Slot(InteractiveListWidgetItem)
+    def rename_item(self, item: Optional[InteractiveListWidgetItem] = None) -> str:
         """
         Returns the new name of the item
         """
@@ -119,8 +119,8 @@ class InteractiveListWidget(QListWidget):
         item._newItem_ = False
         return newName
 
-    @Slot(list, result=List[InteractiveListWidgetItem])
-    def duplicate_items(self, items: List[InteractiveListWidgetItem]) -> InteractiveListWidgetItem:
+    @Slot(list)
+    def duplicate_items(self, items: List[InteractiveListWidgetItem]) -> List[InteractiveListWidgetItem]:
         """
         Returns the new item
         """
@@ -168,17 +168,17 @@ class InteractiveListWidget(QListWidget):
         return name
 
     @Slot(InteractiveListWidgetItem)
-    def __handle_double_click(self, item: InteractiveListWidgetItem):
+    def __handle_double_click(self, item: InteractiveListWidgetItem) -> None:
         item._prevName_ = item.text()
         item._newItem_ = False
 
     @Slot(Qt.DropActions)
-    def startDrag(self, supportedActions: Qt.DropActions):
+    def startDrag(self, supportedActions: Qt.DropActions) -> None:
         self.__selectedItems = self.selectedItems()
-        return super().startDrag(supportedActions)
+        super().startDrag(supportedActions)
 
     @Slot(QDragEnterEvent)
-    def dragEnterEvent(self, event: QDragEnterEvent):
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
         self.__selectionMode = self.selectionMode()
         self.__selectedItems = self.selectedItems()
         self.__dragHoverItem = self.itemAt(event.pos())
@@ -187,10 +187,10 @@ class InteractiveListWidget(QListWidget):
         event.acceptProposedAction()
 
     @Slot(QDragEnterEvent)
-    def dragMoveEvent(self, event: QDragMoveEvent):
+    def dragMoveEvent(self, event: QDragMoveEvent) -> None:
         item = self.itemAt(event.pos())
         if item != self.__dragHoverItem:
-            if not self.__dragPreSelected:
+            if not self.__dragPreSelected and self.__dragHoverItem:
                 self.setSelection(
                     self.visualItemRect(self.__dragHoverItem),
                     QItemSelectionModel.Deselect
@@ -210,15 +210,16 @@ class InteractiveListWidget(QListWidget):
         event.acceptProposedAction()
 
     @Slot(QDragLeaveEvent)
-    def dragLeaveEvent(self, event: QDragLeaveEvent):
+    def dragLeaveEvent(self, event: QDragLeaveEvent) -> None:
         if self.__dragHoverItem is None:
             event.accept()
 
-        if not self.__dragPreSelected:
+        if not self.__dragPreSelected and self.__dragHoverItem:
             self.setSelection(
                 self.visualItemRect(self.__dragHoverItem),
                 QItemSelectionModel.Deselect
             )
+
         self.__dragHoverItem = None
         self.__dragPreSelected = False
         self.setSelectionMode(self.__selectionMode)
@@ -233,6 +234,7 @@ class InteractiveListWidget(QListWidget):
         self.setSelectionMode(self.__selectionMode)
         super().dropEvent(event)
 
+    @Slot(QMouseEvent)
     def mousePressEvent(self, event: QMouseEvent) -> None:
         mouseButton = event.button()
         modifiers = QApplication.keyboardModifiers()
@@ -245,6 +247,7 @@ class InteractiveListWidget(QListWidget):
                 return
         super().mousePressEvent(event)
 
+    @Slot(QMouseEvent)
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         mouseButton = event.button()
         mousePos = event.pos()
@@ -261,7 +264,8 @@ class InteractiveListWidget(QListWidget):
                 return
         super().mouseReleaseEvent(event)
 
-    def keyReleaseEvent(self, event: QKeyEvent):
+    @Slot(QMouseEvent)
+    def keyReleaseEvent(self, event: QKeyEvent) -> None:
         if event.key() == Qt.Key_Delete:
             self.delete_items(self.selectedItems())
             event.accept()
@@ -285,12 +289,11 @@ class InteractiveListWidget(QListWidget):
                     self.duplicate_items(items)
         event.accept()
 
-    def __handle_shift_click(self, item: InteractiveListWidgetItem):
+    def __handle_shift_click(self, item: InteractiveListWidgetItem) -> None:
         if item is None or item.isSelected():
             return
 
-        selectedIndexes: List[InteractiveListWidgetItem] = self.selectedIndexes(
-        )
+        selectedIndexes = self.selectedIndexes()
         if len(selectedIndexes) == 0:
             self.setCurrentItem(item)
             return
@@ -307,12 +310,11 @@ class InteractiveListWidget(QListWidget):
             item = self.item(row)
             item.setSelected(row in rows)
 
-    def __handle_ctrl_click(self, item: InteractiveListWidgetItem):
+    def __handle_ctrl_click(self, item: InteractiveListWidgetItem) -> None:
         if item is None or item.isSelected():
             return
 
-        selectedIndexes: List[InteractiveListWidgetItem] = self.selectedIndexes(
-        )
+        selectedIndexes = self.selectedIndexes()
         if len(selectedIndexes) == 0:
             self.setCurrentItem(item)
             return

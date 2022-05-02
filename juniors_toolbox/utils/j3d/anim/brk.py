@@ -1,5 +1,7 @@
+from io import BytesIO
 import struct
-from typing import BinaryIO 
+from typing import BinaryIO, Optional
+from juniors_toolbox.utils import VariadicArgs, VariadicKwargs, write_jsystem_padding
 #from collections import OrderedDict
 
 from juniors_toolbox.utils.iohelper import (read_sint16, read_ubyte,
@@ -69,77 +71,76 @@ class BRK(BasicAnimation):
         #self.unknown_address = unknown_address
 
     @classmethod
-    def from_data(cls, f: BinaryIO):
-
-        size = read_uint32(f)
+    def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **kwargs: VariadicKwargs) -> Optional["BRK"]:
+        size = read_uint32(data)
         #print("Size of brk: {} bytes".format(size))
-        sectioncount = read_uint32(f)
+        sectioncount = read_uint32(data)
         assert sectioncount == 1
 
-        svr_data = f.read(16)
+        svr_data = data.read(16)
         
-        trk_start = f.tell()
+        trk_start = data.tell()
         
-        trk_magic = f.read(4)
-        trk_sectionsize = read_uint32(f)
+        trk_magic = data.read(4)
+        trk_sectionsize = read_uint32(data)
 
-        loop_mode = read_ubyte(f)
-        padd = f.read(1)
+        loop_mode = read_ubyte(data)
+        padd = data.read(1)
         assert padd == b"\xFF"
-        duration = read_uint16(f)
+        duration = read_uint16(data)
         brk = cls(loop_mode, duration)
 
-        register_color_anim_count = read_uint16(f)
-        constant_color_anim_count = read_uint16(f)
+        register_color_anim_count = read_uint16(data)
+        constant_color_anim_count = read_uint16(data)
         #print(register_color_anim_count, "register color anims and", constant_color_anim_count, "constant collor anims")
         component_counts = {}
         for animtype in ("register", "constant"):
             component_counts[animtype] = {}
             
             for comp in ("R", "G", "B", "A"):
-                component_counts[animtype][comp] = read_uint16(f)
+                component_counts[animtype][comp] = read_uint16(data)
                 #print(animtype, comp, "count:", component_counts[animtype][comp])
         
-        register_color_animation_offset  = read_uint32(f) + trk_start    # 
-        constant_color_animation_offset  = read_uint32(f) + trk_start    #
-        register_index_offset            = read_uint32(f) + trk_start    # 
-        constant_index_offset            = read_uint32(f) + trk_start    # 
-        register_stringtable_offset      = read_uint32(f) + trk_start    #
-        constant_stringtable_offset      = read_uint32(f) + trk_start    # 
+        register_color_animation_offset  = read_uint32(data) + trk_start    # 
+        constant_color_animation_offset  = read_uint32(data) + trk_start    #
+        register_index_offset            = read_uint32(data) + trk_start    # 
+        constant_index_offset            = read_uint32(data) + trk_start    # 
+        register_stringtable_offset      = read_uint32(data) + trk_start    #
+        constant_stringtable_offset      = read_uint32(data) + trk_start    # 
 
         offsets = {}
         for animtype in ("register", "constant"):
             offsets[animtype] = {}
             for comp in ("R", "G", "B", "A"):
-                offsets[animtype][comp] = read_uint32(f) + trk_start 
+                offsets[animtype][comp] = read_uint32(data) + trk_start 
                 #print(animtype, comp, "offset:", offsets[animtype][comp])
     
         #print(hex(register_index_offset))
         # Read indices
         register_indices = []
-        f.seek(register_index_offset)
+        data.seek(register_index_offset)
         for i in range(register_color_anim_count):
-            index = read_uint16(f)
+            index = read_uint16(data)
             if i != index:
                 #print("warning: register index mismatch:", i, index)
                 assert(False)
             register_indices.append(index)
         
         constant_indices = []
-        f.seek(constant_index_offset)
+        data.seek(constant_index_offset)
         for i in range(constant_color_anim_count):
-            index = read_uint16(f)
+            index = read_uint16(data)
             if i != index:
                 #print("warning: constant index mismatch:", i, index)
                 assert(False)
             constant_indices.append(index)
         
         # Read stringtable 
-        f.seek(register_stringtable_offset)
-        register_stringtable = StringTable.from_file(f)
+        data.seek(register_stringtable_offset)
+        register_stringtable = StringTable.from_file(data)
         
-        f.seek(constant_stringtable_offset)
-        constant_stringtable = StringTable.from_file(f)
+        data.seek(constant_stringtable_offset)
+        constant_stringtable = StringTable.from_file(data)
         
         # read RGBA values 
         values = {}
@@ -149,24 +150,24 @@ class BRK(BasicAnimation):
             for comp in ("R", "G", "B", "A"):
                 values[animtype][comp] = []
                 count = component_counts[animtype][comp]
-                f.seek(offsets[animtype][comp])
+                data.seek(offsets[animtype][comp])
                 #print(animtype, comp, hex(offsets[animtype][comp]), count)
                 for i in range(count):
-                    values[animtype][comp].append(read_sint16(f))
+                    values[animtype][comp].append(read_sint16(data))
         
         for i in range(register_color_anim_count):
-            f.seek(register_color_animation_offset + 0x1C*i)
+            data.seek(register_color_animation_offset + 0x1C*i)
             name = register_stringtable.strings[i]
-            anim = ColorAnimation.from_brk(f, i, name, (
+            anim = ColorAnimation.from_brk(data, i, name, (
                 values["register"]["R"], values["register"]["G"], values["register"]["B"], values["register"]["A"]
                 ))
             
             brk.register_animations.append(anim)
         
         for i in range(constant_color_anim_count):
-            f.seek(constant_color_animation_offset + 0x1C*i)
+            data.seek(constant_color_animation_offset + 0x1C*i)
             name = constant_stringtable.strings[i]
-            anim = ColorAnimation.from_brk(f, i, name, (
+            anim = ColorAnimation.from_brk(data, i, name, (
                 values["constant"]["R"], values["constant"]["G"], values["constant"]["B"], values["constant"]["A"]
                 ))
             
@@ -350,7 +351,8 @@ class BRK(BasicAnimation):
                 f.close()
 
     
-    def write_brk(self, f: BinaryIO):
+    def to_bytes(self) -> bytes:
+        f = BytesIO()
         f.write(BRKFILEMAGIC)
         filesize_offset = f.tell()
         f.write(b"ABCD") # Placeholder for file size
@@ -375,17 +377,17 @@ class BRK(BasicAnimation):
         f.write(b"ABCD"*6) # Placeholder for data offsets 
         f.write(b"ABCD"*8) # Placeholder for rgba data offsets
         
-        write_padding(f, multiple=32)
+        write_jsystem_padding(f, multiple=32)
         assert f.tell() == 0x80
         
         
         register_anim_start = f.tell()
         f.write(b"\x00"*(0x1C*len(self.register_animations)))
-        write_padding(f, multiple=4)
+        write_jsystem_padding(f, multiple=4)
         
         constant_anim_start = f.tell()
         f.write(b"\x00"*(0x1C*len(self.constant_animations)))
-        write_padding(f, multiple=4)
+        write_jsystem_padding(f, multiple=4)
 
         all_values = {}
         
@@ -439,19 +441,19 @@ class BRK(BasicAnimation):
                 data_starts.append(f.tell())
                 for val in all_values[animtype][comp]:
                     write_sint16(f, val)
-                write_padding(f, 4)
+                write_jsystem_padding(f, 4)
                 
                 
         # Write the indices for each animation
         register_index_start = f.tell()
         for i in range(len(self.register_animations)):
             write_uint16(f, i)
-        write_padding(f, multiple=4)
+        write_jsystem_padding(f, multiple=4)
         
         constant_index_start = f.tell()
         for i in range(len(self.constant_animations)):
             write_uint16(f, i)
-        write_padding(f, multiple=4)
+        write_jsystem_padding(f, multiple=4)
         
         
         # Create string table of material names for register color animations
@@ -468,13 +470,13 @@ class BRK(BasicAnimation):
         
         register_stringtable_start = f.tell()
         register_stringtable.write(f, register_stringtable.strings)
-        write_padding(f, multiple=4)
+        write_jsystem_padding(f, multiple=4)
         
         constant_stringtable_start = f.tell()
         constant_stringtable.write(f, constant_stringtable.strings)
-        write_padding(f, multiple=4)
+        write_jsystem_padding(f, multiple=4)
         
-        write_padding(f, multiple=32)
+        write_jsystem_padding(f, multiple=32)
         total_size = f.tell()
 
         f.seek(register_anim_start)
@@ -521,6 +523,8 @@ class BRK(BasicAnimation):
         # RGBA data starts 
         for data_start in data_starts:
             write_uint32(f, data_start - trk1_start)
+
+        return f.getvalue()
 
     @classmethod
     def match_bmd(cls, info, strings):
