@@ -51,36 +51,33 @@ class RailNodeListWidget(InteractiveListWidget):
 
     @Slot(RailNodeListWidgetItem)
     def rename_item(self, item: RailNodeListWidgetItem) -> None:
-        name: str = super().rename_item(item)
-        item.node.name = name
+        pass
 
     @Slot(RailNodeListWidgetItem)
     def duplicate_items(self, items: List[RailNodeListWidgetItem]) -> None:
-        nitem: RailNodeListWidgetItem = super().duplicate_items(items)
-        nitem.node.name = nitem.text()
-
+        super().duplicate_items(items)
 
 class RailListWidget(InteractiveListWidget):
-    def __init__(self, parent: Optional[QWidget] = None):
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setAcceptDrops(False)
         self.setDragDropMode(InteractiveListWidget.DragDropMode.InternalMove)
         #self.setDefaultDropAction(Qt.MoveAction)
 
     @Slot(RailListWidgetItem)
-    def rename_item(self, item: RailListWidgetItem):
+    def rename_item(self, item: RailListWidgetItem) -> None:
         name = super().rename_item(item)
         item.rail.name = name
 
     @Slot(RailListWidgetItem)
-    def duplicate_items(self, items: List[RailListWidgetItem]):
+    def duplicate_items(self, items: List[RailListWidgetItem]) -> None:
         nitem = super().duplicate_items(items)
         nitem.rail.name = nitem.text()
 
 
 class RailViewerWidget(A_DockingInterface):
-    def __init__(self, parent: Optional[QWidget] = None):
-        super().__init__(parent)
+    def __init__(self, title: str = "", parent: Optional[QWidget] = None) -> None:
+        super().__init__(title, parent)
         self.setMinimumSize(200, 80)
 
         mainLayout = QGridLayout()
@@ -115,14 +112,13 @@ class RailViewerWidget(A_DockingInterface):
             self.railList.addItem(item)
         if self.railList.count() > 0:
             self.railList.setCurrentRow(0)
-            self.__populate_nodelist(self.railList.currentItem())
+            citem = self.railList.currentItem()
+            if citem is not None:
+                self.__populate_nodelist(citem)
         self.railList.blockSignals(False)
         self.nodeList.blockSignals(False)
 
-    def __populate_nodelist(self, item: RailListWidgetItem):
-        if item is None:
-            return
-
+    def __populate_nodelist(self, item: RailListWidgetItem) -> None:
         self.nodeList.blockSignals(True)
         self.nodeList.clear()
 
@@ -140,7 +136,7 @@ class RailViewerWidget(A_DockingInterface):
 
         # self.nodeList.currentItemChanged.emit()
 
-    def __populate_properties_view(self, item: RailNodeListWidgetItem):
+    def __populate_properties_view(self, item: RailNodeListWidgetItem) -> None:
         from juniors_toolbox.gui.tabs import TabWidgetManager
         propertiesTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
         if propertiesTab is None or item is None:

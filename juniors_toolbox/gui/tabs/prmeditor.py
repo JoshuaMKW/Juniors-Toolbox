@@ -33,15 +33,14 @@ class PrmEntryListItem(InteractiveListWidgetItem):
     def clone(self) -> "PrmEntryListItem":
         entry = PrmEntry(
             self.entry.key,
-            self.entry.value,
-            self.entry.valueLen
+            self.entry.value
         )
         item = PrmEntryListItem(self, entry)
         return item
 
 
 class PrmEntryListWidget(InteractiveListWidget):
-    def __init__(self, parent: Optional[QWidget] = None):
+    def __init__(self, title: str = "", parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.setMinimumSize(150, 100)
 
@@ -163,8 +162,8 @@ class PrmPropertyEditorWidget(QScrollArea):
 
 
 class PrmEditorWidget(A_DockingInterface):
-    def __init__(self, parent: Optional[QWidget] = None):
-        super().__init__(parent)
+    def __init__(self, title: str = "", parent: Optional[QWidget] = None):
+        super().__init__(title, parent)
         self.setAcceptDrops(True)
         self.setMinimumSize(685, 300)
 
@@ -226,10 +225,10 @@ class PrmEditorWidget(A_DockingInterface):
 
         self.entries: List[PrmEntry] = []
 
-        self.__cachedOpenPath: Path = None
+        self.__cachedOpenPath: Optional[Path] = None
 
     def populate(self, *args: VariadicArgs, **kwargs: VariadicKwargs):
-        data: PrmFile = args[0]
+        data = args[0]
         if not isinstance(data, PrmFile):
             return
 
@@ -282,27 +281,25 @@ class PrmEditorWidget(A_DockingInterface):
         self.prmEntryEditor.setEnabled(False)
 
     @Slot(Path, bool)
-    def save_bmg(self, path: Optional[Path] = None, saveAs: bool = False):
-        if (saveAs or self.__cachedOpenPath is None) and path is None:
-            dialog = QFileDialog(
-                parent=self,
-                caption="Save PRM...",
-                directory=str(
-                    self.__cachedOpenPath.parent if self.__cachedOpenPath else Path.home()
-                ),
-                filter="Parameters (*.prm);;All files (*)"
-            )
+    def save_bmg(self, path: Optional[Path] = None):
+        dialog = QFileDialog(
+            parent=self,
+            caption="Save PRM...",
+            directory=str(
+                self.__cachedOpenPath.parent if self.__cachedOpenPath else Path.home()
+            ),
+            filter="Parameters (*.prm);;All files (*)"
+        )
 
-            dialog.setAcceptMode(QFileDialog.AcceptSave)
-            dialog.setFileMode(QFileDialog.AnyFile)
+        dialog.setAcceptMode(QFileDialog.AcceptSave)
+        dialog.setFileMode(QFileDialog.AnyFile)
 
+        if path is None:
             if dialog.exec_() != QFileDialog.Accepted:
                 return False
 
             path = Path(dialog.selectedFiles()[0]).resolve()
             self.__cachedOpenPath = path
-        else:
-            path = self.__cachedOpenPath
 
         prm = PrmFile()
         for row in range(self.prmEntryListBox.count()):

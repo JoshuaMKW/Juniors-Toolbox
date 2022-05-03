@@ -79,8 +79,8 @@ class NameRefHierarchyWidget(A_DockingInterface):
             self.prevparent.insertChild(self.previndex, item)
             self.target.setCurrentIndex(self.prevgblindex)
 
-    def __init__(self, parent: Optional[QWidget] = None):
-        super().__init__(parent)
+    def __init__(self, title: str = "", parent: Optional[QWidget] = None):
+        super().__init__(title, parent)
 
         self.treeWidget = QTreeWidget()
 
@@ -100,7 +100,7 @@ class NameRefHierarchyWidget(A_DockingInterface):
         self.undoStack.setUndoLimit(32)
 
     def populate(self, *args: VariadicArgs, **kwargs: VariadicKwargs) -> None:
-        def inner_populate(obj: A_SceneObject, parentNode: NameRefHierarchyWidgetItem, column: int) -> List[NameRefHierarchyWidgetItem]:
+        def inner_populate(obj: A_SceneObject, parentNode: NameRefHierarchyWidgetItem, column: int):
             for g in obj.iter_grouped_children():
                 childNode = NameRefHierarchyWidgetItem(g)
                 childNode.setText(column, g.get_explicit_name())
@@ -108,7 +108,7 @@ class NameRefHierarchyWidget(A_DockingInterface):
                 if g.is_group():
                     inner_populate(g, childNode, column)
 
-        self.clear()
+        self.treeWidget.clear()
 
         data: SMSScene = args[0]
         for obj in data.iter_objects():

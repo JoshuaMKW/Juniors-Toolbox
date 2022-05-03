@@ -256,8 +256,8 @@ class SceneRendererWidget(A_DockingInterface):
     SEAANIM_FILE = "sea.btk"
     WAVEIMG_FILE = "wave.bti"
 
-    def __init__(self, parent: Optional[QWidget] = None):
-        super().__init__(parent)
+    def __init__(self, title: str = "", parent: Optional[QWidget] = None):
+        super().__init__(title, parent)
         self.setObjectName(self.__class__.__name__)
 
         self.openGLView = QOpenGLWidget()

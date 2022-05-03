@@ -28,8 +28,8 @@ from juniors_toolbox.utils.types import RGB32, RGB8, RGBA8, Transform, Vec3f
 from juniors_toolbox.scene import SMSScene
 
 class SelectedPropertiesWidget(A_DockingInterface):
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
-        super().__init__(parent)
+    def __init__(self, title: str = "", parent: Optional[QWidget] = None) -> None:
+        super().__init__(title, parent)
         self.mainLayout = QGridLayout()
 
         self.scrollArea = QScrollArea()

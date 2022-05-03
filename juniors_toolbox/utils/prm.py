@@ -3,63 +3,63 @@ from dataclasses import dataclass
 from io import BytesIO
 import struct
 from pathlib import Path
-from typing import Any, Iterable, List, Optional, Union
+from typing import Any, BinaryIO, Iterable, List, Optional, Union
+from juniors_toolbox.utils import A_Serializable, VariadicArgs, VariadicKwargs
 from juniors_toolbox.utils.iohelper import get_likely_encoding, read_string, read_uint16, read_uint32, write_string
 
 from juniors_toolbox.utils.jdrama import NameRef
 from juniors_toolbox.utils.types import RGBA8, RGB8, Vec3f
 
 
-class PrmEntry():
-    __key: str
-    __keyCode: int
-    __keyLen: int
-    __valueLen: int
+class PrmEntry(A_Serializable):
+    __key: NameRef
     __value: Any
 
-    def __init__(self, key: NameRef, value: Any, valueLen: int):
-        self.__key = str(key)
-        self.__keyCode = hash(key)
-        self.__keyLen = len(key)
-        self.__valueLen = valueLen
+    def __init__(self, key: str | NameRef, value: Any):
+        if isinstance(key, NameRef):
+            self.__key = key
+        else:
+            self.__key = NameRef(key)
         self.__value = value
 
     def __str__(self) -> str:
-        return f"[PRM] {self.__key} = 0x{self.__value.hex()}"
+        return f"[PRM] {self.__key} = {self.__value}"
 
     @classmethod
-    def from_bytes(cls, data: BytesIO, _type: type) -> "PrmEntry":
+    def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **kwargs: VariadicKwargs) -> Optional["PrmEntry"]:
         data.seek(2, 1)
+        _type: type = args[0]
         keyLen = read_uint16(data)
         key = NameRef(read_string(data, maxlen=keyLen))
         valueLen = read_uint32(data)
-        value = data.read(valueLen)
+        rawValue = data.read(valueLen)
+        value: Any = None
         if issubclass(_type, int):
-            ret = int.from_bytes(value, "big", signed=False)
+            value = int.from_bytes(rawValue, "big", signed=False)
         elif issubclass(_type, bool):
-            ret = True if value == b"\x01" else False
+            value = True if rawValue == b"\x01" else False
         elif issubclass(_type, str):
-            ret = value.decode(get_likely_encoding(value))
+            value = rawValue.decode(get_likely_encoding(rawValue))
         elif issubclass(_type, float):
-            ret = struct.unpack(">f", value)
+            value = struct.unpack(">f", rawValue)
         elif issubclass(_type, Vec3f):
-            ret = Vec3f(struct.unpack(">fff", value))
+            value = Vec3f(*struct.unpack(">fff", rawValue))
         elif issubclass(_type, RGB8):
-            ret = RGB8.from_tuple(struct.unpack(">bbb", value))
+            value = RGB8.from_tuple(struct.unpack(">bbb", rawValue))
         elif issubclass(_type, RGBA8):
-            ret = RGBA8.from_tuple(struct.unpack(">bbbb", value))
-        entry = cls(key, ret, valueLen)
+            value = RGBA8.from_tuple(struct.unpack(">bbbb", rawValue))
+        entry = cls(key, value)
         return entry
 
     def to_bytes(self) -> bytes:
-        data = self.__keyCode.to_bytes(2, "big", signed=False)
-        data += self.__keyLen.to_bytes(2, "big", signed=False)
-        data += self.__key.encode("ascii")
-        data += self.__valueLen.to_bytes(4, "big", signed=False)
+        data = self.keyCode.to_bytes(2, "big", signed=False)
+        data += self.keyLen.to_bytes(2, "big", signed=False)
+        data += self.key.encode("ascii")
+        data += self.valueLen.to_bytes(4, "big", signed=False)
         
         v = self.__value
         if isinstance(v, int):
-            data += v.to_bytes(self.__valueLen, "big", signed=(v < 0))
+            data += v.to_bytes(self.valueLen, "big", signed=(v < 0))
         elif isinstance(v, bool):
             data += b"\x00" if v is False else b"\x01"
         elif isinstance(v, str):
@@ -75,71 +75,68 @@ class PrmEntry():
         elif isinstance(v, RGBA8):
             data += struct.pack(">bbbb", v.tuple())
         else:
-            return None
+            return b""
         
         return data
 
     @property
-    def key(self) -> str:
+    def key(self) -> NameRef:
         return self.__key
 
     @key.setter
     def key(self, k: NameRef):
-        self.__keyCode = hash(k)
-        self.__keyLen = len(k)
         self.__key = k
 
     @property
     def keyCode(self) -> int:
-        return self.__keyCode
+        return hash(self.__key)
 
     @property
     def keyLen(self) -> int:
-        return self.__keyLen
+        return len(self.__key)
 
     @property
-    def value(self) -> object:
+    def value(self) -> Any:
         return self.__value
 
     @value.setter
-    def value(self, v: object):
+    def value(self, v: Any):
         self.__value = v
-        if isinstance(v, int):
-            self.__valueLen = 4
-        elif isinstance(v, bool):
-            self.__valueLen = 1
-        elif isinstance(v, str):
-            self.__valueLen = len(v.encode(get_likely_encoding(v)))
-        elif isinstance(v, float):
-            self.__valueLen = 4
-        elif isinstance(v, Vec3f):
-            self.__valueLen = 12
-        elif isinstance(v, RGB8):
-            self.__valueLen = 3
-        elif isinstance(v, RGBA8):
-            self.__valueLen = 4
 
     @property
     def valueLen(self) -> int:
-        return self.__valueLen
-
-    @valueLen.setter
-    def valueLen(self, _len: int):
-        self.__valueLen = _len
+        _v = self.__value
+        if isinstance(_v, int):
+            return 4
+        elif isinstance(_v, bool):
+            return 1
+        elif isinstance(_v, str):
+            return len(_v.encode())
+        elif isinstance(_v, float):
+            return 4
+        elif isinstance(_v, bytes):
+            return len(_v)
+        elif isinstance(_v, Vec3f):
+            return 12
+        elif isinstance(_v, RGB8):
+            return 3
+        elif isinstance(_v, RGBA8):
+            return 4
+        return 0
 
     def __len__(self) -> int:
-        return 4 + self.__keyLen + 4 + self.__valueLen
+        return 4 + self.keyLen + 4 + self.valueLen
 
 
-class PrmFile():
-    def __init__(self, entries: Optional[Union[PrmEntry, List[PrmEntry]]] = None):
+class PrmFile(A_Serializable):
+    def __init__(self, entries: Optional[Union[PrmEntry, Iterable[PrmEntry]]] = None):
         if entries:
             if isinstance(entries, list):
                 self._entries = entries
             else:
-                self._entries = list(entries)
+                self._entries = [entries]
         else:
-            self._entries = list()
+            self._entries = []
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.__dict__})"
@@ -148,16 +145,16 @@ class PrmFile():
         return len(self._entries)
 
     @classmethod
-    def from_bytes(cls, data: BytesIO) -> "PrmFile":
+    def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **kwargs: VariadicKwargs) -> Optional["PrmFile"]:
         offset = 0
         entries = list()
 
         entryNum = int.from_bytes(data.read(4), "big", signed=False)
-        print(entryNum)
         for _ in range(entryNum):
             _entry = PrmEntry.from_bytes(data, int)
-            entries.append(_entry)
-            offset += len(_entry)
+            if _entry is not None:
+                entries.append(_entry)
+                offset += len(_entry)
 
         prm = cls(entries)
         return prm
@@ -167,48 +164,48 @@ class PrmFile():
         def encode_value(value: str) -> bytes:
             value = value.strip()
             if value.startswith("f32("):
-                value = struct.pack(">f", float(
+                rawValue = struct.pack(">f", float(
                     value[4:-1].strip().rstrip("f")))
             elif value.startswith("f64("):
-                value = struct.pack(">d", float(value[4:-1]))
+                rawValue = struct.pack(">d", float(value[4:-1]))
             elif value.startswith("str("):
-                value = value[4:-1].encode("ascii")
+                rawValue = value[4:-1].encode("ascii")
             elif value.startswith("\""):
-                value = value[1:-1].encode("ascii")
+                rawValue = value[1:-1].encode("ascii")
             elif value.startswith("s8("):
-                value = int(value[3:-1], 16 if value[3:5]
+                rawValue = int(value[3:-1], 16 if value[3:5]
                             in {"0x", "-0x"} else 10).to_bytes(1, "big", signed=True)
             elif value.startswith("s16("):
-                value = int(value[4:-1], 16 if value[4:6]
+                rawValue = int(value[4:-1], 16 if value[4:6]
                             in {"0x", "-0x"} else 10).to_bytes(2, "big", signed=True)
             elif value.startswith("s32("):
-                value = int(value[4:-1], 16 if value[4:6]
+                rawValue = int(value[4:-1], 16 if value[4:6]
                             in {"0x", "-0x"} else 10).to_bytes(4, "big", signed=True)
             elif value.startswith("s64("):
-                value = int(value[4:-1], 16 if value[4:6]
+                rawValue = int(value[4:-1], 16 if value[4:6]
                             in {"0x", "-0x"} else 10).to_bytes(8, "big", signed=True)
             elif value.startswith("u8("):
-                value = int(value[3:-1], 16 if value[3:5]
+                rawValue = int(value[3:-1], 16 if value[3:5]
                             in {"0x", "-0x"} else 10).to_bytes(1, "big", signed=False)
             elif value.startswith("u16("):
-                value = int(value[4:-1], 16 if value[4:6]
+                rawValue = int(value[4:-1], 16 if value[4:6]
                             in {"0x", "-0x"} else 10).to_bytes(2, "big", signed=False)
             elif value.startswith("u32("):
-                value = int(value[4:-1], 16 if value[4:6]
+                rawValue = int(value[4:-1], 16 if value[4:6]
                             in {"0x", "-0x"} else 10).to_bytes(4, "big", signed=False)
             elif value.startswith("u64("):
-                value = int(value[4:-1], 16 if value[4:6]
+                rawValue = int(value[4:-1], 16 if value[4:6]
                             in {"0x", "-0x"} else 10).to_bytes(8, "big", signed=False)
             elif value.startswith("bool("):
-                value = 1 if value[5:-1].lower() == "true" else 0
-                value = value.to_bytes(1, "big", signed=False)
+                _v = int(value[5:-1].lower() == "true")
+                rawValue = _v.to_bytes(1, "big", signed=False)
             elif value.startswith("bytes("):
-                value = int(
+                rawValue = int(
                     value[6:-1], 16).to_bytes(len(value[8:-1]) >> 1, "big", signed=False)
             else:
                 raise ValueError(
                     f"Invalid value type found while parsing: {value.split('(')[0]}")
-            return value
+            return rawValue
 
         entries = list()
         for line in text.splitlines():
@@ -288,7 +285,12 @@ def decode_all(path: Path, dest: Path, suffix: str = ".prm"):
                 print(f"[PRM-PARSER] (Invalid Extension) Ignoring {path}")
                 return
 
-            prm = PrmFile.from_bytes(path.read_bytes())
+            with path.open("rb") as f:
+                prm = PrmFile.from_bytes(f)
+
+            if prm is None:
+                return
+
             if not dest.is_file() and dest.suffix == "":
                 dest.mkdir(parents=True, exist_ok=True)
                 try:
