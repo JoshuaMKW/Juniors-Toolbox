@@ -2,10 +2,10 @@ from dataclasses import dataclass, field
 from enum import IntEnum
 from io import BytesIO
 from os import write
-from typing import Iterable, List, Optional, Tuple, Union
+from typing import Any, BinaryIO, Iterable, List, Optional, Tuple, Union
 
 from aenum import extend_enum
-from juniors_toolbox.utils import A_Serializable
+from juniors_toolbox.utils import A_Serializable, VariadicArgs, VariadicKwargs
 
 from juniors_toolbox.utils.iohelper import align_int, decode_raw_string, get_likely_encoding, read_string, read_ubyte, read_uint16, read_uint32, write_string, write_ubyte, write_uint16, write_uint32
 
@@ -13,7 +13,7 @@ from juniors_toolbox.utils.iohelper import align_int, decode_raw_string, get_lik
 @dataclass
 class RichMessage(A_Serializable):
     components: list = field(default_factory=lambda: [])
-    encoding: str = None
+    encoding: Optional[str] = None
 
     _RICH_TO_COMMAND = {
         "{text:slow}":           b"\x1A\x05\x00\x00\x00",
@@ -67,7 +67,7 @@ class RichMessage(A_Serializable):
         return "{raw:" + f"0x{cmd[1:].hex().upper()}" + "}"
 
     @staticmethod
-    def rich_to_command(rich: str) -> bytes:
+    def rich_to_command(rich: str) -> Optional[bytes]:
         if rich in RichMessage._RICH_TO_COMMAND:
             return RichMessage._RICH_TO_COMMAND[rich]
 
@@ -80,28 +80,30 @@ class RichMessage(A_Serializable):
             if rich.startswith("{option:"):
                 command, message = rich.rsplit(":", 1)
                 command.replace(" ", "")
-                message = message[:-1].encode()
+                rawmsg = message[:-1].encode()
 
                 option = int(command[8:]).to_bytes(1, "big", signed=False)
                 length = (len(message) + 5).to_bytes(1, "big", signed=False)
-                return b"\x1A" + length + b"\x01\x00" + option + message
+                return b"\x1A" + length + b"\x01\x00" + option + rawmsg
 
             if rich.startswith("{raw:"):
                 rich = rich.replace(" ", "")
                 rawval = int(rich[5:-1], 16)
                 return b"\x1A" + rawval.to_bytes((rawval.bit_length() + 7) // 8, "big", signed=False)
         except Exception:
-            return None
+            pass
+        return None
 
     @classmethod
-    def from_bytes(cls, f: BytesIO, encoding: Optional[str] = None):
+    def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **kwargs: VariadicKwargs) -> Optional["RichMessage"]:
         TERMINATING_CHARS = {b"", }
+        encoding = kwargs.get("encoding")
 
         string = b""
-        components = []
+        components: List[str | bytes] = []
         _encodingGuess = encoding
         _nullCount = 0
-        while (char := f.read(1)) != b"":
+        while (char := data.read(1)) != b"":
             if char == b"\x00":
                 _nullCount += 1
             else:
@@ -117,9 +119,9 @@ class RichMessage(A_Serializable):
                     components.append(decode_raw_string(string, encoding))
                     string = b""
 
-                cmdLength = f.read(1)
+                cmdLength = data.read(1)
                 components.append(
-                    char + cmdLength + f.read(cmdLength[0] - 2)
+                     char + cmdLength + data.read(cmdLength[0] - 2)
                 )
             else:
                 string += char
@@ -131,7 +133,7 @@ class RichMessage(A_Serializable):
 
     @classmethod
     def from_rich_string(cls, string: str):
-        components = []
+        components: list[str | bytes] = []
         substr = ""
         lPos = string.find("{")
         rPos = string.find("}", lPos)
@@ -352,7 +354,7 @@ class SoundID(IntEnum):
     #     return cls(value)
 
     @classmethod
-    def name_to_sound_id(cls, name: int):
+    def name_to_sound_id(cls, name: str):
         return cls._member_map_[name]
 
 
@@ -391,28 +393,28 @@ class BMG(A_Serializable):
         return isPal
 
     @classmethod
-    def from_bytes(cls, f: BytesIO):
-        assert f.read(8) == BMG.MAGIC, "File is invalid!"
+    def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **kwargs: VariadicKwargs) -> Optional["BMG"]:
+        assert data.read(8) == BMG.MAGIC, "File is invalid!"
 
-        size = read_uint32(f) * 32
-        f.seek(0, 2)
-        assert size == f.tell(), "File size marker doesn't match file size"
+        size = read_uint32(data) * 32
+        data.seek(0, 2)
+        assert size == data.tell(), "File size marker doesn't match file size"
 
-        f.seek(12, 0)
-        sectionNum = read_uint32(f)
+        data.seek(12, 0)
+        sectionNum = read_uint32(data)
         isPal = sectionNum == 3
 
-        f.seek(16, 1)  # Padding
+        data.seek(16, 1)  # Padding
 
         for i in range(sectionNum):
-            f.seek(align_int(f.tell(), 32))  # 32 bit section alignment
-            sectionMagic = f.read(4)
-            sectionSize = read_uint32(f)
+            data.seek(align_int(data.tell(), 32))  # 32 bit section alignment
+            sectionMagic = data.read(4)
+            sectionSize = read_uint32(data)
             if sectionMagic == b"INF1":
                 assert i == 0, f"INF1 found at incorrect section index {i}!"
-                messageNum = read_uint16(f)
-                packetSize = read_uint16(f)
-                f.seek(4, 1)  # unknown values
+                messageNum = read_uint16(data)
+                packetSize = read_uint16(data)
+                data.seek(4, 1)  # unknown values
 
                 dataOffsets = []
                 strIDOffsets = []
@@ -421,22 +423,22 @@ class BMG(A_Serializable):
                 names = []
                 for i in range(messageNum):
                     if packetSize == 12:
-                        dataOffsets.append(read_uint32(f))
-                        fStart = read_uint16(f)
-                        fEnd = read_uint16(f)
+                        dataOffsets.append(read_uint32(data))
+                        fStart = read_uint16(data)
+                        fEnd = read_uint16(data)
                         if isPal:
-                            strIDOffsets.append(read_uint16(f))
-                        soundID = SoundID(read_ubyte(f))
-                        f.seek(1 if isPal else 3, 1)
+                            strIDOffsets.append(read_uint16(data))
+                        soundID = SoundID(read_ubyte(data))
+                        data.seek(1 if isPal else 3, 1)
                         unkFlags = b""
                     elif packetSize == 8:
-                        dataOffsets.append(read_uint32(f))
+                        dataOffsets.append(read_uint32(data))
                         soundID = SoundID.NOTHING
                         fStart = 0
                         fEnd = 0
-                        unkFlags = f.read(4)
+                        unkFlags = data.read(4)
                     elif packetSize == 4:
-                        dataOffsets.append(read_uint32(f))
+                        dataOffsets.append(read_uint32(data))
                         soundID = SoundID.NOTHING
                         fStart = 0
                         fEnd = 0
@@ -446,21 +448,21 @@ class BMG(A_Serializable):
                     messageMetaDatas.append([fStart, fEnd, soundID, unkFlags])
             elif sectionMagic == b"DAT1":
                 assert i > 0, f"DAT1 found before INF1!"
-                data = f.read(sectionSize - 8)
+                block = data.read(sectionSize - 8)
                 for i, offset in enumerate(dataOffsets):
                     if i < len(dataOffsets) - 1:
-                        rawMsg = data[offset:dataOffsets[i+1]]
+                        rawMsg = block[offset:dataOffsets[i+1]]
                     else:
-                        rawMsg = data[offset:]
+                        rawMsg = block[offset:]
                     messages.append(
                         RichMessage.from_bytes(BytesIO(rawMsg))
                     )
             elif sectionMagic == b"STR1":
                 assert i > 0, f"STR1 found before INF1!"
-                relOfs = f.tell()
+                relOfs = data.tell()
                 for i, offset in enumerate(strIDOffsets):
                     names.append(
-                        read_string(f, offset+relOfs)
+                        read_string(data, offset+relOfs)
                     )
 
         bmg = cls(isPal, packetSize)
