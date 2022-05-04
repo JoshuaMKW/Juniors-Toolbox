@@ -297,25 +297,14 @@ class BaseObject(A_SceneObject):
         objEndPos = data.tell() + objLength - 4
 
         # -- Name -- #
-        objNameHash = read_uint16(data)
-        objNameLength = read_uint16(data)
+        objName = jdrama.NameRef.from_bytes(data)
+        if objName is None:
+            return None
 
-        objName = jdrama.NameRef(read_string(data, maxlen=objNameLength-1))
-
-        if hash(objName) != objNameHash or len(objName.encode()) != objNameLength:
-            raise ObjectCorruptedError(
-                f"Object name is corrupted! {hash(objName)} ({objName}) != {objNameHash}")
-
-        # -- Key -- #
-        objKeyHash = read_uint16(data)
-        objKeyLength = read_uint16(data)
-
-        objKey = jdrama.NameRef(read_string(
-            data, maxlen=objKeyLength-1, encoding="shift-jis"))
-
-        if hash(objKey) != objKeyHash or len(objKey.encode("shift-jis")) != objKeyLength:
-            raise ObjectCorruptedError(
-                f"Object desc is corrupted! {hash(objKey)} ({objKey}) != {objKeyHash}")
+        # -- Desc -- #
+        objKey = jdrama.NameRef.from_bytes(data)
+        if objKey is None:
+            return None
 
         thisObj = cls(objName.get_nameref())
         thisObj.key = objKey
@@ -444,25 +433,14 @@ class GroupObject(BaseObject):
         objEndPos = data.tell() + objLength - 4
 
         # -- Name -- #
-        objNameHash = read_uint16(data)
-        objNameLength = read_uint16(data)
-
-        objName = jdrama.NameRef(read_string(data, maxlen=objNameLength-1))
-
-        if hash(objName) != objNameHash or len(objName.encode()) != objNameLength:
-            raise ObjectCorruptedError(
-                f"Object name is corrupted! {hash(objName)} ({objName}) != {objNameHash}")
+        objName = jdrama.NameRef.from_bytes(data)
+        if objName is None:
+            return None
 
         # -- Desc -- #
-        objKeyHash = read_uint16(data)
-        objKeyLength = read_uint16(data)
-
-        objKey = jdrama.NameRef(read_string(
-            data, maxlen=objKeyLength-1, encoding="shift-jis"))
-
-        if hash(objKey) != objKeyHash or len(objKey.encode("shift-jis")) != objKeyLength:
-            raise ObjectCorruptedError(
-                f"Object desc is corrupted! {hash(objKey)} ({objKey}) != {objKeyHash}")
+        objKey = jdrama.NameRef.from_bytes(data)
+        if objKey is None:
+            return None
 
         thisObj = cls(objName.get_nameref())
         thisObj.key = objKey

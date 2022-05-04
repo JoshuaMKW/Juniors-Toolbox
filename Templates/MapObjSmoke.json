@@ -1,0 +1,66 @@
+{
+    "Smoke": {
+        "Members": {
+            "Transform": {
+                "Type": "TRANSFORM",
+                "ArraySize": 1
+            },
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "!!!": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Model": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "SpawnObjID": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "SpawnLength": {
+                "Type": "FLOAT",
+                "ArraySize": 1
+            },
+            "SpawnHeight": {
+                "Type": "FLOAT",
+                "ArraySize": 1
+            },
+            "SpawnDuration": {
+                "Type": "INT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Transform": [
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "!!!": 0,
+                "Model": "Generated from Bin Editor Template by Junior's Toolbox",
+                "SpawnObjID": 0,
+                "SpawnLength": 0,
+                "SpawnHeight": 0,
+                "SpawnDuration": 0
+            }
+        }
+    }
+}

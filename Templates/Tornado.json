@@ -1,0 +1,66 @@
+{
+    "Tornado (Up blow)": {
+        "Members": {
+            "Transform": {
+                "Type": "TRANSFORM",
+                "ArraySize": 1
+            },
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "!!!": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Model": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "Rail": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "Strength": {
+                "Type": "FLOAT",
+                "ArraySize": 1
+            },
+            "FinalPush": {
+                "Type": "BYTE",
+                "ArraySize": 1
+            },
+            "DisplayModel": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Transform": [
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "!!!": 0,
+                "Model": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Rail": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Strength": 0,
+                "FinalPush": 0,
+                "DisplayModel": "Generated from Bin Editor Template by Junior's Toolbox"
+            }
+        }
+    }
+}

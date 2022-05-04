@@ -1,0 +1,70 @@
+{
+    "Wire Manager": {
+        "Members": {
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "MaxObjs": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Unknown": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "TopWidth": {
+                "Type": "FLOAT",
+                "ArraySize": 1
+            },
+            "BottomWidth": {
+                "Type": "FLOAT",
+                "ArraySize": 1
+            },
+            "TopR": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "TopG": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "TopB": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "BottomR": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "BottomG": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "BottomB": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Default": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "MaxObjs": 0,
+                "Unknown": 0,
+                "TopWidth": 0,
+                "BottomWidth": 0,
+                "TopR": 0,
+                "TopG": 0,
+                "TopB": 0,
+                "BottomR": 0,
+                "BottomG": 0,
+                "BottomB": 0,
+                "Default": "Generated from Bin Editor Template by Junior's Toolbox"
+            }
+        }
+    }
+}

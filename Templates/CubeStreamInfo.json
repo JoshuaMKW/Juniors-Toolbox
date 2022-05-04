@@ -1,0 +1,51 @@
+{
+    "Flow Cube": {
+        "Members": {
+            "Transform": {
+                "Type": "TRANSFORM",
+                "ArraySize": 1
+            },
+            "vvvv": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "!!!": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Power": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "State": {
+                "Type": "INT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Transform": [
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "vvvv": 0,
+                "!!!": 0,
+                "Power": 0,
+                "State": 0
+            }
+        }
+    }
+}

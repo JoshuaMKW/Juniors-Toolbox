@@ -1,2 +1,0 @@
-Position Table
-Default COMMENT true

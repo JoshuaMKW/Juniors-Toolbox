@@ -1,9 +1,0 @@
-Mario Return Point Position Object
-WarpPoint{i} TEMPLATE [*] {
-    Warp STRING
-    Transform TEMPLATE {
-        Position VEC3F
-        Rotation VEC3F
-        Scale VEC3F
-    }
-}

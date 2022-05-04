@@ -1,0 +1,25 @@
+{
+    "Ambient Color": {
+        "Members": {
+            "Color": {
+                "Type": "RGBA8",
+                "ArraySize": 1
+            },
+            "Default": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Color": [
+                    0,
+                    0,
+                    0,
+                    255
+                ],
+                "Default": "Generated from Bin Editor Template by Junior's Toolbox"
+            }
+        }
+    }
+}

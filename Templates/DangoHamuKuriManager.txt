@@ -1,4 +1,0 @@
-Stompin' Stu Manager
-Character STRING
-MaxObjs INT
-MActorSets INT

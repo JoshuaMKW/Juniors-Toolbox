@@ -1,2 +1,0 @@
-Scenario Archive Name Group
-Default COMMENT true

@@ -1,0 +1,20 @@
+{
+    "Sound Group": {
+        "Members": {
+            "SoundName": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "Default": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "SoundName": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Default": "Generated from Bin Editor Template by Junior's Toolbox"
+            }
+        }
+    }
+}

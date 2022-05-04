@@ -1,0 +1,39 @@
+{
+    "Light": {
+        "Members": {
+            "Position": {
+                "Type": "VEC3F",
+                "ArraySize": 1
+            },
+            "Color": {
+                "Type": "RGBA8",
+                "ArraySize": 1
+            },
+            "Intensity": {
+                "Type": "FLOAT",
+                "ArraySize": 1
+            },
+            "Default": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Position": [
+                    0,
+                    0,
+                    0
+                ],
+                "Color": [
+                    0,
+                    0,
+                    0,
+                    255
+                ],
+                "Intensity": 0,
+                "Default": "Generated from Bin Editor Template by Junior's Toolbox"
+            }
+        }
+    }
+}

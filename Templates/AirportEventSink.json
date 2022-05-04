@@ -1,0 +1,15 @@
+{
+    "Event Handler (Airstrip Sink)": {
+        "Members": {
+            "Unknown": {
+                "Type": "INT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Unknown": 0
+            }
+        }
+    }
+}

@@ -9,7 +9,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from juniors_toolbox.gui.dialogs.moveconflict import MoveConflictDialog
 
 from juniors_toolbox.gui.images import get_icon, get_image
-from juniors_toolbox.gui.widgets import ABCMetaWidget
+from juniors_toolbox.gui.widgets import ABCMetaWidget, ABCWidget
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.gui.tools import clear_layout, walk_layout
 from juniors_toolbox.gui.widgets.interactivelist import InteractiveListWidget, InteractiveListWidgetItem
@@ -303,7 +303,7 @@ class ProjectFocusedMenuBarAction(QAction):
         self.clicked.emit(self)
 
 
-class A_FileSystemViewer(ABCMetaWidget):
+class A_FileSystemViewer(ABCWidget):
     openExplorerRequested = Signal(object)
     openRequested = Signal(object)
     createFolderRequested = Signal(str)
@@ -314,6 +314,9 @@ class A_FileSystemViewer(ABCMetaWidget):
     deleteRequested = Signal(list)
     dropInRequested = Signal(list)
     dropOutRequested = Signal(object)
+    
+    _scenePath: Optional[Path] = None
+    _focusedPath: Optional[Path] = None
 
     def __init__(self) -> None:
         self._scenePath: Optional[Path] = None
@@ -470,7 +473,7 @@ class ProjectFolderViewWidget(InteractiveListWidget, A_FileSystemViewer):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         A_FileSystemViewer.__init__(self)
-        
+
         self.setFlow(QListView.LeftToRight)
         self.setGridSize(QSize(88, 98))
         self.setIconSize(QSize(64, 64))

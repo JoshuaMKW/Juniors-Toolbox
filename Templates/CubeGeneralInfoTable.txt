@@ -1,2 +1,0 @@
-General Cube Table
-Default COMMENT true

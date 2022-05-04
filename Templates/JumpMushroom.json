@@ -1,0 +1,56 @@
+{
+    "Bouncy Mushroom": {
+        "Members": {
+            "Transform": {
+                "Type": "TRANSFORM",
+                "ArraySize": 1
+            },
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "!!!": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Model": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "Bounce": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "DisplayModel": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Transform": [
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "!!!": 0,
+                "Model": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Bounce": 0,
+                "DisplayModel": "Generated from Bin Editor Template by Junior's Toolbox"
+            }
+        }
+    }
+}

@@ -121,7 +121,7 @@ class RichMessage(A_Serializable):
 
                 cmdLength = data.read(1)
                 components.append(
-                     char + cmdLength + data.read(cmdLength[0] - 2)
+                    char + cmdLength + data.read(cmdLength[0] - 2)
                 )
             else:
                 string += char
@@ -152,14 +152,19 @@ class RichMessage(A_Serializable):
                 substr = string[lPos:nextLPos]
             if substr != "":
                 if isCmdEnclosed:
+                    # Attempt to convert subtext to a command
                     part = RichMessage.rich_to_command(substr)
                     if part is None:
-                        part = substr
+                        # Pass as raw text
+                        components.append(substr)
+                    else:
+                        # Pass the command
+                        components.append(part)
                     string = string[rPos+1:]
                 else:
-                    part = substr
+                    # Pass as raw text
+                    components.append(substr)
                     string = string[nextLPos:]
-                components.append(part)
                 lPos = string.find("{")
                 rPos = string.find("}", lPos)
                 nextLPos = string.find("{", lPos+1)
@@ -454,9 +459,9 @@ class BMG(A_Serializable):
                         rawMsg = block[offset:dataOffsets[i+1]]
                     else:
                         rawMsg = block[offset:]
-                    messages.append(
-                        RichMessage.from_bytes(BytesIO(rawMsg))
-                    )
+                    richMsg = RichMessage.from_bytes(BytesIO(rawMsg))
+                    if richMsg is not None:
+                        messages.append(richMsg)
             elif sectionMagic == b"STR1":
                 assert i > 0, f"STR1 found before INF1!"
                 relOfs = data.tell()
@@ -521,7 +526,8 @@ class BMG(A_Serializable):
                     inf1.seek(3, 1)
             elif self.flagSize == 8:
                 write_uint32(inf1, dat1.tell() - 8)
-                flags = msg._unkflags + b"\x00" * max(0, 4 - len(msg._unkflags))
+                flags = msg._unkflags + b"\x00" * \
+                    max(0, 4 - len(msg._unkflags))
                 inf1.write(flags)
             elif self.flagSize == 4:
                 write_uint32(inf1, dat1.tell() - 8)

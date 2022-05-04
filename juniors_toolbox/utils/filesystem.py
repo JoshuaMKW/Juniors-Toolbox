@@ -30,7 +30,11 @@ def get_program_folder(folder: str = "") -> Path:
     import sys
 
     if sys.platform == "win32":
-        datapath = Path(getenv("APPDATA")) / folder
+        appdata = getenv("APPDATA")
+        if appdata:
+            datapath = Path(appdata) / folder
+        else:
+            return Path.cwd() / folder
     elif sys.platform == "darwin":
         if folder:
             folder = "." + folder

@@ -1,0 +1,20 @@
+{
+    "Main Scene Group": {
+        "Members": {
+            "ID": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Default": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "ID": 0,
+                "Default": "Generated from Bin Editor Template by Junior's Toolbox"
+            }
+        }
+    }
+}

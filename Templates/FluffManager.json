@@ -1,0 +1,61 @@
+{
+    "Fluff Manager": {
+        "Members": {
+            "Transform": {
+                "Type": "TRANSFORM",
+                "ArraySize": 1
+            },
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "!!!": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Model": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "WindTime": {
+                "Type": "FLOAT",
+                "ArraySize": 1
+            },
+            "Unknown": {
+                "Type": "FLOAT",
+                "ArraySize": 1
+            },
+            "WindForce": {
+                "Type": "INT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Transform": [
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "!!!": 0,
+                "Model": "Generated from Bin Editor Template by Junior's Toolbox",
+                "WindTime": 0,
+                "Unknown": 0,
+                "WindForce": 0
+            }
+        }
+    }
+}

@@ -10,7 +10,7 @@ _T = TypeVar("_T")
 
 class classproperty(property):
     def __get__(self, __obj: Any, __type: type | None = None) -> Any:
-        return classmethod(self.fget).__get__(None, __type)()
+        return classmethod(self.fget).__get__(None, __type)() # type: ignore
 
 
 Numeric = Union[int, float]

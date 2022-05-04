@@ -1,0 +1,91 @@
+{
+    "EMario (Shadow Mario/Il Piantissimo)": {
+        "Members": {
+            "Transform": {
+                "Type": "TRANSFORM",
+                "ArraySize": 1
+            },
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "!!!": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Manager": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "Rail": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "Behavior": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Rail0Node": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Rail1Node": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Rail2Node": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Rail3Node": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Rail4Node": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "DisplayModel": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "DisplayColor": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Transform": [
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "!!!": 0,
+                "Manager": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Rail": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Behavior": 0,
+                "Rail0Node": 0,
+                "Rail1Node": 0,
+                "Rail2Node": 0,
+                "Rail3Node": 0,
+                "Rail4Node": 0,
+                "DisplayModel": "Generated from Bin Editor Template by Junior's Toolbox",
+                "DisplayColor": "Generated from Bin Editor Template by Junior's Toolbox"
+            }
+        }
+    }
+}

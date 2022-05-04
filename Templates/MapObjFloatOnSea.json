@@ -1,0 +1,61 @@
+{
+    "Sea Floating Map Object": {
+        "Members": {
+            "Transform": {
+                "Type": "TRANSFORM",
+                "ArraySize": 1
+            },
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "!!!": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Model": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "riccoShipLog_tex": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "riccoShipDol_tex": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "ForceDrawMode": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Transform": [
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "!!!": 0,
+                "Model": "Generated from Bin Editor Template by Junior's Toolbox",
+                "riccoShipLog_tex": "Generated from Bin Editor Template by Junior's Toolbox",
+                "riccoShipDol_tex": "Generated from Bin Editor Template by Junior's Toolbox",
+                "ForceDrawMode": "Generated from Bin Editor Template by Junior's Toolbox"
+            }
+        }
+    }
+}

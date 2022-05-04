@@ -4,6 +4,7 @@ from typing import List, Optional, Tuple
 
 from juniors_toolbox.gui.application import JuniorsToolbox
 from juniors_toolbox import __version__
+from juniors_toolbox.utils.bintemplate import convert_bin_to_toolbox
 
 def main(argv: Optional[List[str]] = None):
     if argv is None:
@@ -22,6 +23,10 @@ def main(argv: Optional[List[str]] = None):
     sys.exit(app.exec_())
 
 if __name__ == "__main__":
+    for p in Path("Templates").iterdir():
+        if not p.is_file():
+            continue
+        convert_bin_to_toolbox(p, Path("Templates_J"))
     main()
 
 #scene = SMSScene.from_bytes(open("scene.bin", "rb"))

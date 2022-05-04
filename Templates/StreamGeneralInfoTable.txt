@@ -1,2 +1,0 @@
-Flow Cube Table
-Default COMMENT true

@@ -1,3 +1,0 @@
-Subgroup
-ID INT
-Default COMMENT true

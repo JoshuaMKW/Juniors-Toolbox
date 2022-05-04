@@ -1,0 +1,65 @@
+{
+    "Map": {
+        "Members": {
+            "XluJointCount": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "XBorder": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "ZBorder": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "BGCheckDataCount": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "BGCheckListCount": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "BGCheckListWarpCount": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "WarpCount": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "InitWarpID": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "VertexRender{C}": {
+                "Type": "STRUCT",
+                "ArraySize": 1
+            },
+            "Warp{C}": {
+                "Type": "STRUCT",
+                "ArraySize": 1
+            },
+            "Default": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "XluJointCount": 0,
+                "XBorder": 0,
+                "ZBorder": 0,
+                "BGCheckDataCount": 0,
+                "BGCheckListCount": 0,
+                "BGCheckListWarpCount": 0,
+                "WarpCount": 0,
+                "InitWarpID": 0,
+                "VertexRender{C}": {},
+                "Warp{C}": {},
+                "Default": "Generated from Bin Editor Template by Junior's Toolbox"
+            }
+        }
+    }
+}

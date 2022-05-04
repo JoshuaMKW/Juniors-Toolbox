@@ -1,0 +1,35 @@
+{
+    "Base Map Object Manager": {
+        "Members": {
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "MaxObjs": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "ClipRadius": {
+                "Type": "FLOAT",
+                "ArraySize": 1
+            },
+            "FarClip": {
+                "Type": "FLOAT",
+                "ArraySize": 1
+            },
+            "Default": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "MaxObjs": 0,
+                "ClipRadius": 0,
+                "FarClip": 0,
+                "Default": "Generated from Bin Editor Template by Junior's Toolbox"
+            }
+        }
+    }
+}

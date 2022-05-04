@@ -1,4 +1,0 @@
-Fake Shadow Mario Manager
-Character STRING
-MaxObjs INT
-MActorSets INT

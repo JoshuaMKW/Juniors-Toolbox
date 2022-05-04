@@ -1,0 +1,20 @@
+{
+    "Mirror Model Manager": {
+        "Members": {
+            "Unknown": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Default": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Unknown": 0,
+                "Default": "Generated from Bin Editor Template by Junior's Toolbox"
+            }
+        }
+    }
+}

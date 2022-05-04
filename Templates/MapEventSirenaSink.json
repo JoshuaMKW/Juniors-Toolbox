@@ -1,0 +1,41 @@
+{
+    "Event Handler (Hotel Delfino Sink)": {
+        "Members": {
+            "Unknown": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Warp": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "Transform": {
+                "Type": "TRANSFORM",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Unknown": 0,
+                "Warp": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Transform": [
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ]
+                ]
+            }
+        }
+    }
+}

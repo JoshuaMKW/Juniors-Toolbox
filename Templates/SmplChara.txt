@@ -1,2 +1,0 @@
-Sample Character
-Path STRING

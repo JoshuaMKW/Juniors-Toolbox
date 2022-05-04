@@ -1,4 +1,0 @@
-Bowser Jr. Manager
-Character STRING
-MaxObjs INT
-MActorSets INT

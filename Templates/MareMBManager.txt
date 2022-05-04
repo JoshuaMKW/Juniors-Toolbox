@@ -1,4 +1,0 @@
-Noki Elder Manager
-Character STRING
-MaxObjs INT
-MActorSets INT

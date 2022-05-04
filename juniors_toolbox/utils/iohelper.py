@@ -155,7 +155,7 @@ def get_likely_encoding(data: bytes) -> str:
             encoding = "shift-jis"
         return encoding
     except UnicodeDecodeError:
-        return None
+        return "utf-8"
 
 
 def decode_raw_string(data: bytes, encoding: Optional[str] = None) -> str:

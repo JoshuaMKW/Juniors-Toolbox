@@ -1,0 +1,38 @@
+{
+    "Camera Map Info": {
+        "Members": {
+            "Position": {
+                "Type": "VEC3F",
+                "ArraySize": 1
+            },
+            "Rotation": {
+                "Type": "VEC3F",
+                "ArraySize": 1
+            },
+            "Type": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Unknown": {
+                "Type": "INT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Position": [
+                    0,
+                    0,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Type": 0,
+                "Unknown": 0
+            }
+        }
+    }
+}

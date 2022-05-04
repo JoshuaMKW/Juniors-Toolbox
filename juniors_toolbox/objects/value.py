@@ -15,7 +15,7 @@ from juniors_toolbox.utils.iohelper import (read_bool, read_double, read_float,
                                             write_string, write_ubyte,
                                             write_uint16, write_uint32,
                                             write_vec3f)
-from juniors_toolbox.utils.types import RGB8, RGB32, RGBA8, Vec3f
+from juniors_toolbox.utils.types import RGB8, RGB32, RGBA8, Transform, Vec3f
 
 
 class QualifiedName():
@@ -80,6 +80,7 @@ class ValueType(str, Enum):
     CHAR = "CHAR"
     S8 = "S8"
     U8 = "U8"
+    SHORT = "SHORT"
     S16 = "S16"
     U16 = "U16"
     S32 = "S32"
@@ -139,12 +140,26 @@ def __write_bin_string(f: BinaryIO, val: str):
     f.write(raw)
 
 
+def __read_transform(f: BinaryIO) -> Transform:
+    _t = Transform()
+    _t.translate(read_vec3f(f))
+    _t.rotate(read_vec3f(f))
+    _t.scale = Vec3f(*read_vec3f(f))
+    return _t
+
+    
+def __write_transform(f: BinaryIO, val: Transform):
+    write_vec3f(f, val.translation)
+    write_vec3f(f, val.rotation)
+    write_vec3f(f, val.scale)
+
 _ENUM_TO_TYPE_TABLE = {
     ValueType.BOOL: bool,
     ValueType.BYTE: int,
     ValueType.CHAR: int,
     ValueType.S8: int,
     ValueType.U8: int,
+    ValueType.SHORT: int,
     ValueType.S16: int,
     ValueType.U16: int,
     ValueType.S32: int,
@@ -171,6 +186,7 @@ _ENUM_TO_SIZE_TABLE = {
     ValueType.CHAR: 1,
     ValueType.S8: 1,
     ValueType.U8: 1,
+    ValueType.SHORT: 2,
     ValueType.S16: 2,
     ValueType.U16: 2,
     ValueType.S32: 4,
@@ -197,6 +213,7 @@ _ENUM_TO_SIGNED_TABLE = {
     ValueType.CHAR: True,
     ValueType.S8: True,
     ValueType.U8: False,
+    ValueType.SHORT: True,
     ValueType.S16: True,
     ValueType.U16: False,
     ValueType.S32: True,
@@ -224,6 +241,7 @@ TEMPLATE_TYPE_READ_TABLE: dict[ValueType, Callable[[BinaryIO], Any]] = {
     ValueType.CHAR: read_ubyte,
     ValueType.S8: read_sbyte,
     ValueType.U8: read_ubyte,
+    ValueType.SHORT: read_sint16,
     ValueType.S16: read_sint16,
     ValueType.U16: read_uint16,
     ValueType.S32: read_sint32,
@@ -240,6 +258,7 @@ TEMPLATE_TYPE_READ_TABLE: dict[ValueType, Callable[[BinaryIO], Any]] = {
     ValueType.C_RGB32: lambda f: RGB32.from_tuple((read_uint32(f), read_uint32(f), read_uint32(f))),
     ValueType.C_RGBA: lambda f: RGBA8(read_uint32(f)),
     ValueType.VECTOR3: lambda f: Vec3f(*read_vec3f(f)),
+    ValueType.TRANSFORM: __read_transform,
     ValueType.COMMENT: lambda f: None,
     ValueType.STRUCT: lambda f: None
 }
@@ -251,6 +270,7 @@ TEMPLATE_TYPE_WRITE_TABLE: dict[ValueType, Callable[[BinaryIO, Any], None]] = {
     ValueType.CHAR: write_ubyte,
     ValueType.S8: write_sbyte,
     ValueType.U8: write_ubyte,
+    ValueType.SHORT: write_sint16,
     ValueType.S16: write_sint16,
     ValueType.U16: write_uint16,
     ValueType.S32: write_sint32,
@@ -268,6 +288,7 @@ TEMPLATE_TYPE_WRITE_TABLE: dict[ValueType, Callable[[BinaryIO, Any], None]] = {
     ValueType.C_RGB32: lambda f, val: write_uint32(f, val.tuple()),
     ValueType.C_RGBA: write_uint32,
     ValueType.VECTOR3: write_vec3f,
+    ValueType.TRANSFORM: __write_transform,
     ValueType.COMMENT: lambda f, val: None,
     ValueType.STRUCT: lambda f, val: None
 }

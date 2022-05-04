@@ -258,7 +258,7 @@ class JuniorsToolbox(QApplication):
             return
         deTab = self.__tabs.setdefault(name, tab)
         deTab.setObjectName(name)
-        deTab.setWidget(tab)
+        # deTab.setWidget(tab)
         deTab.setFloating(len(self.__openTabs) > 0)
         deTab.setAllowedAreas(Qt.AllDockWidgetAreas)
             
@@ -279,7 +279,7 @@ class JuniorsToolbox(QApplication):
     def closeDockerTab(self, tab: A_DockingInterface):
         if tab.windowTitle() not in self.__openTabs:
             return
-        tab.setWidget(None)
+        # tab.setWidget(None)
         tab.setParent(None)
         self.gui.removeDockWidget(tab)
 

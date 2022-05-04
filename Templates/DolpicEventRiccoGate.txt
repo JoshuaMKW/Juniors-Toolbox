@@ -1,7 +1,0 @@
-Event Handler (Boathouse Sink)
-Warp STRING
-Transform TEMPLATE {
-    Position VEC3F
-    Rotation VEC3F
-    Scale VEC3F
-}

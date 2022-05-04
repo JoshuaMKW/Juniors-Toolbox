@@ -1,0 +1,15 @@
+{
+    "Mario Return Point Position Object": {
+        "Members": {
+            "WarpPoint{i}": {
+                "Type": "STRUCT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "WarpPoint{i}": {}
+            }
+        }
+    }
+}

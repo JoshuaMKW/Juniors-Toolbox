@@ -1,0 +1,30 @@
+{
+    "Viewport": {
+        "Members": {
+            "X1": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Y1": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "X2": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Y2": {
+                "Type": "INT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "X1": 0,
+                "Y1": 0,
+                "X2": 0,
+                "Y2": 0
+            }
+        }
+    }
+}

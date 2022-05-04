@@ -1,0 +1,15 @@
+{
+    "Object Character": {
+        "Members": {
+            "Path": {
+                "Type": "STRING",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Path": "Generated from Bin Editor Template by Junior's Toolbox"
+            }
+        }
+    }
+}

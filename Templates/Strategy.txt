@@ -1,2 +1,0 @@
-Main Object Group
-Default COMMENT true

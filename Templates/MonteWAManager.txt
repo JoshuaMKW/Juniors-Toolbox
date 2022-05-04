@@ -1,4 +1,0 @@
-Female Pianta (T-shirt) Manager
-Character STRING
-MaxObjs INT
-MActorSets INT

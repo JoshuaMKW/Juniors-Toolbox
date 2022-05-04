@@ -10,7 +10,7 @@
             "request": "launch",
             "module": "juniors_toolbox",
             "args": [
-                "C:/Users/Kyler-Josh/3D Objects/SMSSceneReader/Scenes/dolpic_10_new/scene/map/scene.bin"
+                // "C:/Users/Kyler-Josh/3D Objects/SMSSceneReader/Scenes/dolpic_10_new/scene/map/scene.bin"
             ],
         }
     ]

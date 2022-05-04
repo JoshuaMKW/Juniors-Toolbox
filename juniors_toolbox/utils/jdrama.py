@@ -69,7 +69,8 @@ class NameRef(A_Serializable, A_Clonable):
     @classmethod
     def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **kwargs: VariadicKwargs) -> Optional["NameRef"]:
         keycode = read_uint16(data)
-        nameref = cls(read_string(data))
+        refLength = read_uint16(data)
+        nameref = cls(read_string(data, maxlen=refLength-1))
         thisKeycode = hash(nameref)
         if thisKeycode != keycode:
             raise NameRefCorruptedError(

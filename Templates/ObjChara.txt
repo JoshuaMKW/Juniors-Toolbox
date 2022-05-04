@@ -1,2 +1,0 @@
-Object Character
-Path STRING

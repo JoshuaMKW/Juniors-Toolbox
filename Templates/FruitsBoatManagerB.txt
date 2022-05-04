@@ -1,4 +1,0 @@
-Fruit Boat B Manager
-Character STRING
-MaxObjs INT
-MActorSets INT

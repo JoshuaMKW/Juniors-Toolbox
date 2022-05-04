@@ -1,0 +1,51 @@
+{
+    "Camera Cube": {
+        "Members": {
+            "Transform": {
+                "Type": "TRANSFORM",
+                "ArraySize": 1
+            },
+            "Unknown": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "!!!": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Type": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "LinkedCamKey": {
+                "Type": "STRING",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Transform": [
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "Unknown": 0,
+                "!!!": 0,
+                "Type": 0,
+                "LinkedCamKey": "Generated from Bin Editor Template by Junior's Toolbox"
+            }
+        }
+    }
+}

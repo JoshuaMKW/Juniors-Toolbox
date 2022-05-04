@@ -1,0 +1,76 @@
+{
+    "Water Spray Effect": {
+        "Members": {
+            "Transform": {
+                "Type": "TRANSFORM",
+                "ArraySize": 1
+            },
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "!!!": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Model": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "Speed": {
+                "Type": "FLOAT",
+                "ArraySize": 1
+            },
+            "Intensity": {
+                "Type": "FLOAT",
+                "ArraySize": 1
+            },
+            "R": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "G": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "B": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Alpha": {
+                "Type": "INT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Transform": [
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "!!!": 0,
+                "Model": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Speed": 0,
+                "Intensity": 0,
+                "R": 0,
+                "G": 0,
+                "B": 0,
+                "Alpha": 0
+            }
+        }
+    }
+}

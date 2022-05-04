@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from ctypes.wintypes import BYTE, SHORT
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from PySide6.QtCore import Qt, Signal, SignalInstance, Slot
 from PySide6.QtWidgets import QWidget, QGridLayout, QFormLayout, QComboBox, QLabel, QFrame, QLineEdit
