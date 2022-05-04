@@ -24,10 +24,10 @@
         },
         "Wizard": {
             "Default": {
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
-                "MaxObjs": 0,
-                "ClipRadius": 0,
-                "FarClip": 0,
+                "Character": "アイテムマネージャー キャラ",
+                "MaxObjs": 32,
+                "ClipRadius": 290000,
+                "FarClip": 500,
                 "Default": "Generated from Bin Editor Template by Junior's Toolbox"
             }
         }

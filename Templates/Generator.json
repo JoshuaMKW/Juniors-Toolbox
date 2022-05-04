@@ -40,16 +40,16 @@
                         0
                     ],
                     [
-                        0,
-                        0,
-                        0
+                        1,
+                        1,
+                        1
                     ]
                 ],
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Character": "ジェネレーター キャラ",
                 "!!!": 0,
-                "Rail": "Generated from Bin Editor Template by Junior's Toolbox",
-                "Spawn": "Generated from Bin Editor Template by Junior's Toolbox",
-                "SpawnSpeed": 0
+                "Rail": "(null)",
+                "Spawn": "なし",
+                "SpawnSpeed": 120
             }
         }
     }

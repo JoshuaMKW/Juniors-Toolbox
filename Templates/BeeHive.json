@@ -52,18 +52,18 @@
                         0
                     ],
                     [
-                        0,
-                        0,
-                        0
+                        1,
+                        1,
+                        1
                     ]
                 ],
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Character": "ハチの巣マネージャー キャラ",
                 "!!!": 0,
-                "Manager": "Generated from Bin Editor Template by Junior's Toolbox",
-                "Rail": "Generated from Bin Editor Template by Junior's Toolbox",
-                "ObjCount": 0,
-                "HiveSpawnObjID": 0,
-                "BeeSpawnObjID": 0,
+                "Manager": "ハチの巣マネージャー",
+                "Rail": "(null)",
+                "ObjCount": 10,
+                "HiveSpawnObjID": -1,
+                "BeeSpawnObjID": -1,
                 "DisplayModel": "Generated from Bin Editor Template by Junior's Toolbox"
             }
         }

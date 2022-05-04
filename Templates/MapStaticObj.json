@@ -67,7 +67,7 @@
             }
         },
         "Wizard": {
-            "Default": {
+            "Corona Mountain Smoke": {
                 "Transform": [
                     [
                         0,
@@ -80,14 +80,14 @@
                         0
                     ],
                     [
-                        0,
-                        0,
-                        0
+                        1,
+                        1,
+                        1
                     ]
                 ],
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Character": "TopOfCorona キャラ",
                 "!!!": 0,
-                "Model": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Model": "TopOfCorona",
                 "BiancoRiver": "Generated from Bin Editor Template by Junior's Toolbox",
                 "BiaWaterPollution": "Generated from Bin Editor Template by Junior's Toolbox",
                 "riccoSeaPollutionS0": "Generated from Bin Editor Template by Junior's Toolbox",

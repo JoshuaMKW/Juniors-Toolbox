@@ -53,11 +53,11 @@
                         0
                     ]
                 ],
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Character": "テレサマネージャー キャラ",
                 "!!!": 0,
-                "Manager": "Generated from Bin Editor Template by Junior's Toolbox",
-                "Rail": "Generated from Bin Editor Template by Junior's Toolbox",
-                "SpawnObjID": 0,
+                "Manager": "テレサマネージャー",
+                "Rail": "(null)",
+                "SpawnObjID": -1,
                 "DisplayModel": "Generated from Bin Editor Template by Junior's Toolbox",
                 "DisplayColor": "Generated from Bin Editor Template by Junior's Toolbox"
             }

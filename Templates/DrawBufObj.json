@@ -12,8 +12,8 @@
         },
         "Wizard": {
             "Default": {
-                "Unknown": 0,
-                "Unknown^2": 0
+                "Unknown": 3,
+                "Unknown^2": 1
             }
         }
     }

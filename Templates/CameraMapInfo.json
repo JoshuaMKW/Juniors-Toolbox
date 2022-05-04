@@ -16,10 +16,14 @@
             "Unknown": {
                 "Type": "INT",
                 "ArraySize": 1
-            }
+            },
+            "other": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
         },
         "Wizard": {
-            "Default": {
+            "Starting Camera": {
                 "Position": [
                     0,
                     0,
@@ -30,8 +34,9 @@
                     0,
                     0
                 ],
-                "Type": 0,
-                "Unknown": 0
+                "Type": 22,
+                "Unknown": -1,
+                "other": "0
             }
         }
     }

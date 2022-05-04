@@ -57,13 +57,13 @@
                         0
                     ]
                 ],
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Character": "レンガブロック キャラ",
                 "!!!": 0,
-                "Model": "Generated from Bin Editor Template by Junior's Toolbox",
-                "SpawnObjID": 0,
-                "SpawnLength": 0,
-                "SpawnHeight": 0,
-                "SpawnDuration": 0,
+                "Model": "BrickBlock",
+                "SpawnObjID": -1,
+                "SpawnLength": 100,
+                "SpawnHeight": -1,
+                "SpawnDuration": 120,
                 "DisplayTexture": "Generated from Bin Editor Template by Junior's Toolbox"
             }
         }

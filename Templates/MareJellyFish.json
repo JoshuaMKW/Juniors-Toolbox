@@ -16,8 +16,8 @@
         },
         "Wizard": {
             "Default": {
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
-                "MaxObjs": 0,
+                "Character": "マーレクラゲマネージャー キャラ",
+                "MaxObjs": 64,
                 "MActorSets": 0
             }
         }

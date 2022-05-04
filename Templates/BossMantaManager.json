@@ -16,9 +16,9 @@
         },
         "Wizard": {
             "Default": {
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
-                "MaxObjs": 0,
-                "MActorSets": 0
+                "Character": "ボスマンタマネージャー キャラ",
+                "MaxObjs": 128,
+                "MActorSets": 3
             }
         }
     }

@@ -12,7 +12,7 @@
         },
         "Wizard": {
             "Default": {
-                "Warp": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Warp": "マリオ（マニ屋）",
                 "Transform": [
                     [
                         0,
@@ -25,9 +25,9 @@
                         0
                     ],
                     [
-                        0,
-                        0,
-                        0
+                        1,
+                        1,
+                        1
                     ]
                 ]
             }

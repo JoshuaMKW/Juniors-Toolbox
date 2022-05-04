@@ -83,7 +83,7 @@
             }
         },
         "Wizard": {
-            "Default": {
+            "Pole": {
                 "Transform": [
                     [
                         0,
@@ -96,15 +96,15 @@
                         0
                     ],
                     [
-                        0,
-                        0,
-                        0
+                        1,
+                        1,
+                        1
                     ]
                 ],
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Character": "ポール キャラ",
                 "!!!": 0,
-                "Model": "Generated from Bin Editor Template by Junior's Toolbox",
-                "PoleLength": 0,
+                "Model": "PoleNormal",
+                "PoleLength": 1000,
                 "ArrowBoardLR_tex": "Generated from Bin Editor Template by Junior's Toolbox",
                 "ArrowBoardUp_tex": "Generated from Bin Editor Template by Junior's Toolbox",
                 "ArrowBoardDown_tex": "Generated from Bin Editor Template by Junior's Toolbox",

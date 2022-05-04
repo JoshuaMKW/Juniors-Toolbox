@@ -68,21 +68,21 @@
                         0
                     ],
                     [
-                        0,
-                        0,
-                        0
+                        1,
+                        1,
+                        1
                     ]
                 ],
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Character": "クッパＪｒサイン（Ｍ） キャラ",
                 "!!!": 0,
-                "Model": "Generated from Bin Editor Template by Junior's Toolbox",
-                "SpawnObjID": 0,
-                "SpawnLength": 0,
-                "SpawnHeight": 0,
-                "SpawnDuration": 0,
-                "R": 0,
-                "G": 0,
-                "B": 0,
+                "Model": "KoopaJrSignM",
+                "SpawnObjID": -1,
+                "SpawnLength": 100,
+                "SpawnHeight": -1,
+                "SpawnDuration": 120,
+                "R": 255,
+                "G": 255,
+                "B": 255,
                 "KoopaJrSignM": "Generated from Bin Editor Template by Junior's Toolbox",
                 "ChipShine": "Generated from Bin Editor Template by Junior's Toolbox"
             }

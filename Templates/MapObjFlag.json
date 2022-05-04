@@ -23,7 +23,7 @@
             }
         },
         "Wizard": {
-            "Default": {
+            "Red Sun Flag": {
                 "Transform": [
                     [
                         0,
@@ -36,14 +36,14 @@
                         0
                     ],
                     [
-                        0,
-                        0,
-                        0
+                        1,
+                        4.3,
+                        7
                     ]
                 ],
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Character": "flagRedsun キャラ",
                 "!!!": 0,
-                "Model": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Model": "flagRedsun",
                 "Flag": "Generated from Bin Editor Template by Junior's Toolbox"
             }
         }

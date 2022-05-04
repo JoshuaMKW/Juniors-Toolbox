@@ -40,15 +40,15 @@
                         0
                     ],
                     [
-                        0,
-                        0,
-                        0
+                        4,
+                        4,
+                        4
                     ]
                 ],
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Character": "バスタブピーチマネージャー キャラ",
                 "!!!": 0,
-                "Manager": "Generated from Bin Editor Template by Junior's Toolbox",
-                "Rail": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Manager": "バスタブピーチマネージャー",
+                "Rail": "(null)",
                 "DisplayModel": "Generated from Bin Editor Template by Junior's Toolbox"
             }
         }

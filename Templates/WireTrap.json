@@ -56,18 +56,18 @@
                         0
                     ],
                     [
-                        0,
-                        0,
-                        0
+                        1,
+                        1,
+                        1
                     ]
                 ],
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Character": "ワイヤートラップマネージャー キャラ",
                 "!!!": 0,
-                "Manager": "Generated from Bin Editor Template by Junior's Toolbox",
-                "Rail": "Generated from Bin Editor Template by Junior's Toolbox",
-                "Speed": 0,
+                "Manager": "ワイヤートラップマネージャー",
+                "Rail": "(null)",
+                "Speed": 10,
                 "Behavior": 0,
-                "Downtime": 0,
+                "Downtime": 30,
                 "Color": 0,
                 "DisplayModel": "Generated from Bin Editor Template by Junior's Toolbox"
             }

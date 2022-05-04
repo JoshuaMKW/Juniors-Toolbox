@@ -40,15 +40,15 @@
                         0
                     ],
                     [
-                        0,
-                        0,
-                        0
+                        1,
+                        1,
+                        1
                     ]
                 ],
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Character": "下駄ブロック緑 キャラ",
                 "!!!": 0,
-                "Model": "Generated from Bin Editor Template by Junior's Toolbox",
-                "Speed": 0,
+                "Model": "getag",
+                "Speed": 30,
                 "DisplayModel": "Generated from Bin Editor Template by Junior's Toolbox"
             }
         }

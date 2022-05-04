@@ -19,7 +19,7 @@
             }
         },
         "Wizard": {
-            "Default": {
+            "railvariant0": {
                 "Transform": [
                     [
                         0,
@@ -32,14 +32,14 @@
                         0
                     ],
                     [
-                        0,
-                        0,
-                        0
+                        1,
+                        1,
+                        1
                     ]
                 ],
-                "Manager": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Manager": "railvariant0 キャラ",
                 "Unknown": 0,
-                "Model": "Generated from Bin Editor Template by Junior's Toolbox"
+                "Model": "railvariant0"
             }
         }
     }

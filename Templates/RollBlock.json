@@ -23,7 +23,7 @@
             }
         },
         "Wizard": {
-            "Default": {
+            "rollvariant0": {
                 "Transform": [
                     [
                         0,
@@ -36,15 +36,15 @@
                         0
                     ],
                     [
-                        0,
-                        0,
-                        0
+                        1,
+                        1,
+                        1
                     ]
                 ],
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Character": "rollvariant0 キャラ",
                 "!!!": 0,
-                "Model": "Generated from Bin Editor Template by Junior's Toolbox",
-                "Speed": 0
+                "Model": "rollvariant0",
+                "Speed": 40
             }
         }
     }

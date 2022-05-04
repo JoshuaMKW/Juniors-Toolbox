@@ -52,14 +52,14 @@
                         0
                     ],
                     [
-                        0,
-                        0,
-                        0
+                        1,
+                        1,
+                        1
                     ]
                 ],
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Character": "木樽 キャラ",
                 "!!!": 0,
-                "Model": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Model": "wood_barrel",
                 "wood_barrel": "Generated from Bin Editor Template by Junior's Toolbox",
                 "wood_barrel_tex": "Generated from Bin Editor Template by Junior's Toolbox",
                 "wood_barrel_once": "Generated from Bin Editor Template by Junior's Toolbox",

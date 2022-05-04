@@ -40,16 +40,16 @@
                         0
                     ],
                     [
-                        0,
-                        0,
-                        0
+                        1,
+                        1,
+                        1
                     ]
                 ],
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Character": "ブランコ キャラ",
                 "!!!": 0,
-                "Model": "Generated from Bin Editor Template by Junior's Toolbox",
-                "RopeLength": 0,
-                "Pendulum": 0
+                "Model": "SwingBoard",
+                "RopeLength": 1500,
+                "Pendulum": 100
             }
         }
     }

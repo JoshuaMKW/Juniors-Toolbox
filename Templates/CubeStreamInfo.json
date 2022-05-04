@@ -13,6 +13,10 @@
                 "Type": "INT",
                 "ArraySize": 1
             },
+            "vvvv2": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
             "Power": {
                 "Type": "INT",
                 "ArraySize": 1
@@ -36,14 +40,15 @@
                         0
                     ],
                     [
-                        0,
-                        0,
-                        0
+                        10,
+                        3,
+                        10
                     ]
                 ],
-                "vvvv": 0,
+                "vvvv": 128,
                 "!!!": 0,
-                "Power": 0,
+                "vvvv2": 0,
+                "Power": 100,
                 "State": 0
             }
         }

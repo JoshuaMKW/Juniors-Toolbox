@@ -39,7 +39,7 @@
             }
         },
         "Wizard": {
-            "Default": {
+            "Mario's Cap": {
                 "Transform": [
                     [
                         0,
@@ -52,14 +52,14 @@
                         0
                     ],
                     [
-                        0,
-                        0,
-                        0
+                        1,
+                        1,
+                        1
                     ]
                 ],
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Character": "マリオ帽子 キャラ",
                 "!!!": 0,
-                "Model": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Model": "mario_cap",
                 "mario_cap": "Generated from Bin Editor Template by Junior's Toolbox",
                 "normal_nozzle_item_tex": "Generated from Bin Editor Template by Junior's Toolbox",
                 "rocket_nozzle_item_tex": "Generated from Bin Editor Template by Junior's Toolbox",

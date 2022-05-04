@@ -23,10 +23,6 @@ def main(argv: Optional[List[str]] = None):
     sys.exit(app.exec_())
 
 if __name__ == "__main__":
-    for p in Path("Templates").iterdir():
-        if not p.is_file():
-            continue
-        convert_bin_to_toolbox(p, Path("Templates_J"))
     main()
 
 #scene = SMSScene.from_bytes(open("scene.bin", "rb"))

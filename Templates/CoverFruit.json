@@ -36,14 +36,14 @@
                         0
                     ],
                     [
-                        0,
-                        0,
-                        0
+                        4,
+                        4,
+                        4
                     ]
                 ],
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Character": "ボステレサ用フルーツ キャラ",
                 "!!!": 0,
-                "Model": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Model": "FruitCoverPine",
                 "DisplayModel": "Generated from Bin Editor Template by Junior's Toolbox"
             }
         }

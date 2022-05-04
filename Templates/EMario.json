@@ -68,21 +68,21 @@
                         0
                     ],
                     [
-                        0,
-                        0,
-                        0
+                        1,
+                        1,
+                        1
                     ]
                 ],
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Character": "マリオモドキ キャラ",
                 "!!!": 0,
-                "Manager": "Generated from Bin Editor Template by Junior's Toolbox",
-                "Rail": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Manager": "マリオモドキマネージャー",
+                "Rail": "mariomodoki",
                 "Behavior": 0,
                 "Rail0Node": 0,
-                "Rail1Node": 0,
-                "Rail2Node": 0,
-                "Rail3Node": 0,
-                "Rail4Node": 0,
+                "Rail1Node": 255,
+                "Rail2Node": 255,
+                "Rail3Node": 255,
+                "Rail4Node": 255,
                 "DisplayModel": "Generated from Bin Editor Template by Junior's Toolbox",
                 "DisplayColor": "Generated from Bin Editor Template by Junior's Toolbox"
             }

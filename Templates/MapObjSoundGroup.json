@@ -11,8 +11,8 @@
             }
         },
         "Wizard": {
-            "Default": {
-                "SoundName": "Generated from Bin Editor Template by Junior's Toolbox",
+            "Ocean Sounds": {
+                "SoundName": "ms_sea",
                 "Default": "Generated from Bin Editor Template by Junior's Toolbox"
             }
         }

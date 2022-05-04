@@ -52,18 +52,18 @@
                         0
                     ],
                     [
-                        0,
-                        0,
-                        0
+                        1,
+                        1,
+                        1
                     ]
                 ],
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Character": "ノズルボックス（通常） キャラ",
                 "!!!": 0,
-                "Model": "Generated from Bin Editor Template by Junior's Toolbox",
-                "Spawn": "Generated from Bin Editor Template by Junior's Toolbox",
-                "Type": "Generated from Bin Editor Template by Junior's Toolbox",
-                "SpawnLength": 0,
-                "SpawnHeight": 0,
+                "Model": "NozzleBox",
+                "Spawn": "normal_nozzle_item",
+                "Type": "valid",
+                "SpawnLength": 100,
+                "SpawnHeight": -1,
                 "DisplayTexture": "Generated from Bin Editor Template by Junior's Toolbox"
             }
         }

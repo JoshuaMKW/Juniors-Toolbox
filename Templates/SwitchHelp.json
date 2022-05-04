@@ -40,16 +40,16 @@
                         0
                     ],
                     [
-                        0,
-                        0,
-                        0
+                        6,
+                        6,
+                        6
                     ]
                 ],
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Character": "スイッチバルーンヘルプ キャラ",
                 "!!!": 0,
-                "NULL": 0,
+                "NULL": -1,
                 "MessageID": 0,
-                "LinkedObjKey": "Generated from Bin Editor Template by Junior's Toolbox"
+                "LinkedObjKey": "なし"
             }
         }
     }

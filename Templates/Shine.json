@@ -52,17 +52,17 @@
                         0
                     ],
                     [
-                        0,
-                        0,
-                        0
+                        1,
+                        1,
+                        1
                     ]
                 ],
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Character": "スター キャラ",
                 "!!!": 0,
-                "Model": "Generated from Bin Editor Template by Junior's Toolbox",
-                "Type": "Generated from Bin Editor Template by Junior's Toolbox",
-                "ShineID": 0,
-                "Camera": 0,
+                "Model": "shine",
+                "Type": "normal",
+                "ShineID": -1,
+                "Camera": -1,
                 "DisplayColor": "Generated from Bin Editor Template by Junior's Toolbox",
                 "ForceDrawMode": "Generated from Bin Editor Template by Junior's Toolbox"
             }

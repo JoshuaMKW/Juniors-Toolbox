@@ -16,9 +16,9 @@
         },
         "Wizard": {
             "Default": {
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
-                "MaxObjs": 0,
-                "MActorSets": 0
+                "Character": "ポイハナマネージャー キャラ",
+                "MaxObjs": 30,
+                "MActorSets": 3
             }
         }
     }

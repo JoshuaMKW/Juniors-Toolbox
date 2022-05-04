@@ -44,17 +44,17 @@
                         0
                     ],
                     [
-                        0,
-                        0,
-                        0
+                        1,
+                        1,
+                        1
                     ]
                 ],
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Character": "わた毛 キャラ",
                 "!!!": 0,
-                "Model": "Generated from Bin Editor Template by Junior's Toolbox",
-                "WindTime": 0,
-                "Unknown": 0,
-                "WindForce": 0
+                "Model": "FluffManager",
+                "WindTime": 900,
+                "Unknown": 8,
+                "WindForce": 380
             }
         }
     }

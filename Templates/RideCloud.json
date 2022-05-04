@@ -60,21 +60,21 @@
                         0
                     ],
                     [
-                        0,
-                        0,
-                        0
+                        1,
+                        1,
+                        1
                     ]
                 ],
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Character": "乗れる雲 キャラ",
                 "!!!": 0,
-                "Model": "Generated from Bin Editor Template by Junior's Toolbox",
-                "Rail": "Generated from Bin Editor Template by Junior's Toolbox",
-                "TopR": 0,
-                "TopG": 0,
-                "TopB": 0,
-                "BottomR": 0,
-                "BottomG": 0,
-                "BottomB": 0
+                "Model": "cloud",
+                "Rail": "(null)",
+                "TopR": 255,
+                "TopG": 255,
+                "TopB": 255,
+                "BottomR": 255,
+                "BottomG": 255,
+                "BottomB": 255
             }
         }
     }

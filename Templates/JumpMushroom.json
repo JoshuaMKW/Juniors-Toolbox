@@ -40,15 +40,15 @@
                         0
                     ],
                     [
-                        0,
-                        0,
-                        0
+                        0.3,
+                        0.3,
+                        0.3
                     ]
                 ],
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Character": "ジャンプきのこ キャラ",
                 "!!!": 0,
-                "Model": "Generated from Bin Editor Template by Junior's Toolbox",
-                "Bounce": 0,
+                "Model": "JumpMushroom",
+                "Bounce": 10000,
                 "DisplayModel": "Generated from Bin Editor Template by Junior's Toolbox"
             }
         }

@@ -5,6 +5,14 @@
                 "Type": "INT",
                 "ArraySize": 1
             },
+            "Unknown2": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Unknown3": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
             "Default": {
                 "Type": "COMMENT",
                 "ArraySize": 1
@@ -12,6 +20,8 @@
         },
         "Wizard": {
             "Default": {
+                "Unknown": 0,
+                "Unknown": 0,
                 "Unknown": 0,
                 "Default": "Generated from Bin Editor Template by Junior's Toolbox"
             }

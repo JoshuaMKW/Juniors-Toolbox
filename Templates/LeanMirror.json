@@ -31,7 +31,7 @@
             }
         },
         "Wizard": {
-            "Default": {
+            "Small Tilting Mirror": {
                 "Transform": [
                     [
                         0,
@@ -44,16 +44,15 @@
                         0
                     ],
                     [
-                        0,
-                        0,
-                        0
+                        1,
+                        1,
+                        1
                     ]
                 ],
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Character": "mirrorS キャラ",
                 "!!!": 0,
-                "Model": "Generated from Bin Editor Template by Junior's Toolbox",
-                "TiltWeight": 0,
-                "Warp": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Model": "mirrorS",
+                "TiltWeight": 20,
                 "DisplayTexture": "Generated from Bin Editor Template by Junior's Toolbox"
             }
         }

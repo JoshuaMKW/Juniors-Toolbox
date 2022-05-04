@@ -19,7 +19,7 @@
             }
         },
         "Wizard": {
-            "Default": {
+            "Coconut": {
                 "Transform": [
                     [
                         0,
@@ -37,9 +37,9 @@
                         0
                     ]
                 ],
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Character": "ボステレサ用フルーツ キャラ",
                 "!!!": 0,
-                "Model": "Generated from Bin Editor Template by Junior's Toolbox"
+                "Model": "FruitCoconut"
             }
         }
     }

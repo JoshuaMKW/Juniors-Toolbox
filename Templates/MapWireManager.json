@@ -52,17 +52,17 @@
         },
         "Wizard": {
             "Default": {
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
-                "MaxObjs": 0,
-                "Unknown": 0,
-                "TopWidth": 0,
-                "BottomWidth": 0,
-                "TopR": 0,
-                "TopG": 0,
-                "TopB": 0,
-                "BottomR": 0,
-                "BottomG": 0,
-                "BottomB": 0,
+                "Character": "ワイヤーマネージャー キャラ",
+                "MaxObjs": 200,
+                "Unknown": 10,
+                "TopWidth": 10,
+                "BottomWidth": 20,
+                "TopR": 200,
+                "TopG": 200,
+                "TopB": 200,
+                "BottomR": 128,
+                "BottomG": 128,
+                "BottomB": 128,
                 "Default": "Generated from Bin Editor Template by Junior's Toolbox"
             }
         }

@@ -40,15 +40,15 @@
                         0
                     ],
                     [
-                        0,
-                        0,
-                        0
+                        1,
+                        1,
+                        1
                     ]
                 ],
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Character": "ヨッシーの卵 キャラ",
                 "!!!": 0,
-                "Model": "Generated from Bin Editor Template by Junior's Toolbox",
-                "Unknown": 0,
+                "Model": "eggYoshi",
+                "Unknown": -1,
                 "DisplayModel": "Generated from Bin Editor Template by Junior's Toolbox"
             }
         }

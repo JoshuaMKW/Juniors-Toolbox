@@ -44,20 +44,20 @@
                         0
                     ],
                     [
-                        0,
-                        0,
-                        0
+                        1,
+                        1,
+                        1
                     ]
                 ],
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Character": "WoodBlockCube キャラ",
                 "!!!": 0,
-                "Model": "Generated from Bin Editor Template by Junior's Toolbox",
-                "Rail": "Generated from Bin Editor Template by Junior's Toolbox",
-                "Bounce": 0,
+                "Model": "WoodBlockCube",
+                "Rail": "(null)",
+                "Bounce": -1,
                 "Color": [
-                    0,
-                    0,
-                    0
+                    255,
+                    255,
+                    255
                 ]
             }
         }

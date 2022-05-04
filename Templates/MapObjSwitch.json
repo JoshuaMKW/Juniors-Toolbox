@@ -44,16 +44,16 @@
                         0
                     ],
                     [
-                        0,
-                        0,
-                        0
+                        1,
+                        1,
+                        1
                     ]
                 ],
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Character": "オブジェスイッチ キャラ",
                 "!!!": 0,
-                "Model": "Generated from Bin Editor Template by Junior's Toolbox",
-                "Timer": 0,
-                "Unknown": 0,
+                "Model": "ObjSwitch",
+                "Timer": 230,
+                "Unknown": 255,
                 "ForceDrawMode": "Generated from Bin Editor Template by Junior's Toolbox"
             }
         }

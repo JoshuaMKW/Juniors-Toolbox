@@ -51,7 +51,7 @@
             }
         },
         "Wizard": {
-            "Default": {
+            "Benvenuto! Billboard": {
                 "Transform": [
                     [
                         0,
@@ -64,18 +64,18 @@
                         0
                     ],
                     [
-                        0,
-                        0,
-                        0
+                        1,
+                        1,
+                        1
                     ]
                 ],
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Character": "太陽の看板 キャラ",
                 "!!!": 0,
-                "Model": "Generated from Bin Editor Template by Junior's Toolbox",
-                "SpawnObjID": 0,
-                "SpawnLength": 0,
-                "SpawnHeight": 0,
-                "SpawnDuration": 0,
+                "Model": "billboard_sun",
+                "SpawnObjID": -1,
+                "SpawnLength": 100,
+                "SpawnHeight": -1,
+                "SpawnDuration": 120,
                 "billboard_sun": "Generated from Bin Editor Template by Junior's Toolbox",
                 "billboard_dolphin": "Generated from Bin Editor Template by Junior's Toolbox",
                 "billboard_restaurant": "Generated from Bin Editor Template by Junior's Toolbox",

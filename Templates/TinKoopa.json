@@ -40,15 +40,15 @@
                         0
                     ],
                     [
-                        0,
-                        0,
-                        0
+                        1,
+                        1,
+                        1
                     ]
                 ],
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Character": "メカクッパマネージャー キャラ",
                 "!!!": 0,
-                "Manager": "Generated from Bin Editor Template by Junior's Toolbox",
-                "Rail": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Manager": "メカクッパマネージャー",
+                "Rail": "(null)",
                 "DisplayModel": "Generated from Bin Editor Template by Junior's Toolbox"
             }
         }

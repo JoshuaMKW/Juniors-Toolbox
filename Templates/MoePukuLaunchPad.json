@@ -48,17 +48,17 @@
                         0
                     ],
                     [
-                        0,
-                        0,
-                        0
+                        1,
+                        1,
+                        1
                     ]
                 ],
-                "Character": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Character": "モエプク発射台マネージャー キャラ",
                 "!!!": 0,
-                "Manager": "Generated from Bin Editor Template by Junior's Toolbox",
-                "Rail": "Generated from Bin Editor Template by Junior's Toolbox",
-                "SpawnObjID": 0,
-                "JumpRange": 0,
+                "Manager": "モエプク発射台マネージャー",
+                "Rail": "(null)",
+                "SpawnObjID": -1,
+                "JumpRange": 15,
                 "DisplayModel": "Generated from Bin Editor Template by Junior's Toolbox"
             }
         }

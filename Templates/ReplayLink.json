@@ -1,45 +1,8 @@
 {
     "EMario Node Linker": {
-        "Members": {
-            "NodeCount": {
-                "Type": "INT",
-                "ArraySize": 1
-            },
-            "Unknown": {
-                "Type": "SHORT",
-                "ArraySize": 1
-            },
-            "Name": {
-                "Type": "STRING",
-                "ArraySize": 1
-            },
-            "Node": {
-                "Type": "STRING",
-                "ArraySize": 1
-            },
-            "Path1": {
-                "Type": "STRING",
-                "ArraySize": 1
-            },
-            "Path2": {
-                "Type": "STRING",
-                "ArraySize": 1
-            },
-            "Path3": {
-                "Type": "STRING",
-                "ArraySize": 1
-            }
-        },
+        "Members": {},
         "Wizard": {
-            "Default": {
-                "NodeCount": 0,
-                "Unknown": 0,
-                "Name": "Generated from Bin Editor Template by Junior's Toolbox",
-                "Node": "Generated from Bin Editor Template by Junior's Toolbox",
-                "Path1": "Generated from Bin Editor Template by Junior's Toolbox",
-                "Path2": "Generated from Bin Editor Template by Junior's Toolbox",
-                "Path3": "Generated from Bin Editor Template by Junior's Toolbox"
-            }
+            "Default": {}
         }
     }
 }
