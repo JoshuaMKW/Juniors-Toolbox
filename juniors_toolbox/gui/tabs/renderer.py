@@ -16,7 +16,7 @@ from pyrr import Vector3, Vector4, Matrix33, Matrix44
 from juniors_toolbox.utils.gx.color import ColorF32, Color
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.utils.types import Transform, Vec2f, Vec3f
-from juniors_toolbox.objects.object import BaseObject
+from juniors_toolbox.objects.object import MapObject
 from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.utils.filesystem import resource_path
 from juniors_toolbox.utils.j3d.bmd import BMD
@@ -123,7 +123,7 @@ class SpotLight():
     distattn: Vec3f
 
     @classmethod
-    def from_light_obj(cls, light: BaseObject) -> "SpotLight":
+    def from_light_obj(cls, light: MapObject) -> "SpotLight":
         pos: Vec3f = light.get_value("Position")
 
         splight = cls(
@@ -324,7 +324,7 @@ class SceneRendererWidget(A_DockingInterface):
     def fragmentShader(self, shader: str):
         self._fragmentShader = shader
 
-    def add_light(self, light: BaseObject):
+    def add_light(self, light: MapObject):
         if light.name == "AmbColor":
             color: Color = light.get_value("Color")
             self.ambLights[light.get_explicit_name(

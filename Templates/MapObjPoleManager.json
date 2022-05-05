@@ -8,17 +8,12 @@
             "MaxObjs": {
                 "Type": "INT",
                 "ArraySize": 1
-            },
-            "Default": {
-                "Type": "COMMENT",
-                "ArraySize": 1
             }
         },
         "Wizard": {
             "Default": {
                 "Character": "ポールマネージャー キャラ",
-                "MaxObjs": 100,
-                "Default": "Generated from Bin Editor Template by Junior's Toolbox"
+                "MaxObjs": 100
             }
         }
     }

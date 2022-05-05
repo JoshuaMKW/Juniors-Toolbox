@@ -41,7 +41,7 @@ class NameRef(A_Serializable, A_Clonable):
         return get_key_code(self.__data, "shift-jis")
 
     def __str__(self) -> str:
-        return self.get_nameref()
+        return self.get_ref()
 
     def __len__(self) -> int:
         return len(self.encode())
@@ -60,10 +60,10 @@ class NameRef(A_Serializable, A_Clonable):
             return super().__ne__(other)
         return NotImplemented
 
-    def get_nameref(self) -> str:
+    def get_ref(self) -> str:
         return self.__data
 
-    def set_nameref(self, nameref: str) -> None:
+    def set_ref(self, nameref: str) -> None:
         self.__data = nameref
         
     @classmethod

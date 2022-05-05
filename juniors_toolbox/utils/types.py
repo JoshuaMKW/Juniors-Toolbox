@@ -8,7 +8,8 @@ from numpy import array
 
 from pyrr.objects import quaternion
 from juniors_toolbox.utils import clamp, clamp01, classproperty, sign
-from pyrr import Vector3, Vector4, Matrix33, Matrix44, Quaternion
+from pyrr import Vector3, Vector4, Matrix33, Matrix44
+from pyrr import Quaternion as _PyrrQuaternion
 
 
 class BasicColors(IntEnum):
@@ -699,29 +700,29 @@ class Vec3f(Vector3):
         """
         return cls(0, 0, -1)
 
-    @property
-    def x(self) -> float:
-        return self.x
+    # @property
+    # def x(self) -> float:
+    #     return self.x
 
-    @x.setter
-    def x(self, x: float):
-        self.x = float(x)
+    # @x.setter
+    # def x(self, x: float):
+    #     self.x = float(x)
 
-    @property
-    def y(self) -> float:
-        return self.y
+    # @property
+    # def y(self) -> float:
+    #     return self.y
 
-    @y.setter
-    def y(self, y: float):
-        self.y = float(y)
+    # @y.setter
+    # def y(self, y: float):
+    #     self.y = float(y)
 
-    @property
-    def z(self) -> float:
-        return self.z
+    # @property
+    # def z(self) -> float:
+    #     return self.z
 
-    @z.setter
-    def z(self, z: float):
-        self.z = float(z)
+    # @z.setter
+    # def z(self, z: float):
+    #     self.z = float(z)
 
     @property
     def sqrMagnitude(self) -> float:
@@ -889,7 +890,7 @@ class Vec3f(Vector3):
         return f"{self.__class__.__name__}({x=}, {y=}, {z=})"
 
 
-class Quaternion(Quaternion):
+class Quaternion(_PyrrQuaternion):
     """
     Class representing a quaternion rotation
     """
@@ -897,15 +898,12 @@ class Quaternion(Quaternion):
 
     def __init__(
         self,
-        x: float = 0,
-        y: float = 0,
-        z: float = 0,
-        w: float = 1
+        xyzw: tuple[float, float, float, float] = (0, 0, 0, 1)
     ):
-        self.x = float(x)
-        self.y = float(y)
-        self.z = float(z)
-        self.w = float(w)
+        self.x = float(xyzw[0])
+        self.y = float(xyzw[1])
+        self.z = float(xyzw[2])
+        self.w = float(xyzw[3])
 
     @classproperty
     def identity(cls) -> "Quaternion":
@@ -931,7 +929,7 @@ class Quaternion(Quaternion):
 
     @property
     def normalized(self) -> "Quaternion":
-        quat = Quaternion(self.x, self.y, self.z, self.w)
+        quat = Quaternion([self.x, self.y, self.z, self.w])
         scale = 1.0 / self.magnitude
         quat.xyz *= scale
         quat.w *= scale
@@ -939,7 +937,7 @@ class Quaternion(Quaternion):
 
     @property
     def inversed(self) -> "Quaternion":
-        quat = Quaternion(self.x, self.y, self.z, self.w)
+        quat = Quaternion([self.x, self.y, self.z, self.w])
         sqrLen = self.sqrMagnitude
         if (sqrLen != 0.0):
             i = 1.0 / sqrLen
@@ -1235,10 +1233,10 @@ class Quaternion(Quaternion):
         if isinstance(other, Quaternion):
             # Combines the rotations
             return Quaternion(
-                self.w*other.x + self.x*other.w + self.y*other.z - self.z*other.y,
-                self.w*other.y + self.y*other.w + self.z*other.x - self.x*other.z,
-                self.w*other.z + self.z*other.w + self.x*other.y - self.y*other.x,
-                self.w*other.w - self.x*other.x - self.y*other.y - self.z*other.z,
+                (self.w*other.x + self.x*other.w + self.y*other.z - self.z*other.y,
+                 self.w*other.y + self.y*other.w + self.z*other.x - self.x*other.z,
+                 self.w*other.z + self.z*other.w + self.x*other.y - self.y*other.x,
+                 self.w*other.w - self.x*other.x - self.y*other.y - self.z*other.z)
             )
         elif isinstance(other, Vec3f):
             # Rotates the point with this rotation

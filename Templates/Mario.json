@@ -24,10 +24,6 @@
             "DisplayModel": {
                 "Type": "COMMENT",
                 "ArraySize": 1
-            },
-            "Default": {
-                "Type": "COMMENT",
-                "ArraySize": 1
             }
         },
         "Wizard": {
@@ -53,8 +49,7 @@
                 "!!!": 0,
                 "FLUDDWaterLvl": 100,
                 "FLUDDToggle": 0,
-                "DisplayModel": "Generated from Bin Editor Template by Junior's Toolbox",
-                "Default": "Generated from Bin Editor Template by Junior's Toolbox"
+                "DisplayModel": "Generated from Bin Editor Template by Junior's Toolbox"
             }
         }
     }

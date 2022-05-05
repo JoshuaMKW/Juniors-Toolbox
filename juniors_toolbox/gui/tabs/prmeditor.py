@@ -17,7 +17,7 @@ from juniors_toolbox.gui.tools import clear_layout, walk_layout
 from juniors_toolbox.gui.widgets.colorbutton import A_ColorButton
 from juniors_toolbox.gui.widgets.explicitlineedit import ExplicitLineEdit
 from juniors_toolbox.gui.widgets.interactivelist import InteractiveListWidget, InteractiveListWidgetItem
-from juniors_toolbox.objects.object import BaseObject
+from juniors_toolbox.objects.object import MapObject
 from juniors_toolbox.utils import VariadicArgs, VariadicKwargs
 from juniors_toolbox.utils.jdrama import NameRef
 from juniors_toolbox.utils.prm import PrmEntry, PrmFile

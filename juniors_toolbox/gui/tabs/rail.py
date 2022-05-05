@@ -8,7 +8,7 @@ from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.gui.widgets.interactivelist import (
     InteractiveListWidget, InteractiveListWidgetItem)
-from juniors_toolbox.objects.object import BaseObject
+from juniors_toolbox.objects.object import MapObject
 from juniors_toolbox.rail import Rail, RailKeyFrame, RalData
 from juniors_toolbox.scene import SMSScene
 from PySide6.QtCore import Qt, Slot

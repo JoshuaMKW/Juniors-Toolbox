@@ -44,10 +44,6 @@
             "BottomB": {
                 "Type": "INT",
                 "ArraySize": 1
-            },
-            "Default": {
-                "Type": "COMMENT",
-                "ArraySize": 1
             }
         },
         "Wizard": {
@@ -62,8 +58,7 @@
                 "TopB": 200,
                 "BottomR": 128,
                 "BottomG": 128,
-                "BottomB": 128,
-                "Default": "Generated from Bin Editor Template by Junior's Toolbox"
+                "BottomB": 128
             }
         }
     }

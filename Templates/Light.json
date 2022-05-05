@@ -12,10 +12,6 @@
             "Intensity": {
                 "Type": "FLOAT",
                 "ArraySize": 1
-            },
-            "Default": {
-                "Type": "COMMENT",
-                "ArraySize": 1
             }
         },
         "Wizard": {
@@ -31,8 +27,7 @@
                     255,
                     255
                 ],
-                "Intensity": 0,
-                "Default": "Generated from Bin Editor Template by Junior's Toolbox"
+                "Intensity": 0
             }
         }
     }

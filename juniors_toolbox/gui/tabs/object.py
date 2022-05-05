@@ -20,7 +20,7 @@ from juniors_toolbox.gui.widgets.property import A_ValueProperty
 from juniors_toolbox.gui.widgets.colorbutton import A_ColorButton
 from juniors_toolbox.gui.widgets.explicitlineedit import ExplicitLineEdit
 from juniors_toolbox.gui.widgets.spinboxdrag import SpinBoxDragDouble, SpinBoxDragInt
-from juniors_toolbox.objects.object import BaseObject
+from juniors_toolbox.objects.object import MapObject
 from juniors_toolbox.rail import RailKeyFrame
 from juniors_toolbox.utils.types import RGB32, RGB8, RGBA8, Vec3f
 from juniors_toolbox.scene import SMSScene

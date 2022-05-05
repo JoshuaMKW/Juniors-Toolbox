@@ -16,10 +16,6 @@
             "FarClip": {
                 "Type": "FLOAT",
                 "ArraySize": 1
-            },
-            "Default": {
-                "Type": "COMMENT",
-                "ArraySize": 1
             }
         },
         "Wizard": {
@@ -27,8 +23,7 @@
                 "Character": "アイテムマネージャー キャラ",
                 "MaxObjs": 32,
                 "ClipRadius": 290000,
-                "FarClip": 500,
-                "Default": "Generated from Bin Editor Template by Junior's Toolbox"
+                "FarClip": 500
             }
         }
     }

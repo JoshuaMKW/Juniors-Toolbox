@@ -4,16 +4,11 @@
             "Character": {
                 "Type": "STRING",
                 "ArraySize": 1
-            },
-            "Default": {
-                "Type": "COMMENT",
-                "ArraySize": 1
             }
         },
         "Wizard": {
             "Default": {
-                "Character": "波 キャラ",
-                "Default": "Generated from Bin Editor Template by Junior's Toolbox"
+                "Character": "波 キャラ"
             }
         }
     }

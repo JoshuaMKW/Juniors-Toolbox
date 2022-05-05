@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 from typing import BinaryIO, Iterable, List, Optional, TextIO
 
-from juniors_toolbox.objects.object import A_SceneObject, BaseObject, ObjectFactory
+from juniors_toolbox.objects.object import A_SceneObject, MapObject, ObjectFactory
 from juniors_toolbox.rail import Rail, RalData
 
 class SMSScene():
@@ -91,7 +91,7 @@ class SMSScene():
 
     def get_object(self, name: str, desc: str) -> Optional[A_SceneObject]:
         for obj in self.iter_objects(True):
-            if obj.get_nameref() == name and obj.key.get_nameref() == desc:
+            if obj.get_ref() == name and obj.key.get_ref() == desc:
                 return obj
         return None
 
@@ -103,7 +103,7 @@ class SMSScene():
 
     def get_table(self, name: str, desc: str) -> Optional[A_SceneObject]:
         for obj in self.iter_tables(True):
-            if obj.get_nameref() == name and obj.key.get_nameref() == desc:
+            if obj.get_ref() == name and obj.key.get_ref() == desc:
                 return obj
         return None
         

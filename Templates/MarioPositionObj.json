@@ -1,9 +1,21 @@
 {
     "Mario Return Point Position Object": {
+        "Structs": {
+            "Warp": {
+                "Name": {
+                    "Type": "STRING",
+                    "ArraySize": 1
+                },
+                "Transform": {
+                    "Type": "TRANSFORM",
+                    "ArraySize": 1
+                }
+            }
+        },
         "Members": {
             "WarpPoint{i}": {
-                "Type": "STRUCT",
-                "ArraySize": 1
+                "Type": "Warp",
+                "ArraySize": 0
             }
         },
         "Wizard": {

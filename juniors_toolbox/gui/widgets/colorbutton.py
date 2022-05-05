@@ -8,7 +8,7 @@ from juniors_toolbox.gui.images import CommonCursor, get_common_cursor
 from juniors_toolbox.gui.widgets import ABCMetaWidget, ABCWidget
 
 from juniors_toolbox.gui.widgets.colorpicker import ColorPicker
-from juniors_toolbox.objects.object import BaseObject
+from juniors_toolbox.objects.object import MapObject
 from juniors_toolbox.utils.types import RGB8, BasicColors, RGBA8, DigitalColor
 from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.utils.filesystem import resource_path

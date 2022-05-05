@@ -12,10 +12,6 @@
             "!!!": {
                 "Type": "INT",
                 "ArraySize": 1
-            },
-            "Default": {
-                "Type": "COMMENT",
-                "ArraySize": 1
             }
         },
         "Wizard": {
@@ -38,8 +34,7 @@
                     ]
                 ],
                 "Character": "草マネージャー キャラ",
-                "!!!": 0,
-                "Default": "Generated from Bin Editor Template by Junior's Toolbox"
+                "!!!": 0
             }
         }
     }

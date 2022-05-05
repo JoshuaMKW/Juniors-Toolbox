@@ -1,5 +1,23 @@
 {
     "Map": {
+        "Structs": {
+            "Warp": {
+                "Name": {
+                    "Type": "STRING",
+                    "ArraySize": 1
+                },
+                "Transform": {
+                    "Type": "TRANSFORM",
+                    "ArraySize": 1
+                }
+            },
+            "VertexRender": {
+                "Vertex{C}": {
+                    "Type": "INT",
+                    "ArraySize": 2
+                }
+            }
+        },
         "Members": {
             "XluJointCount": {
                 "Type": "INT",
@@ -33,17 +51,13 @@
                 "Type": "INT",
                 "ArraySize": 1
             },
-            "VertexRender{C}": {
-                "Type": "STRUCT",
-                "ArraySize": 1
+            "VertexRender{i}": {
+                "Type": "VertexRender",
+                "ArraySize": "WarpCount"
             },
-            "Warp{C}": {
-                "Type": "STRUCT",
-                "ArraySize": 1
-            },
-            "Default": {
-                "Type": "COMMENT",
-                "ArraySize": 1
+            "Warp{i}": {
+                "Type": "Warp",
+                "ArraySize": "WarpCount"
             }
         },
         "Wizard": {
@@ -56,9 +70,29 @@
                 "BGCheckListWarpCount": 0,
                 "WarpCount": 0,
                 "InitWarpID": 0,
-                "VertexRender{C}": {},
-                "Warp{C}": {},
-                "Default": "Generated from Bin Editor Template by Junior's Toolbox"
+                "VertexRender{i}": {
+                    "Vertex{C}": 0
+                },
+                "Warp{i}": {
+                    "Name": "(null)",
+                    "Transform": [
+                        [
+                            0,
+                            0,
+                            0
+                        ],
+                        [
+                            0,
+                            0,
+                            0
+                        ],
+                        [
+                            1,
+                            1,
+                            1
+                        ]
+                    ]
+                }
             }
         }
     }

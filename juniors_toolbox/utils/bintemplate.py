@@ -26,15 +26,15 @@ _TYPE_DEFAULT_LUT = {
     ValueType.DOUBLE: 0,
     ValueType.STR: "Generated from Bin Editor Template by Junior's Toolbox",
     ValueType.STRING: "Generated from Bin Editor Template by Junior's Toolbox",
-    ValueType.C_RGB8: [0, 0, 0],
-    ValueType.C_RGBA8: [0, 0, 0, 255],
-    ValueType.C_RGB32: [0, 0, 0],
-    ValueType.C_RGBA: [0, 0, 0, 255],
+    ValueType.C_RGB8: [255, 255, 255],
+    ValueType.C_RGBA8: [255, 255, 255, 255],
+    ValueType.C_RGB32: [255, 255, 255],
+    ValueType.C_RGBA: [255, 255, 255, 255],
     ValueType.VECTOR3: [0, 0, 0],
     ValueType.TRANSFORM: [
         [0, 0, 0],
         [0, 0, 0],
-        [0, 0, 0]
+        [1, 1, 1]
     ],
     ValueType.COMMENT: "Generated from Bin Editor Template by Junior's Toolbox",
     ValueType.STRUCT: {}

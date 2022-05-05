@@ -4,16 +4,11 @@
             "SoundName": {
                 "Type": "STRING",
                 "ArraySize": 1
-            },
-            "Default": {
-                "Type": "COMMENT",
-                "ArraySize": 1
             }
         },
         "Wizard": {
             "Ocean Sounds": {
-                "SoundName": "ms_sea",
-                "Default": "Generated from Bin Editor Template by Junior's Toolbox"
+                "SoundName": "ms_sea"
             }
         }
     }
