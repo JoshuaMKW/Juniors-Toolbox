@@ -31,7 +31,7 @@ class A_SceneObject(jdrama.NameRef, ABC):
     Class describing a generic scene object
     """
     TEMPLATE_PATH = Path("Templates")
-    
+
     _KNOWN_GROUP_HASHES = {
         16824, 15406, 28318, 18246,
         43971, 9858, 25289,  # levels
@@ -85,10 +85,12 @@ class A_SceneObject(jdrama.NameRef, ABC):
         """
         def get(member: A_Member, name: QualifiedName) -> Optional[A_Member]:
             for child in member.get_children():
-                if child.get_qualified_name() == name:
-                    return child
-                if child.get_qualified_name().scopes(name):
-                    return get(child, name)
+                for i in range(child.get_array_size()):
+                    arraychild = child[i]
+                    if arraychild.get_qualified_name() == name:
+                        return child
+                    if arraychild.get_qualified_name().scopes(name):
+                        return get(child, name)
             return None
 
         for member in self._members:
@@ -98,39 +100,47 @@ class A_SceneObject(jdrama.NameRef, ABC):
 
         return None
 
-    def get_members(self) -> Iterable[A_Member]:
-        return self._members
+    def get_members(self, includeArrays: bool = True) -> Iterable[A_Member]:
+        """
+        Get the members of this object
+        
+        If `includeArrays` is true, also yield array-bound instances of each member
+        """
+        if includeArrays is False:
+            return self._members
+        else:
+            for member in self._members:
+                for i in range(member.get_array_size()):
+                    yield member[i]
 
-    def get_member_by_index(self, index: int) -> A_Member:
+    def get_member_by_index(self, index: int, arrayindex: int = 0) -> A_Member:
         """
         Return a `Value` at the specified index
         """
-        return self._members[index]
+        return self._members[index][arrayindex]
 
-    def set_member(self, attrname: str, value: Any) -> bool:
+    def set_member(self, name: QualifiedName, value: Any) -> bool:
         """
         Set a `Value` by name if it exists in this object
 
         Returns `True` if successful
         """
-
-        attrname = attrname.strip()
-
-        if not self.has_member(attrname):
+        if not self.has_member(name):
             return False
 
-        for val in self._members:
-            if val.name == attrname:
-                val.value = value
+        for member in self.get_members():
+            if member.get_qualified_name() == name:
+                member.value = value
                 return True
+
         return False
 
-    def set_member_by_index(self, index: int, value: Any):
+    def set_member_by_index(self, index: int, value: Any, arrayindex: int = 0):
         """
         Set a member by index if it exists in this object
         """
-        val = self._members[index]
-        val.value = value
+        member = self._members[index][arrayindex]
+        member.value = value
 
     def get_member_data(self) -> BytesIO:
         """
@@ -141,11 +151,19 @@ class A_SceneObject(jdrama.NameRef, ABC):
             member.save(data)
         return data
 
-    def has_member(self, membername: str) -> bool:
+    def has_member(self, name: QualifiedName) -> bool:
         """
         Check if a named value exists in this object
         """
-        return any(membername == m.name for m in self._members)
+        if any(name == m.get_qualified_name() for m in self._members):
+            return True
+
+        for member in self._members:
+            for i in range(1, member.get_array_size()):
+                if member[i].get_qualified_name() == name:
+                    return True
+
+        return False
 
     def init_members(self, subkind: str = "Default") -> bool:
         """
@@ -194,12 +212,20 @@ class A_SceneObject(jdrama.NameRef, ABC):
                 member = MemberValue(
                     name, defaultValue, kind
                 )
+
+                if isinstance(repeat, str):
+                    repeatRef = self.get_member(QualifiedName(repeat))
+                    if repeatRef is None:
+                        raise ObjectCorruptedError(
+                            f"Failed to find array reference `{repeat}` for object `{self.get_ref()}` (NOT FOUND)")
+                    if repeatRef.is_struct():
+                        raise ObjectCorruptedError(
+                            f"Failed to find array reference `{repeat}` for object `{self.get_ref()}` (NON VALUE)")
+                    member.set_array_size(repeatRef) # type: ignore
+                else:
+                    member.set_array_size(repeat)
+
                 self._members.append(member)
-                for i in range(repeat - 1):
-                    member = MemberValue(
-                        f"{name}{i}", defaultValue, kind
-                    )
-                    self._members.append(member)
 
         return True
 
@@ -233,7 +259,7 @@ class A_SceneObject(jdrama.NameRef, ABC):
         for i in range(100):
             parentMember = self.get_member(QualifiedName(*qualifiedName[:-1]))
             if parentMember is None:
-                if not self.has_member(memberName):
+                if not self.has_member(qualifiedName):
                     if index != -1:
                         self._members.insert(index, member)
                     else:
@@ -289,7 +315,7 @@ class A_SceneObject(jdrama.NameRef, ABC):
         Print a complete map of this object to `out`
         """
         ...
-        
+
 
 class MapObject(A_SceneObject):
     """
@@ -317,8 +343,14 @@ class MapObject(A_SceneObject):
         thisObj = cls(objName.get_ref())
         thisObj.key = objKey
 
-        for member in thisObj.get_members():
-            member.load(data)
+        for member in thisObj.get_members(includeArrays=False):
+            arraySize = member.get_array_size()
+            arrayNum = 0
+            while data.tell() < objEndPos:
+                for i in range(arraySize):
+                    member[i].load(data)
+                    arrayNum = i
+            member.set_array_size(arrayNum)
 
         thisObj._parent = None
         return thisObj
@@ -362,7 +394,7 @@ class MapObject(A_SceneObject):
                 )
             else:
                 self._members.append(member)
-        
+
         return _copy
 
     def get_data_size(self) -> int:
@@ -428,7 +460,6 @@ class MapObject(A_SceneObject):
 
 
 class GroupObject(A_SceneObject):
-
     def __init__(self, nameref: str, subkind: str = "Default"):
         super().__init__(nameref, subkind)
         self._grouped: List[A_SceneObject] = []
@@ -462,8 +493,15 @@ class GroupObject(A_SceneObject):
             strict=True,
         )
 
-        for member in thisObj.get_members():
-            member.load(data)
+        for member in thisObj.get_members(includeArrays=False):
+            arraySize = member.get_array_size()
+            arrayNum = 0
+            while data.tell() < objEndPos:
+                for i in range(arraySize):
+                    member[i].load(data)
+                    arrayNum = i
+            member.set_array_size(arrayNum)
+
 
         if groupNum is not None:
             for _ in range(groupNum.value):
@@ -502,7 +540,7 @@ class GroupObject(A_SceneObject):
 
         _copy = cls(self.get_ref())
         _copy.key = self.key.copy(deep=deep)
-        
+
         if self._parent:
             _copy._parent = self._parent.copy(deep=deep)
 
@@ -522,7 +560,7 @@ class GroupObject(A_SceneObject):
                 )
             else:
                 self._members.append(member)
-        
+
         return _copy
 
     def is_group(self) -> bool:
@@ -532,7 +570,8 @@ class GroupObject(A_SceneObject):
         """
         Gets the length of this object in bytes
         """
-        length = 12 + len(self.get_ref()) + len(self.key) + len(self.get_member_data().getbuffer())
+        length = 12 + len(self.get_ref()) + len(self.key) + \
+            len(self.get_member_data().getbuffer())
         for obj in self._grouped:
             length += obj.get_data_size()
         return length
@@ -601,7 +640,7 @@ class ObjectFactory:
             return GroupObject(name)
         return MapObject(name)
 
-    @staticmethod 
+    @staticmethod
     def create_object_f(data: BinaryIO, /) -> Optional[A_SceneObject]:
         if A_SceneObject.is_data_group(data):
             return GroupObject.from_bytes(data)

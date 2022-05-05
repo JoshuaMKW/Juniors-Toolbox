@@ -1,3 +1,4 @@
+from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -313,6 +314,13 @@ class A_Member(SimpleValue, A_Clonable, ABC):
     _parent: Optional["MemberStruct"] = None
     _arraySize: int | "MemberValue" = 1
     _arrayInstances: dict[int, "A_Member"] = field(default_factory=lambda: {})
+    _fromArray = False
+
+    def is_from_array(self) -> bool:
+        """
+        Returns if this member is part of the array for another member
+        """
+        return self._fromArray
 
     def get_formatted_template_name(self, arrayidx: int) -> str:
         """
@@ -347,9 +355,16 @@ class A_Member(SimpleValue, A_Clonable, ABC):
         Get the array size of this member, which is the number of times this member is repeated
         """
         if isinstance(self._arraySize, int):
-            return self._arraySize
+            return self._arraySize if self._arraySize > 0 else 127
         
-        return int(self._arraySize.value)
+        arraySize = int(self._arraySize.value)
+        return arraySize if arraySize > 0 else 127
+
+    def set_array_size(self, arraySize: int | "MemberValue"):
+        """
+        Set the array size of this member, which is either the size itself or a member holding it
+        """
+        self._arraySize = arraySize
 
     @abstractmethod
     def is_struct(self) -> bool:
@@ -430,24 +445,27 @@ class A_Member(SimpleValue, A_Clonable, ABC):
         if isinstance(index, slice):
             return NotImplemented
 
-        if index not in range(self.get_array_size()):
+        if index not in range(self.get_array_size()) and self.get_array_size() > 0:
             raise IndexError("Index provided is beyond the member array")
 
         if index == 0:
             return self
         
         if index in self._arrayInstances:
-            return self._arrayInstances[index-1]
+            item = self._arrayInstances[index-1]
+            item._fromArray = True
+            return item
         
         _copy = self.copy(deep=True)
         _copy.name = self.get_formatted_template_name(index)
+        _copy._fromArray = True
         return _copy
 
     def __setitem__(self, index: int, item: object) -> None:
         if not isinstance(item, A_Member):
             raise ValueError("Item is not of kind `A_Member`")
             
-        if index not in range(self.get_array_size()):
+        if index not in range(self.get_array_size()) and self.get_array_size() > 0:
             raise IndexError("Index provided is beyond the member array")
 
         if index == 0:
@@ -457,6 +475,7 @@ class A_Member(SimpleValue, A_Clonable, ABC):
             return
         
         self._arrayInstances[index-1] = item
+        item._fromArray = True
 
 class MemberValue(A_Member):
     """
@@ -515,7 +534,15 @@ class MemberStruct(A_Member):
         return True
 
     def has_child(self, name: str) -> bool:
-        return name in self._children
+        if name in self._children:
+            return True
+
+        for child in self._children.values():
+            for i in range(1, child.get_array_size()):
+                if child.get_formatted_template_name(i) == name:
+                    return True
+
+        return False
 
     def add_child(self, member: "A_Member") -> bool:
         if self.has_child(member.name):
