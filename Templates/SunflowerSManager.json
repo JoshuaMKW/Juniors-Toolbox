@@ -1,5 +1,7 @@
 {
     "Sunflower Kid Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

@@ -1,5 +1,7 @@
 {
     "Smoke": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

@@ -1,5 +1,7 @@
 {
     "Bullet Bill": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

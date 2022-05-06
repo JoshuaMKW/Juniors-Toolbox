@@ -1,5 +1,7 @@
 {
     "Warp Area": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

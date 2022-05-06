@@ -1,5 +1,7 @@
 {
     "Cogwheel": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

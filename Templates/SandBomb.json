@@ -1,5 +1,7 @@
 {
     "Dune Bud": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

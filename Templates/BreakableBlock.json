@@ -1,5 +1,7 @@
 {
     "Breakable Block": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

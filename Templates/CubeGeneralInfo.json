@@ -1,5 +1,7 @@
 {
     "General Cube": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",
@@ -13,12 +15,8 @@
                 "Type": "INT",
                 "ArraySize": 1
             },
-            "other": {
+            "Other": {
                 "Type": "INT",
-                "ArraySize": 1
-            },
-            "Layer": {
-                "Type": "STRING",
                 "ArraySize": 1
             }
         },
@@ -43,8 +41,7 @@
                 ],
                 "Unknown": 128,
                 "!!!": 0,
-                "other": 128,
-                "Layer": "Layer1"
+                "Other": 128
             }
         }
     }

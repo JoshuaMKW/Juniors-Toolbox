@@ -1,5 +1,7 @@
 {
     "Shine Sprite": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

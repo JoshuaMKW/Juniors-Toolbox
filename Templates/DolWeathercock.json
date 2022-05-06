@@ -1,5 +1,7 @@
 {
     "Weathercock": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

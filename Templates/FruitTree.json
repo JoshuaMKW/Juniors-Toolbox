@@ -1,5 +1,7 @@
 {
     "Fruit Tree": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

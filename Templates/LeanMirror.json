@@ -1,5 +1,7 @@
 {
     "Tilting Mirror": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

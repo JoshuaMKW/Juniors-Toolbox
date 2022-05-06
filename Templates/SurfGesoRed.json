@@ -1,5 +1,7 @@
 {
     "Pink Blooper Surfboard": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

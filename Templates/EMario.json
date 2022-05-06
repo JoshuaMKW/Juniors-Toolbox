@@ -1,5 +1,7 @@
 {
     "EMario (Shadow Mario/Il Piantissimo)": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

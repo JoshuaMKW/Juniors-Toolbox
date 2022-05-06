@@ -1,5 +1,7 @@
 {
     "Surfing Blooper": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

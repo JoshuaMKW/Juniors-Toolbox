@@ -1,5 +1,7 @@
 {
     "Male Pianta": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

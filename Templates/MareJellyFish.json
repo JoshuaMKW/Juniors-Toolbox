@@ -1,5 +1,7 @@
 {
     "Noki Jellyfish Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

@@ -1,5 +1,7 @@
 {
     "Chain Chomp": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

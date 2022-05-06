@@ -1,5 +1,7 @@
 {
     "Turning Windmill Bridge": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

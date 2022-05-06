@@ -1,5 +1,7 @@
 {
     "Puncher": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

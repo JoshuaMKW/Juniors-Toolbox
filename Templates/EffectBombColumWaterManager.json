@@ -1,5 +1,7 @@
 {
     "Bomb Water Column Explosion Effect Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

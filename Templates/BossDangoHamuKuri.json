@@ -1,5 +1,7 @@
 {
     "Stackin' Stu": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

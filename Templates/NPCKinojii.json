@@ -1,5 +1,7 @@
 {
     "Toadsworth": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

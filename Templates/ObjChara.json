@@ -1,5 +1,7 @@
 {
     "Object Character": {
+        "Structs": {
+        },
         "Members": {
             "Path": {
                 "Type": "STRING",

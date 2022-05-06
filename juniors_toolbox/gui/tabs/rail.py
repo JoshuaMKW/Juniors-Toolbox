@@ -57,6 +57,7 @@ class RailNodeListWidget(InteractiveListWidget):
     def duplicate_items(self, items: List[RailNodeListWidgetItem]) -> None:
         super().duplicate_items(items)
 
+
 class RailListWidget(InteractiveListWidget):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -80,8 +81,6 @@ class RailViewerWidget(A_DockingInterface):
         super().__init__(title, parent)
         self.setMinimumSize(200, 80)
 
-        mainLayout = QGridLayout()
-
         railList = RailListWidget()
         railList.setMinimumWidth(100)
         railList.currentItemChanged.connect(self.__populate_nodelist)
@@ -97,24 +96,22 @@ class RailViewerWidget(A_DockingInterface):
         splitter.addWidget(nodeList)
         self.splitter = splitter
 
-        mainLayout.addWidget(splitter)
+        self.setWidget(splitter)
 
-        self.setLayout(mainLayout)
-
-    def populate(self, *args: VariadicArgs, **kwargs: VariadicKwargs) -> None:
-        data: RalData = args[0]
+    def populate(self, scene: Optional[SMSScene], *args: VariadicArgs, **kwargs: VariadicKwargs) -> None:
         self.railList.blockSignals(True)
         self.nodeList.blockSignals(True)
         self.railList.clear()
         self.nodeList.clear()
-        for rail in data.iter_rails():
-            item = RailListWidgetItem(rail.name, rail)
-            self.railList.addItem(item)
-        if self.railList.count() > 0:
-            self.railList.setCurrentRow(0)
-            citem = self.railList.currentItem()
-            if citem is not None:
-                self.__populate_nodelist(citem)
+        if scene is not None:
+            for rail in scene.iter_rails():
+                item = RailListWidgetItem(rail.name, rail)
+                self.railList.addItem(item)
+            if self.railList.count() > 0:
+                self.railList.setCurrentRow(0)
+                citem = self.railList.currentItem()
+                if citem is not None:
+                    self.__populate_nodelist(citem)
         self.railList.blockSignals(False)
         self.nodeList.blockSignals(False)
 
@@ -141,5 +138,4 @@ class RailViewerWidget(A_DockingInterface):
         propertiesTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
         if propertiesTab is None or item is None:
             return
-        propertiesTab.setWindowTitle("Fuckin hell")
         propertiesTab.populate(item.node)

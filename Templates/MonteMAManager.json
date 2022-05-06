@@ -1,5 +1,7 @@
 {
     "Male Pianta (Tropical Shirt) Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

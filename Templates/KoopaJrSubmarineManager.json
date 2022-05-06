@@ -1,5 +1,7 @@
 {
     "Jr.'s Bathtub Submarine Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

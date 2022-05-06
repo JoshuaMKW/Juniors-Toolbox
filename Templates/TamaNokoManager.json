@@ -1,5 +1,7 @@
 {
     "Snooza Koopa Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

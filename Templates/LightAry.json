@@ -1,8 +1,11 @@
 {
     "Light Group": {
+        "Structs": {
+        },
         "Members": {
         },
         "Wizard": {
+            "Default": {}
         }
     }
 }

@@ -1,5 +1,7 @@
 {
     "Fruit Boat C Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

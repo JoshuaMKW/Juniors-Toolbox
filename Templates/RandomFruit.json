@@ -1,5 +1,7 @@
 {
     "Fruit (Random)": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

@@ -1,5 +1,7 @@
 {
     "Draw Buffer": {
+        "Structs": {
+        },
         "Members": {
             "Unknown": {
                 "Type": "INT",

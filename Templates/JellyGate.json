@@ -1,5 +1,7 @@
 {
     "Goop Portal": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

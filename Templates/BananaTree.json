@@ -1,5 +1,7 @@
 {
     "Banana Tree": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

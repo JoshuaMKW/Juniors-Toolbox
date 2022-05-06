@@ -1,5 +1,7 @@
 {
     "Bird": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

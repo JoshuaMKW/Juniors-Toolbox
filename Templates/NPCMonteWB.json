@@ -1,5 +1,7 @@
 {
     "Female Pianta (Dress)": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

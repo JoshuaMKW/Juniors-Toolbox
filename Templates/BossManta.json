@@ -1,5 +1,7 @@
 {
     "Phantamanta": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

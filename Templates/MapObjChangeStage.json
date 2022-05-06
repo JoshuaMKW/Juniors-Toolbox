@@ -1,5 +1,7 @@
 {
     "Stage Warp": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

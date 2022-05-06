@@ -1,8 +1,11 @@
 {
     "Sound Switching Cube Manager": {
+        "Structs": {
+        },
         "Members": {
         },
         "Wizard": {
+            "Default": {}
         }
     }
 }

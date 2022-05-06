@@ -1,8 +1,11 @@
 {
     "High Speed B Cube Manager": {
+        "Structs": {
+        },
         "Members": {
         },
         "Wizard": {
+            "Default": {}
         }
     }
 }

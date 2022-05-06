@@ -1,5 +1,7 @@
 {
     "Cataquack": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

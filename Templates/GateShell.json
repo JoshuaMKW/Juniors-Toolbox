@@ -1,5 +1,7 @@
 {
     "Gate Shell": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

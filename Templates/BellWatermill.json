@@ -1,5 +1,7 @@
 {
     "Bell Watermill": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

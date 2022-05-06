@@ -1,5 +1,7 @@
 {
     "Smolderin' Stu": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

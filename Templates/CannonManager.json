@@ -1,5 +1,7 @@
 {
     "Monty Mole Cannon Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

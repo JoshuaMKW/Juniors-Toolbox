@@ -1,5 +1,7 @@
 {
     "1-Up Mushroom": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

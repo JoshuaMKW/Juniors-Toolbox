@@ -1,5 +1,7 @@
 {
     "Question Manager": {
+        "Structs": {
+        },
         "Members": {},
         "Wizard": {
             "Default": {}

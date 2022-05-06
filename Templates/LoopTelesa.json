@@ -1,5 +1,7 @@
 {
     "Boo (Looping)": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

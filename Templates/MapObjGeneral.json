@@ -1,5 +1,7 @@
 {
     "General Map Object": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

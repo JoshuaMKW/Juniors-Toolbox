@@ -1,5 +1,7 @@
 {
     "Proto Piranha": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

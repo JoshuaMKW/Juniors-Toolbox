@@ -1,5 +1,7 @@
 {
     "Mimic Boo": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

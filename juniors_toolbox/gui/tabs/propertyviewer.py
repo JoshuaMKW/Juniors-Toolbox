@@ -30,7 +30,7 @@ from juniors_toolbox.scene import SMSScene
 class SelectedPropertiesWidget(A_DockingInterface):
     def __init__(self, title: str = "", parent: Optional[QWidget] = None) -> None:
         super().__init__(title, parent)
-        self.mainLayout = QGridLayout()
+        self.__defaultTitle = title
 
         self.scrollArea = QScrollArea()
         self.scrollArea.setWidgetResizable(True)
@@ -43,8 +43,7 @@ class SelectedPropertiesWidget(A_DockingInterface):
 
         self.scrollArea.setWidget(self.centralWidget)
         
-        self.mainLayout.addWidget(self.scrollArea)
-        self.setLayout(self.mainLayout)
+        self.setWidget(self.scrollArea)
 
         # self.updateTimer = QTimer(self.centralWidget)
         # self.updateTimer.timeout.connect(self.checkVerticalIndents)
@@ -55,8 +54,12 @@ class SelectedPropertiesWidget(A_DockingInterface):
         self.value_setter: Callable[[Any], bool] = lambda _x: True
         self.value_getter: Callable[[], Any] = lambda: None
 
-    def populate(self, *args: VariadicArgs, **kwargs: VariadicKwargs) -> None:
-        data: List[A_ValueProperty] = args[0]
+    def populate(self, scene: Optional[SMSScene], *args: VariadicArgs, **kwargs: VariadicKwargs) -> None:
+        data: List[A_ValueProperty] = kwargs.get("properties", [])
+        if "title" in kwargs:
+            self.setWindowTitle(kwargs["title"])
+        else:
+            self.setWindowTitle(self.__defaultTitle)
         self.__populate_properties(data)
     
     def reset(self) -> None:

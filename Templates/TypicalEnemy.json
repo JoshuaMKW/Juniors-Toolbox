@@ -1,5 +1,7 @@
 {
     "Kug (Typical)": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

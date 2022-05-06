@@ -1,5 +1,7 @@
 {
     "Fish Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

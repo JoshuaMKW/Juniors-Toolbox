@@ -1,5 +1,7 @@
 {
     "One Use Generator": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

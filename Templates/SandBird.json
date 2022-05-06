@@ -1,5 +1,7 @@
 {
     "Legendary Sand Bird": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

@@ -33,7 +33,7 @@ class QualifiedName():
         Check if this scopes another qualified name
         """
         return str(other).startswith(str(self))
-    
+
     def __iter__(self):
         self.__iter = -1
         return self
@@ -48,6 +48,7 @@ class QualifiedName():
     def __getitem__(self, index: slice) -> List[str]: ...
     @overload
     def __getitem__(self, index: int) -> str: ...
+
     def __getitem__(self, index: int | slice) -> str | List[str]:
         if isinstance(index, slice):
             return self.__scopes[index.start:index.stop:index.step]
@@ -55,6 +56,9 @@ class QualifiedName():
 
     def __setitem__(self, index: int, scope: str):
         self.__scopes[index] = scope
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(\"{self.__str__()}\")"
 
     def __str__(self) -> str:
         return "::".join(self.__scopes)
@@ -75,7 +79,7 @@ class QualifiedName():
     def __iadd__(self, other: str) -> "QualifiedName":
         self.__scopes.append(other)
         return self
-        
+
 
 class ValueType(str, Enum):
     BOOL = "BOOL"
@@ -103,6 +107,10 @@ class ValueType(str, Enum):
     TRANSFORM = "TRANSFORM"
     COMMENT = "COMMENT"
     STRUCT = "STRUCT"
+
+    @classmethod
+    def _missing_(cls, value):
+        return cls.STRUCT
 
     @staticmethod
     def type_to_enum(_ty: type):
@@ -150,11 +158,12 @@ def __read_transform(f: BinaryIO) -> Transform:
     _t.scale = Vec3f(*read_vec3f(f))
     return _t
 
-    
+
 def __write_transform(f: BinaryIO, val: Transform):
     write_vec3f(f, val.translation)
     write_vec3f(f, val.rotation)
     write_vec3f(f, val.scale)
+
 
 _ENUM_TO_TYPE_TABLE = {
     ValueType.BOOL: bool,
@@ -297,41 +306,39 @@ TEMPLATE_TYPE_WRITE_TABLE: dict[ValueType, Callable[[BinaryIO, Any], None]] = {
 }
 
 
-@dataclass
-class SimpleValue:
-    """
-    Class describing a value
-    """
-    name: str
-    value: Any
-    type: ValueType
-
-
-class A_Member(SimpleValue, A_Clonable, ABC):
+class A_Member(A_Clonable, ABC):
     """
     Class describing a member of a structure
     """
-    _parent: Optional["MemberStruct"] = None
-    _arraySize: int | "MemberValue" = 1
-    _arrayInstances: dict[int, "A_Member"] = field(default_factory=lambda: {})
-    _fromArray = False
 
-    def is_from_array(self) -> bool:
-        """
-        Returns if this member is part of the array for another member
-        """
-        return self._fromArray
+    def __init__(self, name: str, value: Any, type: ValueType) -> None:
+        self.name = name
+        self.value = value
+        self.type = type
+        self._parent: Optional["MemberStruct"] = None
+        self._arraySize: int | "MemberValue" = 1
+        self._arrayIdx: int = 0
+        self._arrayInstances: dict[int, "A_Member"] = {}
 
-    def get_formatted_template_name(self, arrayidx: int) -> str:
+    @staticmethod
+    def get_formatted_template_name(name: str, arrayidx: int) -> str:
         """
         Get a template name formatted
         """
-        name = self.name
         char = "abcdefghijklmnopqrstuvwxyz"[arrayidx]
         templateName = name.replace("{c}", char)
         templateName = templateName.replace("{C}", char.upper())
         templateName = templateName.replace("{i}", str(arrayidx))
         return templateName
+
+    def is_from_array(self) -> bool:
+        """
+        Returns if this member is part of the array for another member
+        """
+        return self._arrayIdx != 0
+
+    def get_formatted_name(self) -> str:
+        return self.get_formatted_template_name(self.name, self._arrayIdx)
 
     def get_parent(self) -> Optional["MemberStruct"]:
         """
@@ -339,14 +346,31 @@ class A_Member(SimpleValue, A_Clonable, ABC):
         """
         return self._parent
 
+    def set_parent(self, parent: "MemberStruct" | None) -> bool:
+        """
+        Set the parent, return True if successful (not an array instance)
+        """
+        if self.is_from_array():
+            return False
+
+        oldParent = self._parent
+        if oldParent is not None:
+            oldParent.remove_child(self)
+
+        self._parent = parent
+        for i in range(1, self.get_array_size()):
+            self[i]._parent = parent
+
+        return True
+
     def get_qualified_name(self) -> QualifiedName:
         """
-        Get the full name of this `Member`, as is scoped from its parents
+        Get the full formatted name of this `Member`, as is scoped from its parents
         """
-        scopes = [self.name]
+        scopes = [self.get_formatted_name()]
         parent = self.get_parent()
         while parent is not None:
-            scopes.append(parent.name)
+            scopes.append(parent.get_formatted_name())
             parent = parent.get_parent()
         return QualifiedName(*scopes[::-1])
 
@@ -354,16 +378,22 @@ class A_Member(SimpleValue, A_Clonable, ABC):
         """
         Get the array size of this member, which is the number of times this member is repeated
         """
+        if self.is_from_array():
+            return 1
+
         if isinstance(self._arraySize, int):
             return self._arraySize if self._arraySize > 0 else 127
-        
+
         arraySize = int(self._arraySize.value)
         return arraySize if arraySize > 0 else 127
 
-    def set_array_size(self, arraySize: int | "MemberValue"):
+    def set_array_size(self, arraySize: int | "MemberValue") -> None:
         """
         Set the array size of this member, which is either the size itself or a member holding it
         """
+        if self.is_from_array():
+            return
+
         self._arraySize = arraySize
 
     @abstractmethod
@@ -390,7 +420,7 @@ class A_Member(SimpleValue, A_Clonable, ABC):
         ...
 
     @abstractmethod
-    def remove_child(self, member: str) -> None:
+    def remove_child(self, item: str | "A_Member") -> None:
         """
         Remove a child from this `Member`, which implies this `Member` be a struct
         """
@@ -418,7 +448,7 @@ class A_Member(SimpleValue, A_Clonable, ABC):
         ...
 
     @abstractmethod
-    def load(self, stream: BinaryIO) -> None:
+    def load(self, stream: BinaryIO, endPos: Optional[int] = None) -> None:
         """
         Read the data from `stream` into this member
         """
@@ -450,21 +480,23 @@ class A_Member(SimpleValue, A_Clonable, ABC):
 
         if index == 0:
             return self
-        
+
         if index in self._arrayInstances:
             item = self._arrayInstances[index-1]
-            item._fromArray = True
+            item._parent = self._parent
+            item._arrayIdx = index
             return item
-        
+
         _copy = self.copy(deep=True)
-        _copy.name = self.get_formatted_template_name(index)
-        _copy._fromArray = True
+        _copy._parent = self._parent
+        _copy._arrayIdx = index
+        self._arrayInstances[index-1] = _copy
         return _copy
 
     def __setitem__(self, index: int, item: object) -> None:
         if not isinstance(item, A_Member):
             raise ValueError("Item is not of kind `A_Member`")
-            
+
         if index not in range(self.get_array_size()) and self.get_array_size() > 0:
             raise IndexError("Index provided is beyond the member array")
 
@@ -473,9 +505,13 @@ class A_Member(SimpleValue, A_Clonable, ABC):
             self.value = item.value
             self.type = item.type
             return
-        
+
         self._arrayInstances[index-1] = item
-        item._fromArray = True
+        item._arrayIdx = index
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(qualname={self.get_qualified_name()}, value={self.value}, type={self.type})"
+
 
 class MemberValue(A_Member):
     """
@@ -491,7 +527,7 @@ class MemberValue(A_Member):
     def add_child(self, member: "A_Member") -> bool:
         return False
 
-    def remove_child(self, member: str) -> None:
+    def remove_child(self, item: str | "A_Member") -> None:
         pass
 
     def get_child(self, name: str) -> Optional["A_Member"]:
@@ -506,15 +542,25 @@ class MemberValue(A_Member):
             return 0
         return size
 
-    def load(self, stream: BinaryIO) -> None:
-        self.value = TEMPLATE_TYPE_READ_TABLE[self.type](stream)
+    def load(self, stream: BinaryIO, endPos: Optional[int] = None) -> None:
+        if endPos is None:
+            endPos = 1 << 30 # 1 GB
+        for i in range(self.get_array_size()):
+            if stream.tell() >= endPos:
+                break
+            self[i].value = TEMPLATE_TYPE_READ_TABLE[self.type](stream)
 
     def save(self, stream: BinaryIO) -> None:
         TEMPLATE_TYPE_WRITE_TABLE[self.type](stream, self.value)
+        for i in range(1, self.get_array_size()):
+            TEMPLATE_TYPE_WRITE_TABLE[self.type](stream, self[i].value)
 
     def copy(self, *, deep: bool = False) -> "MemberValue":
         cls = self.__class__
         _copy = cls(self.name, self.value, self.type)
+        _copy._arraySize = self._arraySize
+        if not deep:
+            _copy._arrayInstances = self._arrayInstances.copy()
         return _copy
 
     def as_template(self) -> str:
@@ -525,10 +571,10 @@ class MemberStruct(A_Member):
     """
     Class describing a member structure
     """
-    _children: Dict[str, A_Member] = field(default_factory=lambda: {})
-    
-    def __init__(self, name: str, value: Any):
-        super().__init__(name, value, ValueType.STRUCT)
+
+    def __init__(self, name: str):
+        super().__init__(name, None, ValueType.STRUCT)
+        self._children: Dict[str, A_Member] = {}
 
     def is_struct(self) -> bool:
         return True
@@ -538,21 +584,27 @@ class MemberStruct(A_Member):
             return True
 
         for child in self._children.values():
-            for i in range(1, child.get_array_size()):
-                if child.get_formatted_template_name(i) == name:
+            for _ in range(1, child.get_array_size()):
+                if child.get_formatted_name() == name:
                     return True
 
         return False
 
     def add_child(self, member: "A_Member") -> bool:
-        if self.has_child(member.name):
+        fmtName = member.get_formatted_name()
+        if self.has_child(fmtName):
             return False
 
-        self._children[member.name] = member
+        self._children[fmtName] = member
+        member.set_parent(self)
         return True
 
-    def remove_child(self, name: str) -> None:
-        self._children.pop(name)
+    def remove_child(self, item: str | "A_Member") -> None:
+        if isinstance(item, str):
+            child = self._children.pop(item)
+        else:
+            child = self._children.pop(item.get_formatted_name())
+        child._parent = None
 
     def get_child(self, name: str) -> Optional["A_Member"]:
         if name in self._children:
@@ -565,18 +617,28 @@ class MemberStruct(A_Member):
     def get_data_size(self) -> int:
         return sum([member.get_data_size() for member in self.get_children()])
 
-    def load(self, stream: BinaryIO) -> None:
-        self.value = [member.load(stream) for member in self.get_children()]
+    def load(self, stream: BinaryIO, endPos: Optional[int] = None) -> None:
+        if endPos is None:
+            endPos = 1 << 30 # 1 GB
+        for i in range(self.get_array_size()):
+            if stream.tell() >= endPos:
+                break
+            for member in self[i].get_children():
+                member.load(stream, endPos)
 
     def save(self, stream: BinaryIO) -> None:
-        for member in self.get_children():
-            value = member.value
-            ty = ValueType.type_to_enum(value.__class__)
-            TEMPLATE_TYPE_WRITE_TABLE[ty](stream, value)
+        for i in range(self.get_array_size()):
+            for member in self[i].get_children():
+                value = member.value
+                ty = ValueType.type_to_enum(value.__class__)
+                TEMPLATE_TYPE_WRITE_TABLE[ty](stream, value)
 
     def copy(self, *, deep: bool = False) -> "MemberStruct":
         cls = self.__class__
-        _copy = cls(self.name, self.value)
+        _copy = cls(self.name)
+        _copy._arraySize = self._arraySize
+        if not deep:
+            _copy._arrayInstances = self._arrayInstances.copy()
         for name, child in self._children.items():
             if deep:
                 _copy._children[name] = child.copy(deep=True)
@@ -605,13 +667,14 @@ class MemberComment(MemberValue):
     """
     Class describing a member comment
     """
+
     def __init__(self, name: str, value: Any):
         super().__init__(name, value, ValueType.STRUCT)
 
     def get_data_size(self) -> int:
         return 0
 
-    def load(self, stream: BinaryIO) -> None:
+    def load(self, stream: BinaryIO, endPos: Optional[int] = None) -> None:
         pass
 
     def save(self, stream: BinaryIO) -> None:
@@ -619,4 +682,3 @@ class MemberComment(MemberValue):
 
     def as_template(self) -> str:
         return f"{self.name} {self.type.value} {self.value}"
-        

@@ -1,5 +1,7 @@
 {
     "Item Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

@@ -1,5 +1,7 @@
 {
     "King Boo Arena Wall": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

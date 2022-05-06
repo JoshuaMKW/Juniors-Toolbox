@@ -1,5 +1,7 @@
 {
     "Piranha Plant": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

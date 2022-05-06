@@ -1,5 +1,7 @@
 {
     "Push Block": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

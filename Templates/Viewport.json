@@ -1,5 +1,7 @@
 {
     "Viewport": {
+        "Structs": {
+        },
         "Members": {
             "X1": {
                 "Type": "INT",

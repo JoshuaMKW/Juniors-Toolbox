@@ -1,5 +1,7 @@
 {
     "Camera Map Info": {
+        "Structs": {
+        },
         "Members": {
             "Position": {
                 "Type": "VEC3F",
@@ -17,10 +19,10 @@
                 "Type": "INT",
                 "ArraySize": 1
             },
-            "other": {
+            "Other": {
                 "Type": "INT",
                 "ArraySize": 1
-            },
+            }
         },
         "Wizard": {
             "Starting Camera": {
@@ -36,7 +38,7 @@
                 ],
                 "Type": 22,
                 "Unknown": -1,
-                "other": "0
+                "Other": 0
             }
         }
     }

@@ -1,5 +1,7 @@
 {
     "Plungelo Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

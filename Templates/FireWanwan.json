@@ -1,5 +1,7 @@
 {
     "Chain Chomplet": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

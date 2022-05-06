@@ -1,5 +1,7 @@
 {
     "Jellyfish Rider Noki (F)": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

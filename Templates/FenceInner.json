@@ -1,5 +1,7 @@
 {
     "Revolving Inner Fence": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

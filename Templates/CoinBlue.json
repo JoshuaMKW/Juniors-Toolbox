@@ -1,5 +1,7 @@
 {
     "Blue Coin": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

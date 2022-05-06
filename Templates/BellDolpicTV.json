@@ -1,5 +1,7 @@
 {
     "Plaza TV Station Bell": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

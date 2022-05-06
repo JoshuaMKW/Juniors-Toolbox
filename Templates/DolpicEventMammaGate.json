@@ -1,5 +1,7 @@
 {
     "Event Handler (Lighthouse Sink)": {
+        "Structs": {
+        },
         "Members": {
             "Warp": {
                 "Type": "STRING",

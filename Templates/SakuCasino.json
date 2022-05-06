@@ -1,5 +1,7 @@
 {
     "Casino Gate": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

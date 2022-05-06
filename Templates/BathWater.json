@@ -1,5 +1,7 @@
 {
     "Bath Water": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

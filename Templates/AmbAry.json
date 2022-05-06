@@ -1,8 +1,11 @@
 {
     "Ambient Group": {
+        "Structs": {
+        },
         "Members": {
         },
         "Wizard": {
+            "Default": {}
         }
     }
 }

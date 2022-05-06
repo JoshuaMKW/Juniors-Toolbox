@@ -1,5 +1,7 @@
 {
     "Secret Stage Rolling Cube": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

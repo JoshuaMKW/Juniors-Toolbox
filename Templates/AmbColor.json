@@ -1,5 +1,7 @@
 {
     "Ambient Color": {
+        "Structs": {
+        },
         "Members": {
             "Color": {
                 "Type": "RGBA8",

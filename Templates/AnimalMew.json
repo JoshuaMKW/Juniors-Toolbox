@@ -1,5 +1,7 @@
 {
     "Seagull": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

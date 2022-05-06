@@ -6,6 +6,7 @@ from PySide6.QtGui import QResizeEvent, Qt, QFontDatabase
 
 from PySide6.QtWidgets import QApplication, QFileDialog, QLabel, QSizePolicy, QStyleFactory, QWidget
 from juniors_toolbox import __version__
+from juniors_toolbox.gui.settings import ToolboxSettings
 from juniors_toolbox.gui.tabs import TabWidgetManager
 from juniors_toolbox.gui.tabs.hierarchyviewer import NameRefHierarchyWidget
 from juniors_toolbox.gui.tabs.projectviewer import ProjectViewerWidget
@@ -15,7 +16,7 @@ from juniors_toolbox.gui.windows.mainwindow import MainWindow
 from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.utils import VariadicArgs, VariadicKwargs
 from juniors_toolbox.utils.filesystem import get_program_folder, resource_path
-from juniors_toolbox.gui.settings import SMSBinEditorSettings
+from juniors_toolbox.gui import ToolboxManager
 
 
 class JuniorsToolbox(QApplication):
@@ -45,9 +46,8 @@ class JuniorsToolbox(QApplication):
                 self.get_window_title())
 
         self.gui = MainWindow()
-        self.settings: SMSBinEditorSettings = None
+        self.manager = ToolboxManager()
 
-        self.__scene: Optional[SMSScene] = None
         self.__scenePath: Optional[Path] = None
         self.__openTabs: Dict[str, A_DockingInterface] = {}
         self.__tabs: Dict[str, A_DockingInterface] = {}
@@ -97,43 +97,33 @@ class JuniorsToolbox(QApplication):
     # --- GETTER / SETTER --- #
 
     @staticmethod
-    def get_instance() -> Optional["JuniorsToolbox"]:
+    def get_instance() -> "JuniorsToolbox":
+        if JuniorsToolbox.__singleton is None:
+            return JuniorsToolbox()
         return JuniorsToolbox.__singleton
 
     @staticmethod
-    def get_instance_window_size() -> Optional[QSize]:
-        if JuniorsToolbox.__singleton:
-            return JuniorsToolbox.__singleton.gui.size()
-        else:
-            return None
+    def get_instance_window_size() -> QSize:
+        return JuniorsToolbox.get_instance().gui.size()
 
     @staticmethod
-    def get_instance_window() -> Optional[MainWindow]:
-        if JuniorsToolbox.__singleton:
-            return JuniorsToolbox.__singleton.gui
-        else:
-            return None
+    def get_instance_window() -> MainWindow:
+        return JuniorsToolbox.get_instance().gui
 
     @property
     def scene(self) -> Optional[SMSScene]:
-        return self.__scene
-
-    @scene.setter
-    def scene(self, scene: SMSScene | None):
-        self.__scene = scene
-        if scene is not None:
-            self.update_elements(scene)
+        manager = ToolboxManager.get_instance()
+        return manager.get_scene()
 
     @property
     def scenePath(self) -> Optional[Path]:
-        return self.__scenePath
+        return self.manager.get_scene_path()
 
     @scenePath.setter
     def scenePath(self, path: Path):
-        self.__scenePath = path
-        projectViewer = TabWidgetManager.get_tab(ProjectViewerWidget)
+        projectViewer = TabWidgetManager.get_tab(ProjectViewerWidget) # type: ignore
         projectViewer.scenePath = path
-        self.scene = SMSScene.from_path(path)
+        self.manager.load_scene(path)
         self.update_elements(self.scene)
 
     # --- GUI --- #
@@ -160,18 +150,17 @@ class JuniorsToolbox(QApplication):
         """
         Load the program config for further use
         """
-        self.settings = SMSBinEditorSettings()
-
         if not self.get_config_path().exists():
             self.theme = MainWindow.Theme.LIGHT
             return
 
-        self.settings.load(self.get_config_path())
+        self.manager.load_settings(self.get_config_path())
 
-        isDarkTheme = self.settings.is_dark_theme()
-        isUpdating = self.settings.is_updates_enabled()
+        settings = self.manager.get_settings()
+        isDarkTheme = settings.is_dark_theme()
+        isUpdating = settings.is_updates_enabled()
 
-        self.theme = SMSBinEditorSettings.Themes(int(isDarkTheme))
+        self.theme = ToolboxSettings.Themes(int(isDarkTheme))
 
         self.construct_ui_from_config()
 

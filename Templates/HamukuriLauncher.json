@@ -1,5 +1,7 @@
 {
     "Strollin' Stu Generator": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

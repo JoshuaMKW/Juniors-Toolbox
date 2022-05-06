@@ -1,5 +1,7 @@
 {
     "Monty Mole Cannon": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

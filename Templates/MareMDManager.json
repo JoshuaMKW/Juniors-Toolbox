@@ -1,5 +1,7 @@
 {
     "Flutist Noki Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

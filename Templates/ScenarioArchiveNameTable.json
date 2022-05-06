@@ -1,8 +1,11 @@
 {
     "Scenario Archive Name Table": {
+        "Structs": {
+        },
         "Members": {
         },
         "Wizard": {
+            "Default": {}
         }
     }
 }

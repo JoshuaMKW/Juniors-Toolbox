@@ -1,5 +1,7 @@
 {
     "Rail Fence": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

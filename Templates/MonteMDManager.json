@@ -1,5 +1,7 @@
 {
     "Male Pianta (Tank Top) Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

@@ -1,5 +1,7 @@
 {
     "Waterfall Cork": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

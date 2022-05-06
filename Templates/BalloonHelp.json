@@ -1,5 +1,7 @@
 {
     "F.L.U.D.D. Tip Area": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

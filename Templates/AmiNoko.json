@@ -1,5 +1,7 @@
 {
     "Red Electro-Koopa": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

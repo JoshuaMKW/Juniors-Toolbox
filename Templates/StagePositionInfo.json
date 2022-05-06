@@ -1,5 +1,7 @@
 {
     "Stage Position Info": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

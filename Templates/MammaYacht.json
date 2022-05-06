@@ -1,5 +1,7 @@
 {
     "Gelato Yacht": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

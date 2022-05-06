@@ -1,5 +1,7 @@
 {
     "Bowser Jr. (Fixed)": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

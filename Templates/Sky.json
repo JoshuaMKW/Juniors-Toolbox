@@ -1,5 +1,7 @@
 {
     "Sky": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

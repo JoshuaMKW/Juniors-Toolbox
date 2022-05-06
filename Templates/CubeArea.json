@@ -1,8 +1,11 @@
 {
     "Area Cube Manager": {
+        "Structs": {
+        },
         "Members": {
         },
         "Wizard": {
+            "Default": {}
         }
     }
 }

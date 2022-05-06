@@ -1,5 +1,7 @@
 {
     "Wind Spirit Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

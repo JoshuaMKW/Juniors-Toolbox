@@ -1,5 +1,7 @@
 {
     "Pinna Park Director": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

@@ -1,5 +1,7 @@
 {
     "Red Spinning Board": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

@@ -1,5 +1,7 @@
 {
     "Flag": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

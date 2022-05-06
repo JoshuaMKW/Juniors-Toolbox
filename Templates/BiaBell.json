@@ -1,5 +1,7 @@
 {
     "Bianco Bell": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

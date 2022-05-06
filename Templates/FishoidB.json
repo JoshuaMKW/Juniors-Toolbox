@@ -1,5 +1,7 @@
 {
     "Fish B": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

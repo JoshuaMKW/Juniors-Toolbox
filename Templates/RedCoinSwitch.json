@@ -1,5 +1,7 @@
 {
     "Red Coin Switch": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

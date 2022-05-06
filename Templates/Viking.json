@@ -1,5 +1,7 @@
 {
     "Swinging Pirate Ship": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

@@ -1,5 +1,7 @@
 {
     "Ocean Wave Effect": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

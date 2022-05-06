@@ -1,5 +1,7 @@
 {
     "Juice Generator Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

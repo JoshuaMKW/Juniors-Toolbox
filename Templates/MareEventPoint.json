@@ -1,5 +1,7 @@
 {
     "Noki Bay Spray Wall Event Point": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

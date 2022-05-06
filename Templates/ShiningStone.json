@@ -1,5 +1,7 @@
 {
     "Sun Tower Stone": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

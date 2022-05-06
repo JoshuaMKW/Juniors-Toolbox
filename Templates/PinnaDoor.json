@@ -1,5 +1,7 @@
 {
     "Pinna Park Door": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

@@ -1,5 +1,7 @@
 {
     "Bullet Bill Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

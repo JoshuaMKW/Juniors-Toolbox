@@ -1,5 +1,7 @@
 {
     "Proto Piranha Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

@@ -1,5 +1,7 @@
 {
     "Hungry Cheep-Cheep": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

@@ -1,5 +1,7 @@
 {
     "Female Pianta (Dress) Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

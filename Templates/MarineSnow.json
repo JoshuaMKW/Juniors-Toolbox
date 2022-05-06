@@ -1,5 +1,7 @@
 {
     "Marine Snow": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

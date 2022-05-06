@@ -1,5 +1,7 @@
 {
     "Swoopin' Stu Generator Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

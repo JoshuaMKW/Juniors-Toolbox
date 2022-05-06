@@ -1,5 +1,7 @@
 {
     "Sign": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

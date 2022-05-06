@@ -1,5 +1,7 @@
 {
     "Hook": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

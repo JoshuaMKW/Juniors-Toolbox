@@ -1,5 +1,7 @@
 {
     "Boo Painting": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

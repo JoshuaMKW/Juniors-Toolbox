@@ -1,5 +1,7 @@
 {
     "Boo Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

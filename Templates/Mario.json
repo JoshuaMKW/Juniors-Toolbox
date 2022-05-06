@@ -1,5 +1,7 @@
 {
     "Mario": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

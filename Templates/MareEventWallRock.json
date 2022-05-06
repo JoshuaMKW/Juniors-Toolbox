@@ -1,5 +1,7 @@
 {
     "Event Handler (Noki Bay Walls Sink)": {
+        "Structs": {
+        },
         "Members": {},
         "Wizard": {
             "Default": {}

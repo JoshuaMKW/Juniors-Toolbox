@@ -1,5 +1,7 @@
 {
     "Spreading Swoopin' Stu Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

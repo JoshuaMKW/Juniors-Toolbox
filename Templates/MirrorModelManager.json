@@ -1,5 +1,7 @@
 {
     "Mirror Model Manager": {
+        "Structs": {
+        },
         "Members": {
             "Unknown": {
                 "Type": "INT",

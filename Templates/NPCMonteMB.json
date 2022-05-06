@@ -1,5 +1,7 @@
 {
     "Male Pianta (Suit)": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

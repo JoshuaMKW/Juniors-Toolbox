@@ -1,5 +1,7 @@
 {
     "Rotten Lily Pad": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

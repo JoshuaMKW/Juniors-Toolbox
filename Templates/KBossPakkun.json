@@ -1,5 +1,7 @@
 {
     "Territorial Petey Piranha": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

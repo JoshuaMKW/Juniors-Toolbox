@@ -159,9 +159,12 @@ def get_likely_encoding(data: bytes) -> str:
 
 
 def decode_raw_string(data: bytes, encoding: Optional[str] = None) -> str:
-    if encoding is None:
-        return data.decode(get_likely_encoding(data))
-    return data.decode(encoding)
+    try:
+        if encoding is None:
+            return data.decode(get_likely_encoding(data))
+        return data.decode(encoding)
+    except UnicodeDecodeError:
+        return ""
 
 
 def align_int(num: int, alignment: int) -> int:

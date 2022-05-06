@@ -1,5 +1,7 @@
 {
     "Boo (Visible)": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

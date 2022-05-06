@@ -8,6 +8,7 @@ from PySide6.QtGui import QCloseEvent, QHideEvent, QResizeEvent
 from PySide6.QtWidgets import QDockWidget, QWidget
 
 from juniors_toolbox.gui.widgets import ABCWidget
+from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.utils import VariadicArgs, VariadicKwargs
 
 
@@ -20,7 +21,7 @@ class A_DockingInterface(QDockWidget, ABCWidget):
         super().__init__(title, parent)
 
     @abstractmethod
-    def populate(self, data: object, *args: VariadicArgs, **kwargs: VariadicKwargs) -> None: ...
+    def populate(self, scene: Optional[SMSScene], *args: VariadicArgs, **kwargs: VariadicKwargs) -> None: ...
 
     @abstractmethod
     def __del__(self) -> None: ...

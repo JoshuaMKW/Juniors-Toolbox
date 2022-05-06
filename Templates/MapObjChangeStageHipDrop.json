@@ -1,5 +1,7 @@
 {
     "Stage Warp (Ground Pound)": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

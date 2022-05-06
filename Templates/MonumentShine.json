@@ -1,5 +1,7 @@
 {
     "Shine Sprite Monument": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

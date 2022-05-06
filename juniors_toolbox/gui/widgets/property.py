@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from ctypes.wintypes import BYTE, SHORT
-from typing import Any, List, Optional
+from optparse import Option
+from typing import Any, List, Optional, Type
 
 from PySide6.QtCore import Qt, Signal, SignalInstance, Slot
 from PySide6.QtWidgets import QWidget, QGridLayout, QFormLayout, QComboBox, QLabel, QFrame, QLineEdit
@@ -9,7 +10,7 @@ from juniors_toolbox.gui.layouts.framelayout import FrameLayout
 from juniors_toolbox.gui.widgets.colorbutton import A_ColorButton, ColorButtonRGB8, ColorButtonRGBA8
 from juniors_toolbox.gui.widgets.spinboxdrag import SpinBoxDragDouble, SpinBoxDragInt
 from juniors_toolbox.gui.widgets import ABCWidget
-from juniors_toolbox.objects.value import ValueType
+from juniors_toolbox.objects.value import QualifiedName, ValueType
 from juniors_toolbox.utils.gx import color
 from juniors_toolbox.utils.types import RGB8, RGBA8, BasicColors, Transform, Vec3f
 from juniors_toolbox.utils import clamp
@@ -28,10 +29,22 @@ class A_ValueProperty(QWidget, ABCWidget):
         self._value = None
         self._resetValue = None
         self._readOnly = readOnly
+        self._parent: Optional["A_ValueProperty"] = None
         self.setObjectName(name)
 
         self.valueChanged.connect(self.set_inputs)
         self.construct()
+
+    def get_qualified_name(self) -> QualifiedName:
+        """
+        Get the full formatted name of this `Member`, as is scoped from its parents
+        """
+        scopes = [self.get_name()]
+        parent = self.get_parent()
+        while parent is not None:
+            scopes.append(parent.get_formatted_name())
+            parent = parent.get_parent()
+        return QualifiedName(*scopes[::-1])
 
     def get_name(self) -> str:
         return self._name
@@ -66,6 +79,25 @@ class A_ValueProperty(QWidget, ABCWidget):
 
     def reset(self) -> None:
         self.set_value(self._resetValue)
+
+    def get_parent_property(self) -> "A_ValueProperty":
+        return self._parent
+
+    def set_parent_property(self, prop: "A_ValueProperty"):
+        self._parent = prop
+        prop.add_property(self)
+
+    def get_property(self, name: QualifiedName) -> Optional["A_ValueProperty"]:
+        """
+        name is treated as relative to this struct
+        """
+        return None
+
+    def add_property(self, prop: "A_ValueProperty"):
+        """
+        Add a sub property to this property
+        """
+        pass
 
     @abstractmethod
     def construct(self) -> None: ...
@@ -501,6 +533,33 @@ class RGB32Property(A_ValueProperty):
     def __init__(self, name: str, readOnly: bool, parent: Optional[QWidget] = None):
         raise NotImplementedError(
             "RGB32 has not been implemented as a property yet")
+
+
+class StructProperty(A_ValueProperty):
+    def __init__(self, name: str, readOnly: bool, parent: Optional[QWidget] = None) -> None:
+        super().__init__(name, readOnly, parent)
+        self._frameLayout = FrameLayout(title=name)
+        self._properties: dict[str, A_ValueProperty] = {}
+
+    def get_property(self, name: QualifiedName) -> Optional["A_ValueProperty"]:
+        qualname = str(name)
+        if qualname in self._properties:
+            return self._properties[qualname]
+
+        def _search(prop: "StructProperty") -> Optional["A_ValueProperty"]:
+            for p in prop._properties.values():
+                if p.get_qualified_name().scopes(name) and isinstance(p, StructProperty):
+                    return _search(p)
+            return None
+
+        return _search(self)
+
+    def add_property(self, prop: "A_ValueProperty"):
+        if not isinstance(prop, A_ValueProperty):
+            raise TypeError("StructProperty can only contain properties")
+        self._frameLayout.addWidget(prop)
+        self._properties[prop.get_name()] = prop
+        prop._parent = self
 
 
 class PropertyFactory():

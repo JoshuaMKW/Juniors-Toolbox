@@ -1,5 +1,7 @@
 {
     "Mother Noki": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

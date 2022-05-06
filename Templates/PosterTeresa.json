@@ -1,5 +1,7 @@
 {
     "Dolpic Poster": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

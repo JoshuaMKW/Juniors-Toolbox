@@ -1,5 +1,7 @@
 {
     "Female Noki": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

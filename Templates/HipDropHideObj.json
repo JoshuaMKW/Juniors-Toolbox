@@ -1,5 +1,7 @@
 {
     "Hidden Object (Ground Pound)": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

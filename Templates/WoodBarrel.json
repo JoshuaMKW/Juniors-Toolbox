@@ -1,5 +1,7 @@
 {
     "Barrel": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

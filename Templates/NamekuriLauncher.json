@@ -1,5 +1,7 @@
 {
     "Swoopin' Stu Generator": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

@@ -1,5 +1,7 @@
 {
     "Dune Leaf Structure": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

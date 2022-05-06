@@ -1,5 +1,7 @@
 {
     "Yellow Spinning Board": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

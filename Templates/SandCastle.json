@@ -1,5 +1,7 @@
 {
     "Sand Castle": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

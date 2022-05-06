@@ -1,5 +1,7 @@
 {
     "Spike Trap Lamp": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

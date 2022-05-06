@@ -1,5 +1,7 @@
 {
     "Soarin' Stu Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

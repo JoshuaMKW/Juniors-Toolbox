@@ -1,5 +1,7 @@
 {
     "Boo Block": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

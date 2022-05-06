@@ -1,5 +1,7 @@
 {
     "Princess Peach Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

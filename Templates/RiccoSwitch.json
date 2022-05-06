@@ -1,5 +1,7 @@
 {
     "Fruit Tank Switch": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

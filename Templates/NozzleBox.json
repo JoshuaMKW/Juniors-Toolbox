@@ -1,5 +1,7 @@
 {
     "Nozzle Box": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

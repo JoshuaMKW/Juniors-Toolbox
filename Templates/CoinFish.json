@@ -1,5 +1,7 @@
 {
     "Red Coin Fish": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

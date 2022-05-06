@@ -1,5 +1,7 @@
 {
     "Water Spray Effect": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

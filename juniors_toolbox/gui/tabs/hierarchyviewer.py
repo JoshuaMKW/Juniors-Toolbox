@@ -8,12 +8,15 @@ from types import LambdaType
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from queue import LifoQueue
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, Slot
 from PySide6.QtGui import QDragEnterEvent, QDropEvent, QKeyEvent, QUndoCommand, QUndoStack, QDragMoveEvent, QDragLeaveEvent
 from PySide6.QtWidgets import (QFormLayout, QFrame, QGridLayout, QComboBox,
                                QLabel, QScrollArea,
                                QTreeWidget, QTreeWidgetItem, QWidget)
+from juniors_toolbox.gui.tabs import TabWidgetManager
+from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
+from juniors_toolbox.gui.widgets.property import PropertyFactory
 from juniors_toolbox.objects.object import A_SceneObject, MapObject
 from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.utils import VariadicArgs, VariadicKwargs
@@ -93,13 +96,14 @@ class NameRefHierarchyWidget(A_DockingInterface):
         self.treeWidget.setDefaultDropAction(Qt.MoveAction)
         self.treeWidget.setHeaderHidden(True)
         self.treeWidget.setMinimumSize(300, 80)
+        self.treeWidget.itemChanged.connect(self.__populate_properties_view)
 
         self.setWidget(self.treeWidget)
 
         self.undoStack = QUndoStack(self)
         self.undoStack.setUndoLimit(32)
 
-    def populate(self, *args: VariadicArgs, **kwargs: VariadicKwargs) -> None:
+    def populate(self, scene: Optional[SMSScene], *args: VariadicArgs, **kwargs: VariadicKwargs) -> None:
         def inner_populate(obj: A_SceneObject, parentNode: NameRefHierarchyWidgetItem, column: int):
             for g in obj.iter_grouped_children():
                 childNode = NameRefHierarchyWidgetItem(g)
@@ -109,16 +113,17 @@ class NameRefHierarchyWidget(A_DockingInterface):
                     inner_populate(g, childNode, column)
 
         self.treeWidget.clear()
+        if scene is None:
+            return
 
-        data: SMSScene = args[0]
-        for obj in data.iter_objects():
+        for obj in scene.iter_objects():
             node = NameRefHierarchyWidgetItem(obj)
             node.setText(0, obj.get_explicit_name())
             self.treeWidget.addTopLevelItem(node)
             if obj.is_group():
                 inner_populate(obj, node, 0)
 
-        for table in data.iter_tables():
+        for table in scene.iter_tables():
             node = NameRefHierarchyWidgetItem(table)
             node.setText(0, table.get_explicit_name())
             self.treeWidget.addTopLevelItem(node)
@@ -126,6 +131,26 @@ class NameRefHierarchyWidget(A_DockingInterface):
                 inner_populate(table, node, 0)
 
         # self.expandAll()
+
+    @Slot(NameRefHierarchyWidgetItem)
+    def __populate_properties_view(self, item: NameRefHierarchyWidgetItem) -> None:
+        propertiesTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
+        if propertiesTab is None or item is None:
+            return
+        
+        sceneObj = item.object
+        title = f"{repr(sceneObj)} Properties"
+
+        properties = []
+        for member in sceneObj.get_members():
+            if member.is_struct():
+                ...
+            else:
+                prop = PropertyFactory.create_property(
+                    name=member.get_formatted_name(),
+                    valueType=member.type,
+                    value=member.value
+                )
 
     def startDrag(self, supportedActions: Qt.DropActions):
         self.draggedItem = self.treeWidget.currentItem()

@@ -1,5 +1,7 @@
 {
     "Super Ground Pound Slab": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

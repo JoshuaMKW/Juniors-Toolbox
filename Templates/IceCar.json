@@ -1,5 +1,7 @@
 {
     "Ice Cream Cart": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

@@ -1,5 +1,7 @@
 {
     "Great Sunflower": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

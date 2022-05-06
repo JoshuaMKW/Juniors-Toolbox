@@ -1,5 +1,7 @@
 {
     "Klamber": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

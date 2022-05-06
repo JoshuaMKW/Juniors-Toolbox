@@ -1,5 +1,7 @@
 {
     "Boat": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

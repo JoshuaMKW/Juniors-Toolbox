@@ -1,5 +1,7 @@
 {
     "Goophill Generator Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

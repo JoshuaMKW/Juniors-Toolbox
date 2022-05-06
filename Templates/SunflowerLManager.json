@@ -1,5 +1,7 @@
 {
     "Great Sunflower Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

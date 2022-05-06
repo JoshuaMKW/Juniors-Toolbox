@@ -1,7 +1,7 @@
 {
     "Map": {
         "Structs": {
-            "Warp": {
+            "WarpPoint": {
                 "Name": {
                     "Type": "STRING",
                     "ArraySize": 1
@@ -9,6 +9,12 @@
                 "Transform": {
                     "Type": "TRANSFORM",
                     "ArraySize": 1
+                }
+            },
+            "Warp": {
+                "Point{i}": {
+                    "Type": "WarpPoint",
+                    "ArraySize": 2
                 }
             },
             "VertexRender": {
@@ -55,7 +61,7 @@
                 "Type": "VertexRender",
                 "ArraySize": "WarpCount"
             },
-            "Warp{i}": {
+            "Warp{C}": {
                 "Type": "Warp",
                 "ArraySize": "WarpCount"
             }
@@ -73,25 +79,27 @@
                 "VertexRender{i}": {
                     "Vertex{C}": 0
                 },
-                "Warp{i}": {
-                    "Name": "(null)",
-                    "Transform": [
-                        [
-                            0,
-                            0,
-                            0
-                        ],
-                        [
-                            0,
-                            0,
-                            0
-                        ],
-                        [
-                            1,
-                            1,
-                            1
+                "Warp{C}": {
+                    "Point{i}": {
+                        "Name": "(null)",
+                        "Transform": [
+                            [
+                                0,
+                                0,
+                                0
+                            ],
+                            [
+                                0,
+                                0,
+                                0
+                            ],
+                            [
+                                1,
+                                1,
+                                1
+                            ]
                         ]
-                    ]
+                    }
                 }
             }
         }

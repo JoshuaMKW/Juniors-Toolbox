@@ -1,8 +1,11 @@
 {
     "Effect Object Manager": {
+        "Structs": {
+        },
         "Members": {
         },
         "Wizard": {
+            "Default": {}
         }
     }
 }

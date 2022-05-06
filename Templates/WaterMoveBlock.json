@@ -1,5 +1,7 @@
 {
     "Water Roll Block": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

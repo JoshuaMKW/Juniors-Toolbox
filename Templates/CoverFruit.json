@@ -1,5 +1,7 @@
 {
     "Fruit (Blockade)": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

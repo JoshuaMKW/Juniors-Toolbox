@@ -1,5 +1,7 @@
 {
     "Piranha Plant Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

@@ -1,5 +1,7 @@
 {
     "Wind Spirit": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

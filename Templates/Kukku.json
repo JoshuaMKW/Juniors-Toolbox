@@ -1,5 +1,7 @@
 {
     "Coo Coo": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

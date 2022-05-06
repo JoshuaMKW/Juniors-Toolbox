@@ -1128,8 +1128,9 @@ class ProjectViewerWidget(A_DockingInterface):
         splitter.addWidget(self.folderWidget)
         self.splitter = splitter
 
-        self.mainLayout.addWidget(self.splitter)
-        self.setLayout(self.mainLayout)
+        # self.mainLayout.addWidget(self.splitter)
+        self.setWidget(self.splitter)
+        # self.setLayout(self.mainLayout)
         self.setMinimumSize(420, 200)
 
         self.watcherThread = QThread()
@@ -1199,7 +1200,7 @@ class ProjectViewerWidget(A_DockingInterface):
         self.folderViewWidget.focusedPath = path
         self.focusedViewWidget.focusedPath = path
 
-    def populate(self, *args: VariadicArgs, **kwargs: VariadicKwargs) -> None:
+    def populate(self, scene: Optional[SMSScene], *args: VariadicArgs, **kwargs: VariadicKwargs) -> None:
         self.scenePath = args[0]
         self.focusedPath = Path()
         self.update()

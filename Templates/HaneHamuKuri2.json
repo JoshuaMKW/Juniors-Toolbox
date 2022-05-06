@@ -1,5 +1,7 @@
 {
     "Soarin' Stu (2)": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

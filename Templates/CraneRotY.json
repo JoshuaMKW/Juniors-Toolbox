@@ -1,5 +1,7 @@
 {
     "Crane": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

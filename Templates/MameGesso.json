@@ -1,5 +1,7 @@
 {
     "Jumping Blooper": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

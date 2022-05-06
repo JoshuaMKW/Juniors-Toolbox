@@ -1,5 +1,7 @@
 {
     "Fruit Boat Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

@@ -1,5 +1,7 @@
 {
     "Skeeter": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

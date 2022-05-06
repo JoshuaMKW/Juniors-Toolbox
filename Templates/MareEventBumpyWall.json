@@ -1,5 +1,7 @@
 {
     "Noki Bay Spray Wall": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

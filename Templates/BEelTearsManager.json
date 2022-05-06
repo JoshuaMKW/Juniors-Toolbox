@@ -1,5 +1,7 @@
 {
     "Eely-Mouth's Toxic Tears Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

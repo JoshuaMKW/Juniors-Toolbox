@@ -1,5 +1,7 @@
 {
     "Gooper Blooper Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

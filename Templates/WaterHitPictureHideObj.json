@@ -1,5 +1,7 @@
 {
     "Graffiti": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

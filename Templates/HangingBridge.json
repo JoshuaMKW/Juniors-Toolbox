@@ -1,5 +1,7 @@
 {
     "Hanging Bridge": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

@@ -1,5 +1,7 @@
 {
     "Bowser Jr.": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

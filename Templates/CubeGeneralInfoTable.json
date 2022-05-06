@@ -1,8 +1,11 @@
 {
     "General Cube Table": {
+        "Structs": {
+        },
         "Members": {
         },
         "Wizard": {
+            "Default": {}
         }
     }
 }

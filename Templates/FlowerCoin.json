@@ -1,5 +1,7 @@
 {
     "Coin (Flower Spawn)": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

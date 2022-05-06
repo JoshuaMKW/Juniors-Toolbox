@@ -1,5 +1,7 @@
 {
     "Kug (Typical) Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

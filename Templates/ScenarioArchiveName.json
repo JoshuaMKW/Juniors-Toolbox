@@ -1,5 +1,7 @@
 {
     "Scenario Archive Name": {
+        "Structs": {
+        },
         "Members": {
             "Name": {
                 "Type": "STRING",

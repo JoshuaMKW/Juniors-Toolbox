@@ -1,5 +1,7 @@
 {
     "Sun Tower": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

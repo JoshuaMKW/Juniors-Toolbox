@@ -1,5 +1,7 @@
 {
     "Generated Sand Plane": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

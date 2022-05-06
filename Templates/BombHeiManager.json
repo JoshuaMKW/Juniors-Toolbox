@@ -1,5 +1,7 @@
 {
     "Bob-Omb Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

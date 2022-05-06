@@ -1,8 +1,11 @@
 {
     "High Speed C Cube Manager": {
+        "Structs": {
+        },
         "Members": {
         },
         "Wizard": {
+            "Default": {}
         }
     }
 }

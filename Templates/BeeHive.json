@@ -1,5 +1,7 @@
 {
     "Beehive": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

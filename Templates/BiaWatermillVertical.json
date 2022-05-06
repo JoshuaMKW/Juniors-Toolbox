@@ -1,5 +1,7 @@
 {
     "Turning Windmill": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

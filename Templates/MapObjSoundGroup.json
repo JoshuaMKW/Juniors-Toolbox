@@ -1,5 +1,7 @@
 {
     "Sound Group": {
+        "Structs": {
+        },
         "Members": {
             "SoundName": {
                 "Type": "STRING",

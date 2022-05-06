@@ -1,5 +1,7 @@
 {
     "Area Cylinder": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

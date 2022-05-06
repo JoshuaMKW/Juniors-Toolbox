@@ -1,5 +1,7 @@
 {
     "Slot Machine Drum": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

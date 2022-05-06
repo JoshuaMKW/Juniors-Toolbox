@@ -1,5 +1,7 @@
 {
     "Male Pianta (Tank Top)": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

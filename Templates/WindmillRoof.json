@@ -1,5 +1,7 @@
 {
     "Big Windmill Roof": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

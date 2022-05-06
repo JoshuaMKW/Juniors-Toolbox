@@ -1,5 +1,7 @@
 {
     "Tornado (Up blow)": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

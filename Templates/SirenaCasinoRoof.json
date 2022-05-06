@@ -1,5 +1,7 @@
 {
     "Casino Roof Lights": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

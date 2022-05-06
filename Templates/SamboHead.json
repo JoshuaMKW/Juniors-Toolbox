@@ -1,5 +1,7 @@
 {
     "Pokey Head": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

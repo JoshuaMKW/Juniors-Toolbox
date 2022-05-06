@@ -1,5 +1,7 @@
 {
     "Nozzle Door": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

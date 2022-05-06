@@ -1,5 +1,7 @@
 {
     "King Boo's Slot Machine": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

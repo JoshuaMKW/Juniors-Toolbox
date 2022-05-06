@@ -1,5 +1,7 @@
 {
     "Jumping Blooper Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

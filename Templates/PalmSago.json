@@ -1,5 +1,7 @@
 {
     "Sago Palm Tree": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

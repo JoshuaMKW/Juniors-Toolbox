@@ -1,5 +1,7 @@
 {
     "Map Object Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

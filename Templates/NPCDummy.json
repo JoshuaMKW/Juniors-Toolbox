@@ -1,5 +1,7 @@
 {
     "DUMMY NPC": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

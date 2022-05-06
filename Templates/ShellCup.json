@@ -1,5 +1,7 @@
 {
     "Shell Cup Ride": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

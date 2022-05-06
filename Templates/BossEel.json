@@ -1,5 +1,7 @@
 {
     "Eely-Mouth": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

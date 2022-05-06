@@ -1,5 +1,7 @@
 {
     "File Block B": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

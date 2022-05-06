@@ -1,8 +1,11 @@
 {
     "Flow Cube Manager": {
+        "Structs": {
+        },
         "Members": {
         },
         "Wizard": {
+            "Default": {}
         }
     }
 }

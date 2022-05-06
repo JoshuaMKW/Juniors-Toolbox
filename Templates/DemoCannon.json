@@ -1,5 +1,7 @@
 {
     "Cannon": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

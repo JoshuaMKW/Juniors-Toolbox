@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (QBoxLayout, QFormLayout, QFrame, QGridLayout,
                                QScrollArea, QSizePolicy, QSpacerItem, QStyle,
                                QTreeWidget, QTreeWidgetItem, QSplitter, QFileDialog,
                                QVBoxLayout, QWidget)
+from juniors_toolbox.gui import ToolboxManager
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.gui.tools import clear_layout, walk_layout
 from juniors_toolbox.gui.widgets.colorbutton import A_ColorButton
@@ -227,7 +228,7 @@ class PrmEditorWidget(A_DockingInterface):
 
         self.__cachedOpenPath: Optional[Path] = None
 
-    def populate(self, *args: VariadicArgs, **kwargs: VariadicKwargs):
+    def populate(self, scene: Optional[SMSScene], *args: VariadicArgs, **kwargs: VariadicKwargs):
         data = args[0]
         if not isinstance(data, PrmFile):
             return
@@ -237,7 +238,7 @@ class PrmEditorWidget(A_DockingInterface):
         for i, entry in enumerate(data.iter_entries()):
             if entry.key == "":
                 raise ValueError("Empty Key is invalid")
-            listItem = PrmEntryListItem(entry.key, entry)
+            listItem = PrmEntryListItem(entry.key.get_ref(), entry)
             self.prmEntryListBox.addItem(listItem)
 
         if self.prmEntryListBox.count() > 0:
@@ -273,7 +274,8 @@ class PrmEditorWidget(A_DockingInterface):
         with path.open("rb") as f:
             prm = PrmFile.from_bytes(f)
 
-        self.populate(prm)
+        manager = ToolboxManager.get_instance()
+        self.populate(manager.get_scene(), prm)
 
     @Slot()
     def close_bmg(self):

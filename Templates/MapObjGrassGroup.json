@@ -1,5 +1,7 @@
 {
     "Grass": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

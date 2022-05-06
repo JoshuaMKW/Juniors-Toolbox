@@ -1,5 +1,7 @@
 {
     "Cutscene Loading Zone": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

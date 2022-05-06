@@ -1,5 +1,7 @@
 {
     "Swimming Pianta Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

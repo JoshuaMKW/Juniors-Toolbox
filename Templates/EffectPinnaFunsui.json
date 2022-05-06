@@ -1,5 +1,7 @@
 {
     "Fountain Effect (Pinna)": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

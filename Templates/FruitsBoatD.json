@@ -1,5 +1,7 @@
 {
     "Fruit Boat D": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

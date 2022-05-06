@@ -1,5 +1,7 @@
 {
     "Roulette": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

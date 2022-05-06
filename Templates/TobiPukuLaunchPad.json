@@ -1,5 +1,7 @@
 {
     "Jumping Cheep-Cheep": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

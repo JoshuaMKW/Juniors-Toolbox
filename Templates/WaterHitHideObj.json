@@ -1,5 +1,7 @@
 {
     "Hidden Object (Water)": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

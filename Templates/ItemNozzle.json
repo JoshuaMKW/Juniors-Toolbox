@@ -1,5 +1,7 @@
 {
     "Nozzle Item": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

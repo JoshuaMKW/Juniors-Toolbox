@@ -1,5 +1,7 @@
 {
     "Coo Coo Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

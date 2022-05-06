@@ -1,5 +1,7 @@
 {
     "Seedy Pod": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

@@ -1,5 +1,7 @@
 {
     "Main Scene Group": {
+        "Structs": {
+        },
         "Members": {
             "ID": {
                 "Type": "INT",

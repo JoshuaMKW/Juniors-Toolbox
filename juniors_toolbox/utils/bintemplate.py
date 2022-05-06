@@ -66,6 +66,7 @@ def convert_bin_to_toolbox(src: Path, dst: Path) -> bool:
 
     objDict: dict[str, dict[str, dict]] = {
         objName: {
+            "Structs": {},
             "Members": {},
             "Wizard": {
                 "Default": {}

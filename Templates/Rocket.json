@@ -1,5 +1,7 @@
 {
     "Water Rocket": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

@@ -1,5 +1,7 @@
 {
     "Big Windmill": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

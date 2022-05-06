@@ -1,5 +1,7 @@
 {
     "Lava Cheep-Cheep Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

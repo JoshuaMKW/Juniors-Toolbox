@@ -1,5 +1,7 @@
 {
     "Seedy Pod Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

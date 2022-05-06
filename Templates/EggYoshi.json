@@ -1,5 +1,7 @@
 {
     "Yoshi Egg": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

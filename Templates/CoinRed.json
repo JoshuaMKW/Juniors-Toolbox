@@ -1,5 +1,7 @@
 {
     "Red Coin": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

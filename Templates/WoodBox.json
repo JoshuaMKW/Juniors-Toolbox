@@ -1,5 +1,7 @@
 {
     "Wooden Box": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

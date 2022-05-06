@@ -7,6 +7,7 @@ from typing import Any, BinaryIO, Callable, Dict, List, Optional, Union
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.gui.widgets.interactivelist import (
     InteractiveListWidget, InteractiveListWidgetItem)
+from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.utils import VariadicArgs, VariadicKwargs
 from juniors_toolbox.utils.bmg import BMG, RichMessage, SoundID
 from juniors_toolbox.utils.filesystem import resource_path
@@ -1359,6 +1360,8 @@ class BMGMessageEditor(A_DockingInterface):
         self.setAcceptDrops(True)
         self.setMinimumSize(685, 300)
 
+        self.mainWidget = QWidget()
+
         self.mainLayout = QVBoxLayout()
         self.mainLayout.setContentsMargins(10, 0, 10, 10)
 
@@ -1459,13 +1462,14 @@ class BMGMessageEditor(A_DockingInterface):
         self.mainLayout.addWidget(self.menuBar)
         self.mainLayout.addWidget(self.splitter)
 
-        self.setLayout(self.mainLayout)
+        self.mainWidget.setLayout(self.mainLayout)
+        self.setWidget(self.mainWidget)
 
         self.messages: List[BMG.MessageEntry] = []
 
         self.__cachedOpenPath: Optional[Path] = None
 
-    def populate(self, *args: VariadicArgs, **kwargs: VariadicKwargs):
+    def populate(self, scene: Optional[SMSScene], *args: VariadicArgs, **kwargs: VariadicKwargs):
         data: BinaryIO = args[0]
         if not isinstance(data, BMG):
             return

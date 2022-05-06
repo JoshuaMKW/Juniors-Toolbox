@@ -1,5 +1,7 @@
 {
     "Goal Post": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

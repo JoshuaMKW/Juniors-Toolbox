@@ -1,5 +1,7 @@
 {
     "Swimming Pianta": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

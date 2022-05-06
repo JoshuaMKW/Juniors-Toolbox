@@ -1,5 +1,7 @@
 {
     "Bowser Jr. Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

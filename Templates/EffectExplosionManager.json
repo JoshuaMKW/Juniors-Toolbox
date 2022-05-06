@@ -1,5 +1,7 @@
 {
     "Explosion Effect Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

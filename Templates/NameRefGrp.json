@@ -1,8 +1,11 @@
 {
     "Name Reference Group": {
+        "Structs": {
+        },
         "Members": {
         },
         "Wizard": {
+            "Default": {}
         }
     }
 }

@@ -1,5 +1,7 @@
 {
     "Switch Object": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

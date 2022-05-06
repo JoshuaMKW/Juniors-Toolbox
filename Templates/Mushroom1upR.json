@@ -1,5 +1,7 @@
 {
     "1-Up Mushroom (Avoiding)": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

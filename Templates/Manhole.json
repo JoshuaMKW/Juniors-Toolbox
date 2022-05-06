@@ -1,5 +1,7 @@
 {
     "Manhole": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

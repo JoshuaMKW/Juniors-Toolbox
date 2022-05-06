@@ -1,5 +1,7 @@
 {
     "Heat Waves": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

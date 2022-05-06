@@ -1,5 +1,7 @@
 {
     "Pokey Flower": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

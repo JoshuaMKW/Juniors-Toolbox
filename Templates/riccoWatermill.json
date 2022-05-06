@@ -1,5 +1,7 @@
 {
     "Ricco Watermill": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

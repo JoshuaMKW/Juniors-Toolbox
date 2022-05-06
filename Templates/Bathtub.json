@@ -1,5 +1,7 @@
 {
     "Bathtub": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

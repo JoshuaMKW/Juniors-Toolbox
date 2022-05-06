@@ -1,5 +1,7 @@
 {
     "Revolving Shelf": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

@@ -1,5 +1,7 @@
 {
     "Sun": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

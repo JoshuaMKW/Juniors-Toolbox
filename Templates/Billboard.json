@@ -1,5 +1,7 @@
 {
     "Billboard": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

@@ -1,5 +1,7 @@
 {
     "Pokey Head Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

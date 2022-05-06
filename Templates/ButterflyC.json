@@ -1,5 +1,7 @@
 {
     "Green Butterfly": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

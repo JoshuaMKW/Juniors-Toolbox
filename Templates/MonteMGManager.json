@@ -1,5 +1,7 @@
 {
     "Janitor Pianta Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

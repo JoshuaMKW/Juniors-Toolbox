@@ -1,5 +1,7 @@
 {
     "Hook Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

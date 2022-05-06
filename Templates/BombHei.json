@@ -1,5 +1,7 @@
 {
     "Bob-Omb": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

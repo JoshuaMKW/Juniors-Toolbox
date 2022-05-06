@@ -1,5 +1,7 @@
 {
     "Bowser": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

@@ -1,5 +1,7 @@
 {
     "Fire": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

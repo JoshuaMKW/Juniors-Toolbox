@@ -1,5 +1,7 @@
 {
     "Noki Elder": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

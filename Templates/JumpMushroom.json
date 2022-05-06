@@ -1,5 +1,7 @@
 {
     "Bouncy Mushroom": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

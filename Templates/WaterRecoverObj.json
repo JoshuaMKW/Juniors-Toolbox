@@ -1,5 +1,7 @@
 {
     "Water Recovery Object": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

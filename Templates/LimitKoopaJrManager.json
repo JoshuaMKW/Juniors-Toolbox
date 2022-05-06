@@ -1,5 +1,7 @@
 {
     "Bowser Jr. (Fixed) Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

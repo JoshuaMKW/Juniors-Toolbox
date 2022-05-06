@@ -1,5 +1,7 @@
 {
     "Ukulelist Pianta": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

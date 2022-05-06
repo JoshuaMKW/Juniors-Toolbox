@@ -1,5 +1,7 @@
 {
     "Enemy Stage Spawn Info": {
+        "Structs": {
+        },
         "Members": {
             "Enemy": {
                 "Type": "STRING",

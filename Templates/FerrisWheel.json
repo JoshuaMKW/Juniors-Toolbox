@@ -1,5 +1,7 @@
 {
     "Ferris Wheel": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

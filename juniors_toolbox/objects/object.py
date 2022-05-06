@@ -7,6 +7,7 @@ from typing import Any, BinaryIO, Callable, Dict, Iterable, List, Optional, Text
 from attr import field
 
 from numpy import array
+from requests import JSONDecodeError
 from juniors_toolbox.objects.value import A_Member, MemberComment, MemberStruct, MemberValue, QualifiedName, ValueType
 from juniors_toolbox.utils.types import RGB32, RGB8, RGBA8, Transform, Vec3f
 from juniors_toolbox.utils import A_Serializable, VariadicArgs, VariadicKwargs, jdrama
@@ -19,11 +20,6 @@ class ObjectGroupError(Exception):
 
 class ObjectCorruptedError(Exception):
     ...
-
-
-class JSONDecoderShiftJIS(json.JSONDecoder):
-    def decode(self, s: str, _w: Callable[..., Any] = ...) -> Any:
-        return super().decode(s, _w)
 
 
 class A_SceneObject(jdrama.NameRef, ABC):
@@ -94,9 +90,11 @@ class A_SceneObject(jdrama.NameRef, ABC):
             return None
 
         for member in self._members:
-            m = get(member, name)
-            if m is not None:
-                return m
+            if member.get_qualified_name() == name:
+                return member
+            child = get(member, name)
+            if child is not None:
+                return child
 
         return None
 
@@ -107,7 +105,9 @@ class A_SceneObject(jdrama.NameRef, ABC):
         If `includeArrays` is true, also yield array-bound instances of each member
         """
         if includeArrays is False:
-            return self._members
+            for member in self._members:
+                yield member
+            return
         else:
             for member in self._members:
                 for i in range(member.get_array_size()):
@@ -180,19 +180,47 @@ class A_SceneObject(jdrama.NameRef, ABC):
             return False
 
         with templateFile.open("r", encoding="utf-8") as tf:
-            templateInfo: dict = json.load(tf)
+            try:
+                templateInfo: dict = json.load(tf)
+            except:
+                print(templateFile)
+                return False
 
         objname, objdata = templateInfo.popitem()
+        structInfo: Dict[str, dict] = objdata["Structs"]
         memberInfo: Dict[str, dict] = objdata["Members"]
         wizardInfo: Dict[str, dict] = objdata["Wizard"]
 
-        for name, info in memberInfo.items():
-            kind = ValueType(info["Type"].strip())
-            repeat = info["ArraySize"]
-            defaultValue = wizardInfo[subkind][name]
+        if subkind not in wizardInfo:
+            try:
+                subkind = list(wizardInfo.keys())[0]
+            except IndexError:
+                pass
+
+        def _init_struct_member(name: str, minfo: dict[str, Any], winfo: dict[str, Any]) -> A_Member:
+            kind = ValueType(minfo["Type"].strip())
+            defaultValue = winfo[name]
+
+            repeat = minfo["ArraySize"]
+            if isinstance(repeat, str):
+                repeatRef = self.get_member(QualifiedName(repeat))
+                if repeatRef is None:
+                    raise ObjectCorruptedError(
+                        f"Failed to find array reference `{repeat}` for object `{self.get_ref()}` (NOT FOUND)")
+                if repeatRef.is_struct():
+                    raise ObjectCorruptedError(
+                        f"Failed to find array reference `{repeat}` for object `{self.get_ref()}` (NON VALUE)")
+            else:
+                repeatRef = repeat
 
             if kind == ValueType.STRUCT:
-                raise NotImplementedError("Struct not implemented")
+                memberStruct = MemberStruct(name)
+                memberStruct.set_array_size(repeatRef) # type: ignore
+                struct = structInfo[minfo["Type"].strip()]
+                wizard = winfo[name]
+                for sname, sinfo in struct.items():
+                    memberStruct.add_child(_init_struct_member(sname, sinfo, wizard))
+                return memberStruct
             else:
                 if kind == ValueType.TRANSFORM:
                     defaultValue = Transform(
@@ -212,20 +240,12 @@ class A_SceneObject(jdrama.NameRef, ABC):
                 member = MemberValue(
                     name, defaultValue, kind
                 )
+                member.set_array_size(repeatRef) # type: ignore
 
-                if isinstance(repeat, str):
-                    repeatRef = self.get_member(QualifiedName(repeat))
-                    if repeatRef is None:
-                        raise ObjectCorruptedError(
-                            f"Failed to find array reference `{repeat}` for object `{self.get_ref()}` (NOT FOUND)")
-                    if repeatRef.is_struct():
-                        raise ObjectCorruptedError(
-                            f"Failed to find array reference `{repeat}` for object `{self.get_ref()}` (NON VALUE)")
-                    member.set_array_size(repeatRef) # type: ignore
-                else:
-                    member.set_array_size(repeat)
+            return member
 
-                self._members.append(member)
+        for name, info in memberInfo.items():
+            self._members.append(_init_struct_member(name, info, wizardInfo[subkind]))
 
         return True
 
@@ -250,7 +270,7 @@ class A_SceneObject(jdrama.NameRef, ABC):
         memberName = qualifiedName[-1]
         member: A_Member
         if type == ValueType.STRUCT:
-            member = MemberStruct(memberName, value)
+            member = MemberStruct(memberName)
         elif type == ValueType.COMMENT:
             member = MemberComment(memberName, value)
         else:
@@ -316,6 +336,9 @@ class A_SceneObject(jdrama.NameRef, ABC):
         """
         ...
 
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(\"{self.get_ref()} ({self.key.get_ref()})\")"
+
 
 class MapObject(A_SceneObject):
     """
@@ -340,17 +363,21 @@ class MapObject(A_SceneObject):
         if objKey is None:
             return None
 
+        if objName.get_ref() == "CubeGeneralInfo":
+            pass
+
         thisObj = cls(objName.get_ref())
         thisObj.key = objKey
 
         for member in thisObj.get_members(includeArrays=False):
-            arraySize = member.get_array_size()
-            arrayNum = 0
-            while data.tell() < objEndPos:
-                for i in range(arraySize):
-                    member[i].load(data)
-                    arrayNum = i
-            member.set_array_size(arrayNum)
+            if member.type == ValueType.COMMENT:
+                continue
+            fileOffset = data.tell()
+            if fileOffset >= objEndPos:
+                raise ObjectCorruptedError(
+                    f"Reached end of object data before loading could complete! ({fileOffset} > {objEndPos}) ({thisObj.get_explicit_name()}::{member.get_qualified_name()})"
+                )
+            member.load(data, objEndPos)
 
         thisObj._parent = None
         return thisObj
@@ -435,7 +462,7 @@ class MapObject(A_SceneObject):
         out.write(indentedStr + f"{self.get_ref()} ({self.key})" + " {\n")
         values = indentedStr + "  [Values]\n"
         for member in self.get_members():
-            values += indentedStr + f"  {member.name} = {member.value}\n"
+            values += indentedStr + f"  {member.get_formatted_name()} = {member.value}\n"
         out.write(values)
 
     def __eq__(self, other: object) -> bool:
@@ -494,17 +521,21 @@ class GroupObject(A_SceneObject):
         )
 
         for member in thisObj.get_members(includeArrays=False):
+            if member.type == ValueType.COMMENT:
+                continue
             arraySize = member.get_array_size()
             arrayNum = 0
-            while data.tell() < objEndPos:
-                for i in range(arraySize):
-                    member[i].load(data)
-                    arrayNum = i
-            member.set_array_size(arrayNum)
-
+            for i in range(arraySize):
+                if data.tell() >= objEndPos:
+                    break
+                member[i].load(data)
+                arrayNum = i
+            member.set_array_size(arrayNum+1)
 
         if groupNum is not None:
             for _ in range(groupNum.value):
+                if data.tell() >= objEndPos:
+                    break
                 obj = ObjectFactory.create_object_f(data)
                 if obj is not None:
                     thisObj.add_to_group(obj)
@@ -608,7 +639,7 @@ class GroupObject(A_SceneObject):
         out.write(indentedStr + f"{self.get_ref()} ({self.key})" + " {\n")
         values = indentedStr + "  [Values]\n"
         for member in self.get_members():
-            values += indentedStr + f"  {member.name} = {member.value}\n"
+            values += indentedStr + f"  {member.get_formatted_name()} = {member.value}\n"
         out.write(values)
         if self.is_group():
             out.write("\n" + indentedStr + "  [Grouped]\n")

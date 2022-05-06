@@ -1,5 +1,7 @@
 {
     "Wire Trap": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

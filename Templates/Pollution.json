@@ -1,5 +1,7 @@
 {
     "Pollution Manager": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

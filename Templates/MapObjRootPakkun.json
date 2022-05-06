@@ -1,5 +1,7 @@
 {
     "Piranha Plant Roots": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

@@ -1,5 +1,7 @@
 {
     "Mirror Topographic Operator": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

@@ -1,5 +1,7 @@
 {
     "Orange T Spinner Block": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

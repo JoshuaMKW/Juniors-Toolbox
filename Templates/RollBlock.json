@@ -1,5 +1,7 @@
 {
     "Spinning Block": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

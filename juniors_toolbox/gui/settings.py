@@ -8,7 +8,7 @@ from typing import IO, Callable, Optional
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 
 
-class SMSBinEditorSettings():
+class ToolboxSettings():
     """
     Program settings and GUI layout information
     """

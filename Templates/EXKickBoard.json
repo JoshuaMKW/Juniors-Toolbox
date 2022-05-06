@@ -1,5 +1,7 @@
 {
     "Secret Stage Kicking Board": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",

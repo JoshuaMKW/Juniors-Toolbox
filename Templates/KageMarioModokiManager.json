@@ -1,5 +1,7 @@
 {
     "Fake Shadow Mario Manager": {
+        "Structs": {
+        },
         "Members": {
             "Character": {
                 "Type": "STRING",

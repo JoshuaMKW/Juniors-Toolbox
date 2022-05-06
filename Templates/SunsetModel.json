@@ -1,5 +1,7 @@
 {
     "Sunset": {
+        "Structs": {
+        },
         "Members": {
             "Transform": {
                 "Type": "TRANSFORM",
