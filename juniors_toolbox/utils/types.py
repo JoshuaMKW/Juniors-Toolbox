@@ -907,7 +907,7 @@ class Quaternion(_PyrrQuaternion):
 
     @classproperty
     def identity(cls) -> "Quaternion":
-        return cls(0, 0, 0, 1)
+        return cls([0, 0, 0, 1])
 
     @property
     def xyz(self) -> Vec3f:
@@ -947,7 +947,7 @@ class Quaternion(_PyrrQuaternion):
 
     @staticmethod
     def normalize_angle(angle: float) -> float:
-        factor = angle // 360
+        factor = (angle + Quaternion.Epsilon) // 360
         return angle - 360 * factor
 
     @staticmethod
@@ -1005,7 +1005,7 @@ class Quaternion(_PyrrQuaternion):
         return Quaternion.identity
 
     @classmethod
-    def from_euler(cls, euler: Vec3f, unityStyle: bool = False) -> "Quaternion":
+    def from_euler(cls, euler: Vec3f, unityStyle: bool = True) -> "Quaternion":
         """
         Create a rotation from `euler` (Unity style)
         """
@@ -1021,17 +1021,17 @@ class Quaternion(_PyrrQuaternion):
         sinRoll = sin(halfRoll)
         cosRoll = cos(halfRoll)
         return cls(
-            cosPitch*sinYaw*cosRoll + sinPitch*cosYaw*sinRoll,
-            sinPitch*cosYaw*cosRoll - cosPitch*sinYaw*sinRoll,
-            cosPitch*cosYaw*sinRoll - sinPitch*sinYaw*cosRoll,
-            cosPitch*cosYaw*cosRoll + sinPitch*sinYaw*sinRoll
+            [cosPitch*sinYaw*cosRoll + sinPitch*cosYaw*sinRoll,
+             sinPitch*cosYaw*cosRoll - cosPitch*sinYaw*sinRoll,
+             cosPitch*cosYaw*sinRoll - sinPitch*sinYaw*cosRoll,
+             cosPitch*cosYaw*cosRoll + sinPitch*sinYaw*sinRoll]
         )
 
     def to_euler(self) -> "Vec3f":
         """
         Return a euler rotation from this Quaternion
         """
-        magnitude = self.magnitude
+        magnitude = self.sqrMagnitude
         orientation = self.x*self.w - self.y*self.z
         if (orientation > 0.4995 * magnitude):
             # Singularity at north pole
@@ -1052,18 +1052,18 @@ class Quaternion(_PyrrQuaternion):
                 )
             )
         quat = Quaternion(
-            self.w,
-            self.z,
-            self.x,
-            self.y
+            (self.w,
+             self.z,
+             self.x,
+             self.y)
         )
         return Quaternion.normalize_angles(
             Vec3f(
+                degrees(asin(2*(quat.x*quat.z - quat.w*quat.y))),
                 degrees(atan2(2*quat.x*quat.w + 2*quat.y*quat.z,
                               1 - 2*(quat.z*quat.z+quat.w*quat.w))),
-                degrees(asin(2*(quat.x*quat.z - quat.w*quat.y))),
                 degrees(atan2(2*quat.x*quat.y + 2*quat.z*quat.w,
-                              1 - 2*(quat.yz*quat.y+quat.z*quat.z)))
+                              1 - 2*(quat.y*quat.y+quat.z*quat.z)))
             )
         )
 
@@ -1295,11 +1295,17 @@ class Transform():
 
     def __init__(
         self,
-        position: Vec3f = Vec3f.zero,
-        rotation: Union[Quaternion, Vec3f] = Quaternion(),
-        scale: Vec3f = Vec3f.one
+        translation: Optional[Vec3f] = None,
+        rotation: Optional[Quaternion | Vec3f] = None,
+        scale: Optional[Vec3f] = None
     ):
-        self.translation = position
+        if translation is None:
+            translation = Vec3f.zero
+        if rotation is None:
+            rotation = Quaternion.identity
+        if scale is None:
+            scale = Vec3f.one
+        self.translation = translation
         if isinstance(rotation, Quaternion):
             self.rotation = rotation
         else:

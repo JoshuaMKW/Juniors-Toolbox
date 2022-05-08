@@ -1,6 +1,6 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import Any, BinaryIO, Callable, Dict, List, Optional, Type, TypeVar, Union
+from typing import Any, BinaryIO, Callable, Dict, List, Optional, Protocol, Type, TypeAlias, TypeVar, Union
 
 
 JSYSTEM_PADDING_TEXT = "This is padding data to alignment....."
@@ -13,14 +13,35 @@ class classproperty(property):
         return classmethod(self.fget).__get__(None, __type)() # type: ignore
 
 
-Numeric = Union[int, float]
+class SupportsDunderLT(Protocol):
+    def __lt__(self, __other: Any) -> bool: ...
+
+
+class SupportsDunderGT(Protocol):
+    def __gt__(self, __other: Any) -> bool: ...
+
+
+class SupportsDunderLE(Protocol):
+    def __le__(self, __other: Any) -> bool: ...
+
+
+class SupportsDunderGE(Protocol):
+    def __ge__(self, __other: Any) -> bool: ...
+
+
+class SupportsAllComparisons(SupportsDunderLT, SupportsDunderGT, SupportsDunderLE, SupportsDunderGE, Protocol): ...
+
+
+SupportsRichComparison: TypeAlias = SupportsDunderLT | SupportsDunderGT
+SupportsRichComparisonT = TypeVar("SupportsRichComparisonT", bound=SupportsRichComparison)  # noqa: Y001
+
 VariadicArgs = Any
 VariadicKwargs = Any
 
-clamp: Callable[[Numeric, Numeric, Numeric],
-                Numeric] = lambda x, min, max: min if x < min else max if x > max else x
-clamp01: Callable[[Numeric], Numeric] = lambda x: clamp(x, 0, 1)
-sign: Callable[[Numeric], Numeric] = lambda x: 1 if x >= 0 else -1
+clamp: Callable[[SupportsAllComparisons, SupportsAllComparisons, SupportsAllComparisons],
+                SupportsAllComparisons] = lambda x, min_, max_: min_ if x < min_ else max_ if x > max_ else x
+clamp01: Callable[[SupportsAllComparisons], SupportsAllComparisons] = lambda x: clamp(x, 0, 1)
+sign: Callable[[SupportsAllComparisons], SupportsAllComparisons] = lambda x: 1 if x >= 0 else -1
 
 
 def write_jsystem_padding(f: BinaryIO, multiple: int) -> None:

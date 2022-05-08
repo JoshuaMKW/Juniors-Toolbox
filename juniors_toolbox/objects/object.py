@@ -66,7 +66,7 @@ class A_SceneObject(jdrama.NameRef, ABC):
         header = f"{self.get_ref()} ({self.key})"
         body = ""
         for v in self.get_members():
-            body += f"  {v.name} = {v.value}\n"
+            body += f"  {v.get_formatted_name()} = {v.get_value()}\n"
         return header + " {\n" + body + "}"
 
     def get_parent(self) -> Optional["GroupObject"]:
@@ -130,7 +130,7 @@ class A_SceneObject(jdrama.NameRef, ABC):
 
         for member in self.get_members():
             if member.get_qualified_name() == name:
-                member.value = value
+                member.set_value(value)
                 return True
 
         return False
@@ -140,7 +140,7 @@ class A_SceneObject(jdrama.NameRef, ABC):
         Set a member by index if it exists in this object
         """
         member = self._members[index][arrayindex]
-        member.value = value
+        member.set_value(value)
 
     def get_member_data(self) -> BytesIO:
         """
@@ -293,7 +293,7 @@ class A_SceneObject(jdrama.NameRef, ABC):
             if strict:
                 return None
 
-            member.name = f"{memberName}{i}"
+            member._name = f"{memberName}{i}"
 
         self._members.append(member)
         return member
@@ -370,13 +370,14 @@ class MapObject(A_SceneObject):
         thisObj.key = objKey
 
         for member in thisObj.get_members(includeArrays=False):
-            if member.type == ValueType.COMMENT:
+            if member._type == ValueType.COMMENT:
                 continue
             fileOffset = data.tell()
             if fileOffset >= objEndPos:
-                raise ObjectCorruptedError(
+                print(
                     f"Reached end of object data before loading could complete! ({fileOffset} > {objEndPos}) ({thisObj.get_explicit_name()}::{member.get_qualified_name()})"
                 )
+                break
             member.load(data, objEndPos)
 
         thisObj._parent = None
@@ -415,8 +416,8 @@ class MapObject(A_SceneObject):
                 self.create_member(
                     index=i,
                     qualifiedName=member.get_qualified_name(),
-                    value=member.value,
-                    type=member.type,
+                    value=member._value,
+                    type=member._type,
                     strict=True
                 )
             else:
@@ -429,12 +430,6 @@ class MapObject(A_SceneObject):
         Gets the length of this object in bytes
         """
         return 12 + len(self.get_ref()) + len(self.key) + len(self.get_member_data().getbuffer())
-
-    def is_value(self, attrname: str) -> bool:
-        """
-        Check if a named value exists in this object
-        """
-        return any(attrname == v.name for v in self._members)
 
     def is_group(self) -> bool:
         """
@@ -462,7 +457,7 @@ class MapObject(A_SceneObject):
         out.write(indentedStr + f"{self.get_ref()} ({self.key})" + " {\n")
         values = indentedStr + "  [Values]\n"
         for member in self.get_members():
-            values += indentedStr + f"  {member.get_formatted_name()} = {member.value}\n"
+            values += indentedStr + f"  {member.get_formatted_name()} = {member._value}\n"
         out.write(values)
 
     def __eq__(self, other: object) -> bool:
@@ -521,7 +516,7 @@ class GroupObject(A_SceneObject):
         )
 
         for member in thisObj.get_members(includeArrays=False):
-            if member.type == ValueType.COMMENT:
+            if member._type == ValueType.COMMENT:
                 continue
             arraySize = member.get_array_size()
             arrayNum = 0
@@ -533,7 +528,7 @@ class GroupObject(A_SceneObject):
             member.set_array_size(arrayNum+1)
 
         if groupNum is not None:
-            for _ in range(groupNum.value):
+            for _ in range(groupNum._value):
                 if data.tell() >= objEndPos:
                     break
                 obj = ObjectFactory.create_object_f(data)
@@ -585,8 +580,8 @@ class GroupObject(A_SceneObject):
                 self.create_member(
                     index=i,
                     qualifiedName=member.get_qualified_name(),
-                    value=member.value,
-                    type=member.type,
+                    value=member._value,
+                    type=member._type,
                     strict=True
                 )
             else:
@@ -639,7 +634,7 @@ class GroupObject(A_SceneObject):
         out.write(indentedStr + f"{self.get_ref()} ({self.key})" + " {\n")
         values = indentedStr + "  [Values]\n"
         for member in self.get_members():
-            values += indentedStr + f"  {member.get_formatted_name()} = {member.value}\n"
+            values += indentedStr + f"  {member.get_formatted_name()} = {member._value}\n"
         out.write(values)
         if self.is_group():
             out.write("\n" + indentedStr + "  [Grouped]\n")

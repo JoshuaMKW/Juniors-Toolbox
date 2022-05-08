@@ -13,11 +13,12 @@ from PySide6.QtGui import QDragEnterEvent, QDropEvent, QKeyEvent, QUndoCommand, 
 from PySide6.QtWidgets import (QFormLayout, QFrame, QGridLayout, QComboBox,
                                QLabel, QScrollArea,
                                QTreeWidget, QTreeWidgetItem, QWidget)
-from juniors_toolbox.gui.tabs import TabWidgetManager
+from juniors_toolbox.gui import ToolboxManager
 from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
-from juniors_toolbox.gui.widgets.property import PropertyFactory
+from juniors_toolbox.gui.widgets.property import A_ValueProperty, PropertyFactory
 from juniors_toolbox.objects.object import A_SceneObject, MapObject
+from juniors_toolbox.objects.value import A_Member
 from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.utils import VariadicArgs, VariadicKwargs
 
@@ -96,7 +97,7 @@ class NameRefHierarchyWidget(A_DockingInterface):
         self.treeWidget.setDefaultDropAction(Qt.MoveAction)
         self.treeWidget.setHeaderHidden(True)
         self.treeWidget.setMinimumSize(300, 80)
-        self.treeWidget.itemChanged.connect(self.__populate_properties_view)
+        self.treeWidget.currentItemChanged.connect(self.__populate_properties_view)
 
         self.setWidget(self.treeWidget)
 
@@ -134,23 +135,34 @@ class NameRefHierarchyWidget(A_DockingInterface):
 
     @Slot(NameRefHierarchyWidgetItem)
     def __populate_properties_view(self, item: NameRefHierarchyWidgetItem) -> None:
+        from juniors_toolbox.gui.tabs import TabWidgetManager
         propertiesTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
         if propertiesTab is None or item is None:
             return
         
         sceneObj = item.object
-        title = f"{repr(sceneObj)} Properties"
+        title = f"{sceneObj.get_explicit_name()} Properties"
+
+        def _inner_populate(member: A_Member) -> A_ValueProperty:
+            prop = PropertyFactory.create_property(
+                name=member.get_formatted_name(),
+                valueType=member.get_type(),
+                value=member.get_value()
+            )
+            prop.valueChanged.connect(lambda _p, _v: member.set_value(_v))
+            if member.is_struct():
+                for child in member.get_children():
+                    if child.is_from_array():
+                        pass
+                    prop.add_property(_inner_populate(child))
+            return prop
 
         properties = []
         for member in sceneObj.get_members():
-            if member.is_struct():
-                ...
-            else:
-                prop = PropertyFactory.create_property(
-                    name=member.get_formatted_name(),
-                    valueType=member.type,
-                    value=member.value
-                )
+            properties.append(_inner_populate(member))
+
+        manager = ToolboxManager.get_instance()
+        propertiesTab.populate(manager.get_scene(), properties=properties, title=title)
 
     def startDrag(self, supportedActions: Qt.DropActions):
         self.draggedItem = self.treeWidget.currentItem()

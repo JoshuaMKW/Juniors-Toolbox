@@ -312,9 +312,9 @@ class A_Member(A_Clonable, ABC):
     """
 
     def __init__(self, name: str, value: Any, type: ValueType) -> None:
-        self.name = name
-        self.value = value
-        self.type = type
+        self._name = name
+        self._value = value
+        self._type = type
         self._parent: Optional["MemberStruct"] = None
         self._arraySize: int | "MemberValue" = 1
         self._arrayIdx: int = 0
@@ -337,8 +337,20 @@ class A_Member(A_Clonable, ABC):
         """
         return self._arrayIdx != 0
 
+    def get_value(self) -> Any:
+        return self._value
+
+    def set_value(self, value: Any):
+        self._value = value
+
+    def get_type(self) -> ValueType:
+        return self._type
+
+    def set_type(self, _type: ValueType):
+        self._type = _type
+
     def get_formatted_name(self) -> str:
-        return self.get_formatted_template_name(self.name, self._arrayIdx)
+        return self.get_formatted_template_name(self._name, self._arrayIdx)
 
     def get_parent(self) -> Optional["MemberStruct"]:
         """
@@ -384,7 +396,7 @@ class A_Member(A_Clonable, ABC):
         if isinstance(self._arraySize, int):
             return self._arraySize if self._arraySize > 0 else 127
 
-        arraySize = int(self._arraySize.value)
+        arraySize = int(self._arraySize._value)
         return arraySize if arraySize > 0 else 127
 
     def set_array_size(self, arraySize: int | "MemberValue") -> None:
@@ -434,9 +446,11 @@ class A_Member(A_Clonable, ABC):
         ...
 
     @abstractmethod
-    def get_children(self) -> Iterable["A_Member"]:
+    def get_children(self, includeArrays: bool = True) -> Iterable["A_Member"]:
         """
         Get all children from this `Member`, which implies this `Member` be a struct
+
+        If `includeArrays` is true, also yield array instances
         """
         ...
 
@@ -464,13 +478,6 @@ class A_Member(A_Clonable, ABC):
     @abstractmethod
     def copy(self, *, deep: bool = False) -> "A_Member": ...
 
-    @abstractmethod
-    def as_template(self) -> str:
-        """
-        Return this member as a template skeleton
-        """
-        ...
-
     def __getitem__(self, index: int | slice) -> "A_Member":
         if isinstance(index, slice):
             return NotImplemented
@@ -481,7 +488,7 @@ class A_Member(A_Clonable, ABC):
         if index == 0:
             return self
 
-        if index in self._arrayInstances:
+        if index-1 in self._arrayInstances:
             item = self._arrayInstances[index-1]
             item._parent = self._parent
             item._arrayIdx = index
@@ -501,16 +508,17 @@ class A_Member(A_Clonable, ABC):
             raise IndexError("Index provided is beyond the member array")
 
         if index == 0:
-            self.name = item.name
-            self.value = item.value
-            self.type = item.type
+            self._name = item._name
+            self._value = item._value
+            self._type = item._type
             return
 
         self._arrayInstances[index-1] = item
         item._arrayIdx = index
+        item._parent = self.get_parent()
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(qualname={self.get_qualified_name()}, value={self.value}, type={self.type})"
+        return f"{self.__class__.__name__}(qualname={self.get_qualified_name()}, value={self._value}, type={self._type})"
 
 
 class MemberValue(A_Member):
@@ -533,11 +541,11 @@ class MemberValue(A_Member):
     def get_child(self, name: str) -> Optional["A_Member"]:
         return None
 
-    def get_children(self) -> Iterable["A_Member"]:
+    def get_children(self, includeArrays: bool = True) -> Iterable["A_Member"]:
         return []
 
     def get_data_size(self) -> int:
-        size = self.type.get_size()
+        size = self._type.get_size()
         if size is None:
             return 0
         return size
@@ -545,26 +553,25 @@ class MemberValue(A_Member):
     def load(self, stream: BinaryIO, endPos: Optional[int] = None) -> None:
         if endPos is None:
             endPos = 1 << 30 # 1 GB
+        if self.get_qualified_name() == QualifiedName("WarpA", "Point1", "Transform"):
+            pass
         for i in range(self.get_array_size()):
             if stream.tell() >= endPos:
                 break
-            self[i].value = TEMPLATE_TYPE_READ_TABLE[self.type](stream)
+            self[i]._value = TEMPLATE_TYPE_READ_TABLE[self._type](stream)
 
     def save(self, stream: BinaryIO) -> None:
-        TEMPLATE_TYPE_WRITE_TABLE[self.type](stream, self.value)
+        TEMPLATE_TYPE_WRITE_TABLE[self._type](stream, self._value)
         for i in range(1, self.get_array_size()):
-            TEMPLATE_TYPE_WRITE_TABLE[self.type](stream, self[i].value)
+            TEMPLATE_TYPE_WRITE_TABLE[self._type](stream, self[i]._value)
 
     def copy(self, *, deep: bool = False) -> "MemberValue":
         cls = self.__class__
-        _copy = cls(self.name, self.value, self.type)
+        _copy = cls(self._name, self._value, self._type)
         _copy._arraySize = self._arraySize
         if not deep:
             _copy._arrayInstances = self._arrayInstances.copy()
         return _copy
-
-    def as_template(self) -> str:
-        return f"{self.name} {self.type.value}"
 
 
 class MemberStruct(A_Member):
@@ -611,8 +618,12 @@ class MemberStruct(A_Member):
             return self._children[name]
         return None
 
-    def get_children(self) -> Iterable["A_Member"]:
-        return self._children.values()
+    def get_children(self, includeArrays: bool = True) -> Iterable["A_Member"]:
+        for child in self._children.values():
+            yield child
+            if includeArrays:
+                for i in range(1, child.get_array_size()):
+                    yield child[i]
 
     def get_data_size(self) -> int:
         return sum([member.get_data_size() for member in self.get_children()])
@@ -623,44 +634,26 @@ class MemberStruct(A_Member):
         for i in range(self.get_array_size()):
             if stream.tell() >= endPos:
                 break
-            for member in self[i].get_children():
+            for member in self[i].get_children(includeArrays=False):
                 member.load(stream, endPos)
 
     def save(self, stream: BinaryIO) -> None:
         for i in range(self.get_array_size()):
-            for member in self[i].get_children():
-                value = member.value
-                ty = ValueType.type_to_enum(value.__class__)
-                TEMPLATE_TYPE_WRITE_TABLE[ty](stream, value)
+            for member in self[i].get_children(includeArrays=False):
+                member.save(stream)
 
     def copy(self, *, deep: bool = False) -> "MemberStruct":
         cls = self.__class__
-        _copy = cls(self.name)
+        _copy = cls(self._name)
         _copy._arraySize = self._arraySize
         if not deep:
             _copy._arrayInstances = self._arrayInstances.copy()
         for name, child in self._children.items():
             if deep:
-                _copy._children[name] = child.copy(deep=True)
+                _copy.add_child(child.copy(deep=True))
             else:
-                _copy._children[name] = child
+                _copy.add_child(child)
         return _copy
-
-    def as_template(self) -> str:
-        header = f"{self.name} {self.type.value}"
-
-        repeat = ""
-        if self.value > 1:
-            repeat = f" [{self.value}]"
-        elif self.value == 0:
-            repeat = " [*]"
-        header += repeat + " {\n"
-
-        body = ""
-        for member in self.get_children():
-            body += f"{member.as_template()}\n"
-
-        return header + body + "}"
 
 
 class MemberComment(MemberValue):
@@ -679,6 +672,3 @@ class MemberComment(MemberValue):
 
     def save(self, stream: BinaryIO) -> None:
         pass
-
-    def as_template(self) -> str:
-        return f"{self.name} {self.type.value} {self.value}"

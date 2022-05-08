@@ -18,6 +18,10 @@
             "Other": {
                 "Type": "INT",
                 "ArraySize": 1
+            },
+            "Layer": {
+                "Type": "STR",
+                "ArraySize": 1
             }
         },
         "Wizard": {
@@ -41,7 +45,8 @@
                 ],
                 "Unknown": 128,
                 "!!!": 0,
-                "Other": 128
+                "Other": 128,
+                "Layer": "Layer1"
             }
         }
     }

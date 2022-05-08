@@ -57,8 +57,6 @@ class JuniorsToolbox(QApplication):
         # Set up tab syncing
         objectPropertyTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
         objectHierarchyTab = TabWidgetManager.get_tab(NameRefHierarchyWidget)
-        objectHierarchyTab.treeWidget.currentItemChanged.connect(
-            lambda cur, prev: objectPropertyTab.populate(cur.object, self.scenePath))
 
         self.gui.setWindowTitle(self.get_window_title())
         self.update_theme(MainWindow.Theme.LIGHT)
