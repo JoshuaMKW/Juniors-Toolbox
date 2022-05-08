@@ -1,4 +1,0 @@
-Snooza Koopa Manager
-Character STRING
-MaxObjs INT
-MActorSets INT

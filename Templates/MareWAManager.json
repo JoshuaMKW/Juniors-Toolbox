@@ -1,0 +1,27 @@
+{
+    "Jellyfish Rider Noki (F) Manager": {
+        "Structs": {
+        },
+        "Members": {
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "MaxObjs": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "MActorSets": {
+                "Type": "INT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Character": "クラゲマレー女マネージャー キャラ",
+                "MaxObjs": 100,
+                "MActorSets": 0
+            }
+        }
+    }
+}

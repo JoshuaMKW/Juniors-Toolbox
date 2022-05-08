@@ -1,4 +1,0 @@
-Sleeping Wiggler Manager
-Character STRING
-MaxObjs INT
-MActorSets INT

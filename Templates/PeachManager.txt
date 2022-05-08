@@ -1,4 +1,0 @@
-Princess Peach Manager
-Character STRING
-MaxObjs INT
-MActorSets INT

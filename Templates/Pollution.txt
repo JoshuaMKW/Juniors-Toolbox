@@ -1,9 +1,0 @@
-Pollution Manager
-Transform TEMPLATE {
-    Position VEC3F
-    Rotation VEC3F
-    Scale VEC3F
-}
-Character STRING
-!!! INT
-Default COMMENT true

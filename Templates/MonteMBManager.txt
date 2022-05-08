@@ -1,4 +1,0 @@
-Male Pianta (Suit) Manager
-Character STRING
-MaxObjs INT
-MActorSets INT

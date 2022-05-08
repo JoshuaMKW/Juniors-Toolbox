@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from io import BytesIO
 from typing import BinaryIO
 
-from juniors_toolbox.utils import Serializable, write_jsystem_padding
+from juniors_toolbox.utils import A_Serializable, VariadicArgs, VariadicKwargs, write_jsystem_padding
 from juniors_toolbox.utils.iohelper import read_float, read_ubyte, read_uint16, read_uint32, write_float, write_sbyte, write_ubyte, write_uint16, write_uint32
 
 from juniors_toolbox.utils.j3d.anim.general_animation import BasicAnimation, find_sequence
@@ -16,7 +16,7 @@ class ClusterAnim:
     seq: list = field(default_factory=lambda: [])
 
 
-class BLA(BasicAnimation, Serializable):
+class BLA(BasicAnimation, A_Serializable):
     def __init__(self, loop_mode, duration):
         self.loop_mode = loop_mode
         self.anglescale = 0
@@ -25,7 +25,7 @@ class BLA(BasicAnimation, Serializable):
         self.animations = []
 
     @classmethod
-    def from_bytes(cls, data: BinaryIO, *args, **kwargs):
+    def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **kwargs: VariadicKwargs):
         size = read_uint32(data)
 
         sectioncount = read_uint32(data)

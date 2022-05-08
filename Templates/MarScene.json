@@ -1,0 +1,17 @@
+{
+    "Main Scene Group": {
+        "Structs": {
+        },
+        "Members": {
+            "ID": {
+                "Type": "INT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "ID": 0
+            }
+        }
+    }
+}

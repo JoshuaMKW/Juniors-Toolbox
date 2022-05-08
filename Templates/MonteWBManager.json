@@ -1,0 +1,27 @@
+{
+    "Female Pianta (Dress) Manager": {
+        "Structs": {
+        },
+        "Members": {
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "MaxObjs": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "MActorSets": {
+                "Type": "INT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Character": "ムームーモンテ女マネージャー キャラ",
+                "MaxObjs": 50,
+                "MActorSets": 0
+            }
+        }
+    }
+}

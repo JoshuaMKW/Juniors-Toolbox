@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 import math
 from typing import Optional, Tuple, Union
 from enum import Enum, IntEnum
@@ -7,7 +8,8 @@ from numpy import array
 
 from pyrr.objects import quaternion
 from juniors_toolbox.utils import clamp, clamp01, classproperty, sign
-from pyrr import Vector3, Vector4, Matrix33, Matrix44, Quaternion
+from pyrr import Vector3, Vector4, Matrix33, Matrix44
+from pyrr import Quaternion as _PyrrQuaternion
 
 
 class BasicColors(IntEnum):
@@ -22,16 +24,125 @@ class BasicColors(IntEnum):
     TRANSPARENT = 0x00000000
 
 
-class RGBA8():
+class DigitalColor(ABC):
+    """
+    Abstract base class representing color
+    """
+
+    def __init__(self, value: int):
+        self._value = int(value)
+
+    def raw(self) -> int:
+        return self._value
+
+    @classmethod
+    @abstractmethod
+    def from_tuple(cls, rgba: tuple) -> "DigitalColor": ...
+
+    @classmethod
+    @abstractmethod
+    def from_hex(cls, rgba: str) -> "DigitalColor": ...
+
+    @property
+    @abstractmethod
+    def red(self) -> int: ...
+
+    @red.setter
+    @abstractmethod
+    def red(self, value: int): ...
+
+    @property
+    @abstractmethod
+    def green(self) -> int: ...
+
+    @green.setter
+    @abstractmethod
+    def green(self, value: int): ...
+
+    @property
+    @abstractmethod
+    def blue(self) -> int: ...
+
+    @blue.setter
+    @abstractmethod
+    def blue(self, value: int): ...
+
+    @property
+    @abstractmethod
+    def alpha(self) -> int: ...
+
+    @alpha.setter
+    @abstractmethod
+    def alpha(self, value: int): ...
+
+    @abstractmethod
+    def hex(self) -> str: ...
+
+    @abstractmethod
+    def tuple(self) -> tuple: ...
+
+    @abstractmethod
+    def inverse(self, preserveAlpha: bool = True) -> "DigitalColor": ...
+
+    @abstractmethod
+    def chooseContrastBW(self) -> "DigitalColor": ...
+
+    @abstractmethod
+    def saturation(self) -> float: ...
+
+    def __getitem__(self, index: int) -> int:
+        if index not in range(4):
+            raise IndexError(
+                f"Index into {self.__class__.__name__} is out of range ([0-3])")
+        return self.tuple()[index]
+
+    def __setitem__(self, index: int, value: int) -> int:
+        if index not in range(4):
+            raise IndexError(
+                f"Index into {self.__class__.__name__} is out of range ([0-3])")
+        if index == 0:
+            self.red = value
+        elif index == 1:
+            self.green = value
+        elif index == 2:
+            self.blue = value
+        else:
+            self.alpha = value
+
+    def __eq__(self, other: Union["DigitalColor", int, tuple]) -> bool:
+        if isinstance(other, DigitalColor):
+            return self.hex() == other.hex()
+        if isinstance(other, list):
+            return self.tuple() == other
+        return self.hex() == other
+
+    def __ne__(self, other: Union["DigitalColor", int, tuple]) -> bool:
+        if isinstance(other, DigitalColor):
+            return self.hex() != other.hex()
+        if isinstance(other, list):
+            return self.tuple() != other
+        return self.hex() != other
+
+    def __repr__(self) -> str:
+        red = self.red
+        green = self.green
+        blue = self.blue
+        alpha = self.alpha
+        return f"{self.__class__.__name__}({red=}, {green=}, {blue=}, {alpha=})"
+
+    def __str__(self) -> str:
+        return self.hex()
+
+    def __int__(self) -> int:
+        return self.raw()
+
+
+class RGBA8(DigitalColor):
     """
     Class representing 8bit RGBA
     """
-
-    def __init__(self, value: Union[int, "RGBA8"]):
-        self.value = int(value)
-
     @classmethod
-    def from_tuple(cls, rgba: Tuple[int, int, int, Optional[int]]) -> "RGBA8":
+    def from_tuple(cls, rgba: tuple) -> "RGBA8":
         color = cls(0)
         color.red = rgba[0]
         color.green = rgba[1]
@@ -49,38 +160,38 @@ class RGBA8():
 
     @property
     def red(self) -> int:
-        return (self.value >> 24) & 0xFF
+        return (self._value >> 24) & 0xFF
 
     @red.setter
     def red(self, value: int):
-        self.value = ((int(value) & 0xFF) << 24) | (self.value & 0x00FFFFFF)
+        self._value = ((int(value) & 0xFF) << 24) | (self._value & 0x00FFFFFF)
 
     @property
     def green(self) -> int:
-        return (self.value >> 16) & 0xFF
+        return (self._value >> 16) & 0xFF
 
     @green.setter
     def green(self, value: int):
-        self.value = ((int(value) & 0xFF) << 16) | (self.value & 0xFF00FFFF)
+        self._value = ((int(value) & 0xFF) << 16) | (self._value & 0xFF00FFFF)
 
     @property
     def blue(self) -> int:
-        return (self.value >> 8) & 0xFF
+        return (self._value >> 8) & 0xFF
 
     @blue.setter
     def blue(self, value: int):
-        self.value = ((int(value) & 0xFF) << 8) | (self.value & 0xFFFF00FF)
+        self._value = ((int(value) & 0xFF) << 8) | (self._value & 0xFFFF00FF)
 
     @property
     def alpha(self) -> int:
-        return self.value & 0xFF
+        return self._value & 0xFF
 
     @alpha.setter
     def alpha(self, value: int):
-        self.value = (int(value) & 0xFF) | (self.value & 0xFFFFFF00)
+        self._value = (int(value) & 0xFF) | (self._value & 0xFFFFFF00)
 
     def hex(self) -> str:
-        return f"#{self.value:08X}"
+        return f"#{self._value:08X}"
 
     def tuple(self) -> Tuple[int, int, int, int]:
         return self.red, self.green, self.blue, self.alpha
@@ -105,39 +216,6 @@ class RGBA8():
     def saturation(self) -> float:
         return ((self.red + self.green + self.blue) / 3) / 255
 
-    def __getitem__(self, index: int) -> int:
-        if index not in range(4):
-            raise IndexError(
-                f"Index into {self.__class__.__name__} is out of range ([0-3])")
-        return self.tuple()[index]
-
-    def __setitem__(self, index: int, value: int) -> int:
-        if index not in range(4):
-            raise IndexError(
-                f"Index into {self.__class__.__name__} is out of range ([0-3])")
-        if index == 0:
-            self.red = value
-        elif index == 1:
-            self.green = value
-        elif index == 2:
-            self.blue = value
-        else:
-            self.alpha = value
-
-    def __eq__(self, other: Union["RGBA8", int, Tuple[int, int, int, int]]) -> bool:
-        if isinstance(other, RGBA8):
-            return self.value == other.value
-        if isinstance(other, list):
-            return self.tuple() == other
-        return self.value == other
-
-    def __ne__(self, other: Union["RGBA8", int, Tuple[int, int, int, int]]) -> bool:
-        if isinstance(other, RGBA8):
-            return self.value != other.value
-        if isinstance(other, list):
-            return self.tuple() != other
-        return self.value != other
-
     def __repr__(self) -> str:
         red = self.red
         green = self.green
@@ -145,23 +223,13 @@ class RGBA8():
         alpha = self.alpha
         return f"{self.__class__.__name__}({red=}, {green=}, {blue=}, {alpha=})"
 
-    def __str__(self) -> str:
-        return self.hex()
 
-    def __int__(self) -> int:
-        return self.value
-
-
-class RGB8():
+class RGB8(DigitalColor):
     """
     Class representing 8bit RGB
     """
-
-    def __init__(self, value: Union[int, "RGB8"]):
-        self.value = int(value)
-
     @classmethod
-    def from_tuple(cls, rgba: Tuple[int, int, int]) -> "RGB8":
+    def from_tuple(cls, rgba: tuple) -> "RGB8":
         color = cls(0)
         color.red = rgba[0]
         color.green = rgba[1]
@@ -176,32 +244,40 @@ class RGB8():
 
     @property
     def red(self) -> int:
-        return (self.value >> 16) & 0xFF
+        return (self._value >> 16) & 0xFF
 
     @red.setter
     def red(self, value: int):
-        self.value = ((int(value) & 0xFF) << 16) | (self.value & 0x00FFFF)
+        self._value = ((int(value) & 0xFF) << 16) | (self._value & 0x00FFFF)
 
     @property
     def green(self) -> int:
-        return (self.value >> 8) & 0xFF
+        return (self._value >> 8) & 0xFF
 
     @green.setter
     def green(self, value: int):
-        self.value = ((int(value) & 0xFF) << 8) | (self.value & 0xFF00FF)
+        self._value = ((int(value) & 0xFF) << 8) | (self._value & 0xFF00FF)
 
     @property
     def blue(self) -> int:
-        return self.value & 0xFF
+        return self._value & 0xFF
 
     @blue.setter
     def blue(self, value: int):
-        self.value = (int(value) & 0xFF) | (self.value & 0xFFFF00)
+        self._value = (int(value) & 0xFF) | (self._value & 0xFFFF00)
+
+    @property
+    def alpha(self) -> int:
+        return None
+
+    @alpha.setter
+    def alpha(self, value: int):
+        pass
 
     def hex(self) -> str:
-        return f"#{self.value:06X}"
+        return f"#{self._value:06X}"
 
-    def tuple(self) -> Tuple[int, int, int]:
+    def tuple(self) -> tuple:
         return self.red, self.green, self.blue
 
     def inverse(self) -> "RGB8":
@@ -220,48 +296,11 @@ class RGB8():
     def saturation(self) -> float:
         return ((self.red + self.green + self.blue) / 3) / 255
 
-    def __getitem__(self, index: int) -> int:
-        if index not in range(3):
-            raise IndexError(
-                f"Index into {self.__class__.__name__} is out of range ([0-2])")
-        return self.tuple()[index]
-
-    def __setitem__(self, index: int, value: int) -> int:
-        if index not in range(3):
-            raise IndexError(
-                f"Index into {self.__class__.__name__} is out of range ([0-2])")
-        if index == 0:
-            self.red = value
-        elif index == 1:
-            self.green = value
-        else:
-            self.blue = value
-
-    def __eq__(self, other: Union["RGB8", int, Tuple[int, int, int]]) -> bool:
-        if isinstance(other, RGB8):
-            return self.value == other.value
-        if isinstance(other, list):
-            return self.tuple() == other
-        return self.value == other
-
-    def __ne__(self, other: Union["RGB8", int, Tuple[int, int, int]]) -> bool:
-        if isinstance(other, RGB8):
-            return self.value != other.value
-        if isinstance(other, list):
-            return self.tuple() != other
-        return self.value != other
-
     def __repr__(self) -> str:
         red = self.red
         green = self.green
         blue = self.blue
         return f"{self.__class__.__name__}({red=}, {green=}, {blue=})"
-
-    def __str__(self) -> str:
-        return self.hex()
-
-    def __int__(self) -> int:
-        return self.value
 
 
 class RGB32(RGB8):
@@ -271,30 +310,80 @@ class RGB32(RGB8):
 
     @property
     def red(self) -> int:
-        return (self.value >> 64) & 0xFF
+        return (self._value >> 64) & 0xFF
 
     @red.setter
     def red(self, value: int):
-        self.value = ((int(value) & 0xFF) << 64) | (
-            self.value & 0x00000000FFFFFFFFFFFFFFFF)
+        self._value = ((int(value) & 0xFF) << 64) | (
+            self._value & 0x00000000FFFFFFFFFFFFFFFF)
 
     @property
     def green(self) -> int:
-        return (self.value >> 32) & 0xFF
+        return (self._value >> 32) & 0xFF
 
     @green.setter
     def green(self, value: int):
-        self.value = ((int(value) & 0xFF) << 32) | (
-            self.value & 0xFFFFFFFF00000000FFFFFFFF)
+        self._value = ((int(value) & 0xFF) << 32) | (
+            self._value & 0xFFFFFFFF00000000FFFFFFFF)
 
     @property
     def blue(self) -> int:
-        return self.value & 0xFF
+        return self._value & 0xFF
 
     @blue.setter
     def blue(self, value: int):
-        self.value = (int(value) & 0xFF) | (
-            self.value & 0xFFFFFFFFFFFFFFFF00000000)
+        self._value = (int(value) & 0xFF) | (
+            self._value & 0xFFFFFFFFFFFFFFFF00000000)
+
+    @property
+    def alpha(self) -> int:
+        return None
+
+    @alpha.setter
+    def alpha(self, value: int):
+        pass
+
+
+class RGBA32(RGBA8):
+    """
+    Clamps to 256, but represented by int sized data
+    """
+
+    @property
+    def red(self) -> int:
+        return (self._value >> 64) & 0xFF
+
+    @red.setter
+    def red(self, value: int):
+        self._value = ((int(value) & 0xFF) << 96) | (
+            self._value & 0x00000000FFFFFFFFFFFFFFFFFFFFFFFF)
+
+    @property
+    def green(self) -> int:
+        return (self._value >> 32) & 0xFF
+
+    @green.setter
+    def green(self, value: int):
+        self._value = ((int(value) & 0xFF) << 64) | (
+            self._value & 0xFFFFFFFF00000000FFFFFFFFFFFFFFFF)
+
+    @property
+    def blue(self) -> int:
+        return self._value & 0xFF
+
+    @blue.setter
+    def blue(self, value: int):
+        self._value = ((int(value) & 0xFF) << 32) | (
+            self._value & 0xFFFFFFFFFFFFFFFF00000000FFFFFFFF)
+
+    @property
+    def alpha(self) -> int:
+        return None
+
+    @alpha.setter
+    def alpha(self, value: int):
+        self._value = (int(value) & 0xFF) | (
+            self._value & 0xFFFFFFFFFFFFFFFFFFFFFFFF00000000)
 
 
 class Vec2f(list):
@@ -389,11 +478,11 @@ class Vec2f(list):
         return sqrt(self.dot(self))
 
     @property
-    def normalized(self) -> "Vec3f":
+    def normalized(self) -> "Vec2f":
         magnitude = self.magnitude
         if magnitude > self.Epsilon:
             return self / magnitude
-        return Vec3f.zero
+        return Vec2f.zero
 
     @property
     def components(self) -> Tuple[float, float]:
@@ -611,29 +700,29 @@ class Vec3f(Vector3):
         """
         return cls(0, 0, -1)
 
-    @property
-    def x(self) -> float:
-        return self.x
+    # @property
+    # def x(self) -> float:
+    #     return self.x
 
-    @x.setter
-    def x(self, x: float):
-        self.x = float(x)
+    # @x.setter
+    # def x(self, x: float):
+    #     self.x = float(x)
 
-    @property
-    def y(self) -> float:
-        return self.y
+    # @property
+    # def y(self) -> float:
+    #     return self.y
 
-    @y.setter
-    def y(self, y: float):
-        self.y = float(y)
+    # @y.setter
+    # def y(self, y: float):
+    #     self.y = float(y)
 
-    @property
-    def z(self) -> float:
-        return self.z
+    # @property
+    # def z(self) -> float:
+    #     return self.z
 
-    @z.setter
-    def z(self, z: float):
-        self.z = float(z)
+    # @z.setter
+    # def z(self, z: float):
+    #     self.z = float(z)
 
     @property
     def sqrMagnitude(self) -> float:
@@ -801,7 +890,7 @@ class Vec3f(Vector3):
         return f"{self.__class__.__name__}({x=}, {y=}, {z=})"
 
 
-class Quaternion(Quaternion):
+class Quaternion(_PyrrQuaternion):
     """
     Class representing a quaternion rotation
     """
@@ -809,19 +898,16 @@ class Quaternion(Quaternion):
 
     def __init__(
         self,
-        x: float = 0,
-        y: float = 0,
-        z: float = 0,
-        w: float = 1
+        xyzw: tuple[float, float, float, float] = (0, 0, 0, 1)
     ):
-        self.x = float(x)
-        self.y = float(y)
-        self.z = float(z)
-        self.w = float(w)
+        self.x = float(xyzw[0])
+        self.y = float(xyzw[1])
+        self.z = float(xyzw[2])
+        self.w = float(xyzw[3])
 
     @classproperty
     def identity(cls) -> "Quaternion":
-        return cls(0, 0, 0, 1)
+        return cls([0, 0, 0, 1])
 
     @property
     def xyz(self) -> Vec3f:
@@ -843,7 +929,7 @@ class Quaternion(Quaternion):
 
     @property
     def normalized(self) -> "Quaternion":
-        quat = Quaternion(self.x, self.y, self.z, self.w)
+        quat = Quaternion([self.x, self.y, self.z, self.w])
         scale = 1.0 / self.magnitude
         quat.xyz *= scale
         quat.w *= scale
@@ -851,7 +937,7 @@ class Quaternion(Quaternion):
 
     @property
     def inversed(self) -> "Quaternion":
-        quat = Quaternion(self.x, self.y, self.z, self.w)
+        quat = Quaternion([self.x, self.y, self.z, self.w])
         sqrLen = self.sqrMagnitude
         if (sqrLen != 0.0):
             i = 1.0 / sqrLen
@@ -861,7 +947,7 @@ class Quaternion(Quaternion):
 
     @staticmethod
     def normalize_angle(angle: float) -> float:
-        factor = angle // 360
+        factor = (angle + Quaternion.Epsilon) // 360
         return angle - 360 * factor
 
     @staticmethod
@@ -919,7 +1005,7 @@ class Quaternion(Quaternion):
         return Quaternion.identity
 
     @classmethod
-    def from_euler(cls, euler: Vec3f, unityStyle: bool = False) -> "Quaternion":
+    def from_euler(cls, euler: Vec3f, unityStyle: bool = True) -> "Quaternion":
         """
         Create a rotation from `euler` (Unity style)
         """
@@ -935,17 +1021,17 @@ class Quaternion(Quaternion):
         sinRoll = sin(halfRoll)
         cosRoll = cos(halfRoll)
         return cls(
-            cosPitch*sinYaw*cosRoll + sinPitch*cosYaw*sinRoll,
-            sinPitch*cosYaw*cosRoll - cosPitch*sinYaw*sinRoll,
-            cosPitch*cosYaw*sinRoll - sinPitch*sinYaw*cosRoll,
-            cosPitch*cosYaw*cosRoll + sinPitch*sinYaw*sinRoll
+            [cosPitch*sinYaw*cosRoll + sinPitch*cosYaw*sinRoll,
+             sinPitch*cosYaw*cosRoll - cosPitch*sinYaw*sinRoll,
+             cosPitch*cosYaw*sinRoll - sinPitch*sinYaw*cosRoll,
+             cosPitch*cosYaw*cosRoll + sinPitch*sinYaw*sinRoll]
         )
 
     def to_euler(self) -> "Vec3f":
         """
         Return a euler rotation from this Quaternion
         """
-        magnitude = self.magnitude
+        magnitude = self.sqrMagnitude
         orientation = self.x*self.w - self.y*self.z
         if (orientation > 0.4995 * magnitude):
             # Singularity at north pole
@@ -966,18 +1052,18 @@ class Quaternion(Quaternion):
                 )
             )
         quat = Quaternion(
-            self.w,
-            self.z,
-            self.x,
-            self.y
+            (self.w,
+             self.z,
+             self.x,
+             self.y)
         )
         return Quaternion.normalize_angles(
             Vec3f(
+                degrees(asin(2*(quat.x*quat.z - quat.w*quat.y))),
                 degrees(atan2(2*quat.x*quat.w + 2*quat.y*quat.z,
                               1 - 2*(quat.z*quat.z+quat.w*quat.w))),
-                degrees(asin(2*(quat.x*quat.z - quat.w*quat.y))),
                 degrees(atan2(2*quat.x*quat.y + 2*quat.z*quat.w,
-                              1 - 2*(quat.yz*quat.y+quat.z*quat.z)))
+                              1 - 2*(quat.y*quat.y+quat.z*quat.z)))
             )
         )
 
@@ -1147,10 +1233,10 @@ class Quaternion(Quaternion):
         if isinstance(other, Quaternion):
             # Combines the rotations
             return Quaternion(
-                self.w*other.x + self.x*other.w + self.y*other.z - self.z*other.y,
-                self.w*other.y + self.y*other.w + self.z*other.x - self.x*other.z,
-                self.w*other.z + self.z*other.w + self.x*other.y - self.y*other.x,
-                self.w*other.w - self.x*other.x - self.y*other.y - self.z*other.z,
+                (self.w*other.x + self.x*other.w + self.y*other.z - self.z*other.y,
+                 self.w*other.y + self.y*other.w + self.z*other.x - self.x*other.z,
+                 self.w*other.z + self.z*other.w + self.x*other.y - self.y*other.x,
+                 self.w*other.w - self.x*other.x - self.y*other.y - self.z*other.z)
             )
         elif isinstance(other, Vec3f):
             # Rotates the point with this rotation
@@ -1209,11 +1295,17 @@ class Transform():
 
     def __init__(
         self,
-        position: Vec3f = Vec3f.zero,
-        rotation: Union[Quaternion, Vec3f] = Quaternion(),
-        scale: Vec3f = Vec3f.one
+        translation: Optional[Vec3f] = None,
+        rotation: Optional[Quaternion | Vec3f] = None,
+        scale: Optional[Vec3f] = None
     ):
-        self.position = position
+        if translation is None:
+            translation = Vec3f.zero
+        if rotation is None:
+            rotation = Quaternion.identity
+        if scale is None:
+            scale = Vec3f.one
+        self.translation = translation
         if isinstance(rotation, Quaternion):
             self.rotation = rotation
         else:
@@ -1254,7 +1346,7 @@ class Transform():
 
     def to_matrix(self) -> Matrix44:
         mtx = Matrix44()
-        translate = Matrix44.from_translation(self.position)
+        translate = Matrix44.from_translation(self.translation)
         rotate = Matrix44.from_quaternion(self.rotation)
         scale = Matrix44.from_scale(self.scale)
         return mtx * translate * rotate * scale
@@ -1264,11 +1356,11 @@ class Transform():
         Translate this transform by `translation`
         """
         if isinstance(translation, Vec3f):
-            self.position += translation
+            self.translation += translation
         else:
-            self.position.x += translation[0]
-            self.position.y += translation[1]
-            self.position.z += translation[2]
+            self.translation.x += translation[0]
+            self.translation.y += translation[1]
+            self.translation.z += translation[2]
 
     def rotate(self, eulers: Union[Vec3f, Tuple[float, float, float]]):
         """
@@ -1286,9 +1378,9 @@ class Transform():
         Rotate this transform around `point` along `axis` in world space by `angle` degrees
         """
         quat = Quaternion.from_angle_axis(angle, axis)
-        dif = quat * (self.position - point)
-        self.position = point + dif
+        dif = quat * (self.translation - point)
+        self.translation = point + dif
 
     def look_at(self, target: Union["Transform", Vec3f], worldUp: Vec3f = Vec3f.up):
-        pos = target.position if isinstance(target, Transform) else target
+        pos = target.translation if isinstance(target, Transform) else target
         target.rotation.set_look_rotation(pos, worldUp)

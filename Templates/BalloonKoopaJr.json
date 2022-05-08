@@ -1,0 +1,48 @@
+{
+    "Bowser Jr. Balloon": {
+        "Structs": {
+        },
+        "Members": {
+            "Transform": {
+                "Type": "TRANSFORM",
+                "ArraySize": 1
+            },
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "!!!": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Model": {
+                "Type": "STRING",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Transform": [
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        8,
+                        8,
+                        8
+                    ]
+                ],
+                "Character": "風船（クッパＪｒ） キャラ",
+                "!!!": 0,
+                "Model": "balloonKoopaJr"
+            }
+        }
+    }
+}

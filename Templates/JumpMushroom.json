@@ -1,0 +1,58 @@
+{
+    "Bouncy Mushroom": {
+        "Structs": {
+        },
+        "Members": {
+            "Transform": {
+                "Type": "TRANSFORM",
+                "ArraySize": 1
+            },
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "!!!": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Model": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "Bounce": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "DisplayModel": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Transform": [
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0.3,
+                        0.3,
+                        0.3
+                    ]
+                ],
+                "Character": "ジャンプきのこ キャラ",
+                "!!!": 0,
+                "Model": "JumpMushroom",
+                "Bounce": 10000,
+                "DisplayModel": "Generated from Bin Editor Template by Junior's Toolbox"
+            }
+        }
+    }
+}

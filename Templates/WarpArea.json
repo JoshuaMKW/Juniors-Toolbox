@@ -1,0 +1,53 @@
+{
+    "Warp Area": {
+        "Structs": {
+        },
+        "Members": {
+            "Transform": {
+                "Type": "TRANSFORM",
+                "ArraySize": 1
+            },
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "!!!": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "WarpRoof": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "WarpFloor": {
+                "Type": "INT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Transform": [
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        5,
+                        0.1,
+                        5
+                    ]
+                ],
+                "Character": "ワープエリア キャラ",
+                "!!!": 0,
+                "WarpRoof": 1,
+                "WarpFloor": 0
+            }
+        }
+    }
+}

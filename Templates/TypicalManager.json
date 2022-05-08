@@ -1,0 +1,27 @@
+{
+    "Kug (Typical) Manager": {
+        "Structs": {
+        },
+        "Members": {
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "MaxObjs": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "MActorSets": {
+                "Type": "INT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Character": "典型敵マネージャー キャラ",
+                "MaxObjs": 1,
+                "MActorSets": 0
+            }
+        }
+    }
+}

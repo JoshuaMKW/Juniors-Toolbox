@@ -1,0 +1,22 @@
+{
+    "Flag Manager": {
+        "Structs": {
+        },
+        "Members": {
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "MaxObjs": {
+                "Type": "INT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Character": "旗マネージャー キャラ",
+                "MaxObjs": 20
+            }
+        }
+    }
+}

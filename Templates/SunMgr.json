@@ -1,0 +1,37 @@
+{
+    "Sun Manager": {
+        "Structs": {
+        },
+        "Members": {
+            "Unknown": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Unknown1": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Unknown2": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Unknown3": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Unknown4": {
+                "Type": "INT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Unknown": 0,
+                "Unknown1": 0,
+                "Unknown2": 0,
+                "Unknown3": 0,
+                "Unknown4": 0
+            }
+        }
+    }
+}

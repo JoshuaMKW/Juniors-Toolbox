@@ -1,0 +1,38 @@
+{
+    "Event Handler (Boathouse Sink)": {
+        "Structs": {
+        },
+        "Members": {
+            "Warp": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "Transform": {
+                "Type": "TRANSFORM",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Warp": "マリオ（マニ屋）",
+                "Transform": [
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        1,
+                        1,
+                        1
+                    ]
+                ]
+            }
+        }
+    }
+}

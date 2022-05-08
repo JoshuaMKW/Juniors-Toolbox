@@ -1,0 +1,128 @@
+{
+    "Base Map Object": {
+        "Structs": {
+        },
+        "Members": {
+            "Transform": {
+                "Type": "TRANSFORM",
+                "ArraySize": 1
+            },
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "!!!": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Model": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "PoleLength": {
+                "Type": "FLOAT",
+                "ArraySize": 1
+            },
+            "ArrowBoardLR_tex": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "ArrowBoardUp_tex": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "ArrowBoardDown_tex": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "monte_chair": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "DokanGate": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "BiaDoor_tex": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "MapObjPachinkoNail": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "WatermelonStatic": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "flowerOrange_tex": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "flowerPink_tex": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "flowerPurple_tex": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "flowerRed_tex": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "flowerYellow_tex": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "flowerSunflower_tex": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "ForceDrawMode": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Pole": {
+                "Transform": [
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        1,
+                        1,
+                        1
+                    ]
+                ],
+                "Character": "ポール キャラ",
+                "!!!": 0,
+                "Model": "PoleNormal",
+                "PoleLength": 1000,
+                "ArrowBoardLR_tex": "Generated from Bin Editor Template by Junior's Toolbox",
+                "ArrowBoardUp_tex": "Generated from Bin Editor Template by Junior's Toolbox",
+                "ArrowBoardDown_tex": "Generated from Bin Editor Template by Junior's Toolbox",
+                "monte_chair": "Generated from Bin Editor Template by Junior's Toolbox",
+                "DokanGate": "Generated from Bin Editor Template by Junior's Toolbox",
+                "BiaDoor_tex": "Generated from Bin Editor Template by Junior's Toolbox",
+                "MapObjPachinkoNail": "Generated from Bin Editor Template by Junior's Toolbox",
+                "WatermelonStatic": "Generated from Bin Editor Template by Junior's Toolbox",
+                "flowerOrange_tex": "Generated from Bin Editor Template by Junior's Toolbox",
+                "flowerPink_tex": "Generated from Bin Editor Template by Junior's Toolbox",
+                "flowerPurple_tex": "Generated from Bin Editor Template by Junior's Toolbox",
+                "flowerRed_tex": "Generated from Bin Editor Template by Junior's Toolbox",
+                "flowerYellow_tex": "Generated from Bin Editor Template by Junior's Toolbox",
+                "flowerSunflower_tex": "Generated from Bin Editor Template by Junior's Toolbox",
+                "ForceDrawMode": "Generated from Bin Editor Template by Junior's Toolbox"
+            }
+        }
+    }
+}

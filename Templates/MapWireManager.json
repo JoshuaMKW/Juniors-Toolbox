@@ -1,0 +1,67 @@
+{
+    "Wire Manager": {
+        "Structs": {
+        },
+        "Members": {
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "MaxObjs": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Unknown": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "TopWidth": {
+                "Type": "FLOAT",
+                "ArraySize": 1
+            },
+            "BottomWidth": {
+                "Type": "FLOAT",
+                "ArraySize": 1
+            },
+            "TopR": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "TopG": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "TopB": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "BottomR": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "BottomG": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "BottomB": {
+                "Type": "INT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Character": "ワイヤーマネージャー キャラ",
+                "MaxObjs": 200,
+                "Unknown": 10,
+                "TopWidth": 10,
+                "BottomWidth": 20,
+                "TopR": 200,
+                "TopG": 200,
+                "TopB": 200,
+                "BottomR": 128,
+                "BottomG": 128,
+                "BottomB": 128
+            }
+        }
+    }
+}

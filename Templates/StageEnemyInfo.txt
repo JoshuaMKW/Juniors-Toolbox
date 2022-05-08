@@ -1,4 +1,0 @@
-Enemy Stage Spawn Info
-Enemy STRING
-GoopSpawn INT
-SpawnRate INT

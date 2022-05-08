@@ -1,0 +1,58 @@
+{
+    "F.L.U.D.D. Tip Area (Switch)": {
+        "Structs": {
+        },
+        "Members": {
+            "Transform": {
+                "Type": "TRANSFORM",
+                "ArraySize": 1
+            },
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "!!!": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "NULL": {
+                "Type": "FLOAT",
+                "ArraySize": 1
+            },
+            "MessageID": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "LinkedObjKey": {
+                "Type": "STRING",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Transform": [
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        6,
+                        6,
+                        6
+                    ]
+                ],
+                "Character": "スイッチバルーンヘルプ キャラ",
+                "!!!": 0,
+                "NULL": -1,
+                "MessageID": 0,
+                "LinkedObjKey": "なし"
+            }
+        }
+    }
+}

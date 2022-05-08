@@ -2,7 +2,7 @@ import struct
 
 import oead
 from io import BytesIO
-from juniors_toolbox.utils import Serializable
+from juniors_toolbox.utils import A_Serializable
 
 from juniors_toolbox.utils.iohelper import read_float, read_sint16, read_uint16, read_uint32, write_uint16
 
@@ -30,7 +30,7 @@ loop_mode = ("Play once", "Play Once - Stop at 1st Frame",
 tan_type = ("Tan out only", "Tan in and out")
 
 
-class BasicAnimation(Serializable):
+class BasicAnimation(A_Serializable):
     def __init__(self):
         pass
 

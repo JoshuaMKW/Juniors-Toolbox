@@ -1,0 +1,73 @@
+{
+    "Beehive": {
+        "Structs": {
+        },
+        "Members": {
+            "Transform": {
+                "Type": "TRANSFORM",
+                "ArraySize": 1
+            },
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "!!!": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Manager": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "Rail": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "ObjCount": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "HiveSpawnObjID": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "BeeSpawnObjID": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "DisplayModel": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Transform": [
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        1,
+                        1,
+                        1
+                    ]
+                ],
+                "Character": "ハチの巣マネージャー キャラ",
+                "!!!": 0,
+                "Manager": "ハチの巣マネージャー",
+                "Rail": "(null)",
+                "ObjCount": 10,
+                "HiveSpawnObjID": -1,
+                "BeeSpawnObjID": -1,
+                "DisplayModel": "Generated from Bin Editor Template by Junior's Toolbox"
+            }
+        }
+    }
+}

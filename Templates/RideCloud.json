@@ -1,0 +1,83 @@
+{
+    "Cloud": {
+        "Structs": {
+        },
+        "Members": {
+            "Transform": {
+                "Type": "TRANSFORM",
+                "ArraySize": 1
+            },
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "!!!": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Model": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "Rail": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "TopR": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "TopG": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "TopB": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "BottomR": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "BottomG": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "BottomB": {
+                "Type": "INT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Transform": [
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        1,
+                        1,
+                        1
+                    ]
+                ],
+                "Character": "乗れる雲 キャラ",
+                "!!!": 0,
+                "Model": "cloud",
+                "Rail": "(null)",
+                "TopR": 255,
+                "TopG": 255,
+                "TopB": 255,
+                "BottomR": 255,
+                "BottomG": 255,
+                "BottomB": 255
+            }
+        }
+    }
+}

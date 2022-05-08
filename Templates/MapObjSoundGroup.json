@@ -1,0 +1,17 @@
+{
+    "Sound Group": {
+        "Structs": {
+        },
+        "Members": {
+            "SoundName": {
+                "Type": "STRING",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Ocean Sounds": {
+                "SoundName": "ms_sea"
+            }
+        }
+    }
+}

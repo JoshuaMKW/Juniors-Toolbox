@@ -1,0 +1,48 @@
+{
+    "Water Recovery Object": {
+        "Structs": {
+        },
+        "Members": {
+            "Transform": {
+                "Type": "TRANSFORM",
+                "ArraySize": 1
+            },
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "!!!": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Model": {
+                "Type": "STRING",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Transform": [
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        2,
+                        1.5,
+                        2
+                    ]
+                ],
+                "Character": "水回復透明オブジェ キャラ",
+                "!!!": 0,
+                "Model": "WaterRecoverObj"
+            }
+        }
+    }
+}

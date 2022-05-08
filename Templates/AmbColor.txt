@@ -1,3 +1,0 @@
-Ambient Color
-Color RGBA8
-Default COMMENT true

@@ -3,7 +3,7 @@ import struct
 from collections import OrderedDict
 from typing import BinaryIO
 
-from juniors_toolbox.utils import write_jsystem_padding
+from juniors_toolbox.utils import VariadicArgs, VariadicKwargs, write_jsystem_padding
 from juniors_toolbox.utils.iohelper import read_float, read_ubyte, read_uint16, read_uint32, write_float, write_sbyte, write_ubyte, write_uint16, write_uint32
 from juniors_toolbox.utils.j3d.anim import general_animation as j3d
 from juniors_toolbox.utils.j3d.anim.general_animation import AnimComponent, BasicAnimation, combine_dicts, find_sequence, make_tangents, write_values
@@ -29,7 +29,7 @@ class BLK(BasicAnimation):
             self.tan_type = 1
     
     @classmethod
-    def from_bytes(cls, data: BinaryIO, *args, **kwargs):
+    def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **kwargs: VariadicKwargs):
         size = read_uint32(data)
         
         sectioncount = read_uint32(data)

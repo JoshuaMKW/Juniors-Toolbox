@@ -1,6 +1,0 @@
-Camera Map Info
-Position VEC3F
-Rotation VEC3F
-Type INT
-Unknown INT
-Unknown INT

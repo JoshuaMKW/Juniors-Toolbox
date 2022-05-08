@@ -1,0 +1,32 @@
+{
+    "Base Map Object Manager": {
+        "Structs": {
+        },
+        "Members": {
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "MaxObjs": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "ClipRadius": {
+                "Type": "FLOAT",
+                "ArraySize": 1
+            },
+            "FarClip": {
+                "Type": "FLOAT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Character": "アイテムマネージャー キャラ",
+                "MaxObjs": 32,
+                "ClipRadius": 290000,
+                "FarClip": 500
+            }
+        }
+    }
+}

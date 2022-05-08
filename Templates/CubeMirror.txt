@@ -1,2 +1,0 @@
-Mirror Cube Manager
-Default COMMENT true

@@ -1,0 +1,27 @@
+{
+    "Mother Noki Manager": {
+        "Structs": {
+        },
+        "Members": {
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "MaxObjs": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "MActorSets": {
+                "Type": "INT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Character": "赤ちゃんを抱くマレー女マネージャー キャラ",
+                "MaxObjs": 8,
+                "MActorSets": 0
+            }
+        }
+    }
+}

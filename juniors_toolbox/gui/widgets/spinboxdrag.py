@@ -5,7 +5,7 @@ from turtle import title
 
 from typing import List, Optional, Union
 
-from PySide6.QtCore import QLine, QModelIndex, QObject, Qt, QTimer, Signal, SignalInstance, Property, QPoint, QPointF
+from PySide6.QtCore import QLine, QModelIndex, QObject, Qt, QTimer, Signal, SignalInstance, Property, QPoint, QPointF, Slot
 from PySide6.QtGui import QColor, QCursor, QDragEnterEvent, QDropEvent, QKeyEvent, QUndoCommand, QUndoStack, QMouseEvent, QEventPoint
 from PySide6.QtWidgets import (QBoxLayout, QFormLayout, QFrame, QGridLayout,
                                QGroupBox, QHBoxLayout, QLabel, QLayout,
@@ -13,25 +13,24 @@ from PySide6.QtWidgets import (QBoxLayout, QFormLayout, QFrame, QGridLayout,
                                QScrollArea, QSizePolicy, QSpacerItem, QStyle,
                                QTreeWidget, QTreeWidgetItem,
                                QVBoxLayout, QWidget)
-from aenum import IntEnum
-
-from juniors_toolbox.gui import windows
+from enum import IntEnum
 
 
 class SpinBoxLineEdit(QLineEdit):
-    dragOffsetChanged: SignalInstance = Signal(float)
-    borderlessChanged: SignalInstance = Signal(bool)
+    dragOffsetChanged = Signal(float)
+    borderlessChanged = Signal(bool)
 
-    def __init__(self, isFloat: bool, min: int, max: int, parent: Optional[QWidget] = None):
+    def __init__(self, isFloat: bool, _min: int, _max: int, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self._klass_ = float if isFloat else int
-        self.min = min
-        self.max = max
-        self.__mouseLastPos = None
+        self._min = float(_min)
+        self._max = float(_max)
+        self.__mouseLastPos: QPoint = None
         self.__mouseLoopCounter = [0, 0]
         self._startValue = None
 
-    def mousePressEvent(self, event: QMouseEvent):
+    @Slot(QMouseEvent)
+    def mousePressEvent(self, event: QMouseEvent) -> None:
         super().mousePressEvent(event)
         if event.button() == Qt.MiddleButton:
             self.__mouseLastPos = event.pos()
@@ -39,7 +38,8 @@ class SpinBoxLineEdit(QLineEdit):
             self._startValue = self._klass_(self.text())
             self.selectAll()
 
-    def mouseMoveEvent(self, event: QMouseEvent):
+    @Slot(QMouseEvent)
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
         super().mouseMoveEvent(event)
 
         if self.__mouseLastPos is None:
@@ -55,9 +55,6 @@ class SpinBoxLineEdit(QLineEdit):
         window = JuniorsToolbox.get_instance_window()
         windowSize = window.size()
         titleHeight = QApplication.style().pixelMetric(QStyle.PM_TitleBarHeight)
-        cursor = self.cursor()
-        now = time.time_ns() / (10 ** 9) # convert to floating-point seconds
-
 
         point = event.point(0)
         pointPos = self.mapTo(window, point.position())
@@ -65,31 +62,29 @@ class SpinBoxLineEdit(QLineEdit):
         xLooped = 0
         if pointPos.x() < 0.0:
             self.__mouseLoopCounter[0] -= 1
-            cursor.setPos(
-                (window.pos().x() + windowSize.width()) - 1.0,
-                cursor.pos().y()
+            QCursor.setPos(
+                (window.pos().x() + windowSize.width()) - 1,
+                QCursor.pos().y()
             )
             xLooped = -1
         elif pointPos.x() > windowSize.width():
             self.__mouseLoopCounter[0] += 1
-            cursor.setPos(
-                window.pos().x() + 1.0,
-                cursor.pos().y()
+            QCursor.setPos(
+                window.pos().x() + 1,
+                QCursor.pos().y()
             )
             xLooped = 1
         if pointPos.y() < 0.0:
             self.__mouseLoopCounter[1] = min(max(self.__mouseLoopCounter[1] - 1, -2), 4)
-            print("down")
-            cursor.setPos(
-                cursor.pos().x(),
-                (window.pos().y() + windowSize.height() + titleHeight) - 1.0,
+            QCursor.setPos(
+                QCursor.pos().x(),
+                (window.pos().y() + windowSize.height() + titleHeight) - 1,
             )
         elif pointPos.y() > windowSize.height():
-            print("up")
             self.__mouseLoopCounter[1] = min(max(self.__mouseLoopCounter[1] + 1, -2), 4)
-            cursor.setPos(
-                cursor.pos().x(),
-                window.pos().y() + titleHeight + 6.0,
+            QCursor.setPos(
+                QCursor.pos().x(),
+                window.pos().y() + titleHeight + 6,
             )
         
         if self._klass_ == float:
@@ -107,7 +102,8 @@ class SpinBoxLineEdit(QLineEdit):
 
         event.accept()
 
-    def mouseReleaseEvent(self, event: QMouseEvent):
+    @Slot(QMouseEvent)
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MiddleButton:
             self.__mouseLastPos = None
             self.unsetCursor()
@@ -115,10 +111,10 @@ class SpinBoxLineEdit(QLineEdit):
         super().mouseReleaseEvent(event)
 
 class SpinBoxDragDouble(QDoubleSpinBox):
-    valueChangedExplicit: SignalInstance = Signal(QDoubleSpinBox, float)
-    contextUpdated: SignalInstance = Signal()
+    valueChangedExplicit = Signal(QDoubleSpinBox, float)
+    contextUpdated = Signal()
 
-    def __init__(self, isFloat: bool = True, parent: Optional[QWidget] = None):
+    def __init__(self, isFloat: bool = True, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setWrapping(True)
         
@@ -138,11 +134,11 @@ class SpinBoxDragDouble(QDoubleSpinBox):
     def is_float(self) -> bool:
         return self.__isFloat
 
-    def set_float(self, isFloat: bool):
+    def set_float(self, isFloat: bool) -> None:
         self.__isFloat = isFloat
         self.contextUpdated.emit()
 
-    def __update_bounds(self):
+    def __update_bounds(self) -> None:
         isFloat = self.__isFloat
         
         if isFloat:
@@ -159,10 +155,10 @@ class SpinBoxDragDouble(QDoubleSpinBox):
             )
 
         lineEdit = self.__lineEdit
-        lineEdit.min = self.minimum()
-        lineEdit.max = self.maximum()
+        lineEdit._min = self.minimum()
+        lineEdit._max = self.maximum()
 
-    def __update_value(self, offset: float):
+    def __update_value(self, offset: float) -> None:
         _min = self.minimum()
         _max = self.maximum()
         value = self.value() + offset
@@ -175,13 +171,13 @@ class SpinBoxDragDouble(QDoubleSpinBox):
             value = min(max(value, _min), _max)
         self.setValue(value)
 
-    def __catch_and_name_text(self, value: float):
+    def __catch_and_name_text(self, value: float) -> None:
         self.valueChangedExplicit.emit(self, value)
 
 
 class SpinBoxDragInt(QSpinBox):
-    valueChangedExplicit: SignalInstance = Signal(QSpinBox, int)
-    contextUpdated: SignalInstance = Signal()
+    valueChangedExplicit = Signal(QSpinBox, int)
+    contextUpdated = Signal()
 
     class IntSize(IntEnum):
         BYTE = 1
@@ -189,7 +185,7 @@ class SpinBoxDragInt(QSpinBox):
         WORD = 4
         LONG = 8
 
-    def __init__(self, intSize: IntSize = IntSize.WORD, signed: bool = True, parent: Optional[QWidget] = None):
+    def __init__(self, intSize: IntSize = IntSize.WORD, signed: bool = True, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setWrapping(True)
 
@@ -208,18 +204,18 @@ class SpinBoxDragInt(QSpinBox):
     def is_signed(self) -> bool:
         return self.__signed
 
-    def set_signed(self, signed: bool):
+    def set_signed(self, signed: bool) -> None:
         self.__signed = signed
         self.contextUpdated.emit()
 
     def int_size(self) -> IntSize:
         return self.__intSize
 
-    def set_int_size(self, size: IntSize):
+    def set_int_size(self, size: IntSize) -> None:
         self.__intSize = size
         self.contextUpdated.emit()
 
-    def __update_bounds(self):
+    def __update_bounds(self) -> None:
         intSize = self.__intSize
         signed = self.__signed
         
@@ -236,22 +232,12 @@ class SpinBoxDragInt(QSpinBox):
             elif intSize == SpinBoxDragInt.IntSize.LONG:
                 self.setMinimum(-0x8000000000000000)
                 self.setMaximum(0x7FFFFFFFFFFFFFFF)
-        else:
-            self.setMinimum(0)
-            if intSize == SpinBoxDragInt.IntSize.BYTE:
-                self.setMaximum(0xFF)
-            elif intSize == SpinBoxDragInt.IntSize.SHORT:
-                self.setMaximum(0xFFFF)
-            elif intSize == SpinBoxDragInt.IntSize.WORD:
-                self.setMaximum(0xFFFFFFFF)
-            elif intSize == SpinBoxDragInt.IntSize.LONG:
-                self.setMaximum(0xFFFFFFFFFFFFFFFF)
 
         lineEdit = self.__lineEdit
-        lineEdit.min = self.minimum()
-        lineEdit.max = self.maximum()
+        lineEdit._min = self.minimum()
+        lineEdit._max = self.maximum()
 
-    def __update_value(self, offset: float):
+    def __update_value(self, offset: float) -> None:
         offset = int(offset)
         _min = self.minimum()
         _max = self.maximum()
@@ -265,5 +251,5 @@ class SpinBoxDragInt(QSpinBox):
             value = min(max(value, _min), _max)
         self.setValue(value)
 
-    def __catch_and_name_text(self, value: int):
+    def __catch_and_name_text(self, value: int) -> None:
         self.valueChangedExplicit.emit(self, value)

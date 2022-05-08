@@ -44,4 +44,4 @@ class TextureData():
 class TexGenInfo:
     type: int = 0
     src: int = 0
-    matrix: MatrixType = 0
+    matrix: MatrixType = MatrixType.STANDARD

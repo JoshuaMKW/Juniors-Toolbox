@@ -1,0 +1,17 @@
+{
+    "Ocean Wave Effect": {
+        "Structs": {
+        },
+        "Members": {
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Character": "波 キャラ"
+            }
+        }
+    }
+}

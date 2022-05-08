@@ -2,7 +2,7 @@ from io import BytesIO
 import struct
 from typing import BinaryIO
 
-from juniors_toolbox.utils import Serializable, write_jsystem_padding, j3d
+from juniors_toolbox.utils import A_Serializable, VariadicArgs, VariadicKwargs, write_jsystem_padding, j3d
 from juniors_toolbox.utils.iohelper import read_float, read_sbyte, read_sint16, read_uint16, read_uint32, write_float, write_sbyte, write_sint16, write_ubyte, write_uint16, write_uint32
 from juniors_toolbox.utils.j3d.anim.general_animation import BCAFILEMAGIC, BasicAnimation, find_sequence
 
@@ -70,7 +70,7 @@ class BCA(BasicAnimation):
         self.animations = []
     
     @classmethod
-    def from_bytes(cls, data: BinaryIO, *args, **kwargs):
+    def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **kwargs: VariadicKwargs):
         size = read_uint32(data)
         #print("Size of btk: {} bytes".format(size))
         sectioncount = read_uint32(data)

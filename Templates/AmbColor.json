@@ -1,0 +1,22 @@
+{
+    "Ambient Color": {
+        "Structs": {
+        },
+        "Members": {
+            "Color": {
+                "Type": "RGBA8",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Color": [
+                    255,
+                    255,
+                    255,
+                    255
+                ]
+            }
+        }
+    }
+}

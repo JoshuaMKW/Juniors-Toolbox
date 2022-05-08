@@ -1,0 +1,68 @@
+{
+    "Electro-Koopa": {
+        "Structs": {
+        },
+        "Members": {
+            "Transform": {
+                "Type": "TRANSFORM",
+                "ArraySize": 1
+            },
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "!!!": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Manager": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "Rail": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "SpawnObjID": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "DisplayModel": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "DisplayTexture": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Transform": [
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        1,
+                        1,
+                        1
+                    ]
+                ],
+                "Character": "電気ノコノコマネージャー キャラ",
+                "!!!": 0,
+                "Manager": "電気ノコノコマネージャー",
+                "Rail": "(null)",
+                "SpawnObjID": -1,
+                "DisplayModel": "Generated from Bin Editor Template by Junior's Toolbox",
+                "DisplayTexture": "Generated from Bin Editor Template by Junior's Toolbox"
+            }
+        }
+    }
+}

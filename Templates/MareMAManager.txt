@@ -1,4 +1,0 @@
-Jellyfish Rider Noki (M) Manager
-Character STRING
-MaxObjs INT
-MActorSets INT

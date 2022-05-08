@@ -1,4 +1,0 @@
-Tramplin' Stu (2) Manager
-Character STRING
-MaxObjs INT
-MActorSets INT

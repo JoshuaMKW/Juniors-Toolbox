@@ -1,0 +1,27 @@
+{
+    "Swipin' Stu Manager": {
+        "Structs": {
+        },
+        "Members": {
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "MaxObjs": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "MActorSets": {
+                "Type": "INT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Character": "ドロクリマネージャー キャラ",
+                "MaxObjs": 10,
+                "MActorSets": 3
+            }
+        }
+    }
+}

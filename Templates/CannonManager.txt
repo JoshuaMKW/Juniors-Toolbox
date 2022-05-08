@@ -1,4 +1,0 @@
-Monty Mole Cannon Manager
-Character STRING
-MaxObjs INT
-MActorSets INT

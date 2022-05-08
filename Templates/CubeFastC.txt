@@ -1,2 +1,0 @@
-High Speed C Cube Manager
-Default COMMENT true

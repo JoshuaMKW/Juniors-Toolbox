@@ -1,0 +1,27 @@
+{
+    "Sign Manager": {
+        "Structs": {
+        },
+        "Members": {
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "MaxObjs": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "MActorSets": {
+                "Type": "INT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Character": "看板ＮＰＣマネージャー キャラ",
+                "MaxObjs": 32,
+                "MActorSets": 0
+            }
+        }
+    }
+}

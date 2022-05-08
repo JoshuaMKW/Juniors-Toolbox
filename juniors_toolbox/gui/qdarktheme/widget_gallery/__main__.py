@@ -1,7 +1,7 @@
 """Module allowing for `python -m qdarktheme.widget_gallery`."""
 import sys
 
-import qdarktheme
+from juniors_toolbox.gui.qdarktheme import load_stylesheet
 from juniors_toolbox.gui.qdarktheme.qtpy.QtCore import Qt
 from juniors_toolbox.gui.qdarktheme.qtpy.QtWidgets import QApplication
 from juniors_toolbox.gui.qdarktheme.widget_gallery.mainwindow import WidgetGallery

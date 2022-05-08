@@ -1,0 +1,73 @@
+{
+    "Item": {
+        "Structs": {
+        },
+        "Members": {
+            "Transform": {
+                "Type": "TRANSFORM",
+                "ArraySize": 1
+            },
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "!!!": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Model": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "mario_cap": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "normal_nozzle_item_tex": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "rocket_nozzle_item_tex": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "back_nozzle_item_tex": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "ForceDrawMode": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Mario's Cap": {
+                "Transform": [
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        1,
+                        1,
+                        1
+                    ]
+                ],
+                "Character": "マリオ帽子 キャラ",
+                "!!!": 0,
+                "Model": "mario_cap",
+                "mario_cap": "Generated from Bin Editor Template by Junior's Toolbox",
+                "normal_nozzle_item_tex": "Generated from Bin Editor Template by Junior's Toolbox",
+                "rocket_nozzle_item_tex": "Generated from Bin Editor Template by Junior's Toolbox",
+                "back_nozzle_item_tex": "Generated from Bin Editor Template by Junior's Toolbox",
+                "ForceDrawMode": "Generated from Bin Editor Template by Junior's Toolbox"
+            }
+        }
+    }
+}

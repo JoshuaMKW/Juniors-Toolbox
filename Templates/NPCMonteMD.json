@@ -1,0 +1,123 @@
+{
+    "Male Pianta (Tank Top)": {
+        "Structs": {
+        },
+        "Members": {
+            "Transform": {
+                "Type": "TRANSFORM",
+                "ArraySize": 1
+            },
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "!!!": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Manager": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "Rail": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "BodyColor": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "ClothesColor": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "PolluteState": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Acc1Color": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Acc2Color": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Acc3Color": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Accessory": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Idle": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Chucking": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "ThrowLength": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "ThrowHeight": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "RewardObjID": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "DisplayModel": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "ForceDrawMode": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Transform": [
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        1,
+                        1,
+                        1
+                    ]
+                ],
+                "Character": "ランニングモンテ男マネージャー キャラ",
+                "!!!": 0,
+                "Manager": "ランニングモンテ男マネージャー",
+                "Rail": "(null)",
+                "BodyColor": 0,
+                "ClothesColor": 0,
+                "PolluteState": 0,
+                "Acc1Color": 0,
+                "Acc2Color": 0,
+                "Acc3Color": 0,
+                "Accessory": -1,
+                "Idle": 120,
+                "Chucking": 100,
+                "ThrowLength": -1,
+                "ThrowHeight": 0,
+                "RewardObjID": -1,
+                "DisplayModel": "Generated from Bin Editor Template by Junior's Toolbox",
+                "ForceDrawMode": "Generated from Bin Editor Template by Junior's Toolbox"
+            }
+        }
+    }
+}

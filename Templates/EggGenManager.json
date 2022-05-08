@@ -1,0 +1,27 @@
+{
+    "Egg Generator Manager": {
+        "Structs": {
+        },
+        "Members": {
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "MaxObjs": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "MActorSets": {
+                "Type": "INT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Character": "ヨッシーの卵ジェネレーターマネージャー キャラ",
+                "MaxObjs": 3,
+                "MActorSets": 0
+            }
+        }
+    }
+}

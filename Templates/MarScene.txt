@@ -1,3 +1,0 @@
-Main Scene Group
-ID INT
-Default COMMENT true

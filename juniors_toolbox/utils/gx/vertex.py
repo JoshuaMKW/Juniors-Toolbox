@@ -282,10 +282,10 @@ def write_color_components(writer: BinaryIO, color: Color, _type: VertexBufferTy
 def write_generic_components(
     writer: BinaryIO,
     components: Tuple[int, object, glm]
-)
+): ...
 
 
 def writeComponents(
     writer: BinaryIO,
-    d: 
-)
+    d: object
+): ...

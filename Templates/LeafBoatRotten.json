@@ -1,0 +1,63 @@
+{
+    "Rotten Lily Pad": {
+        "Structs": {
+        },
+        "Members": {
+            "Transform": {
+                "Type": "TRANSFORM",
+                "ArraySize": 1
+            },
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "!!!": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Model": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "Timer": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "DisplayModel": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "DisplayTexture": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Transform": [
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        1,
+                        1,
+                        1
+                    ]
+                ],
+                "Character": "リーフボート キャラ",
+                "!!!": 0,
+                "Model": "LeafBoatRotten",
+                "Timer": 200,
+                "DisplayModel": "Generated from Bin Editor Template by Junior's Toolbox",
+                "DisplayTexture": "Generated from Bin Editor Template by Junior's Toolbox"
+            }
+        }
+    }
+}

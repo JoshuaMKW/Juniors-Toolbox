@@ -1,0 +1,17 @@
+{
+    "Scenario Archive Name": {
+        "Structs": {
+        },
+        "Members": {
+            "Name": {
+                "Type": "STRING",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Name": "Generated from Bin Editor Template by Junior's Toolbox"
+            }
+        }
+    }
+}

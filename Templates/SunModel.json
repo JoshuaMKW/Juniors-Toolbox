@@ -1,0 +1,53 @@
+{
+    "Sun": {
+        "Structs": {
+        },
+        "Members": {
+            "Transform": {
+                "Type": "TRANSFORM",
+                "ArraySize": 1
+            },
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "!!!": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "DisplayModel": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "ForceDrawMode": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Transform": [
+                    [
+                        200000,
+                        500000,
+                        200000
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        30,
+                        30,
+                        30
+                    ]
+                ],
+                "Character": "太陽モデル キャラ",
+                "!!!": 0,
+                "DisplayModel": "Generated from Bin Editor Template by Junior's Toolbox",
+                "ForceDrawMode": "Generated from Bin Editor Template by Junior's Toolbox"
+            }
+        }
+    }
+}

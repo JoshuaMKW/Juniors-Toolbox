@@ -1,0 +1,27 @@
+{
+    "Fish Manager": {
+        "Structs": {
+        },
+        "Members": {
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "MaxObjs": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "MActorSets": {
+                "Type": "INT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Character": "回遊魚マネージャー キャラ",
+                "MaxObjs": 10,
+                "MActorSets": 0
+            }
+        }
+    }
+}

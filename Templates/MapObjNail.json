@@ -1,0 +1,73 @@
+{
+    "Nail": {
+        "Structs": {
+        },
+        "Members": {
+            "Transform": {
+                "Type": "TRANSFORM",
+                "ArraySize": 1
+            },
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "!!!": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Model": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "SpawnObjID": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "SpawnLength": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "SpawnHeight": {
+                "Type": "FLOAT",
+                "ArraySize": 1
+            },
+            "SpawnDuration": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "DisplayModel": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Transform": [
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        1,
+                        1,
+                        1
+                    ]
+                ],
+                "Character": "釘 キャラ",
+                "!!!": 0,
+                "Model": "MapObjNail",
+                "SpawnObjID": -1,
+                "SpawnLength": 0,
+                "SpawnHeight": 17,
+                "SpawnDuration": 0,
+                "DisplayModel": "Generated from Bin Editor Template by Junior's Toolbox"
+            }
+        }
+    }
+}

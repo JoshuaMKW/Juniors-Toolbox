@@ -1,0 +1,27 @@
+{
+    "Bob-Omb Manager": {
+        "Structs": {
+        },
+        "Members": {
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "MaxObjs": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "MActorSets": {
+                "Type": "INT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Character": "ボム兵マネージャー キャラ",
+                "MaxObjs": 20,
+                "MActorSets": 0
+            }
+        }
+    }
+}

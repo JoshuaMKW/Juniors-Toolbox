@@ -1,0 +1,58 @@
+{
+    "Generator": {
+        "Structs": {
+        },
+        "Members": {
+            "Transform": {
+                "Type": "TRANSFORM",
+                "ArraySize": 1
+            },
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "!!!": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Rail": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "Spawn": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "SpawnSpeed": {
+                "Type": "INT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Transform": [
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        1,
+                        1,
+                        1
+                    ]
+                ],
+                "Character": "ジェネレーター キャラ",
+                "!!!": 0,
+                "Rail": "(null)",
+                "Spawn": "なし",
+                "SpawnSpeed": 120
+            }
+        }
+    }
+}

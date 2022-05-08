@@ -1,0 +1,63 @@
+{
+    "Fluff Manager": {
+        "Structs": {
+        },
+        "Members": {
+            "Transform": {
+                "Type": "TRANSFORM",
+                "ArraySize": 1
+            },
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "!!!": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Model": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "WindTime": {
+                "Type": "FLOAT",
+                "ArraySize": 1
+            },
+            "Unknown": {
+                "Type": "FLOAT",
+                "ArraySize": 1
+            },
+            "WindForce": {
+                "Type": "INT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Transform": [
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        1,
+                        1,
+                        1
+                    ]
+                ],
+                "Character": "わた毛 キャラ",
+                "!!!": 0,
+                "Model": "FluffManager",
+                "WindTime": 900,
+                "Unknown": 8,
+                "WindForce": 380
+            }
+        }
+    }
+}

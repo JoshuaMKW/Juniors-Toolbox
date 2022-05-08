@@ -1,0 +1,27 @@
+{
+    "Mirror Model Manager": {
+        "Structs": {
+        },
+        "Members": {
+            "Unknown": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Unknown2": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Unknown3": {
+                "Type": "INT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Unknown": 0,
+                "Unknown2": 0,
+                "Unknown3": 0
+            }
+        }
+    }
+}

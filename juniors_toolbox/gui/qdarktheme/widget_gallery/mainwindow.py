@@ -1,5 +1,5 @@
 """Main module of widget gallery."""
-import qdarktheme
+from juniors_toolbox.gui.qdarktheme import load_stylesheet
 from juniors_toolbox.gui.qdarktheme.qtpy.QtCore import QDir, Qt, Slot
 from juniors_toolbox.gui.qdarktheme.qtpy.QtGui import QAction, QActionGroup, QFont, QIcon
 from juniors_toolbox.gui.qdarktheme.qtpy.QtWidgets import (
@@ -130,20 +130,20 @@ class WidgetGallery(QMainWindow):
 
     def __init__(self) -> None:
         """Initialize the WidgetGallery class."""
-        super().__init__()
+        super().__init__() 
         QDir.addSearchPath("icons", f"{get_qdarktheme_root_path().as_posix()}/widget_gallery/svg")
         self._ui = _WidgetGalleryUI()
         self._ui.setup_ui(self)
 
         # Signal
         self._ui.action_open_folder.triggered.connect(
-            lambda: QFileDialog.getOpenFileName(self, "Open File", options=QFileDialog.Option.DontUseNativeDialog)
+            lambda: QFileDialog.getOpenFileName(self, "Open File", options=QFileDialog.DontUseNativeDialog)
         )
         self._ui.action_open_color_dialog.triggered.connect(
-            lambda: QColorDialog.getColor(parent=self, options=QColorDialog.ColorDialogOption.DontUseNativeDialog)
+            lambda: QColorDialog.getColor(parent=self, options=QColorDialog.DontUseNativeDialog)
         )
         self._ui.action_open_font_dialog.triggered.connect(
-            lambda: QFontDialog.getFont(QFont(), parent=self, options=QFontDialog.FontDialogOption.DontUseNativeDialog)
+            lambda: QFontDialog.getFont(QFont(), parent=self, options=QFontDialog.DontUseNativeDialog)
         )
         self._ui.action_enable.triggered.connect(self._toggle_state)
         self._ui.action_disable.triggered.connect(self._toggle_state)
@@ -156,7 +156,7 @@ class WidgetGallery(QMainWindow):
 
     @Slot()
     def _change_page(self) -> None:
-        action_name: str = self.sender().text()  # type: ignore
+        action_name: str = self.sender().text()
         if "widgets" in action_name:
             index = 0
         elif "dock" in action_name:
@@ -167,7 +167,7 @@ class WidgetGallery(QMainWindow):
 
     @Slot()
     def _toggle_state(self) -> None:
-        state: str = self.sender().text()  # type: ignore
+        state: str = self.sender().text()
         self._ui.central_window.centralWidget().setEnabled(state == "Enable")
         self._ui.toolbar.setEnabled(state == "Enable")
         self._ui.action_enable.setEnabled(state == "Disable")
@@ -176,12 +176,12 @@ class WidgetGallery(QMainWindow):
 
     @Slot()
     def _change_theme(self) -> None:
-        theme: str = self.sender().text()  # type: ignore
-        QApplication.instance().setStyleSheet(qdarktheme.load_stylesheet(theme))
+        theme: str = self.sender().text()
+        QApplication.instance().setStyleSheet(load_stylesheet(theme))
 
     @Slot()
     def _popup_message_box(self) -> None:
-        action_name: str = self.sender().text()  # type: ignore
+        action_name: str = self.sender().text()
         if "question" in action_name:
             QMessageBox.question(self, "Question", "Question")
         elif "information" in action_name:

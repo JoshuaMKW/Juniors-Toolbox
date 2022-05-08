@@ -1,7 +1,7 @@
 from io import BytesIO
 import struct
 from typing import BinaryIO
-from juniors_toolbox.utils import write_jsystem_padding
+from juniors_toolbox.utils import VariadicArgs, VariadicKwargs, write_jsystem_padding
 #from collections import OrderedDict
 
 
@@ -46,7 +46,7 @@ class BVA(BasicAnimation):
         #self.unknown_address = unknown_address
 
     @classmethod
-    def from_bytes(cls, data: BinaryIO, *args, **kwargs):
+    def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **kwargs: VariadicKwargs):
         size = read_uint32(data)
         #print("Size of brk: {} bytes".format(size))
         sectioncount = read_uint32(data)

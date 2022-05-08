@@ -1,9 +1,0 @@
-RailBlock
-Transform TEMPLATE {
-    Position VEC3F
-    Rotation VEC3F
-    Scale VEC3F
-}
-Manager STRING
-Unknown INT
-Model STRING

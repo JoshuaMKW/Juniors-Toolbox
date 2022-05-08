@@ -1,0 +1,22 @@
+{
+    "Pole Manager": {
+        "Structs": {
+        },
+        "Members": {
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "MaxObjs": {
+                "Type": "INT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Character": "ポールマネージャー キャラ",
+                "MaxObjs": 100
+            }
+        }
+    }
+}

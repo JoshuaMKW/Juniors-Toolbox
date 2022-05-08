@@ -1,0 +1,78 @@
+{
+    "Wooden Box": {
+        "Structs": {
+        },
+        "Members": {
+            "Transform": {
+                "Type": "TRANSFORM",
+                "ArraySize": 1
+            },
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "!!!": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Model": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "SpawnObjID": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "SpawnLength": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "SpawnHeight": {
+                "Type": "FLOAT",
+                "ArraySize": 1
+            },
+            "SpawnDuration": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "DisplayModel": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "DisplayTexture": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Transform": [
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        1,
+                        1,
+                        1
+                    ]
+                ],
+                "Character": "木箱（偽物） キャラ",
+                "!!!": 0,
+                "Model": "WoodBox",
+                "SpawnObjID": -1,
+                "SpawnLength": 100,
+                "SpawnHeight": -1,
+                "SpawnDuration": 120,
+                "DisplayModel": "Generated from Bin Editor Template by Junior's Toolbox",
+                "DisplayTexture": "Generated from Bin Editor Template by Junior's Toolbox"
+            }
+        }
+    }
+}

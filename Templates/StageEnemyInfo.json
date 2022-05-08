@@ -1,0 +1,27 @@
+{
+    "Enemy Stage Spawn Info": {
+        "Structs": {
+        },
+        "Members": {
+            "Enemy": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "GoopSpawn": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "SpawnRate": {
+                "Type": "INT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Enemy": "Generated from Bin Editor Template by Junior's Toolbox",
+                "GoopSpawn": 0,
+                "SpawnRate": 0
+            }
+        }
+    }
+}

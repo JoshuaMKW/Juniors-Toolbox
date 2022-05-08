@@ -1,0 +1,108 @@
+{
+    "Static Map Object": {
+        "Structs": {
+        },
+        "Members": {
+            "Transform": {
+                "Type": "TRANSFORM",
+                "ArraySize": 1
+            },
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "!!!": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "Model": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "BiancoRiver": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "BiaWaterPollution": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "riccoSeaPollutionS0": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "riccoSeaPollutionS1": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "riccoSeaPollutionS2": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "riccoSeaPollutionS3": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "riccoSeaPollutionS4": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "Mare5ExGate": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "mareSeaPollutionS0": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "mareSeaPollutionS12": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "MonteRiver": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            },
+            "ForceDrawMode": {
+                "Type": "COMMENT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Corona Mountain Smoke": {
+                "Transform": [
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        1,
+                        1,
+                        1
+                    ]
+                ],
+                "Character": "TopOfCorona キャラ",
+                "!!!": 0,
+                "Model": "TopOfCorona",
+                "BiancoRiver": "Generated from Bin Editor Template by Junior's Toolbox",
+                "BiaWaterPollution": "Generated from Bin Editor Template by Junior's Toolbox",
+                "riccoSeaPollutionS0": "Generated from Bin Editor Template by Junior's Toolbox",
+                "riccoSeaPollutionS1": "Generated from Bin Editor Template by Junior's Toolbox",
+                "riccoSeaPollutionS2": "Generated from Bin Editor Template by Junior's Toolbox",
+                "riccoSeaPollutionS3": "Generated from Bin Editor Template by Junior's Toolbox",
+                "riccoSeaPollutionS4": "Generated from Bin Editor Template by Junior's Toolbox",
+                "Mare5ExGate": "Generated from Bin Editor Template by Junior's Toolbox",
+                "mareSeaPollutionS0": "Generated from Bin Editor Template by Junior's Toolbox",
+                "mareSeaPollutionS12": "Generated from Bin Editor Template by Junior's Toolbox",
+                "MonteRiver": "Generated from Bin Editor Template by Junior's Toolbox",
+                "ForceDrawMode": "Generated from Bin Editor Template by Junior's Toolbox"
+            }
+        }
+    }
+}

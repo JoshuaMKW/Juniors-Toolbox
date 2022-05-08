@@ -10,13 +10,13 @@ from OpenGL.GL import *
 from OpenGL.GLU import *
 from OpenGL.GLUT import *
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QDialog, QSizePolicy
+from PySide6.QtWidgets import QDialog, QSizePolicy, QWidget
 from PySide6.QtOpenGLWidgets import QOpenGLWidget
 from pyrr import Vector3, Vector4, Matrix33, Matrix44
 from juniors_toolbox.utils.gx.color import ColorF32, Color
-from juniors_toolbox.gui.tabs.generic import GenericTabWidget
+from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.utils.types import Transform, Vec2f, Vec3f
-from juniors_toolbox.objects.object import GameObject
+from juniors_toolbox.objects.object import MapObject
 from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.utils.filesystem import resource_path
 from juniors_toolbox.utils.j3d.bmd import BMD
@@ -123,7 +123,7 @@ class SpotLight():
     distattn: Vec3f
 
     @classmethod
-    def from_light_obj(cls, light: GameObject) -> "SpotLight":
+    def from_light_obj(cls, light: MapObject) -> "SpotLight":
         pos: Vec3f = light.get_value("Position")
 
         splight = cls(
@@ -204,8 +204,8 @@ class SceneCamera():
 
     def get_view_matrix(self) -> Matrix44:
         return Matrix44.look_at(
-            self.transform.position,
-            self.transform.position + self.transform.forward,
+            self.transform.translation,
+            self.transform.translation + self.transform.forward,
             self.transform.up
         )
 
@@ -247,7 +247,7 @@ class SceneCamera():
             model.render(lights, ambLights, self._renderStyle)
 
 
-class SceneRendererWidget(QOpenGLWidget, GenericTabWidget):
+class SceneRendererWidget(A_DockingInterface):
     MAP_FILE = "map.bmd"
     SKY_FILE = "sky.bmd"
     SEA_FILE = "sea.bmd"
@@ -256,10 +256,13 @@ class SceneRendererWidget(QOpenGLWidget, GenericTabWidget):
     SEAANIM_FILE = "sea.btk"
     WAVEIMG_FILE = "wave.bti"
 
-    def __init__(self, parent=None):
-        super().__init__(parent)
+    def __init__(self, title: str = "", parent: Optional[QWidget] = None):
+        super().__init__(title, parent)
         self.setObjectName(self.__class__.__name__)
-        self.setMinimumSize(640, 480)
+
+        self.openGLView = QOpenGLWidget()
+        self.openGLView.setMinimumSize(640, 480)
+        self.setWidget(self.openGLView)
         #self.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
         self.reset_shaders()
 
@@ -321,7 +324,7 @@ class SceneRendererWidget(QOpenGLWidget, GenericTabWidget):
     def fragmentShader(self, shader: str):
         self._fragmentShader = shader
 
-    def add_light(self, light: GameObject):
+    def add_light(self, light: MapObject):
         if light.name == "AmbColor":
             color: Color = light.get_value("Color")
             self.ambLights[light.get_explicit_name(
@@ -359,7 +362,7 @@ class SceneRendererWidget(QOpenGLWidget, GenericTabWidget):
 
         self.lightingShader.use()
         self.lightingShader.setVec3(
-            "u_viewPos", self.camera.transform.position)
+            "u_viewPos", self.camera.transform.translation)
 
         glMatrixMode(GL_MODELVIEW_MATRIX)
 
@@ -373,7 +376,7 @@ class SceneRendererWidget(QOpenGLWidget, GenericTabWidget):
         print(relPos)
 
     def initializeGL(self):
-        self.camera.transform.position = Vec3f(0, 0, 0)
+        self.camera.transform.translation = Vec3f(0, 0, 0)
         self.lightingShader = self.compile_shader_program()
         self.lightingShader.use()
         glEnable(GL_DEPTH_TEST)

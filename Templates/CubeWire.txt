@@ -1,2 +1,0 @@
-Wire Cube Manager
-Default COMMENT true

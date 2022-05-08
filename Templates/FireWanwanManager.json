@@ -1,0 +1,27 @@
+{
+    "Chain Chomplet Manager": {
+        "Structs": {
+        },
+        "Members": {
+            "Character": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "MaxObjs": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "MActorSets": {
+                "Type": "INT",
+                "ArraySize": 1
+            }
+        },
+        "Wizard": {
+            "Default": {
+                "Character": "ファイアーわんわんマネージャー キャラ",
+                "MaxObjs": 30,
+                "MActorSets": 0
+            }
+        }
+    }
+}
