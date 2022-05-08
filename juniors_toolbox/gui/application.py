@@ -90,7 +90,6 @@ class JuniorsToolbox(QApplication):
             if not fontFile.is_file():
                 continue
             id = QFontDatabase.addApplicationFont(str(fontFile))
-            print(QFontDatabase.applicationFontFamilies(id))
 
     # --- GETTER / SETTER --- #
 

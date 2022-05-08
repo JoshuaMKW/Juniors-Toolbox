@@ -764,8 +764,5 @@ class PropertyFactory():
                 name, readOnly
             )
 
-        try:
-            prop.set_value(value)
-        except UnboundLocalError:
-            print(valueType)
+        prop.set_value(value)
         return prop

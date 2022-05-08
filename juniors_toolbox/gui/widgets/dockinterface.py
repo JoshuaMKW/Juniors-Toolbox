@@ -40,7 +40,6 @@ class A_DockingInterface(QDockWidget, ABCWidget):
     @Slot(QResizeEvent)
     def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
-        print(event.size(), self.minimumSizeHint())
         self.resized.emit(event)
 
     def y_contains(self, y: int, h: int) -> bool:

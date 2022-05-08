@@ -49,7 +49,7 @@ class SMSScene():
             while f.tell() < end:
                 obj = ObjectFactory.create_object_f(f)
                 if obj is not None:
-                    this._objects.append(obj)
+                    this._tables.append(obj)
 
         return this
 

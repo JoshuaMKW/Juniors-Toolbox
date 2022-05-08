@@ -9,7 +9,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from queue import LifoQueue
 
 from PySide6.QtCore import Qt, QTimer, Slot
-from PySide6.QtGui import QDragEnterEvent, QDropEvent, QKeyEvent, QUndoCommand, QUndoStack, QDragMoveEvent, QDragLeaveEvent
+from PySide6.QtGui import QDragEnterEvent, QDropEvent, QKeyEvent, QUndoCommand, QUndoStack, QDragMoveEvent, QDragLeaveEvent, QColor
 from PySide6.QtWidgets import (QFormLayout, QFrame, QGridLayout, QComboBox,
                                QLabel, QScrollArea,
                                QTreeWidget, QTreeWidgetItem, QWidget)
@@ -117,19 +117,26 @@ class NameRefHierarchyWidget(A_DockingInterface):
         if scene is None:
             return
 
+        objectsNode = QTreeWidgetItem()
+        objectsNode.setText(0, "Objects")
         for obj in scene.iter_objects():
             node = NameRefHierarchyWidgetItem(obj)
             node.setText(0, obj.get_explicit_name())
-            self.treeWidget.addTopLevelItem(node)
+            node.setBackground(0, QColor(255, 255, 0, 128))
+            objectsNode.addChild(node)
             if obj.is_group():
                 inner_populate(obj, node, 0)
+        self.treeWidget.addTopLevelItem(objectsNode)
 
+        tablesNode = QTreeWidgetItem()
+        tablesNode.setText(0, "Tables")
         for table in scene.iter_tables():
             node = NameRefHierarchyWidgetItem(table)
             node.setText(0, table.get_explicit_name())
-            self.treeWidget.addTopLevelItem(node)
+            tablesNode.addChild(node)
             if table.is_group():
                 inner_populate(table, node, 0)
+        self.treeWidget.addTopLevelItem(tablesNode)
 
         # self.expandAll()
 
@@ -138,6 +145,9 @@ class NameRefHierarchyWidget(A_DockingInterface):
         from juniors_toolbox.gui.tabs import TabWidgetManager
         propertiesTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
         if propertiesTab is None or item is None:
+            return
+
+        if item.parent() is None:
             return
         
         sceneObj = item.object
