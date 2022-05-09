@@ -148,8 +148,6 @@ class A_SceneObject(jdrama.NameRef, ABC):
         """
         data = BytesIO()
         for member in self.get_members(includeArrays=False):
-            if self.get_ref() == "MarioPositionObj":
-                print(member.get_qualified_name(), member.get_value())
             if member.get_formatted_name() == "PoleLength" and self.get_ref() == "MapObjBase" and self.key.get_ref() != "AirportPole":
                 continue
             member.save(data)
@@ -159,11 +157,8 @@ class A_SceneObject(jdrama.NameRef, ABC):
         """
         Check if a named value exists in this object
         """
-        if any(name == m.get_qualified_name() for m in self._members):
-            return True
-
         for member in self._members:
-            for i in range(1, member.get_array_size()):
+            for i in range(member.get_array_size()):
                 if member[i].get_qualified_name() == name:
                     return True
 
@@ -613,7 +608,7 @@ class GroupObject(A_SceneObject):
         for g in self._grouped:
             yield g
             if deep and g.is_group():
-                yield from g.iter_grouped_children()
+                yield from g.iter_grouped_children(deep=True)
 
     def search(self, name: str, /) -> Optional["A_SceneObject"]:
         for subobj in self.iter_grouped_children():

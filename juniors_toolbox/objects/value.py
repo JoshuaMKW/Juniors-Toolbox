@@ -376,8 +376,7 @@ class A_Member(A_Clonable, ABC):
         if oldParent is not None:
             oldParent.remove_child(self)
 
-        self._parent = parent
-        for i in range(1, self.get_array_size()):
+        for i in range(self.get_array_size()):
             self[i]._parent = parent
 
         return True
@@ -403,8 +402,7 @@ class A_Member(A_Clonable, ABC):
         if isinstance(self._arraySize, int):
             return self._arraySize if self._arraySize > 0 else 127
 
-        arraySize = int(self._arraySize._value)
-        return arraySize if arraySize > 0 else 127
+        return int(self._arraySize._value)
 
     def set_array_size(self, arraySize: int | "MemberValue") -> None:
         """
@@ -566,8 +564,7 @@ class MemberValue(A_Member):
             self[i]._value = TEMPLATE_TYPE_READ_TABLE[self._type](stream)
 
     def save(self, stream: BinaryIO) -> None:
-        TEMPLATE_TYPE_WRITE_TABLE[self._type](stream, self._value)
-        for i in range(1, self.get_array_size()):
+        for i in range(self.get_array_size()):
             if i > len(self._arrayInstances):
                 break
             TEMPLATE_TYPE_WRITE_TABLE[self._type](stream, self[i]._value)
@@ -594,11 +591,8 @@ class MemberStruct(A_Member):
         return True
 
     def has_child(self, name: str) -> bool:
-        if name in self._children:
-            return True
-
         for child in self._children.values():
-            for _ in range(1, child.get_array_size()):
+            for _ in range(child.get_array_size()):
                 if child.get_formatted_name() == name:
                     return True
 
@@ -627,9 +621,8 @@ class MemberStruct(A_Member):
 
     def get_children(self, includeArrays: bool = True) -> Iterable["A_Member"]:
         for child in self._children.values():
-            yield child
-            if includeArrays:
-                for i in range(1, child.get_array_size()):
+            for i in range(child.get_array_size()):
+                if i == 0 or includeArrays:
                     yield child[i]
 
     def get_data_size(self) -> int:

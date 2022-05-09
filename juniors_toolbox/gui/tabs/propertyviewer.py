@@ -74,11 +74,9 @@ class SelectedPropertiesWidget(A_DockingInterface):
 
     def populate(self, scene: Optional[SMSScene], *args: VariadicArgs, **kwargs: VariadicKwargs) -> None:
         data: List[A_ValueProperty] = kwargs.get("properties", [])
+        self.__populate_properties(data)
         if "title" in kwargs:
             self.setWindowTitle(kwargs["title"])
-        else:
-            self.setWindowTitle(self.__defaultTitle)
-        self.__populate_properties(data)
     
     def reset(self) -> None:
         clear_layout(self.gridLayout)

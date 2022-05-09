@@ -170,7 +170,6 @@ class NameRefHierarchyWidget(A_DockingInterface):
 
         if item.parent() is None:
             metadataProperties = []
-            scene.save_objects(Path("sussybaka.bin"))
             if item.text(0) == "Objects":
                 title = "Object Hierarchy Properties"
                 metadataProperties.append(
@@ -223,6 +222,7 @@ class NameRefHierarchyWidget(A_DockingInterface):
                 )
             propertiesTab.populate(
                 scene, properties=metadataProperties, title=title)
+            return
 
         sceneObj = item.object
         title = f"{sceneObj.get_explicit_name()} Properties"
