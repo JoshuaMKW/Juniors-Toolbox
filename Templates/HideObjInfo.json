@@ -1,6 +1,16 @@
 {
     "Hidden Object (Switch)": {
         "Structs": {
+            "LightInfo": {
+                "ID": {
+                    "Type": "INT",
+                    "ArraySize": 1
+                },
+                "Name": {
+                    "Type": "STRING",
+                    "ArraySize": 1
+                }
+            }
         },
         "Members": {
             "Transform": {
@@ -11,9 +21,13 @@
                 "Type": "STRING",
                 "ArraySize": 1
             },
-            "!!!": {
+            "LightCount": {
                 "Type": "INT",
                 "ArraySize": 1
+            },
+            "Lights": {
+                "Type": "LightInfo",
+                "ArraySize": "LightCount"
             },
             "SpawnObjID": {
                 "Type": "INT",
@@ -52,7 +66,11 @@
                     ]
                 ],
                 "Character": "コイン（オブジェスイッチ用） キャラ",
-                "!!!": 0,
+                "LightCount": 0,
+                "Lights": {
+                    "ID": 0,
+                    "Name": "LightX"
+                },
                 "SpawnObjID": -1,
                 "SpawnLength": 100,
                 "SpawnHeight": -1,
