@@ -192,7 +192,7 @@ class NameRefHierarchyWidget(A_DockingInterface):
                     name="Unique Objects",
                     readOnly=False
                 )
-                for uniqueRef in scene.get_unique_object_refs():
+                for uniqueRef in scene.get_unique_object_refs(alphanumeric=True):
                     uniqueObjList.add_property(
                         PropertyFactory.create_property(
                             name=uniqueRef,
@@ -212,6 +212,10 @@ class NameRefHierarchyWidget(A_DockingInterface):
                         readOnly=True
                     )
                 )
+                uniqueTableList = StringListProperty(
+                    name="Unique Objects",
+                    readOnly=False
+                )
                 metadataProperties.append(
                     PropertyFactory.create_property(
                         name="Table Data Size",
@@ -220,6 +224,16 @@ class NameRefHierarchyWidget(A_DockingInterface):
                         readOnly=True
                     )
                 )
+                for uniqueRef in scene.get_unique_table_refs(alphanumeric=True):
+                    uniqueTableList.add_property(
+                        PropertyFactory.create_property(
+                            name=uniqueRef,
+                            valueType=ValueType.COMMENT,
+                            value=uniqueRef,
+                            readOnly=True
+                        )
+                    )
+                metadataProperties.append(uniqueTableList)
             propertiesTab.populate(
                 scene, properties=metadataProperties, title=title)
             return

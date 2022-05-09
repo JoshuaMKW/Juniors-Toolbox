@@ -131,16 +131,18 @@ class SMSScene():
             i += 1
         return i
 
-    def get_unique_object_refs(self) -> list[str]:
+    def get_unique_object_refs(self, *, alphanumeric: bool = False) -> list[str]:
         refs = []
         for obj in self.iter_objects(deep=True):
             print(obj)
             if obj.get_ref() not in refs:
                 refs.append(obj.get_ref())
+        if alphanumeric:
+            refs.sort()
         return refs
 
-    def get_unique_object_manager_refs(self) -> list[str]:
-        uniqueRefs = self.get_unique_object_refs()
+    def get_unique_object_manager_refs(self, *, alphanumeric: bool = False) -> list[str]:
+        uniqueRefs = self.get_unique_object_refs(alphanumeric=alphanumeric)
         uniqueManagerRefs = []
         for ref in uniqueRefs:
             if ref.endswith("Manager"):
@@ -149,15 +151,17 @@ class SMSScene():
 
     def get_table_count(self) -> int:
         i = 0
-        for _ in self.iter_objects(deep=True):
+        for _ in self.iter_tables(deep=True):
             i += 1
         return i
 
-    def get_unique_table_refs(self) -> list[str]:
+    def get_unique_table_refs(self, *, alphanumeric: bool = False) -> list[str]:
         refs = []
         for obj in self.iter_tables(deep=True):
             if obj.get_ref() not in refs:
                 refs.append(obj.get_ref())
+        if alphanumeric:
+            refs.sort()
         return refs
 
     def get_rail_count(self) -> int:
