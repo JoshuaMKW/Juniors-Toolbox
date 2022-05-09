@@ -82,7 +82,10 @@ class SelectedPropertiesWidget(A_DockingInterface):
     
     def reset(self) -> None:
         clear_layout(self.gridLayout)
+        self.scrollArea.setWidgetResizable(True)
+        self.scrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.scrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.setWindowTitle(self.__defaultTitle)
 
     def __populate_properties(self, properties: List[A_ValueProperty]) -> None:
         self.reset()

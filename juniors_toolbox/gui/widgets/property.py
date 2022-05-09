@@ -586,18 +586,18 @@ class StructProperty(A_ValueProperty):
     def is_container(self) -> bool:
         return True
 
-    def get_properties(self, *, deep: bool = True) -> Iterable["A_ValueProperty"]:
+    def get_properties(self, *, deep: bool = True) -> Iterable[A_ValueProperty]:
         for prop in self._properties.values():
             yield prop
             if deep:
                 yield from prop.get_properties()
 
-    def get_property(self, name: QualifiedName) -> Optional["A_ValueProperty"]:
+    def get_property(self, name: QualifiedName) -> Optional[A_ValueProperty]:
         qualname = str(name)
         if qualname in self._properties:
             return self._properties[qualname]
 
-        def _search(prop: "StructProperty") -> Optional["A_ValueProperty"]:
+        def _search(prop: "StructProperty") -> Optional[A_ValueProperty]:
             for p in prop._properties.values():
                 if p.get_qualified_name() == name:
                     return p
@@ -607,7 +607,7 @@ class StructProperty(A_ValueProperty):
 
         return _search(self)
 
-    def add_property(self, prop: "A_ValueProperty"):
+    def add_property(self, prop: A_ValueProperty):
         if not isinstance(prop, A_ValueProperty):
             raise TypeError("StructProperty can only contain properties")
         if prop.is_container():

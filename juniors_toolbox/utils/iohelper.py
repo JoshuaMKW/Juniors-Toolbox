@@ -9,10 +9,10 @@ def read_sbyte(f: BinaryIO):
 
 
 def write_sbyte(f: BinaryIO, val: Union[int, List[int]]):
-    tag = ">b"
-    if isinstance(val, list):
-        tag = ">" + ("b"*len(val))
-    f.write(struct.pack(tag, val))
+    if isinstance(val, (list, tuple)):
+        f.write(struct.pack(">" + ("b"*len(val)), *val))
+        return
+    f.write(struct.pack(">b", val))
 
 
 def read_sint16(f: BinaryIO):
@@ -20,10 +20,10 @@ def read_sint16(f: BinaryIO):
 
 
 def write_sint16(f: BinaryIO, val: Union[int, List[int]]):
-    tag = ">h"
-    if isinstance(val, list):
-        tag = ">" + ("h"*len(val))
-    f.write(struct.pack(tag, val))
+    if isinstance(val, (list, tuple)):
+        f.write(struct.pack(">" + ("h"*len(val)), *val))
+        return
+    f.write(struct.pack(">h", val))
 
 
 def read_sint32(f: BinaryIO):
@@ -31,10 +31,10 @@ def read_sint32(f: BinaryIO):
 
 
 def write_sint32(f: BinaryIO, val: Union[int, List[int]]):
-    tag = ">i"
-    if isinstance(val, list):
-        tag = ">" + ("i"*len(val))
-    f.write(struct.pack(tag, val))
+    if isinstance(val, (list, tuple)):
+        f.write(struct.pack(">" + ("i"*len(val)), *val))
+        return
+    f.write(struct.pack(">i", val))
 
 
 def read_ubyte(f: BinaryIO):
@@ -42,10 +42,10 @@ def read_ubyte(f: BinaryIO):
 
 
 def write_ubyte(f: BinaryIO, val: Union[int, List[int]]):
-    tag = ">B"
-    if isinstance(val, list):
-        tag = ">" + ("B"*len(val))
-    f.write(struct.pack(tag, val))
+    if isinstance(val, (list, tuple)):
+        f.write(struct.pack(">" + ("B"*len(val)), *val))
+        return
+    f.write(struct.pack(">B", val))
 
 
 def read_uint16(f: BinaryIO):
@@ -53,10 +53,10 @@ def read_uint16(f: BinaryIO):
 
 
 def write_uint16(f: BinaryIO, val: Union[int, List[int]]):
-    tag = ">H"
-    if isinstance(val, list):
-        tag = ">" + ("H"*len(val))
-    f.write(struct.pack(tag, val))
+    if isinstance(val, (list, tuple)):
+        f.write(struct.pack(">" + ("H"*len(val)), *val))
+        return
+    f.write(struct.pack(">H", val))
 
 
 def read_uint32(f: BinaryIO):
@@ -64,10 +64,10 @@ def read_uint32(f: BinaryIO):
 
 
 def write_uint32(f: BinaryIO, val: Union[int, List[int]]):
-    tag = ">I"
-    if isinstance(val, list):
-        tag = ">" + ("I"*len(val))
-    f.write(struct.pack(tag, val))
+    if isinstance(val, (list, tuple)):
+        f.write(struct.pack(">" + ("I"*len(val)), *val))
+        return
+    f.write(struct.pack(">I", val))
 
 
 def read_float(f: BinaryIO):
@@ -75,10 +75,10 @@ def read_float(f: BinaryIO):
 
 
 def write_float(f: BinaryIO, val: Union[float, List[float]]):
-    tag = ">f"
-    if isinstance(val, list):
-        tag = ">" + ("f"*len(val))
-    f.write(struct.pack(tag, val))
+    if isinstance(val, (list, tuple)):
+        f.write(struct.pack(">" + ("f"*len(val)), *val))
+        return
+    f.write(struct.pack(">f", val))
 
 
 def read_double(f: BinaryIO):
@@ -86,18 +86,18 @@ def read_double(f: BinaryIO):
 
 
 def write_double(f: BinaryIO, val: Union[float, List[float]]):
-    tag = ">d"
-    if isinstance(val, list):
-        tag = ">" + ("d"*len(val))
-    f.write(struct.pack(tag, val))
+    if isinstance(val, (list, tuple)):
+        f.write(struct.pack(">" + ("d"*len(val)), *val))
+        return
+    f.write(struct.pack(">d", val))
 
 
 def read_vec3f(f: BinaryIO):
     return struct.unpack(">fff", f.read(12))
 
 
-def write_vec3f(f: BinaryIO, val: list):
-    f.write(struct.pack(">fff", val))
+def write_vec3f(f: BinaryIO, val: (list, tuple)):
+    f.write(struct.pack(">fff", *val))
 
 
 def read_bool(f: BinaryIO, vSize: int = 1):

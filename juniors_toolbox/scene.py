@@ -6,6 +6,7 @@ from typing import BinaryIO, Iterable, List, Optional, TextIO
 
 from juniors_toolbox.objects.object import A_SceneObject, MapObject, ObjectFactory
 from juniors_toolbox.rail import Rail, RalData
+from juniors_toolbox.utils.iohelper import write_uint16, write_uint32
 
 class SMSScene():
     BIN_PARAM_PATH = Path("Parameters")
@@ -52,36 +53,6 @@ class SMSScene():
                     this._tables.append(obj)
 
         return this
-
-    def reset(self) -> None:
-        """
-        Reset the scene back to an empty state
-        """
-        self._objects: List[A_SceneObject] = []
-        self._tables: List[A_SceneObject] = []
-        self._raildata = RalData()
-
-    def dump(self, out: Optional[TextIO] = None, indentwidth: int = 2) -> None:
-        """
-        Dump a map of this scene to the stream `out`
-        """
-        if out is None:
-            out = sys.stdout
-
-        for obj in self.iter_objects():
-            obj.print_map(
-                out,
-                indention=0,
-                indentionWidth=indentwidth
-            )
-        for table in self.iter_tables():
-            table.print_map(
-                out,
-                indention=0,
-                indentionWidth=indentwidth
-            )
-        for rail in self.iter_rails():
-            out.write(rail.name + "\n")
 
     def iter_objects(self, deep: bool = False) -> Iterable[A_SceneObject]:
         for obj in self._objects:
@@ -150,6 +121,99 @@ class SMSScene():
                 self._raildata._rails.remove(r)
                 return True
         return False
+
+    def get_object_count(self) -> int:
+        """
+        Get the number of objects in this scene
+        """
+        i = 0
+        for _ in self.iter_objects(deep=True):
+            i += 1
+        return i
+
+    def get_unique_object_refs(self) -> list[str]:
+        refs = []
+        for obj in self.iter_objects(deep=True):
+            if obj.get_ref() not in refs:
+                refs.append(obj.get_ref())
+        return refs
+
+    def get_unique_object_manager_refs(self) -> list[str]:
+        uniqueRefs = self.get_unique_object_refs()
+        uniqueManagerRefs = []
+        for ref in uniqueRefs:
+            if ref.endswith("Manager"):
+                uniqueManagerRefs.append(ref)
+        return uniqueManagerRefs
+
+    def get_table_count(self) -> int:
+        i = 0
+        for _ in self.iter_objects(deep=True):
+            i += 1
+        return i
+
+    def get_unique_table_refs(self) -> list[str]:
+        refs = []
+        for obj in self.iter_tables(deep=True):
+            if obj.get_ref() not in refs:
+                refs.append(obj.get_ref())
+        return refs
+
+    def get_rail_count(self) -> int:
+        """
+        Get the number of rails in this scene
+        """
+        i = 0
+        for _ in self.iter_rails():
+            i += 1
+        return i
+
+    def save_objects(self, scene: Path) -> bool:
+        if scene.suffix == ".bin":
+            objPath = scene
+        else:
+            if not scene.is_dir():
+                return False
+            objPath = scene / "map/scene.bin"
+
+        if not objPath.parent.exists():
+            return False
+
+        with objPath.open("wb") as f:
+            for obj in self.iter_objects():
+                f.write(obj.to_bytes())
+
+        return True
+
+    def reset(self) -> None:
+        """
+        Reset the scene back to an empty state
+        """
+        self._objects: List[A_SceneObject] = []
+        self._tables: List[A_SceneObject] = []
+        self._raildata = RalData()
+
+    def dump(self, out: Optional[TextIO] = None, indentwidth: int = 2) -> None:
+        """
+        Dump a map of this scene to the stream `out`
+        """
+        if out is None:
+            out = sys.stdout
+
+        for obj in self.iter_objects():
+            obj.print_map(
+                out,
+                indention=0,
+                indentionWidth=indentwidth
+            )
+        for table in self.iter_tables():
+            table.print_map(
+                out,
+                indention=0,
+                indentionWidth=indentwidth
+            )
+        for rail in self.iter_rails():
+            out.write(rail.name + "\n")
 
     def __contains__(self, other: A_SceneObject) -> bool:
         return other in self._objects

@@ -101,7 +101,7 @@ class A_SceneObject(jdrama.NameRef, ABC):
     def get_members(self, includeArrays: bool = True) -> Iterable[A_Member]:
         """
         Get the members of this object
-        
+
         If `includeArrays` is true, also yield array-bound instances of each member
         """
         if includeArrays is False:
@@ -147,7 +147,11 @@ class A_SceneObject(jdrama.NameRef, ABC):
         Get the raw data of this object's values
         """
         data = BytesIO()
-        for member in self.get_members():
+        for member in self.get_members(includeArrays=False):
+            if self.get_ref() == "MarioPositionObj":
+                print(member.get_qualified_name(), member.get_value())
+            if member.get_formatted_name() == "PoleLength" and self.get_ref() == "MapObjBase" and self.key.get_ref() != "AirportPole":
+                continue
             member.save(data)
         return data
 
@@ -215,11 +219,12 @@ class A_SceneObject(jdrama.NameRef, ABC):
 
             if kind == ValueType.STRUCT:
                 memberStruct = MemberStruct(name)
-                memberStruct.set_array_size(repeatRef) # type: ignore
+                memberStruct.set_array_size(repeatRef)  # type: ignore
                 struct = structInfo[minfo["Type"].strip()]
                 wizard = winfo[name]
                 for sname, sinfo in struct.items():
-                    memberStruct.add_child(_init_struct_member(sname, sinfo, wizard))
+                    memberStruct.add_child(
+                        _init_struct_member(sname, sinfo, wizard))
                 return memberStruct
             else:
                 if kind == ValueType.TRANSFORM:
@@ -240,12 +245,13 @@ class A_SceneObject(jdrama.NameRef, ABC):
                 member = MemberValue(
                     name, defaultValue, kind
                 )
-                member.set_array_size(repeatRef) # type: ignore
+                member.set_array_size(repeatRef)  # type: ignore
 
             return member
 
         for name, info in memberInfo.items():
-            self._members.append(_init_struct_member(name, info, wizardInfo[subkind]))
+            self._members.append(_init_struct_member(
+                name, info, wizardInfo[subkind]))
 
         return True
 
@@ -388,18 +394,10 @@ class MapObject(A_SceneObject):
         Converts this object to raw bytes
         """
         data = BytesIO()
-        nameref = self
-        keyref = self.key
-
         write_uint32(data, self.get_data_size())
-        write_uint16(data, hash(nameref))
-        write_uint16(data, len(nameref))
-        write_string(data, nameref.get_ref())
-        write_uint16(data, hash(keyref))
-        write_uint16(data, len(keyref))
-        write_string(data, keyref.get_ref())
+        data.write(super().to_bytes())
+        data.write(self.key.to_bytes())
         data.write(self.get_member_data().getvalue())
-
         return data.getvalue()
 
     def copy(self, *, deep: bool = False) -> "MapObject":
@@ -457,7 +455,8 @@ class MapObject(A_SceneObject):
         out.write(indentedStr + f"{self.get_ref()} ({self.key})" + " {\n")
         values = indentedStr + "  [Values]\n"
         for member in self.get_members():
-            values += indentedStr + f"  {member.get_formatted_name()} = {member._value}\n"
+            values += indentedStr + \
+                f"  {member.get_formatted_name()} = {member._value}\n"
         out.write(values)
 
     def __eq__(self, other: object) -> bool:
@@ -528,6 +527,7 @@ class GroupObject(A_SceneObject):
             member.set_array_size(arrayNum+1)
 
         if groupNum is not None:
+            groupNum._readOnly = True
             for _ in range(groupNum._value):
                 if data.tell() >= objEndPos:
                     break
@@ -543,19 +543,12 @@ class GroupObject(A_SceneObject):
         Converts this object to raw bytes
         """
         data = BytesIO()
-        nameref = self
-        keyref = self.key
-
         write_uint32(data, self.get_data_size())
-        write_uint16(data, hash(nameref))
-        write_uint16(data, len(nameref))
-        write_string(data, nameref.get_ref())
-        write_uint16(data, hash(keyref))
-        write_uint16(data, len(keyref))
-        write_string(data, keyref.get_ref())
+
+        data.write(super().to_bytes())
+        data.write(self.key.to_bytes())
         data.write(self.get_member_data().getvalue())
 
-        write_uint32(data, len(self._grouped))
         for obj in self._grouped:
             data.write(obj.to_bytes())
 
@@ -634,7 +627,8 @@ class GroupObject(A_SceneObject):
         out.write(indentedStr + f"{self.get_ref()} ({self.key})" + " {\n")
         values = indentedStr + "  [Values]\n"
         for member in self.get_members():
-            values += indentedStr + f"  {member.get_formatted_name()} = {member._value}\n"
+            values += indentedStr + \
+                f"  {member.get_formatted_name()} = {member._value}\n"
         out.write(values)
         if self.is_group():
             out.write("\n" + indentedStr + "  [Grouped]\n")

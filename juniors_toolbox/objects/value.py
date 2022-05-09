@@ -142,11 +142,11 @@ def __read_bin_string(f: BinaryIO) -> str:
     len = read_uint16(f)
     if len == 0:
         return ""
-    return read_string(f, maxlen=len-1)
+    return read_string(f, maxlen=len-1, encoding="shift-jis")
 
 
 def __write_bin_string(f: BinaryIO, val: str):
-    raw = val.encode()
+    raw = val.encode("shift-jis")
     write_uint16(f, len(raw))
     f.write(raw)
 
@@ -161,7 +161,7 @@ def __read_transform(f: BinaryIO) -> Transform:
 
 def __write_transform(f: BinaryIO, val: Transform):
     write_vec3f(f, val.translation)
-    write_vec3f(f, val.rotation)
+    write_vec3f(f, val.rotation.to_euler())
     write_vec3f(f, val.scale)
 
 
@@ -295,7 +295,7 @@ TEMPLATE_TYPE_WRITE_TABLE: dict[ValueType, Callable[[BinaryIO, Any], None]] = {
     ValueType.STR: __write_bin_string,
     ValueType.STRING: __write_bin_string,
     ValueType.C_RGB8: lambda f, val: write_ubyte(f, val.tuple()),  # val = RGB8
-    ValueType.C_RGBA8: write_uint32,
+    ValueType.C_RGBA8: lambda f, val: write_ubyte(f, val.tuple()),
     # val = RGB8
     ValueType.C_RGB32: lambda f, val: write_uint32(f, val.tuple()),
     ValueType.C_RGBA: write_uint32,
@@ -311,10 +311,11 @@ class A_Member(A_Clonable, ABC):
     Class describing a member of a structure
     """
 
-    def __init__(self, name: str, value: Any, type: ValueType) -> None:
+    def __init__(self, name: str, value: Any, type: ValueType, *, readOnly: bool = False) -> None:
         self._name = name
         self._value = value
         self._type = type
+        self._readOnly = readOnly
         self._parent: Optional["MemberStruct"] = None
         self._arraySize: int | "MemberValue" = 1
         self._arrayIdx: int = 0
@@ -337,11 +338,17 @@ class A_Member(A_Clonable, ABC):
         """
         return self._arrayIdx != 0
 
+    def is_read_only(self) -> bool:
+        return self._readOnly
+
     def get_value(self) -> Any:
         return self._value
 
     def set_value(self, value: Any):
-        self._value = value
+        if not self.is_read_only():
+            self._value = value
+        else:
+            print("Tried setting value of read only member")
 
     def get_type(self) -> ValueType:
         return self._type
@@ -553,8 +560,6 @@ class MemberValue(A_Member):
     def load(self, stream: BinaryIO, endPos: Optional[int] = None) -> None:
         if endPos is None:
             endPos = 1 << 30 # 1 GB
-        if self.get_qualified_name() == QualifiedName("WarpA", "Point1", "Transform"):
-            pass
         for i in range(self.get_array_size()):
             if stream.tell() >= endPos:
                 break
@@ -563,6 +568,8 @@ class MemberValue(A_Member):
     def save(self, stream: BinaryIO) -> None:
         TEMPLATE_TYPE_WRITE_TABLE[self._type](stream, self._value)
         for i in range(1, self.get_array_size()):
+            if i > len(self._arrayInstances):
+                break
             TEMPLATE_TYPE_WRITE_TABLE[self._type](stream, self[i]._value)
 
     def copy(self, *, deep: bool = False) -> "MemberValue":
@@ -639,6 +646,8 @@ class MemberStruct(A_Member):
 
     def save(self, stream: BinaryIO) -> None:
         for i in range(self.get_array_size()):
+            if i > len(self._arrayInstances):
+                break
             for member in self[i].get_children(includeArrays=False):
                 member.save(stream)
 
@@ -663,6 +672,9 @@ class MemberComment(MemberValue):
 
     def __init__(self, name: str, value: Any):
         super().__init__(name, value, ValueType.STRUCT)
+
+    def is_read_only(self) -> bool:
+        return True
 
     def get_data_size(self) -> int:
         return 0
