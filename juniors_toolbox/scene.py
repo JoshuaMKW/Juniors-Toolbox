@@ -134,7 +134,6 @@ class SMSScene():
     def get_unique_object_refs(self, *, alphanumeric: bool = False) -> list[str]:
         refs = []
         for obj in self.iter_objects(deep=True):
-            print(obj)
             if obj.get_ref() not in refs:
                 refs.append(obj.get_ref())
         if alphanumeric:
