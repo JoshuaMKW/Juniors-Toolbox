@@ -1,6 +1,13 @@
 {
     "Toadsworth": {
         "Enums": {
+            "Accessories": {
+                "Type": "INT",
+                "Flags": {
+                    "Staff": "0x1"
+                },
+                "Multi": true
+            }
         },
         "Structs": {
             "LightInfo": {
@@ -64,7 +71,7 @@
                 "ArraySize": 1
             },
             "Accessory": {
-                "Type": "INT",
+                "Type": "Accessories",
                 "ArraySize": 1
             },
             "Idle": {

@@ -1,6 +1,19 @@
 {
     "Jellyfish Rider Noki (M)": {
         "Enums": {
+            "Accessories": {
+                "Type": "INT",
+                "Flags": {
+                    "Scallop": "0x1",
+                    "Sundial": "0x2",
+                    "Babylon": "0x8",
+                    "Shell 1": "0x10",
+                    "Shell 2": "0x20",
+                    "Glasses": "0x40",
+                    "Bivavle": "0x80"
+                },
+                "Multi": true
+            }
         },
         "Structs": {
             "LightInfo": {
@@ -64,7 +77,7 @@
                 "ArraySize": 1
             },
             "Accessory": {
-                "Type": "INT",
+                "Type": "Accessories",
                 "ArraySize": 1
             },
             "Idle": {

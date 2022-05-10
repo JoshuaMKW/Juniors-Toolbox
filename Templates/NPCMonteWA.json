@@ -1,6 +1,17 @@
 {
     "Female Pianta (T-shirt)": {
         "Enums": {
+            "Accessories": {
+                "Type": "INT",
+                "Flags": {
+                    "Flower": "0x1",
+                    "Hat": "0x2",
+                    "Glasses": "0x4",
+                    "Right Sign": "0x8",
+                    "Left Sign": "0x10"
+                },
+                "Multi": true
+            }
         },
         "Structs": {
             "LightInfo": {
@@ -64,7 +75,7 @@
                 "ArraySize": 1
             },
             "Accessory": {
-                "Type": "INT",
+                "Type": "Accessories",
                 "ArraySize": 1
             },
             "Idle": {

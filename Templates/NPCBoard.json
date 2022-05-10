@@ -1,7 +1,7 @@
 {
     "Sign": {
         "Enums": {
-            "Clothes": {
+            "Accessories": {
                 "Type": "INT",
                 "Flags": {
                     "Red Shirt": "0x800",

@@ -1,6 +1,24 @@
 {
     "Male Pianta": {
         "Enums": {
+            "Accessories": {
+                "Type": "INT",
+                "Flags": {
+                    "Hat": "0x1",
+                    "Mustache": "0x2",
+                    "Sunglasses": "0x4",
+                    "Glasses": "0x8",
+                    "Straw Hat": "0x10",
+                    "Sailor Cap": "0x20",
+                    "Shine Cap": "0x40",
+                    "Bell-boy Cap": "0x80",
+                    "Backwards Cap": "0x100",
+                    "Neckerchief": "0x200",
+                    "Bowtie": "0x400",
+                    "Luggage": "0x800"
+                },
+                "Multi": true
+            }
         },
         "Structs": {
             "LightInfo": {
@@ -64,7 +82,7 @@
                 "ArraySize": 1
             },
             "Accessory": {
-                "Type": "INT",
+                "Type": "Accessories",
                 "ArraySize": 1
             },
             "Idle": {

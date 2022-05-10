@@ -1,6 +1,19 @@
 {
     "Princess Peach": {
         "Enums": {
+            "Accessories": {
+                "Type": "INT",
+                "Flags": {
+                    "Normal Hair": "0x1",
+                    "Normal Hand (Left)": "0x2",
+                    "Normal Hand (Right)": "0x4",
+                    "Ponytail": "0x8",
+                    "Parasol": "0x10",
+                    "Gripping Hand (Left)": "0x20",
+                    "Gripping Hand (Right)": "0x40"
+                },
+                "Multi": true
+            }
         },
         "Structs": {
             "LightInfo": {
@@ -64,7 +77,7 @@
                 "ArraySize": 1
             },
             "Accessory": {
-                "Type": "INT",
+                "Type": "Accessories",
                 "ArraySize": 1
             },
             "Idle": {

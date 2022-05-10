@@ -1,6 +1,20 @@
 {
     "Hula Dancer Pianta": {
         "Enums": {
+            "Accessories": {
+                "Type": "INT",
+                "Flags": {
+                    "Flower": "0x1",
+                    "Hat": "0x2",
+                    "Glasses": "0x4",
+                    "Right Sign": "0x8",
+                    "Left Sign": "0x10",
+                    "Flower Crown": "0x20",
+                    "Right Flower Bracelet": "0x40",
+                    "Left Flower Bracelet": "0x80"
+                },
+                "Multi": true
+            }
         },
         "Structs": {
             "LightInfo": {
@@ -64,7 +78,7 @@
                 "ArraySize": 1
             },
             "Accessory": {
-                "Type": "INT",
+                "Type": "Accessories",
                 "ArraySize": 1
             },
             "Idle": {

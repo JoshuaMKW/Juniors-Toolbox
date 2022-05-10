@@ -1,6 +1,18 @@
 {
     "Female Noki": {
         "Enums": {
+            "Accessories": {
+                "Type": "INT",
+                "Flags": {
+                    "Pearl": "0x1",
+                    "Hat": "0x2",
+                    "Shell 1": "0x10",
+                    "Shell 2": "0x20",
+                    "Bivavle": "0x100",
+                    "Babylons": "0x200"
+                },
+                "Multi": true
+            }
         },
         "Structs": {
             "LightInfo": {
@@ -64,7 +76,7 @@
                 "ArraySize": 1
             },
             "Accessory": {
-                "Type": "INT",
+                "Type": "Accessories",
                 "ArraySize": 1
             },
             "Idle": {
