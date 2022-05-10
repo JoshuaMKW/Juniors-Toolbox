@@ -450,6 +450,8 @@ class CommentProperty(A_ValueProperty):
 
 class EnumProperty(A_ValueProperty):
     class _EnumFlagList(QComboBox):
+        enumPressed = Signal()
+
         def __init__(self):
             super().__init__()
             self.view().pressed.connect(self.handleItemPressed)
@@ -467,13 +469,8 @@ class EnumProperty(A_ValueProperty):
                 item.setCheckState(Qt.Unchecked)
             else:
                 item.setCheckState(Qt.Checked)
-            texts: list[str] = []
-            for i in range(model.rowCount()):
-                item = model.item(i, 0)
-                if item.checkState() == Qt.Checked:
-                    texts.append(item.text())
-            self._displayText = "|".join(texts)
-            self.setText(self._displayText)
+            self.__update_text()
+            self.enumPressed.emit()
 
         def setText(self, text: str) -> None:
             l = self.lineEdit()
@@ -484,12 +481,21 @@ class EnumProperty(A_ValueProperty):
         def get_value(self) -> int:
             model: QStandardItemModel = self.model()
             value = 0
-            for i in range(self.count()):
-                name = self.itemText(i)
-                data = self.itemData(i, Qt.UserRole)
-                if model.item(i, 0).checkState() == Qt.Checked:
-                    value |= data
+            for i in range(model.rowCount()):
+                item = model.item(i, 0)
+                if item.checkState() == Qt.Checked:
+                    value |= item.data(Qt.UserRole)
             return value
+
+        def set_value(self, value: int):
+            model: QStandardItemModel = self.model()
+            for i in range(model.rowCount()):
+                item = model.item(i, 0)
+                if (value & item.data(Qt.UserRole)) != 0:
+                    item.setCheckState(Qt.Checked)
+                else:
+                    item.setCheckState(Qt.Unchecked)
+            self.__update_text()
 
         def addItems(self, texts: Sequence[str]) -> None:
             model: QStandardItemModel = self.model()
@@ -508,10 +514,29 @@ class EnumProperty(A_ValueProperty):
             item.setCheckable(True)
             item.setCheckState(Qt.Unchecked)
 
+        def __update_text(self):
+            model: QStandardItemModel = self.model()
+            texts: list[str] = []
+            for i in range(model.rowCount()):
+                item = model.item(i, 0)
+                if item.checkState() == Qt.Checked:
+                    texts.append(item.text())
+            self._displayText = "|".join(texts)
+            self.setText(self._displayText)
+
+
 
     class _EnumList(QComboBox):
         def get_value(self) -> int:
             return self.itemData(self.currentIndex(), Qt.UserRole)
+
+        def set_value(self, value: int):
+            model: QStandardItemModel = self.model()
+            for i in range(model.rowCount()):
+                item = model.item(i, 0)
+                if value == item.data(Qt.UserRole):
+                    self.setCurrentIndex(i)
+                    break
 
     def __init__(self, name: str, enumInfo: dict[str, Any], readOnly: bool, parent: Optional["A_ValueProperty"] = None) -> None:
         self._enumInfo = enumInfo
@@ -520,8 +545,10 @@ class EnumProperty(A_ValueProperty):
     def construct(self) -> None:
         if self._enumInfo["Multi"] is True:
             self._checkList = EnumProperty._EnumFlagList()
+            self._checkList.enumPressed.connect(lambda: self.__update_value_from_flags())
         else:
             self._checkList = EnumProperty._EnumList()
+            self._checkList.currentItemChanged.connect(lambda: self.__update_value_from_flags())
 
         for name, value in self._enumInfo["Flags"].items():
             self._checkList.addItem(name, value)
@@ -534,7 +561,9 @@ class EnumProperty(A_ValueProperty):
 
     @Slot(QWidget, object)
     def set_inputs(self):
-        pass
+        self._checkList.blockSignals(True)
+        self._checkList.set_value(self.get_value())
+        self._checkList.blockSignals(False)
 
     def get_value(self) -> int:
         return super().get_value()
