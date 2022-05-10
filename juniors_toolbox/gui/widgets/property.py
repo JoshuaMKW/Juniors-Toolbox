@@ -413,6 +413,40 @@ class StringProperty(A_ValueProperty):
             max(80 - (10 * self.get_nested_depth()), 0))
 
 
+class CommentProperty(A_ValueProperty):
+    def __init__(self, name: str, parent: Optional[QWidget] = None):
+        super().__init__(name, True, parent)
+        self._resetValue = ""
+
+    def construct(self):
+        lineEdit = QLabel(self.get_name())
+        lineEdit.setText("")
+        self._input = lineEdit
+
+        entry = QGridLayout()
+        entry.setContentsMargins(0, 2, 0, 2)
+        entry.addWidget(lineEdit)
+        self.setLayout(entry)
+
+    @Slot(QWidget, object)
+    def set_inputs(self):
+        self._input.blockSignals(True)
+        self._input.setText(self.get_value())
+        self._input.blockSignals(False)
+
+    def get_value(self) -> str:
+        return super().get_value()
+
+    def set_value(self, value: str):
+        if not isinstance(value, str):
+            raise ValueError("Value is not an str type")
+        super().set_value(value)
+
+    def _update_input_depth(self) -> None:
+        self._input.setMinimumWidth(
+            max(80 - (10 * self.get_nested_depth()), 0))
+
+
 class Vector3Property(A_ValueProperty):
     def __init__(self, name: str, readOnly: bool, parent: Optional[QWidget] = None):
         super().__init__(name, readOnly, parent)
@@ -735,9 +769,13 @@ class PropertyFactory():
             prop = DoubleProperty(
                 name, readOnly
             )
-        elif valueType in {ValueType.STR, ValueType.STRING, ValueType.COMMENT}:
+        elif valueType in {ValueType.STR, ValueType.STRING}:
             prop = StringProperty(
-                name, readOnly or valueType is ValueType.COMMENT
+                name, readOnly
+            )
+        elif valueType == ValueType.COMMENT:
+            prop = CommentProperty(
+                name
             )
         elif valueType == ValueType.VECTOR3:
             prop = Vector3Property(

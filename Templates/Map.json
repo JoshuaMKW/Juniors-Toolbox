@@ -18,7 +18,7 @@
                 }
             },
             "VertexRender": {
-                "Vertex{C}": {
+                "Vertex{i}": {
                     "Type": "INT",
                     "ArraySize": 2
                 }
@@ -76,8 +76,8 @@
                 "BGCheckListWarpCount": 0,
                 "WarpCount": 0,
                 "InitWarpID": 0,
-                "VertexRender{i}": {
-                    "Vertex{C}": 0
+                "VertexRender{C}": {
+                    "Vertex{i}": 0
                 },
                 "Warp{C}": {
                     "Point{i}": {

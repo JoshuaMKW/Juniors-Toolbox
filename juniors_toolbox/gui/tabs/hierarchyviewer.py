@@ -24,6 +24,11 @@ from juniors_toolbox.utils import VariadicArgs, VariadicKwargs
 
 
 class StringListProperty(StructProperty):
+    def construct(self) -> None:
+        super().construct()
+        self._frameLayout._content_layout.setSpacing(0)
+        self._frameLayout._content_layout.setContentsMargins(10, 0, 0, 0)
+
     def add_property(self, prop: A_ValueProperty):
         self._frameLayout.addWidget(prop)
 
@@ -176,7 +181,7 @@ class NameRefHierarchyWidget(A_DockingInterface):
                     PropertyFactory.create_property(
                         name="Object Count",
                         valueType=ValueType.COMMENT,
-                        value=str(scene.get_object_count()),
+                        value=f"=  {scene.get_object_count()}",
                         readOnly=True
                     )
                 )
@@ -184,7 +189,7 @@ class NameRefHierarchyWidget(A_DockingInterface):
                     PropertyFactory.create_property(
                         name="Object Data Size",
                         valueType=ValueType.COMMENT,
-                        value=f"0x{sum([obj.get_data_size() for obj in scene.iter_objects()]):X}",
+                        value=f"=  0x{sum([obj.get_data_size() for obj in scene.iter_objects()]):X}",
                         readOnly=True
                     )
                 )
@@ -208,7 +213,7 @@ class NameRefHierarchyWidget(A_DockingInterface):
                     PropertyFactory.create_property(
                         name="Table Count",
                         valueType=ValueType.COMMENT,
-                        value=str(scene.get_table_count()),
+                        value=f"=  {scene.get_table_count()}",
                         readOnly=True
                     )
                 )
@@ -220,7 +225,7 @@ class NameRefHierarchyWidget(A_DockingInterface):
                     PropertyFactory.create_property(
                         name="Table Data Size",
                         valueType=ValueType.COMMENT,
-                        value=f"0x{sum([obj.get_data_size() for obj in scene.iter_tables()]):X}",
+                        value=f"=  0x{sum([obj.get_data_size() for obj in scene.iter_tables()]):X}",
                         readOnly=True
                     )
                 )
