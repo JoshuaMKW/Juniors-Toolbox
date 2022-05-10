@@ -1,5 +1,7 @@
 {
     "Noki Elder": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

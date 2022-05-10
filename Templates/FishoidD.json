@@ -1,5 +1,7 @@
 {
     "Fish D": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

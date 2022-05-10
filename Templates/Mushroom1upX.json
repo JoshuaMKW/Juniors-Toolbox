@@ -1,5 +1,7 @@
 {
     "1-Up Mushroom (Fixed)": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

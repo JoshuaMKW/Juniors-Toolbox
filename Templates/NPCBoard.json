@@ -1,5 +1,14 @@
 {
     "Sign": {
+        "Enums": {
+            "Clothes": {
+                "Type": "INT",
+                "Flags": {
+                    "Red Shirt": "0x800",
+                    "Blue Hat": "0x1000"
+                }
+            }
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

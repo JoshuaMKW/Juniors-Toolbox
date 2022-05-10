@@ -1,5 +1,7 @@
 {
     "Banana Tree": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

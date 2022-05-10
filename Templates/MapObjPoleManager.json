@@ -1,5 +1,7 @@
 {
     "Pole Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

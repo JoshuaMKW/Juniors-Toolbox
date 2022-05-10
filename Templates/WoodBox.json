@@ -1,5 +1,7 @@
 {
     "Wooden Box": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

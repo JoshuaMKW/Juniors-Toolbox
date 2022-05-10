@@ -1,5 +1,7 @@
 {
     "Flutist Noki": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

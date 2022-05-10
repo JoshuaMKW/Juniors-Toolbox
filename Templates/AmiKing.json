@@ -1,5 +1,7 @@
 {
     "Big Electro-Koopa": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

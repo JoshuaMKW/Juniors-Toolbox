@@ -1,5 +1,7 @@
 {
     "Turning Windmill Bridge": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

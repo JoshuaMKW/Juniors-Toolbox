@@ -1,5 +1,7 @@
 {
     "Shine Sprite Monument": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

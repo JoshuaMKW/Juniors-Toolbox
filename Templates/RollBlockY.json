@@ -1,5 +1,7 @@
 {
     "Yellow Spinning Board": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

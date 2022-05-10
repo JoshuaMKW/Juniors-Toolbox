@@ -1,5 +1,7 @@
 {
     "Draw Buffer": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,5 +1,7 @@
 {
     "Breakable Glass": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

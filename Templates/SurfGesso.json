@@ -1,5 +1,7 @@
 {
     "Surfing Blooper": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

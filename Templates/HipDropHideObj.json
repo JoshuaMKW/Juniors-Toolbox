@@ -1,5 +1,7 @@
 {
     "Hidden Object (Ground Pound)": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

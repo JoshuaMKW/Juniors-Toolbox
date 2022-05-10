@@ -1,5 +1,7 @@
 {
     "Big Windmill": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

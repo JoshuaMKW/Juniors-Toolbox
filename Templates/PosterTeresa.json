@@ -1,5 +1,7 @@
 {
     "Dolpic Poster": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

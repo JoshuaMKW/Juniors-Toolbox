@@ -1,5 +1,7 @@
 {
     "Goal Post": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

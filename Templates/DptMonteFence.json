@@ -1,5 +1,7 @@
 {
     "Window Fence": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

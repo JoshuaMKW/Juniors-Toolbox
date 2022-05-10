@@ -1,5 +1,7 @@
 {
     "Text Box": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

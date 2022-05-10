@@ -1,5 +1,7 @@
 {
     "Barrel": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

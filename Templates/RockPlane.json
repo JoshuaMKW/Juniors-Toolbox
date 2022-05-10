@@ -1,5 +1,7 @@
 {
     "Generated Rock Plane": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,5 +1,7 @@
 {
     "Closet Door": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

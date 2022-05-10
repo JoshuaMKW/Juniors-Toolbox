@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
 from ctypes.wintypes import BYTE, SHORT
 from optparse import Option
-from typing import Any, Iterable, List, Optional, Type
+from typing import Any, Iterable, List, Optional, Sequence, Type
 
-from PySide6.QtCore import Qt, Signal, SignalInstance, Slot
-from PySide6.QtWidgets import QWidget, QGridLayout, QFormLayout, QComboBox, QLabel, QFrame, QLineEdit
+from PySide6.QtGui import QPainter, QPaintEvent, QStandardItemModel, QPalette
+from PySide6.QtCore import Qt, Signal, SignalInstance, Slot, QModelIndex
+from PySide6.QtWidgets import QWidget, QGridLayout, QFormLayout, QComboBox, QLabel, QFrame, QLineEdit, QStyleOptionComboBox
 
 from juniors_toolbox.gui.layouts.framelayout import FrameLayout
 from juniors_toolbox.gui.widgets.colorbutton import A_ColorButton, ColorButtonRGB8, ColorButtonRGBA8
@@ -447,6 +448,104 @@ class CommentProperty(A_ValueProperty):
             max(80 - (10 * self.get_nested_depth()), 0))
 
 
+class EnumProperty(A_ValueProperty):
+    class _EnumFlagList(QComboBox):
+        def __init__(self):
+            super().__init__()
+            self.view().pressed.connect(self.handleItemPressed)
+            self.setModel(QStandardItemModel(self))
+            self.setEditable(True)
+            l = self.lineEdit()
+            l.setReadOnly(True)
+            l.textChanged.connect(self.setText)
+            self._displayText = ""
+
+        def handleItemPressed(self, index: QModelIndex):
+            model: QStandardItemModel = self.model()
+            item = model.itemFromIndex(index)
+            if item.checkState() == Qt.Checked:
+                item.setCheckState(Qt.Unchecked)
+            else:
+                item.setCheckState(Qt.Checked)
+            texts: list[str] = []
+            for i in range(model.rowCount()):
+                item = model.item(i, 0)
+                if item.checkState() == Qt.Checked:
+                    texts.append(item.text())
+            self._displayText = "|".join(texts)
+            self.setText(self._displayText)
+
+        def setText(self, text: str) -> None:
+            l = self.lineEdit()
+            l.blockSignals(True)
+            l.setText(self._displayText)
+            l.blockSignals(False)
+
+        def get_value(self) -> int:
+            model: QStandardItemModel = self.model()
+            value = 0
+            for i in range(self.count()):
+                name = self.itemText(i)
+                data = self.itemData(i, Qt.UserRole)
+                if model.item(i, 0).checkState() == Qt.Checked:
+                    value |= data
+            return value
+
+        def addItems(self, texts: Sequence[str]) -> None:
+            model: QStandardItemModel = self.model()
+            row = model.rowCount()
+            super().addItems(texts)
+            for r in range(row, model.rowCount()):
+                item = model.item(r, 0)
+                item.setCheckable(True)
+                item.setCheckState(Qt.Unchecked)
+
+        def addItem(self, text: str, userData: Any = None) -> None:
+            model: QStandardItemModel = self.model()
+            row = model.rowCount()
+            super().addItem(text, userData)
+            item = model.item(row, 0)
+            item.setCheckable(True)
+            item.setCheckState(Qt.Unchecked)
+
+
+    class _EnumList(QComboBox):
+        def get_value(self) -> int:
+            return self.itemData(self.currentIndex(), Qt.UserRole)
+
+    def __init__(self, name: str, enumInfo: dict[str, Any], readOnly: bool, parent: Optional["A_ValueProperty"] = None) -> None:
+        self._enumInfo = enumInfo
+        super().__init__(name, readOnly, parent)
+
+    def construct(self) -> None:
+        if self._enumInfo["Multi"] is True:
+            self._checkList = EnumProperty._EnumFlagList()
+        else:
+            self._checkList = EnumProperty._EnumList()
+
+        for name, value in self._enumInfo["Flags"].items():
+            self._checkList.addItem(name, value)
+
+        entry = QGridLayout()
+        entry.setContentsMargins(0, 2, 0, 2)
+        entry.addWidget(self._checkList)
+
+        self.setLayout(entry)
+
+    @Slot(QWidget, object)
+    def set_inputs(self):
+        pass
+
+    def get_value(self) -> int:
+        return super().get_value()
+
+    def set_value(self, value: int) -> None:
+        super().set_value(value)
+
+    def __update_value_from_flags(self):
+        self.set_value(self._checkList.get_value())
+
+
 class Vector3Property(A_ValueProperty):
     def __init__(self, name: str, readOnly: bool, parent: Optional[QWidget] = None):
         super().__init__(name, readOnly, parent)
@@ -728,7 +827,8 @@ class PropertyFactory():
         name: str,
         valueType: ValueType,
         value: Optional[Any] = None,
-        readOnly: bool = False
+        readOnly: bool = False,
+        **kwargs
     ):
         """
         Creates a property. `valueType` must corrispond to `value`
@@ -776,6 +876,10 @@ class PropertyFactory():
         elif valueType == ValueType.COMMENT:
             prop = CommentProperty(
                 name
+            )
+        elif valueType == ValueType.ENUM:
+            prop = EnumProperty(
+                name, kwargs.get("enumInfo", {}), readOnly
             )
         elif valueType == ValueType.VECTOR3:
             prop = Vector3Property(

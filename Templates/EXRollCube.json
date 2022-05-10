@@ -1,5 +1,7 @@
 {
     "Secret Stage Rolling Cube": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

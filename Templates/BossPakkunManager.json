@@ -1,5 +1,7 @@
 {
     "Petey Piranha Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

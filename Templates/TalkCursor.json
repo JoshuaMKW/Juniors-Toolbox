@@ -1,5 +1,7 @@
 {
     "Dialogue Prompt Cursor": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

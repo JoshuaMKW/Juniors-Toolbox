@@ -1,5 +1,7 @@
 {
     "Target Arrow": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,5 +1,7 @@
 {
     "Hula Dancer Pianta": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

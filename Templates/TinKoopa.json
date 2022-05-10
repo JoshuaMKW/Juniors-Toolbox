@@ -1,5 +1,7 @@
 {
     "Mecha-Bowser": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

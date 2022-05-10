@@ -1,5 +1,7 @@
 {
     "Casino Curtain": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

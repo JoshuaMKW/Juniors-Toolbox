@@ -1,5 +1,7 @@
 {
     "Flow Cube Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

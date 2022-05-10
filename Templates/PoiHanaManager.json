@@ -1,5 +1,7 @@
 {
     "Cataquack Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

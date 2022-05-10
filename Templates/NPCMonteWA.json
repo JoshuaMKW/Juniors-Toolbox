@@ -1,5 +1,7 @@
 {
     "Female Pianta (T-shirt)": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

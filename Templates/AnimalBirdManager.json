@@ -1,5 +1,7 @@
 {
     "Bird Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

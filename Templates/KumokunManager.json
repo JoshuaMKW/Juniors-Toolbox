@@ -1,5 +1,7 @@
 {
     "Klamber Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

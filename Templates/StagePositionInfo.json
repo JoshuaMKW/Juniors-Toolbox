@@ -1,5 +1,7 @@
 {
     "Stage Position Info": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

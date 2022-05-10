@@ -1,5 +1,7 @@
 {
     "Hidden Object (Fruit)": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

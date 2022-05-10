@@ -1,5 +1,7 @@
 {
     "Ice Cream Cart": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

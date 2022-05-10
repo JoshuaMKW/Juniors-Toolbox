@@ -1,5 +1,7 @@
 {
     "Event Handler (Airstrip Sink)": {
+        "Enums": {
+        },
         "Structs": {
             "SinkInfo": {
                 "Region": {

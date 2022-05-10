@@ -1,5 +1,7 @@
 {
     "Casino Puzzle": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

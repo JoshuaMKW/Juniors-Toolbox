@@ -1,5 +1,7 @@
 {
     "Ferris Wheel": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

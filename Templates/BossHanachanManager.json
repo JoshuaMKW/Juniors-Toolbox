@@ -1,5 +1,7 @@
 {
     "Wiggler Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

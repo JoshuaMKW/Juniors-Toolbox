@@ -1,5 +1,7 @@
 {
     "Bathub Bullet Bill": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

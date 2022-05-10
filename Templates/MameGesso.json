@@ -1,5 +1,7 @@
 {
     "Jumping Blooper": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

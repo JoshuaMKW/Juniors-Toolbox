@@ -1,5 +1,7 @@
 {
     "Gate Beam": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,5 +1,7 @@
 {
     "Chusan Palm Tree": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

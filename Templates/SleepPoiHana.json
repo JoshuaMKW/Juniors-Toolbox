@@ -1,5 +1,7 @@
 {
     "Sleeping Cataquack": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

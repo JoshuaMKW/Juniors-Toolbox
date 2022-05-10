@@ -1,5 +1,7 @@
 {
     "Toad": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

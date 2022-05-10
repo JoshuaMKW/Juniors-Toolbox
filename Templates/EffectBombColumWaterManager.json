@@ -1,5 +1,7 @@
 {
     "Bomb Water Column Explosion Effect Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

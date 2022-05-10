@@ -1,5 +1,7 @@
 {
     "Ice Block": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,5 +1,7 @@
 {
     "Floating Log": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

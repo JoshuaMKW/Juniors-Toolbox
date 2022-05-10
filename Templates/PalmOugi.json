@@ -1,5 +1,7 @@
 {
     "Fan Palm Tree": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

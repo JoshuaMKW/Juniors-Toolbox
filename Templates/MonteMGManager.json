@@ -1,5 +1,7 @@
 {
     "Janitor Pianta Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

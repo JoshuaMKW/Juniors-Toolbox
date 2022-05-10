@@ -1,5 +1,7 @@
 {
     "Bullet Bill Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

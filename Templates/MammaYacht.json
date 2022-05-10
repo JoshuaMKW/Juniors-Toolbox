@@ -1,5 +1,7 @@
 {
     "Gelato Yacht": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

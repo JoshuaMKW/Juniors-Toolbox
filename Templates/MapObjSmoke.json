@@ -1,5 +1,7 @@
 {
     "Smoke": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

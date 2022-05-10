@@ -1,5 +1,7 @@
 {
     "Warp Area": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

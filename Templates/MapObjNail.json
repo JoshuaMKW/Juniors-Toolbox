@@ -1,5 +1,7 @@
 {
     "Nail": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

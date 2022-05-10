@@ -1,5 +1,7 @@
 {
     "Normal Block": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

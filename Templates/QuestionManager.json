@@ -1,5 +1,7 @@
 {
     "Question Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

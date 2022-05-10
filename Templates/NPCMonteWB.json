@@ -1,5 +1,7 @@
 {
     "Female Pianta (Dress)": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

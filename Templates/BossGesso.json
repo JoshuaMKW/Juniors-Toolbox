@@ -1,5 +1,7 @@
 {
     "Gooper Blooper": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

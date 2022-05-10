@@ -1,5 +1,7 @@
 {
     "Camera Map Info": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

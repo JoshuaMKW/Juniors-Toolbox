@@ -1,5 +1,7 @@
 {
     "Bob-Omb": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

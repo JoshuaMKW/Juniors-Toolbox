@@ -1,5 +1,7 @@
 {
     "Hanging Bridge": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

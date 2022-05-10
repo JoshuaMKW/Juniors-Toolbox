@@ -1,5 +1,7 @@
 {
     "Bowser Jr.": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

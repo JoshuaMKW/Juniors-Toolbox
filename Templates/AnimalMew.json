@@ -1,5 +1,7 @@
 {
     "Seagull": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

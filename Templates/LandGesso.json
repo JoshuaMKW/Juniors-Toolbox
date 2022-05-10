@@ -1,5 +1,7 @@
 {
     "Blooper (Land)": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

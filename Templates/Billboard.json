@@ -1,5 +1,7 @@
 {
     "Billboard": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

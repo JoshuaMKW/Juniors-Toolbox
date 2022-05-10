@@ -1,5 +1,7 @@
 {
     "Map": {
+        "Enums": {
+        },
         "Structs": {
             "WarpPoint": {
                 "Name": {
@@ -57,7 +59,7 @@
                 "Type": "INT",
                 "ArraySize": 1
             },
-            "VertexRender{i}": {
+            "VertexRender{C}": {
                 "Type": "VertexRender",
                 "ArraySize": "WarpCount"
             },

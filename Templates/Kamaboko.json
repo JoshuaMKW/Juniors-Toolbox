@@ -1,5 +1,7 @@
 {
     "Drawer Platform": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

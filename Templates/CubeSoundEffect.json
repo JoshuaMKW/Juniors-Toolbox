@@ -1,5 +1,7 @@
 {
     "Sound Effect Cube Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

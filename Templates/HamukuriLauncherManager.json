@@ -1,5 +1,7 @@
 {
     "Strollin' Stu Generator Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

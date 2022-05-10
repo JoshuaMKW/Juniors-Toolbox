@@ -1,5 +1,7 @@
 {
     "Crane": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

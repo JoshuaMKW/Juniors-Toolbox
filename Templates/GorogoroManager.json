@@ -1,5 +1,7 @@
 {
     "Piranhabon Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

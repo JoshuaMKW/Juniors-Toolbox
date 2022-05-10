@@ -1,5 +1,7 @@
 {
     "Stackin' Stu Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

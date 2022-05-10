@@ -1,5 +1,7 @@
 {
     "Football": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

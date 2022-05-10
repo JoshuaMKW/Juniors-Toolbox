@@ -1,5 +1,7 @@
 {
     "Position Table": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

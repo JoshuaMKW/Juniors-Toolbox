@@ -1,5 +1,7 @@
 {
     "Electro-Koopa Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

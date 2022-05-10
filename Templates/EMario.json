@@ -1,5 +1,7 @@
 {
     "EMario (Shadow Mario/Il Piantissimo)": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

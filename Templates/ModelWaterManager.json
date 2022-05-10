@@ -1,5 +1,7 @@
 {
     "Water Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

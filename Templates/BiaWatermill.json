@@ -1,5 +1,7 @@
 {
     "Watermill": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

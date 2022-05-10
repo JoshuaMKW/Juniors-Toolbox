@@ -1,5 +1,7 @@
 {
     "Goop Portal": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

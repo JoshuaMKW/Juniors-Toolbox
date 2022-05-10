@@ -1,5 +1,7 @@
 {
     "Eely-Mouth": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

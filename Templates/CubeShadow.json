@@ -1,5 +1,7 @@
 {
     "Shadow Cube Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

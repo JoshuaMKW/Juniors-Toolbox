@@ -1,5 +1,7 @@
 {
     "Chain Chomplet Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

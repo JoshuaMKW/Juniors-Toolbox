@@ -1,5 +1,7 @@
 {
     "Event Handler (Road to the Big Windmill Sink)": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

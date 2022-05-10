@@ -1,5 +1,7 @@
 {
     "Beehive Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

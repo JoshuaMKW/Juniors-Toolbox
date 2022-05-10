@@ -1,5 +1,7 @@
 {
     "Ukulelist Pianta Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

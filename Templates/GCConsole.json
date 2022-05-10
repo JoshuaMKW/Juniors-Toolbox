@@ -1,5 +1,7 @@
 {
     "Nintendo GameCube Console": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

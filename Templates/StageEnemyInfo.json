@@ -1,5 +1,7 @@
 {
     "Enemy Stage Spawn Info": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,5 +1,7 @@
 {
     "Bathtub Peach": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

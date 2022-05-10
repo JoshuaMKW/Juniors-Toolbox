@@ -1,5 +1,7 @@
 {
     "Cannon": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

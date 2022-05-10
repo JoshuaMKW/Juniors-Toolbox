@@ -1,5 +1,7 @@
 {
     "Yoshi Block": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

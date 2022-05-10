@@ -1,5 +1,7 @@
 {
     "Springboard": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

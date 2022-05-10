@@ -1,5 +1,7 @@
 {
     "Breakable Block": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

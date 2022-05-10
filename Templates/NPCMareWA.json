@@ -1,5 +1,7 @@
 {
     "Jellyfish Rider Noki (F)": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

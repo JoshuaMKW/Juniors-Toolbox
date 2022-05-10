@@ -1,5 +1,7 @@
 {
     "Petey Piranha": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

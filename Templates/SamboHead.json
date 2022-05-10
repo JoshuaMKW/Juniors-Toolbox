@@ -1,5 +1,7 @@
 {
     "Pokey Head": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

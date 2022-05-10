@@ -1,5 +1,7 @@
 {
     "Toadsworth Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

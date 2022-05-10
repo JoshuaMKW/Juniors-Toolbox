@@ -1,5 +1,7 @@
 {
     "Bell Watermill": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,5 +1,7 @@
 {
     "Sun": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

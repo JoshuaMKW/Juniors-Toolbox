@@ -1,5 +1,7 @@
 {
     "Flag Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

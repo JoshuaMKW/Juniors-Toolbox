@@ -1,5 +1,7 @@
 {
     "Ricco Watermill": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

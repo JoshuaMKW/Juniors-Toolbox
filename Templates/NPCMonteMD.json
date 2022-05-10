@@ -1,5 +1,7 @@
 {
     "Male Pianta (Tank Top)": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,5 +1,7 @@
 {
     "Bath Water": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,5 +1,7 @@
 {
     "J3D System Flag": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

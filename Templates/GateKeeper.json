@@ -1,5 +1,7 @@
 {
     "Proto Piranha": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

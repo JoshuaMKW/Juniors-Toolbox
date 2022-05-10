@@ -1,5 +1,7 @@
 {
     "Snooza Koopa": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

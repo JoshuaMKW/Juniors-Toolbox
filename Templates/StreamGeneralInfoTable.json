@@ -1,5 +1,7 @@
 {
     "Flow Cube Table": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

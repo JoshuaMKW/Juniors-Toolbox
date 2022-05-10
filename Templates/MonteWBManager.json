@@ -1,5 +1,7 @@
 {
     "Female Pianta (Dress) Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

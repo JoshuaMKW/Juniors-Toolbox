@@ -1,5 +1,7 @@
 {
     "Camera Cube": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,5 +1,7 @@
 {
     "Nozzle Item": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,5 +1,7 @@
 {
     "Sea Floating Map Object": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

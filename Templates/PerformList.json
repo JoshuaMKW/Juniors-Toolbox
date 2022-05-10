@@ -1,5 +1,7 @@
 {
     "Perform List": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

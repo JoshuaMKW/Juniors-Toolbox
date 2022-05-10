@@ -1,5 +1,7 @@
 {
     "Gate Shell": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

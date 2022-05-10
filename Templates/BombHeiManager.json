@@ -1,5 +1,7 @@
 {
     "Bob-Omb Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

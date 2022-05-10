@@ -1,5 +1,7 @@
 {
     "Yoshi Egg": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

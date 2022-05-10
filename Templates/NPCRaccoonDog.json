@@ -1,5 +1,7 @@
 {
     "Tanooki": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

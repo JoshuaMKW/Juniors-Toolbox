@@ -1,5 +1,7 @@
 {
     "Bouncy Mushroom": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

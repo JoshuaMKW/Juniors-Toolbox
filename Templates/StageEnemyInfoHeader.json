@@ -1,5 +1,7 @@
 {
     "Enemy Appearance Table": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

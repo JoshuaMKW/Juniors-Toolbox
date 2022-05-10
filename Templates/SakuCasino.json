@@ -1,5 +1,7 @@
 {
     "Casino Gate": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

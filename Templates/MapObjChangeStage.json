@@ -1,5 +1,7 @@
 {
     "Stage Warp": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

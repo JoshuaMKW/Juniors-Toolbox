@@ -1,5 +1,7 @@
 {
     "Sunflower Kid": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

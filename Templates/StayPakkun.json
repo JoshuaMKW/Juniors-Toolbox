@@ -1,5 +1,7 @@
 {
     "Piranha Plant (Fixed)": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

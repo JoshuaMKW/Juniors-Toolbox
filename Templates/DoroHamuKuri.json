@@ -1,5 +1,7 @@
 {
     "Swipin' Stu": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,5 +1,7 @@
 {
     "Sound Switching Cube Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

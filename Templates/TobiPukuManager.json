@@ -1,5 +1,7 @@
 {
     "Cheep-Cheep Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

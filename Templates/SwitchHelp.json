@@ -1,5 +1,7 @@
 {
     "F.L.U.D.D. Tip Area (Switch)": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

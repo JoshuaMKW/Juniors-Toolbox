@@ -1,5 +1,7 @@
 {
     "Breakable Panel": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

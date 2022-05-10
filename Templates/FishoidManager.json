@@ -1,5 +1,7 @@
 {
     "Fish Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

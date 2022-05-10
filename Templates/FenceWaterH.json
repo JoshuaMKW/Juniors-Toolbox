@@ -1,5 +1,7 @@
 {
     "Horizontal Flipping Fence": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

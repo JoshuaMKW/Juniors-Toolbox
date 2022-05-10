@@ -1,5 +1,7 @@
 {
     "Engineer Pianta": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

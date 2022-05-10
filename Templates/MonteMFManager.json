@@ -1,5 +1,7 @@
 {
     "Swimming Pianta Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

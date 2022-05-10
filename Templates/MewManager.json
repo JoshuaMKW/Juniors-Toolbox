@@ -1,5 +1,7 @@
 {
     "Seagull Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

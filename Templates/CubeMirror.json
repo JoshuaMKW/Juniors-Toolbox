@@ -1,5 +1,7 @@
 {
     "Mirror Cube Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

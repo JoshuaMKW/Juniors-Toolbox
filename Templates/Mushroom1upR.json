@@ -1,5 +1,7 @@
 {
     "1-Up Mushroom (Avoiding)": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

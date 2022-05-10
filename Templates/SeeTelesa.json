@@ -1,5 +1,7 @@
 {
     "Boo (Visible)": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

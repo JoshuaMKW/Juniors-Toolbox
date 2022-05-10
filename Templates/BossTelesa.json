@@ -1,5 +1,7 @@
 {
     "King Boo": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,5 +1,7 @@
 {
     "Plaza TV Station Bell": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

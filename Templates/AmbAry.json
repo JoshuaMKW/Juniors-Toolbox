@@ -1,5 +1,7 @@
 {
     "Ambient Group": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

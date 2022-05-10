@@ -1,5 +1,7 @@
 {
     "Object Group": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

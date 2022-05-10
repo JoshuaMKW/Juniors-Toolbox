@@ -1,5 +1,7 @@
 {
     "Noki Bay Spray Wall": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

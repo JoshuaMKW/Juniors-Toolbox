@@ -1,5 +1,7 @@
 {
     "Male Pianta (Round Collar Shirt)": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

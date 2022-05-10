@@ -1,5 +1,7 @@
 {
     "Manhole": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

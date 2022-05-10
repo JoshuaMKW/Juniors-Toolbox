@@ -1,5 +1,7 @@
 {
     "Marine Snow": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

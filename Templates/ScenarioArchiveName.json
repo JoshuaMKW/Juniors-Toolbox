@@ -1,5 +1,7 @@
 {
     "Scenario Archive Name": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

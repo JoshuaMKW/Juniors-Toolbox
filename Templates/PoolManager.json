@@ -1,5 +1,7 @@
 {
     "Pool Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

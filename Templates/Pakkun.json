@@ -1,5 +1,7 @@
 {
     "Piranha Plant": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

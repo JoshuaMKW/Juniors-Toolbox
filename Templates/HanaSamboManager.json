@@ -1,5 +1,7 @@
 {
     "Pokey Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

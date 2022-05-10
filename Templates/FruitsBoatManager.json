@@ -1,5 +1,7 @@
 {
     "Fruit Boat Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

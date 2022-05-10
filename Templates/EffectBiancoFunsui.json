@@ -1,5 +1,7 @@
 {
     "Fountain Effect (Bianco)": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

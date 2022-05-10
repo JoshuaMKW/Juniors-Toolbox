@@ -1,5 +1,7 @@
 {
     "Revolving Shelf": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,5 +1,7 @@
 {
     "Flame Trap Lamp": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

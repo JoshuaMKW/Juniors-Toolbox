@@ -1,5 +1,7 @@
 {
     "Hidden Object (Water)": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

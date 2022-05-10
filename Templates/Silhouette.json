@@ -1,5 +1,7 @@
 {
     "Silhouette Setting": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

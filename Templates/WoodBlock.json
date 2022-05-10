@@ -1,5 +1,7 @@
 {
     "Wood Block": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

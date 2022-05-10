@@ -1,5 +1,7 @@
 {
     "Green T Spinner Block": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

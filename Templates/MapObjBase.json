@@ -1,5 +1,7 @@
 {
     "Base Map Object": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,5 +1,7 @@
 {
     "Rotten Lily Pad": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

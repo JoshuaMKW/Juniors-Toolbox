@@ -1,5 +1,7 @@
 {
     "Weathercock": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

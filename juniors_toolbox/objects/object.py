@@ -8,7 +8,7 @@ from attr import field
 
 from numpy import array
 from requests import JSONDecodeError
-from juniors_toolbox.objects.value import A_Member, MemberComment, MemberStruct, MemberValue, QualifiedName, ValueType
+from juniors_toolbox.objects.value import A_Member, MemberComment, MemberEnum, MemberStruct, MemberValue, QualifiedName, ValueType
 from juniors_toolbox.utils.types import RGB32, RGB8, RGBA8, Transform, Vec3f
 from juniors_toolbox.utils import A_Serializable, VariadicArgs, VariadicKwargs, jdrama
 from juniors_toolbox.utils.iohelper import read_string, read_uint16, read_uint32, write_string, write_uint16, write_uint32
@@ -186,6 +186,7 @@ class A_SceneObject(jdrama.NameRef, ABC):
                 return False
 
         objname, objdata = templateInfo.popitem()
+        enumInfo: Dict[str, dict] = objdata["Enums"]
         structInfo: Dict[str, dict] = objdata["Structs"]
         memberInfo: Dict[str, dict] = objdata["Members"]
         wizardInfo: Dict[str, dict] = objdata["Wizard"]
@@ -212,15 +213,28 @@ class A_SceneObject(jdrama.NameRef, ABC):
             else:
                 repeatRef = repeat
 
-            if kind == ValueType.STRUCT:
+            if kind == ValueType.UNKNOWN:
                 memberStruct = MemberStruct(name)
                 memberStruct.set_array_size(repeatRef)  # type: ignore
-                struct = structInfo[minfo["Type"].strip()]
-                wizard = winfo[name]
-                for sname, sinfo in struct.items():
-                    memberStruct.add_child(
-                        _init_struct_member(sname, sinfo, wizard))
-                return memberStruct
+                memberType = minfo["Type"].strip()
+                if memberType in structInfo:
+                    struct = structInfo[memberType]
+                    wizard = winfo[name]
+                    for sname, sinfo in struct.items():
+                        memberStruct.add_child(
+                            _init_struct_member(sname, sinfo, wizard))
+                    return memberStruct
+                elif memberType in enumInfo:
+                    _enumInfo = enumInfo[memberType]
+                    for _enum in _enumInfo["Flags"]:
+                        _enumInfo["Flags"][_enum] = int(_enumInfo["Flags"][_enum], 0)
+                    memberEnum = MemberEnum(
+                        name, defaultValue, ValueType.ENUM, enumInfo=_enumInfo)
+                    memberEnum.set_array_size(repeatRef) # type: ignore
+                    return memberEnum
+                else:
+                    raise KeyError(
+                        f"Type referenced by {self.get_ref()}::{name} does not exist! (Try adding it to Structs or Enums)")
             else:
                 if kind == ValueType.TRANSFORM:
                     defaultValue = Transform(

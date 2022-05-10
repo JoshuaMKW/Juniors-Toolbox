@@ -1,5 +1,7 @@
 {
     "Event Table": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

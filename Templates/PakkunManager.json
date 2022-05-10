@@ -1,5 +1,7 @@
 {
     "Piranha Plant Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

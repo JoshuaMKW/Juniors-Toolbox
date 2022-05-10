@@ -1,5 +1,7 @@
 {
     "Twin Graffiti": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

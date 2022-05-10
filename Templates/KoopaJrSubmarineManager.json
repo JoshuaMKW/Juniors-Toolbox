@@ -1,5 +1,7 @@
 {
     "Jr.'s Bathtub Submarine Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

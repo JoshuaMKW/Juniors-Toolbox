@@ -1,5 +1,7 @@
 {
     "Revolving Inner Fence": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

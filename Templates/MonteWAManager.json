@@ -1,5 +1,7 @@
 {
     "Female Pianta (T-shirt) Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,5 +1,7 @@
 {
     "Puncher": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

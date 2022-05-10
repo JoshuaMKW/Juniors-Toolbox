@@ -1,5 +1,7 @@
 {
     "Fake Shadow Mario": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

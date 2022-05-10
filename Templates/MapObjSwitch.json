@@ -1,5 +1,7 @@
 {
     "Switch Object": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,5 +1,7 @@
 {
     "Plungelo Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

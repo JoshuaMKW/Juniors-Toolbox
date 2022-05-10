@@ -1,5 +1,7 @@
 {
     "Glorpedo Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

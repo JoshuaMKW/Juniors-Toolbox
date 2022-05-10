@@ -1,5 +1,7 @@
 {
     "Bird": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

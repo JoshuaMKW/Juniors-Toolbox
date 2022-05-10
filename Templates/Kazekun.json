@@ -1,5 +1,7 @@
 {
     "Wind Spirit": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,5 +1,7 @@
 {
     "Spike Trap Lamp": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

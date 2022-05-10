@@ -1,5 +1,7 @@
 {
     "Female Noki": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

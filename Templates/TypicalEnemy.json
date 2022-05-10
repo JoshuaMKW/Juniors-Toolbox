@@ -1,5 +1,7 @@
 {
     "Kug (Typical)": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

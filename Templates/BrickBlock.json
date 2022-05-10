@@ -1,5 +1,7 @@
 {
     "Brick Block": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,5 +1,7 @@
 {
     "Slot Machine Drum": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

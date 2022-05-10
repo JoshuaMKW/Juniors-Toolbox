@@ -1,5 +1,7 @@
 {
     "Swoopin' Stu Generator": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

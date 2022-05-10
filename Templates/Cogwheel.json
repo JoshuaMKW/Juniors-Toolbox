@@ -1,5 +1,7 @@
 {
     "Cogwheel": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

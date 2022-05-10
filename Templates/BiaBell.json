@@ -1,5 +1,7 @@
 {
     "Bianco Bell": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

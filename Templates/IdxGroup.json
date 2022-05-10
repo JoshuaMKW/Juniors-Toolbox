@@ -1,5 +1,7 @@
 {
     "Subgroup": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,5 +1,7 @@
 {
     "Casino Roulette": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

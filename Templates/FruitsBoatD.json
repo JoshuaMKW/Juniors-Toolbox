@@ -1,5 +1,7 @@
 {
     "Fruit Boat D": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

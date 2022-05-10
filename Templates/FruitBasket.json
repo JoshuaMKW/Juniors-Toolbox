@@ -1,5 +1,7 @@
 {
     "Fruit Basket": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

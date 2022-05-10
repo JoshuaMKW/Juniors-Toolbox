@@ -1,5 +1,7 @@
 {
     "Coin": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

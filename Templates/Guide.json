@@ -1,5 +1,7 @@
 {
     "Guide Map": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,5 +1,7 @@
 {
     "Beehive": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

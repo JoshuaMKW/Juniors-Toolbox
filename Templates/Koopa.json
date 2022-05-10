@@ -1,5 +1,7 @@
 {
     "Bowser": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

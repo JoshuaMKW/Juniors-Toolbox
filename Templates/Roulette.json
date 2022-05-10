@@ -1,5 +1,7 @@
 {
     "Roulette": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

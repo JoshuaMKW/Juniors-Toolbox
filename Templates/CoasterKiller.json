@@ -1,5 +1,7 @@
 {
     "Coaster Bullet Bill": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

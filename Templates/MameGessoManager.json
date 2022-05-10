@@ -1,5 +1,7 @@
 {
     "Jumping Blooper Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

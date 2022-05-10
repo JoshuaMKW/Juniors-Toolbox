@@ -1,5 +1,7 @@
 {
     "Hook Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,5 +1,7 @@
 {
     "File Block B": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

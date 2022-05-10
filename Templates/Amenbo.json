@@ -1,5 +1,7 @@
 {
     "Skeeter": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

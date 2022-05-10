@@ -1,5 +1,7 @@
 {
     "Hidden Tree": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

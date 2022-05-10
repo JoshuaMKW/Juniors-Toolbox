@@ -1,5 +1,7 @@
 {
     "Secret Stage \"Castella\"": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

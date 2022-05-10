@@ -1,5 +1,7 @@
 {
     "Pause Menu": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

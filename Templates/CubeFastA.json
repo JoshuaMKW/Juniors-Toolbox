@@ -1,5 +1,7 @@
 {
     "High Speed A Cube Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

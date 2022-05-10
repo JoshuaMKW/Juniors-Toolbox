@@ -1,5 +1,7 @@
 {
     "Sky": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

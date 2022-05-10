@@ -1,5 +1,7 @@
 {
     "Pollution Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

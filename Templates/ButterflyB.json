@@ -1,5 +1,7 @@
 {
     "Blue Butterfly": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

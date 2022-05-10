@@ -1,5 +1,7 @@
 {
     "Flipped Basket": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

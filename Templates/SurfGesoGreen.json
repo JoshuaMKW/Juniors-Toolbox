@@ -1,5 +1,7 @@
 {
     "Green Blooper Surfboard": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,5 +1,7 @@
 {
     "Turning Windmill": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

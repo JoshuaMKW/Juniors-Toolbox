@@ -1,5 +1,7 @@
 {
     "Main Scene Group": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

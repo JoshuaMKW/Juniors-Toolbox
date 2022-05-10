@@ -1,5 +1,7 @@
 {
     "Stackin' Stu": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

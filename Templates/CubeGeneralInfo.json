@@ -1,5 +1,7 @@
 {
     "General Cube": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

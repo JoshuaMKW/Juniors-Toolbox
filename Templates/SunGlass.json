@@ -1,5 +1,7 @@
 {
     "Sunglasses Fader": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

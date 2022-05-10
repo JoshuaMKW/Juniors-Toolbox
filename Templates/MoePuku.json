@@ -1,5 +1,7 @@
 {
     "Lava Cheep-Cheep": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

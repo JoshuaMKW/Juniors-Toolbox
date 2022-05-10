@@ -1,5 +1,7 @@
 {
     "Mimic Boo": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

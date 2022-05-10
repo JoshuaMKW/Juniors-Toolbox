@@ -1,5 +1,7 @@
 {
     "Tilting Mirror": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

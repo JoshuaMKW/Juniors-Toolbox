@@ -1,5 +1,7 @@
 {
     "Ambient Color": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,5 +1,7 @@
 {
     "Coin (Flower Spawn)": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,5 +1,7 @@
 {
     "Fruit Basket (Event)": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

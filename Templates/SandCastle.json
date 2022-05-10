@@ -1,5 +1,7 @@
 {
     "Sand Castle": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

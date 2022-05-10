@@ -1,5 +1,7 @@
 {
     "HauntLeg Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

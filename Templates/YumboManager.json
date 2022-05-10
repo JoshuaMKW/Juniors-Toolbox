@@ -1,5 +1,7 @@
 {
     "Seedy Pod Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,5 +1,7 @@
 {
     "Coo Coo Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

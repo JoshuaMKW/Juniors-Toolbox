@@ -1,5 +1,7 @@
 {
     "Smolderin' Stu": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

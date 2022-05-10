@@ -1,5 +1,7 @@
 {
     "Plaza Police Station Bell": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

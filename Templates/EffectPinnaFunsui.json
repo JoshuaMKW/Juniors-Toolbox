@@ -1,5 +1,7 @@
 {
     "Fountain Effect (Pinna)": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

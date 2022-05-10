@@ -1,5 +1,7 @@
 {
     "Sleepy Boo": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

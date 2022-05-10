@@ -1,5 +1,7 @@
 {
     "Fruit (Blockade)": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

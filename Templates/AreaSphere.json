@@ -1,5 +1,7 @@
 {
     "Area Sphere": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,5 +1,7 @@
 {
     "Water Column Effect Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

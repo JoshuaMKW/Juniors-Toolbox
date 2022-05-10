@@ -1,5 +1,7 @@
 {
     "Proto Piranha Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

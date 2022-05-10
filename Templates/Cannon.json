@@ -1,5 +1,7 @@
 {
     "Monty Mole Cannon": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

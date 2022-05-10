@@ -1,5 +1,7 @@
 {
     "Boo Painting": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,5 +1,7 @@
 {
     "Secret Stage \"Hikidashi\"": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

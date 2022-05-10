@@ -1,5 +1,7 @@
 {
     "Chain Chomp Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

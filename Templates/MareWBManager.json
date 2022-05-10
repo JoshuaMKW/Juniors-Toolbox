@@ -1,5 +1,7 @@
 {
     "Mother Noki Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

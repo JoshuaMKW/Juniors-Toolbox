@@ -18,7 +18,7 @@ from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.gui.widgets.property import A_ValueProperty, PropertyFactory, StructProperty
 from juniors_toolbox.objects.object import A_SceneObject, MapObject
-from juniors_toolbox.objects.value import A_Member, ValueType
+from juniors_toolbox.objects.value import A_Member, MemberEnum, ValueType
 from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.utils import VariadicArgs, VariadicKwargs
 
@@ -247,11 +247,16 @@ class NameRefHierarchyWidget(A_DockingInterface):
         title = f"{sceneObj.get_explicit_name()} Properties"
 
         def _inner_populate(member: A_Member) -> A_ValueProperty:
+            enumInfo = {}
+            if isinstance(member, MemberEnum):
+                enumInfo = member.get_enum_info()
+
             prop = PropertyFactory.create_property(
                 name=member.get_formatted_name(),
                 valueType=member.get_type(),
                 value=member.get_value(),
-                readOnly=member.is_read_only()
+                readOnly=member.is_read_only(),
+                enumInfo=enumInfo
             )
             prop.valueChanged.connect(lambda _p, _v: member.set_value(_v))
             if member.is_struct():

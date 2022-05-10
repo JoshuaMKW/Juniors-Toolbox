@@ -1,5 +1,7 @@
 {
     "Tanooki Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,5 +1,7 @@
 {
     "Hook": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

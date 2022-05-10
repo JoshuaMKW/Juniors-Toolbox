@@ -1,5 +1,7 @@
 {
     "Sound Group": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,5 +1,7 @@
 {
     "Area Cylinder": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

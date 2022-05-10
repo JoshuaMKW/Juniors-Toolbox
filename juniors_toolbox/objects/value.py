@@ -107,10 +107,12 @@ class ValueType(str, Enum):
     TRANSFORM = "TRANSFORM"
     COMMENT = "COMMENT"
     STRUCT = "STRUCT"
+    ENUM = "ENUM"
+    UNKNOWN = "UNKNOWN"
 
     @classmethod
     def _missing_(cls, value):
-        return cls.STRUCT
+        return cls.UNKNOWN
 
     @staticmethod
     def type_to_enum(_ty: type):
@@ -183,6 +185,7 @@ _ENUM_TO_TYPE_TABLE = {
     ValueType.DOUBLE: float,
     ValueType.STR: str,
     ValueType.STRING: str,
+    ValueType.ENUM: int,
     ValueType.C_RGB8: RGB8,
     ValueType.C_RGBA8: RGBA8,
     ValueType.C_RGB32: RGB8,
@@ -210,6 +213,7 @@ _ENUM_TO_SIZE_TABLE = {
     ValueType.DOUBLE: 8,
     ValueType.STR: None,
     ValueType.STRING: None,
+    ValueType.ENUM: 4,
     ValueType.C_RGB8: 3,
     ValueType.C_RGBA8: 4,
     ValueType.C_RGB32: 12,
@@ -237,6 +241,7 @@ _ENUM_TO_SIGNED_TABLE = {
     ValueType.DOUBLE: False,
     ValueType.STR: False,
     ValueType.STRING: False,
+    ValueType.ENUM: False,
     ValueType.C_RGB8: False,
     ValueType.C_RGBA8: False,
     ValueType.C_RGB32: False,
@@ -265,6 +270,7 @@ TEMPLATE_TYPE_READ_TABLE: dict[ValueType, Callable[[BinaryIO], Any]] = {
     ValueType.DOUBLE: read_double,
     ValueType.STR: __read_bin_string,
     ValueType.STRING: __read_bin_string,
+    ValueType.ENUM: read_uint32,
     ValueType.C_RGB8: lambda f: RGB8.from_tuple((read_ubyte(f), read_ubyte(f), read_ubyte(f))),
     ValueType.C_RGBA8: lambda f: RGBA8(read_uint32(f)),
     ValueType.C_RGB32: lambda f: RGB32.from_tuple((read_uint32(f), read_uint32(f), read_uint32(f))),
@@ -294,6 +300,7 @@ TEMPLATE_TYPE_WRITE_TABLE: dict[ValueType, Callable[[BinaryIO, Any], None]] = {
     ValueType.DOUBLE: write_double,
     ValueType.STR: __write_bin_string,
     ValueType.STRING: __write_bin_string,
+    ValueType.ENUM: write_uint32,
     ValueType.C_RGB8: lambda f, val: write_ubyte(f, val.tuple()),  # val = RGB8
     ValueType.C_RGBA8: lambda f, val: write_ubyte(f, val.tuple()),
     # val = RGB8
@@ -315,11 +322,13 @@ class A_Member(A_Clonable, ABC):
         self._name = name
         self._value = value
         self._type = type
+        self._desc = ""
         self._readOnly = readOnly
         self._parent: Optional["MemberStruct"] = None
         self._arraySize: int | "MemberValue" = 1
         self._arrayIdx: int = 0
         self._arrayInstances: dict[int, "A_Member"] = {}
+        self._referencedBy: list["A_Member"] = []
 
     @staticmethod
     def get_formatted_template_name(name: str, arrayidx: int) -> str:
@@ -338,6 +347,12 @@ class A_Member(A_Clonable, ABC):
         """
         return self._arrayIdx != 0
 
+    def is_referenced(self) -> bool:
+        """
+        Returns if this member is referenced by other members
+        """
+        return len(self._referencedBy) > 0
+
     def is_read_only(self) -> bool:
         return self._readOnly
 
@@ -355,6 +370,12 @@ class A_Member(A_Clonable, ABC):
 
     def set_type(self, _type: ValueType):
         self._type = _type
+
+    def get_description(self) -> str:
+        return self._desc
+
+    def set_description(self, desc: str):
+        self._desc = desc
 
     def get_formatted_name(self) -> str:
         return self.get_formatted_template_name(self._name, self._arrayIdx)
@@ -411,7 +432,11 @@ class A_Member(A_Clonable, ABC):
         if self.is_from_array():
             return
 
+        if isinstance(self._arraySize, MemberValue):
+            self._arraySize._referencedBy.remove(self)
         self._arraySize = arraySize
+        if isinstance(arraySize, MemberValue):
+            arraySize._referencedBy.append(self)
 
     @abstractmethod
     def is_struct(self) -> bool:
@@ -576,6 +601,38 @@ class MemberValue(A_Member):
         if not deep:
             _copy._arrayInstances = self._arrayInstances.copy()
         return _copy
+
+
+class MemberEnum(MemberValue):
+    """
+    Class describing an Enum bound member
+    """
+    def __init__(self, name: str, value: Any, type: ValueType, *, readOnly: bool = False, enumInfo: dict[str, int]) -> None:
+        super().__init__(name, value, type, readOnly=readOnly)
+        self._enumInfo = enumInfo
+        self._enumFlags: dict[str, bool] = {}
+        self.__update_enum()
+
+    def set_value(self, value: Any):
+        super().set_value(value)
+        self.__update_enum()
+
+    def get_enum_info(self) -> dict[str, Any]:
+        return self._enumInfo
+
+    def get_enum_flags(self) -> dict[str, bool]:
+        return self._enumFlags
+
+    def set_enum_flag(self, enum: str, on: bool):
+        self._enumFlags[enum] = on
+        if on:
+            self._value |= self._enumInfo[enum]
+        else:
+            self._value &= self._enumInfo[enum]
+
+    def __update_enum(self):
+        for key, value in self._enumInfo["Flags"].items():
+            self._enumFlags[key] = (self.get_value() & value) != 0
 
 
 class MemberStruct(A_Member):

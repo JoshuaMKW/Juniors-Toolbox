@@ -1,5 +1,7 @@
 {
     "Sign Manager": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

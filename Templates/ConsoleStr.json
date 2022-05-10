@@ -1,5 +1,7 @@
 {
     "Console Character": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

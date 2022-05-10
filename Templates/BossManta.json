@@ -1,5 +1,7 @@
 {
     "Phantamanta": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {

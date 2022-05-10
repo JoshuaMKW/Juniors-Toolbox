@@ -1,5 +1,7 @@
 {
     "Cloud": {
+        "Enums": {
+        },
         "Structs": {
             "LightInfo": {
                 "ID": {
