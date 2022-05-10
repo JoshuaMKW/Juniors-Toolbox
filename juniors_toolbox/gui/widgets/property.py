@@ -548,7 +548,7 @@ class EnumProperty(A_ValueProperty):
             self._checkList.enumPressed.connect(lambda: self.__update_value_from_flags())
         else:
             self._checkList = EnumProperty._EnumList()
-            self._checkList.currentItemChanged.connect(lambda: self.__update_value_from_flags())
+            self._checkList.currentIndexChanged.connect(lambda: self.__update_value_from_flags())
 
         for name, value in self._enumInfo["Flags"].items():
             self._checkList.addItem(name, value)
