@@ -1,6 +1,18 @@
 {
     "Flow Cube": {
+        "Enums": {
+        },
         "Structs": {
+            "LightInfo": {
+                "ID": {
+                    "Type": "INT",
+                    "ArraySize": 1
+                },
+                "Name": {
+                    "Type": "STRING",
+                    "ArraySize": 1
+                }
+            }
         },
         "Members": {
             "Transform": {
@@ -11,9 +23,13 @@
                 "Type": "INT",
                 "ArraySize": 1
             },
-            "!!!": {
+            "LightCount": {
                 "Type": "INT",
                 "ArraySize": 1
+            },
+            "Lights": {
+                "Type": "LightInfo",
+                "ArraySize": "LightCount"
             },
             "vvvv2": {
                 "Type": "INT",
@@ -48,7 +64,11 @@
                     ]
                 ],
                 "vvvv": 128,
-                "!!!": 0,
+                "LightCount": 0,
+                "Lights": {
+                    "ID": 0,
+                    "Name": "LightX"
+                },
                 "vvvv2": 0,
                 "Power": 100,
                 "State": 0

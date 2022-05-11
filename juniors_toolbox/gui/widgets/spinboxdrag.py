@@ -174,6 +174,9 @@ class SpinBoxDragDouble(QDoubleSpinBox):
     def __catch_and_name_text(self, value: float) -> None:
         self.valueChangedExplicit.emit(self, value)
 
+    def textFromValue(self, val: float) -> str:
+        return str(val)
+
 
 class SpinBoxDragInt(QSpinBox):
     valueChangedExplicit = Signal(QSpinBox, int)
@@ -219,7 +222,7 @@ class SpinBoxDragInt(QSpinBox):
         intSize = self.__intSize
         signed = self.__signed
         
-        if signed or True:
+        if signed:
             if intSize == SpinBoxDragInt.IntSize.BYTE:
                 self.setMinimum(-0x80)
                 self.setMaximum(0x7F)
@@ -232,6 +235,20 @@ class SpinBoxDragInt(QSpinBox):
             elif intSize == SpinBoxDragInt.IntSize.LONG:
                 self.setMinimum(-0x8000000000000000)
                 self.setMaximum(0x7FFFFFFFFFFFFFFF)
+        else:
+            if intSize == SpinBoxDragInt.IntSize.BYTE:
+                self.setMinimum(0)
+                self.setMaximum(0x7F)
+            elif intSize == SpinBoxDragInt.IntSize.SHORT:
+                self.setMinimum(0)
+                self.setMaximum(0x7FFF)
+            elif intSize == SpinBoxDragInt.IntSize.WORD:
+                self.setMinimum(0)
+                self.setMaximum(0x7FFFFFFF)
+            elif intSize == SpinBoxDragInt.IntSize.LONG:
+                self.setMinimum(0)
+                self.setMaximum(0x7FFFFFFFFFFFFFFF)
+
 
         lineEdit = self.__lineEdit
         lineEdit._min = self.minimum()

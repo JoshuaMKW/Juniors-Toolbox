@@ -1,6 +1,18 @@
 {
     "Scenario Archive Name Group": {
+        "Enums": {
+        },
         "Structs": {
+            "LightInfo": {
+                "ID": {
+                    "Type": "INT",
+                    "ArraySize": 1
+                },
+                "Name": {
+                    "Type": "STRING",
+                    "ArraySize": 1
+                }
+            }
         },
         "Members": {
         },

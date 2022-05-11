@@ -803,8 +803,6 @@ class ProjectHierarchyViewWidget(QTreeWidget, A_FileSystemViewer):
         self.setDefaultDropAction(Qt.MoveAction)
         self.setContextMenuPolicy(Qt.CustomContextMenu)
 
-        self.__treeWidget = QTreeWidget()
-
         self.__rootFsItem: Optional[ProjectHierarchyItem] = None
         self.__dragHoverItem: Optional[ProjectHierarchyItem] = None
         self.__dragPreSelected = False
@@ -813,10 +811,10 @@ class ProjectHierarchyViewWidget(QTreeWidget, A_FileSystemViewer):
         self.__expandCheckTimer.timeout.connect(self.check_expand)
         self.__expandCheckTimer.start(10)
 
-        self.__treeWidget.itemChanged.connect(
+        self.itemChanged.connect(
             lambda item: self.renameRequested.emit(item)
         )
-        self.__treeWidget.customContextMenuRequested.connect(
+        self.customContextMenuRequested.connect(
             self.custom_context_menu
         )
 
@@ -889,9 +887,10 @@ class ProjectHierarchyViewWidget(QTreeWidget, A_FileSystemViewer):
             return
 
         item: ProjectHierarchyItem = self.itemAt(point)
+        itemList = [item]
 
         # We build the menu.
-        menu = QMenu(self.__treeWidget)
+        menu = QMenu(self)
 
         viewAction = QAction("Open Path in Explorer", self)
         viewAction.triggered.connect(
@@ -901,7 +900,7 @@ class ProjectHierarchyViewWidget(QTreeWidget, A_FileSystemViewer):
         openAction.setEnabled(False)
         deleteAction = QAction("Delete", self)
         deleteAction.triggered.connect(
-            lambda clicked=None: self.deleteRequested.emit(item)
+            lambda clicked=None: self.deleteRequested.emit(itemList)
         )
         renameAction = QAction("Rename", self)
         renameAction.triggered.connect(
@@ -1220,7 +1219,7 @@ class ProjectViewerWidget(A_DockingInterface):
 
     @Slot()
     def update(self) -> None:
-        self.fsTreeWidget.view(self.scenePath)
+        self.fsTreeWidget.view_project(self.scenePath)
         self.folderViewWidget.view(self.focusedPath)
         self.focusedViewWidget.view(self.focusedPath)
 

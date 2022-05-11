@@ -9,18 +9,28 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from queue import LifoQueue
 
 from PySide6.QtCore import Qt, QTimer, Slot
-from PySide6.QtGui import QDragEnterEvent, QDropEvent, QKeyEvent, QUndoCommand, QUndoStack, QDragMoveEvent, QDragLeaveEvent
+from PySide6.QtGui import QDragEnterEvent, QDropEvent, QKeyEvent, QUndoCommand, QUndoStack, QDragMoveEvent, QDragLeaveEvent, QColor, QFont
 from PySide6.QtWidgets import (QFormLayout, QFrame, QGridLayout, QComboBox,
                                QLabel, QScrollArea,
                                QTreeWidget, QTreeWidgetItem, QWidget)
 from juniors_toolbox.gui import ToolboxManager
 from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
-from juniors_toolbox.gui.widgets.property import A_ValueProperty, PropertyFactory
+from juniors_toolbox.gui.widgets.property import A_ValueProperty, PropertyFactory, StructProperty
 from juniors_toolbox.objects.object import A_SceneObject, MapObject
-from juniors_toolbox.objects.value import A_Member
+from juniors_toolbox.objects.value import A_Member, MemberEnum, ValueType
 from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.utils import VariadicArgs, VariadicKwargs
+
+
+class StringListProperty(StructProperty):
+    def construct(self) -> None:
+        super().construct()
+        self._frameLayout._content_layout.setSpacing(0)
+        self._frameLayout._content_layout.setContentsMargins(10, 0, 0, 0)
+
+    def add_property(self, prop: A_ValueProperty):
+        self._frameLayout.addWidget(prop)
 
 
 class NameRefHierarchyWidgetItem(QTreeWidgetItem):
@@ -97,7 +107,8 @@ class NameRefHierarchyWidget(A_DockingInterface):
         self.treeWidget.setDefaultDropAction(Qt.MoveAction)
         self.treeWidget.setHeaderHidden(True)
         self.treeWidget.setMinimumSize(300, 80)
-        self.treeWidget.currentItemChanged.connect(self.__populate_properties_view)
+        self.treeWidget.currentItemChanged.connect(
+            self.__populate_properties_view)
 
         self.setWidget(self.treeWidget)
 
@@ -117,19 +128,35 @@ class NameRefHierarchyWidget(A_DockingInterface):
         if scene is None:
             return
 
+        headerFont = QFont()
+        headerFont.setBold(True)
+
+        objectsNode = QTreeWidgetItem()
+        objectsNode.setText(0, "Objects")
+        objectsNode.setFont(0, headerFont)
+        objectsNode.setFlags(Qt.ItemIsSelectable |
+                             Qt.ItemIsEnabled | Qt.ItemIsDropEnabled)
         for obj in scene.iter_objects():
             node = NameRefHierarchyWidgetItem(obj)
             node.setText(0, obj.get_explicit_name())
-            self.treeWidget.addTopLevelItem(node)
+            node.setBackground(0, QColor(255, 255, 0, 128))
+            objectsNode.addChild(node)
             if obj.is_group():
                 inner_populate(obj, node, 0)
+        self.treeWidget.addTopLevelItem(objectsNode)
 
+        tablesNode = QTreeWidgetItem()
+        tablesNode.setText(0, "Tables")
+        tablesNode.setFont(0, headerFont)
+        tablesNode.setFlags(Qt.ItemIsSelectable |
+                            Qt.ItemIsEnabled | Qt.ItemIsDropEnabled)
         for table in scene.iter_tables():
             node = NameRefHierarchyWidgetItem(table)
             node.setText(0, table.get_explicit_name())
-            self.treeWidget.addTopLevelItem(node)
+            tablesNode.addChild(node)
             if table.is_group():
                 inner_populate(table, node, 0)
+        self.treeWidget.addTopLevelItem(tablesNode)
 
         # self.expandAll()
 
@@ -139,15 +166,97 @@ class NameRefHierarchyWidget(A_DockingInterface):
         propertiesTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
         if propertiesTab is None or item is None:
             return
-        
+
+        manager = ToolboxManager.get_instance()
+        scene = manager.get_scene()
+        if scene is None:
+            propertiesTab.reset()
+            return
+
+        if item.parent() is None:
+            metadataProperties = []
+            if item.text(0) == "Objects":
+                title = "Object Hierarchy Properties"
+                metadataProperties.append(
+                    PropertyFactory.create_property(
+                        name="Object Count",
+                        valueType=ValueType.COMMENT,
+                        value=f"=  {scene.get_object_count()}",
+                        readOnly=True
+                    )
+                )
+                metadataProperties.append(
+                    PropertyFactory.create_property(
+                        name="Object Data Size",
+                        valueType=ValueType.COMMENT,
+                        value=f"=  0x{sum([obj.get_data_size() for obj in scene.iter_objects()]):X}",
+                        readOnly=True
+                    )
+                )
+                uniqueObjList = StringListProperty(
+                    name="Unique Objects",
+                    readOnly=False
+                )
+                for uniqueRef in scene.get_unique_object_refs(alphanumeric=True):
+                    uniqueObjList.add_property(
+                        PropertyFactory.create_property(
+                            name=uniqueRef,
+                            valueType=ValueType.COMMENT,
+                            value=uniqueRef,
+                            readOnly=True
+                        )
+                    )
+                metadataProperties.append(uniqueObjList)
+            else:
+                title = "Table Hierarchy Properties"
+                metadataProperties.append(
+                    PropertyFactory.create_property(
+                        name="Table Count",
+                        valueType=ValueType.COMMENT,
+                        value=f"=  {scene.get_table_count()}",
+                        readOnly=True
+                    )
+                )
+                uniqueTableList = StringListProperty(
+                    name="Unique Objects",
+                    readOnly=False
+                )
+                metadataProperties.append(
+                    PropertyFactory.create_property(
+                        name="Table Data Size",
+                        valueType=ValueType.COMMENT,
+                        value=f"=  0x{sum([obj.get_data_size() for obj in scene.iter_tables()]):X}",
+                        readOnly=True
+                    )
+                )
+                for uniqueRef in scene.get_unique_table_refs(alphanumeric=True):
+                    uniqueTableList.add_property(
+                        PropertyFactory.create_property(
+                            name=uniqueRef,
+                            valueType=ValueType.COMMENT,
+                            value=uniqueRef,
+                            readOnly=True
+                        )
+                    )
+                metadataProperties.append(uniqueTableList)
+            propertiesTab.populate(
+                scene, properties=metadataProperties, title=title)
+            return
+
         sceneObj = item.object
         title = f"{sceneObj.get_explicit_name()} Properties"
 
         def _inner_populate(member: A_Member) -> A_ValueProperty:
+            enumInfo = {}
+            if isinstance(member, MemberEnum):
+                enumInfo = member.get_enum_info()
+
             prop = PropertyFactory.create_property(
                 name=member.get_formatted_name(),
                 valueType=member.get_type(),
-                value=member.get_value()
+                value=member.get_value(),
+                readOnly=member.is_read_only(),
+                enumInfo=enumInfo
             )
             prop.valueChanged.connect(lambda _p, _v: member.set_value(_v))
             if member.is_struct():
@@ -162,7 +271,7 @@ class NameRefHierarchyWidget(A_DockingInterface):
             properties.append(_inner_populate(member))
 
         manager = ToolboxManager.get_instance()
-        propertiesTab.populate(manager.get_scene(), properties=properties, title=title)
+        propertiesTab.populate(scene, properties=properties, title=title)
 
     def startDrag(self, supportedActions: Qt.DropActions):
         self.draggedItem = self.treeWidget.currentItem()

@@ -107,10 +107,12 @@ class ValueType(str, Enum):
     TRANSFORM = "TRANSFORM"
     COMMENT = "COMMENT"
     STRUCT = "STRUCT"
+    ENUM = "ENUM"
+    UNKNOWN = "UNKNOWN"
 
     @classmethod
     def _missing_(cls, value):
-        return cls.STRUCT
+        return cls.UNKNOWN
 
     @staticmethod
     def type_to_enum(_ty: type):
@@ -142,11 +144,11 @@ def __read_bin_string(f: BinaryIO) -> str:
     len = read_uint16(f)
     if len == 0:
         return ""
-    return read_string(f, maxlen=len-1)
+    return read_string(f, maxlen=len-1, encoding="shift-jis")
 
 
 def __write_bin_string(f: BinaryIO, val: str):
-    raw = val.encode()
+    raw = val.encode("shift-jis")
     write_uint16(f, len(raw))
     f.write(raw)
 
@@ -161,7 +163,7 @@ def __read_transform(f: BinaryIO) -> Transform:
 
 def __write_transform(f: BinaryIO, val: Transform):
     write_vec3f(f, val.translation)
-    write_vec3f(f, val.rotation)
+    write_vec3f(f, val.rotation.to_euler())
     write_vec3f(f, val.scale)
 
 
@@ -183,6 +185,7 @@ _ENUM_TO_TYPE_TABLE = {
     ValueType.DOUBLE: float,
     ValueType.STR: str,
     ValueType.STRING: str,
+    ValueType.ENUM: int,
     ValueType.C_RGB8: RGB8,
     ValueType.C_RGBA8: RGBA8,
     ValueType.C_RGB32: RGB8,
@@ -210,6 +213,7 @@ _ENUM_TO_SIZE_TABLE = {
     ValueType.DOUBLE: 8,
     ValueType.STR: None,
     ValueType.STRING: None,
+    ValueType.ENUM: 4,
     ValueType.C_RGB8: 3,
     ValueType.C_RGBA8: 4,
     ValueType.C_RGB32: 12,
@@ -237,6 +241,7 @@ _ENUM_TO_SIGNED_TABLE = {
     ValueType.DOUBLE: False,
     ValueType.STR: False,
     ValueType.STRING: False,
+    ValueType.ENUM: False,
     ValueType.C_RGB8: False,
     ValueType.C_RGBA8: False,
     ValueType.C_RGB32: False,
@@ -265,6 +270,7 @@ TEMPLATE_TYPE_READ_TABLE: dict[ValueType, Callable[[BinaryIO], Any]] = {
     ValueType.DOUBLE: read_double,
     ValueType.STR: __read_bin_string,
     ValueType.STRING: __read_bin_string,
+    ValueType.ENUM: read_uint32,
     ValueType.C_RGB8: lambda f: RGB8.from_tuple((read_ubyte(f), read_ubyte(f), read_ubyte(f))),
     ValueType.C_RGBA8: lambda f: RGBA8(read_uint32(f)),
     ValueType.C_RGB32: lambda f: RGB32.from_tuple((read_uint32(f), read_uint32(f), read_uint32(f))),
@@ -294,8 +300,9 @@ TEMPLATE_TYPE_WRITE_TABLE: dict[ValueType, Callable[[BinaryIO, Any], None]] = {
     ValueType.DOUBLE: write_double,
     ValueType.STR: __write_bin_string,
     ValueType.STRING: __write_bin_string,
+    ValueType.ENUM: write_uint32,
     ValueType.C_RGB8: lambda f, val: write_ubyte(f, val.tuple()),  # val = RGB8
-    ValueType.C_RGBA8: write_uint32,
+    ValueType.C_RGBA8: lambda f, val: write_ubyte(f, val.tuple()),
     # val = RGB8
     ValueType.C_RGB32: lambda f, val: write_uint32(f, val.tuple()),
     ValueType.C_RGBA: write_uint32,
@@ -311,14 +318,17 @@ class A_Member(A_Clonable, ABC):
     Class describing a member of a structure
     """
 
-    def __init__(self, name: str, value: Any, type: ValueType) -> None:
+    def __init__(self, name: str, value: Any, type: ValueType, *, readOnly: bool = False) -> None:
         self._name = name
         self._value = value
         self._type = type
+        self._desc = ""
+        self._readOnly = readOnly
         self._parent: Optional["MemberStruct"] = None
         self._arraySize: int | "MemberValue" = 1
         self._arrayIdx: int = 0
         self._arrayInstances: dict[int, "A_Member"] = {}
+        self._referencedBy: list["A_Member"] = []
 
     @staticmethod
     def get_formatted_template_name(name: str, arrayidx: int) -> str:
@@ -337,17 +347,35 @@ class A_Member(A_Clonable, ABC):
         """
         return self._arrayIdx != 0
 
+    def is_referenced(self) -> bool:
+        """
+        Returns if this member is referenced by other members
+        """
+        return len(self._referencedBy) > 0
+
+    def is_read_only(self) -> bool:
+        return self._readOnly
+
     def get_value(self) -> Any:
         return self._value
 
     def set_value(self, value: Any):
-        self._value = value
+        if not self.is_read_only():
+            self._value = value
+        else:
+            print("Tried setting value of read only member")
 
     def get_type(self) -> ValueType:
         return self._type
 
     def set_type(self, _type: ValueType):
         self._type = _type
+
+    def get_description(self) -> str:
+        return self._desc
+
+    def set_description(self, desc: str):
+        self._desc = desc
 
     def get_formatted_name(self) -> str:
         return self.get_formatted_template_name(self._name, self._arrayIdx)
@@ -369,8 +397,7 @@ class A_Member(A_Clonable, ABC):
         if oldParent is not None:
             oldParent.remove_child(self)
 
-        self._parent = parent
-        for i in range(1, self.get_array_size()):
+        for i in range(self.get_array_size()):
             self[i]._parent = parent
 
         return True
@@ -396,8 +423,7 @@ class A_Member(A_Clonable, ABC):
         if isinstance(self._arraySize, int):
             return self._arraySize if self._arraySize > 0 else 127
 
-        arraySize = int(self._arraySize._value)
-        return arraySize if arraySize > 0 else 127
+        return int(self._arraySize._value)
 
     def set_array_size(self, arraySize: int | "MemberValue") -> None:
         """
@@ -406,7 +432,11 @@ class A_Member(A_Clonable, ABC):
         if self.is_from_array():
             return
 
+        if isinstance(self._arraySize, MemberValue):
+            self._arraySize._referencedBy.remove(self)
         self._arraySize = arraySize
+        if isinstance(arraySize, MemberValue):
+            arraySize._referencedBy.append(self)
 
     @abstractmethod
     def is_struct(self) -> bool:
@@ -553,16 +583,15 @@ class MemberValue(A_Member):
     def load(self, stream: BinaryIO, endPos: Optional[int] = None) -> None:
         if endPos is None:
             endPos = 1 << 30 # 1 GB
-        if self.get_qualified_name() == QualifiedName("WarpA", "Point1", "Transform"):
-            pass
         for i in range(self.get_array_size()):
             if stream.tell() >= endPos:
                 break
             self[i]._value = TEMPLATE_TYPE_READ_TABLE[self._type](stream)
 
     def save(self, stream: BinaryIO) -> None:
-        TEMPLATE_TYPE_WRITE_TABLE[self._type](stream, self._value)
-        for i in range(1, self.get_array_size()):
+        for i in range(self.get_array_size()):
+            if i > len(self._arrayInstances):
+                break
             TEMPLATE_TYPE_WRITE_TABLE[self._type](stream, self[i]._value)
 
     def copy(self, *, deep: bool = False) -> "MemberValue":
@@ -572,6 +601,38 @@ class MemberValue(A_Member):
         if not deep:
             _copy._arrayInstances = self._arrayInstances.copy()
         return _copy
+
+
+class MemberEnum(MemberValue):
+    """
+    Class describing an Enum bound member
+    """
+    def __init__(self, name: str, value: Any, type: ValueType, *, readOnly: bool = False, enumInfo: dict[str, int]) -> None:
+        super().__init__(name, value, type, readOnly=readOnly)
+        self._enumInfo = enumInfo
+        self._enumFlags: dict[str, bool] = {}
+        self.__update_enum()
+
+    def set_value(self, value: Any):
+        super().set_value(value)
+        self.__update_enum()
+
+    def get_enum_info(self) -> dict[str, Any]:
+        return self._enumInfo
+
+    def get_enum_flags(self) -> dict[str, bool]:
+        return self._enumFlags
+
+    def set_enum_flag(self, enum: str, on: bool):
+        self._enumFlags[enum] = on
+        if on:
+            self._value |= self._enumInfo[enum]
+        else:
+            self._value &= self._enumInfo[enum]
+
+    def __update_enum(self):
+        for key, value in self._enumInfo["Flags"].items():
+            self._enumFlags[key] = (self.get_value() & value) != 0
 
 
 class MemberStruct(A_Member):
@@ -587,11 +648,8 @@ class MemberStruct(A_Member):
         return True
 
     def has_child(self, name: str) -> bool:
-        if name in self._children:
-            return True
-
         for child in self._children.values():
-            for _ in range(1, child.get_array_size()):
+            for _ in range(child.get_array_size()):
                 if child.get_formatted_name() == name:
                     return True
 
@@ -620,9 +678,8 @@ class MemberStruct(A_Member):
 
     def get_children(self, includeArrays: bool = True) -> Iterable["A_Member"]:
         for child in self._children.values():
-            yield child
-            if includeArrays:
-                for i in range(1, child.get_array_size()):
+            for i in range(child.get_array_size()):
+                if i == 0 or includeArrays:
                     yield child[i]
 
     def get_data_size(self) -> int:
@@ -639,6 +696,8 @@ class MemberStruct(A_Member):
 
     def save(self, stream: BinaryIO) -> None:
         for i in range(self.get_array_size()):
+            if i > len(self._arrayInstances):
+                break
             for member in self[i].get_children(includeArrays=False):
                 member.save(stream)
 
@@ -663,6 +722,9 @@ class MemberComment(MemberValue):
 
     def __init__(self, name: str, value: Any):
         super().__init__(name, value, ValueType.STRUCT)
+
+    def is_read_only(self) -> bool:
+        return True
 
     def get_data_size(self) -> int:
         return 0

@@ -1,6 +1,18 @@
 {
     "Billboard": {
+        "Enums": {
+        },
         "Structs": {
+            "LightInfo": {
+                "ID": {
+                    "Type": "INT",
+                    "ArraySize": 1
+                },
+                "Name": {
+                    "Type": "STRING",
+                    "ArraySize": 1
+                }
+            }
         },
         "Members": {
             "Transform": {
@@ -11,9 +23,13 @@
                 "Type": "STRING",
                 "ArraySize": 1
             },
-            "!!!": {
+            "LightCount": {
                 "Type": "INT",
                 "ArraySize": 1
+            },
+            "Lights": {
+                "Type": "LightInfo",
+                "ArraySize": "LightCount"
             },
             "Model": {
                 "Type": "STRING",
@@ -72,7 +88,11 @@
                     ]
                 ],
                 "Character": "太陽の看板 キャラ",
-                "!!!": 0,
+                "LightCount": 0,
+                "Lights": {
+                    "ID": 0,
+                    "Name": "LightX"
+                },
                 "Model": "billboard_sun",
                 "SpawnObjID": -1,
                 "SpawnLength": 100,

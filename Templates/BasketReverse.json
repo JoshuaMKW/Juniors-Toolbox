@@ -1,6 +1,18 @@
 {
     "Flipped Basket": {
+        "Enums": {
+        },
         "Structs": {
+            "LightInfo": {
+                "ID": {
+                    "Type": "INT",
+                    "ArraySize": 1
+                },
+                "Name": {
+                    "Type": "STRING",
+                    "ArraySize": 1
+                }
+            }
         },
         "Members": {
             "Transform": {
@@ -11,9 +23,13 @@
                 "Type": "STRING",
                 "ArraySize": 1
             },
-            "!!!": {
+            "LightCount": {
                 "Type": "INT",
                 "ArraySize": 1
+            },
+            "Lights": {
+                "Type": "LightInfo",
+                "ArraySize": "LightCount"
             },
             "Model": {
                 "Type": "STRING",
@@ -44,7 +60,11 @@
                     ]
                 ],
                 "Character": "バスケット キャラ",
-                "!!!": 0,
+                "LightCount": 0,
+                "Lights": {
+                    "ID": 0,
+                    "Name": "LightX"
+                },
                 "Model": "BasketReverse",
                 "DisplayModel": "Generated from Bin Editor Template by Junior's Toolbox"
             }

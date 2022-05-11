@@ -1,31 +1,41 @@
 {
     "Event Handler (Airstrip Sink)": {
+        "Enums": {
+        },
         "Structs": {
+            "SinkInfo": {
+                "Region": {
+                    "Type": "INT",
+                    "ArraySize": 1
+                },
+                "ClearCondition": {
+                    "Type": "INT",
+                    "ArraySize": 1
+                }
+            }
         },
         "Members": {
-            "Unknown": {
+            "SinkCount": {
                 "Type": "INT",
                 "ArraySize": 1
             },
-            "Unknown1": {
+            "VTXStart": {
                 "Type": "INT",
                 "ArraySize": 1
             },
-            "Unknown2": {
-                "Type": "INT",
-                "ArraySize": 1
-            },
-            "Unknown3": {
-                "Type": "INT",
-                "ArraySize": 1
+            "SinkInfo": {
+                "Type": "SinkInfo",
+                "ArraySize": "SinkCount"
             }
         },
         "Wizard": {
             "Default": {
-                "Unknown": 0,
-                "Unknown1": 0,
-                "Unknown2": 0,
-                "Unknown3": 0
+                "SinkCount": 0,
+                "VTXStart": 0,
+                "SinkInfo": {
+                    "Region": 0,
+                    "ClearCondition": 1
+                }
             }
         }
     }

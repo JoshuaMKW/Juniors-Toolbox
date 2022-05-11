@@ -947,9 +947,14 @@ class Quaternion(_PyrrQuaternion):
 
     @staticmethod
     def normalize_angle(angle: float) -> float:
-        factor = (angle + Quaternion.Epsilon) // 360
-        return angle - 360 * factor
-
+        factor = angle // 360
+        nangle = angle - 360 * factor
+        if nangle > 180:
+            return nangle - 360
+        elif nangle <= -180:
+            return nangle + 360
+        return nangle
+        
     @staticmethod
     def normalize_angles(angles: Vec3f):
         angles.x = Quaternion.normalize_angle(angles.x)

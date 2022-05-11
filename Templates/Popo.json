@@ -1,6 +1,18 @@
 {
     "Poink": {
+        "Enums": {
+        },
         "Structs": {
+            "LightInfo": {
+                "ID": {
+                    "Type": "INT",
+                    "ArraySize": 1
+                },
+                "Name": {
+                    "Type": "STRING",
+                    "ArraySize": 1
+                }
+            }
         },
         "Members": {
             "Transform": {
@@ -11,9 +23,13 @@
                 "Type": "STRING",
                 "ArraySize": 1
             },
-            "!!!": {
+            "LightCount": {
                 "Type": "INT",
                 "ArraySize": 1
+            },
+            "Lights": {
+                "Type": "LightInfo",
+                "ArraySize": "LightCount"
             },
             "Manager": {
                 "Type": "STRING",
@@ -56,7 +72,11 @@
                     ]
                 ],
                 "Character": "Generated from Bin Editor Template by Junior's Toolbox",
-                "!!!": 0,
+                "LightCount": 0,
+                "Lights": {
+                    "ID": 0,
+                    "Name": "LightX"
+                },
                 "Manager": "Generated from Bin Editor Template by Junior's Toolbox",
                 "Rail": "(null)",
                 "SpawnObjID": 0,

@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from enum import Enum, IntEnum
 from pathlib import Path
 from typing import Any, BinaryIO, Callable, Dict, List, Optional, Union
+from juniors_toolbox.gui import ToolboxManager
 
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.gui.widgets.interactivelist import (
@@ -789,7 +790,7 @@ class BMGMessagePreviewWidget(QWidget):
         fontMetrics = painter.fontMetrics()
         charWidth = 0
         for char in text:
-            charWidth += fontMetrics.horizontalAdvanceChar(ord(char))
+            charWidth += fontMetrics.horizontalAdvanceChar(char) # type: ignore
             if char in self.PaddingMap:
                 charWidth += self.PaddingMap[char]
         return charWidth
@@ -803,7 +804,7 @@ class BMGMessagePreviewWidget(QWidget):
         point = path.pointAtPercent(lerp)
         angle = path.angleAtPercent(lerp)
 
-        charWidth = fontMetrics.horizontalAdvanceChar(ord(char))
+        charWidth = fontMetrics.horizontalAdvanceChar(char) # type: ignore
         if char in self.PaddingMap:
             charWidth += self.PaddingMap[char]
 
@@ -1520,7 +1521,8 @@ class BMGMessageEditor(A_DockingInterface):
         with path.open("rb") as f:
             bmg = BMG.from_bytes(f)
 
-        self.populate(bmg)
+        manager = ToolboxManager.get_instance()
+        self.populate(manager.get_scene(), bmg)
 
     @Slot()
     def close_bmg(self):
@@ -1649,7 +1651,7 @@ class BMGMessageEditor(A_DockingInterface):
 
     @Slot(str)
     def set_background(self, bgname: str):
-        bg = BMGMessagePreviewWidget.BackGround(bgname.upper())
+        bg = BMGMessagePreviewWidget.BackGround._member_map_[bgname.upper()]
         self.messagePreview.set_background(bg)
         self.messagePreview.set_right_aligned(
             bg != BMGMessagePreviewWidget.BackGround.NOKI)

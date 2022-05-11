@@ -79,8 +79,9 @@ class NameRef(A_Serializable, A_Clonable):
 
     def to_bytes(self) -> bytes:
         output = BytesIO()
-        write_uint16(output, hash(self.__data))
-        write_string(output, self.__data)
+        write_uint16(output, hash(self))
+        write_uint16(output, len(self))
+        output.write(self.encode())
         return output.getvalue()
 
     def encode(self, encoding: str = "shift-jis", errors: str = "strict") -> bytes:

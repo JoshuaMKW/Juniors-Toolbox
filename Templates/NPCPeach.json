@@ -1,6 +1,31 @@
 {
     "Princess Peach": {
+        "Enums": {
+            "Accessories": {
+                "Type": "INT",
+                "Flags": {
+                    "Normal Hair": "0x1",
+                    "Normal Hand (Left)": "0x2",
+                    "Normal Hand (Right)": "0x4",
+                    "Ponytail": "0x8",
+                    "Parasol": "0x10",
+                    "Gripping Hand (Left)": "0x20",
+                    "Gripping Hand (Right)": "0x40"
+                },
+                "Multi": true
+            }
+        },
         "Structs": {
+            "LightInfo": {
+                "ID": {
+                    "Type": "INT",
+                    "ArraySize": 1
+                },
+                "Name": {
+                    "Type": "STRING",
+                    "ArraySize": 1
+                }
+            }
         },
         "Members": {
             "Transform": {
@@ -11,9 +36,13 @@
                 "Type": "STRING",
                 "ArraySize": 1
             },
-            "!!!": {
+            "LightCount": {
                 "Type": "INT",
                 "ArraySize": 1
+            },
+            "Lights": {
+                "Type": "LightInfo",
+                "ArraySize": "LightCount"
             },
             "Manager": {
                 "Type": "STRING",
@@ -48,7 +77,7 @@
                 "ArraySize": 1
             },
             "Accessory": {
-                "Type": "INT",
+                "Type": "Accessories",
                 "ArraySize": 1
             },
             "Idle": {
@@ -96,7 +125,11 @@
                     ]
                 ],
                 "Character": "ピーチ姫マネージャー キャラ",
-                "!!!": 0,
+                "LightCount": 0,
+                "Lights": {
+                    "ID": 0,
+                    "Name": "LightX"
+                },
                 "Manager": "ピーチ姫マネージャー",
                 "Rail": "(null)",
                 "BodyColor": 255,

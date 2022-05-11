@@ -28,6 +28,7 @@ class A_ColorButton(QLabel, ABCWidget):
         super().__init__(parent=parent)
         self.setCursor(get_common_cursor(
             CommonCursor.COLOR_PICKER, QSize(40, 40)))
+        self.setAlignment(Qt.AlignCenter)
 
         self._color: DigitalColor = None
         self._default: DigitalColor = None

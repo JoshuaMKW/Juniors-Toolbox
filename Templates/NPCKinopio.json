@@ -1,6 +1,25 @@
 {
     "Toad": {
+        "Enums": {
+            "Accessories": {
+                "Type": "INT",
+                "Flags": {
+                    "Sunglasses": "0x1"
+                },
+                "Multi": true
+            }
+        },
         "Structs": {
+            "LightInfo": {
+                "ID": {
+                    "Type": "INT",
+                    "ArraySize": 1
+                },
+                "Name": {
+                    "Type": "STRING",
+                    "ArraySize": 1
+                }
+            }
         },
         "Members": {
             "Transform": {
@@ -11,9 +30,13 @@
                 "Type": "STRING",
                 "ArraySize": 1
             },
-            "!!!": {
+            "LightCount": {
                 "Type": "INT",
                 "ArraySize": 1
+            },
+            "Lights": {
+                "Type": "LightInfo",
+                "ArraySize": "LightCount"
             },
             "Manager": {
                 "Type": "STRING",
@@ -48,7 +71,7 @@
                 "ArraySize": 1
             },
             "Accessory": {
-                "Type": "INT",
+                "Type": "Accessories",
                 "ArraySize": 1
             },
             "Idle": {
@@ -100,7 +123,11 @@
                     ]
                 ],
                 "Character": "キノピオマネージャー キャラ",
-                "!!!": 0,
+                "LightCount": 0,
+                "Lights": {
+                    "ID": 0,
+                    "Name": "LightX"
+                },
                 "Manager": "キノピオマネージャー",
                 "Rail": "(null)",
                 "BodyColor": 1,

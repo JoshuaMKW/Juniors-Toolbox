@@ -1,6 +1,30 @@
 {
     "Jellyfish Rider Noki (F)": {
+        "Enums": {
+            "Accessories": {
+                "Type": "INT",
+                "Flags": {
+                    "Pearl": "0x1",
+                    "Hat": "0x2",
+                    "Shell 1": "0x10",
+                    "Shell 2": "0x20",
+                    "Bivavle": "0x100",
+                    "Babylons": "0x200"
+                },
+                "Multi": true
+            }
+        },
         "Structs": {
+            "LightInfo": {
+                "ID": {
+                    "Type": "INT",
+                    "ArraySize": 1
+                },
+                "Name": {
+                    "Type": "STRING",
+                    "ArraySize": 1
+                }
+            }
         },
         "Members": {
             "Transform": {
@@ -11,9 +35,13 @@
                 "Type": "STRING",
                 "ArraySize": 1
             },
-            "!!!": {
+            "LightCount": {
                 "Type": "INT",
                 "ArraySize": 1
+            },
+            "Lights": {
+                "Type": "LightInfo",
+                "ArraySize": "LightCount"
             },
             "Manager": {
                 "Type": "STRING",
@@ -48,7 +76,7 @@
                 "ArraySize": 1
             },
             "Accessory": {
-                "Type": "INT",
+                "Type": "Accessories",
                 "ArraySize": 1
             },
             "Idle": {
@@ -104,7 +132,11 @@
                     ]
                 ],
                 "Character": "クラゲマレー女マネージャー キャラ",
-                "!!!": 0,
+                "LightCount": 0,
+                "Lights": {
+                    "ID": 0,
+                    "Name": "LightX"
+                },
                 "Manager": "クラゲマレー女マネージャー",
                 "Rail": "(null)",
                 "BodyColor": 1,

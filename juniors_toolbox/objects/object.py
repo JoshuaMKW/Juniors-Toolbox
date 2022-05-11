@@ -8,7 +8,7 @@ from attr import field
 
 from numpy import array
 from requests import JSONDecodeError
-from juniors_toolbox.objects.value import A_Member, MemberComment, MemberStruct, MemberValue, QualifiedName, ValueType
+from juniors_toolbox.objects.value import A_Member, MemberComment, MemberEnum, MemberStruct, MemberValue, QualifiedName, ValueType
 from juniors_toolbox.utils.types import RGB32, RGB8, RGBA8, Transform, Vec3f
 from juniors_toolbox.utils import A_Serializable, VariadicArgs, VariadicKwargs, jdrama
 from juniors_toolbox.utils.iohelper import read_string, read_uint16, read_uint32, write_string, write_uint16, write_uint32
@@ -101,7 +101,7 @@ class A_SceneObject(jdrama.NameRef, ABC):
     def get_members(self, includeArrays: bool = True) -> Iterable[A_Member]:
         """
         Get the members of this object
-        
+
         If `includeArrays` is true, also yield array-bound instances of each member
         """
         if includeArrays is False:
@@ -147,7 +147,9 @@ class A_SceneObject(jdrama.NameRef, ABC):
         Get the raw data of this object's values
         """
         data = BytesIO()
-        for member in self.get_members():
+        for member in self.get_members(includeArrays=False):
+            if member.get_formatted_name() == "PoleLength" and self.get_ref() == "MapObjBase" and self.key.get_ref() != "AirportPole":
+                continue
             member.save(data)
         return data
 
@@ -155,11 +157,8 @@ class A_SceneObject(jdrama.NameRef, ABC):
         """
         Check if a named value exists in this object
         """
-        if any(name == m.get_qualified_name() for m in self._members):
-            return True
-
         for member in self._members:
-            for i in range(1, member.get_array_size()):
+            for i in range(member.get_array_size()):
                 if member[i].get_qualified_name() == name:
                     return True
 
@@ -187,6 +186,7 @@ class A_SceneObject(jdrama.NameRef, ABC):
                 return False
 
         objname, objdata = templateInfo.popitem()
+        enumInfo: Dict[str, dict] = objdata["Enums"]
         structInfo: Dict[str, dict] = objdata["Structs"]
         memberInfo: Dict[str, dict] = objdata["Members"]
         wizardInfo: Dict[str, dict] = objdata["Wizard"]
@@ -213,14 +213,28 @@ class A_SceneObject(jdrama.NameRef, ABC):
             else:
                 repeatRef = repeat
 
-            if kind == ValueType.STRUCT:
+            if kind == ValueType.UNKNOWN:
                 memberStruct = MemberStruct(name)
-                memberStruct.set_array_size(repeatRef) # type: ignore
-                struct = structInfo[minfo["Type"].strip()]
-                wizard = winfo[name]
-                for sname, sinfo in struct.items():
-                    memberStruct.add_child(_init_struct_member(sname, sinfo, wizard))
-                return memberStruct
+                memberStruct.set_array_size(repeatRef)  # type: ignore
+                memberType = minfo["Type"].strip()
+                if memberType in structInfo:
+                    struct = structInfo[memberType]
+                    wizard = winfo[name]
+                    for sname, sinfo in struct.items():
+                        memberStruct.add_child(
+                            _init_struct_member(sname, sinfo, wizard))
+                    return memberStruct
+                elif memberType in enumInfo:
+                    _enumInfo = enumInfo[memberType]
+                    for _enum in _enumInfo["Flags"]:
+                        _enumInfo["Flags"][_enum] = int(_enumInfo["Flags"][_enum], 0)
+                    memberEnum = MemberEnum(
+                        name, defaultValue, ValueType.ENUM, enumInfo=_enumInfo)
+                    memberEnum.set_array_size(repeatRef) # type: ignore
+                    return memberEnum
+                else:
+                    raise KeyError(
+                        f"Type referenced by {self.get_ref()}::{name} does not exist! (Try adding it to Structs or Enums)")
             else:
                 if kind == ValueType.TRANSFORM:
                     defaultValue = Transform(
@@ -240,12 +254,13 @@ class A_SceneObject(jdrama.NameRef, ABC):
                 member = MemberValue(
                     name, defaultValue, kind
                 )
-                member.set_array_size(repeatRef) # type: ignore
+                member.set_array_size(repeatRef)  # type: ignore
 
             return member
 
         for name, info in memberInfo.items():
-            self._members.append(_init_struct_member(name, info, wizardInfo[subkind]))
+            self._members.append(_init_struct_member(
+                name, info, wizardInfo[subkind]))
 
         return True
 
@@ -388,18 +403,10 @@ class MapObject(A_SceneObject):
         Converts this object to raw bytes
         """
         data = BytesIO()
-        nameref = self
-        keyref = self.key
-
         write_uint32(data, self.get_data_size())
-        write_uint16(data, hash(nameref))
-        write_uint16(data, len(nameref))
-        write_string(data, nameref.get_ref())
-        write_uint16(data, hash(keyref))
-        write_uint16(data, len(keyref))
-        write_string(data, keyref.get_ref())
+        data.write(super().to_bytes())
+        data.write(self.key.to_bytes())
         data.write(self.get_member_data().getvalue())
-
         return data.getvalue()
 
     def copy(self, *, deep: bool = False) -> "MapObject":
@@ -457,7 +464,8 @@ class MapObject(A_SceneObject):
         out.write(indentedStr + f"{self.get_ref()} ({self.key})" + " {\n")
         values = indentedStr + "  [Values]\n"
         for member in self.get_members():
-            values += indentedStr + f"  {member.get_formatted_name()} = {member._value}\n"
+            values += indentedStr + \
+                f"  {member.get_formatted_name()} = {member._value}\n"
         out.write(values)
 
     def __eq__(self, other: object) -> bool:
@@ -528,6 +536,7 @@ class GroupObject(A_SceneObject):
             member.set_array_size(arrayNum+1)
 
         if groupNum is not None:
+            groupNum._readOnly = True
             for _ in range(groupNum._value):
                 if data.tell() >= objEndPos:
                     break
@@ -543,19 +552,12 @@ class GroupObject(A_SceneObject):
         Converts this object to raw bytes
         """
         data = BytesIO()
-        nameref = self
-        keyref = self.key
-
         write_uint32(data, self.get_data_size())
-        write_uint16(data, hash(nameref))
-        write_uint16(data, len(nameref))
-        write_string(data, nameref.get_ref())
-        write_uint16(data, hash(keyref))
-        write_uint16(data, len(keyref))
-        write_string(data, keyref.get_ref())
+
+        data.write(super().to_bytes())
+        data.write(self.key.to_bytes())
         data.write(self.get_member_data().getvalue())
 
-        write_uint32(data, len(self._grouped))
         for obj in self._grouped:
             data.write(obj.to_bytes())
 
@@ -620,7 +622,7 @@ class GroupObject(A_SceneObject):
         for g in self._grouped:
             yield g
             if deep and g.is_group():
-                yield from g.iter_grouped_children()
+                yield from g.iter_grouped_children(deep=True)
 
     def search(self, name: str, /) -> Optional["A_SceneObject"]:
         for subobj in self.iter_grouped_children():
@@ -634,7 +636,8 @@ class GroupObject(A_SceneObject):
         out.write(indentedStr + f"{self.get_ref()} ({self.key})" + " {\n")
         values = indentedStr + "  [Values]\n"
         for member in self.get_members():
-            values += indentedStr + f"  {member.get_formatted_name()} = {member._value}\n"
+            values += indentedStr + \
+                f"  {member.get_formatted_name()} = {member._value}\n"
         out.write(values)
         if self.is_group():
             out.write("\n" + indentedStr + "  [Grouped]\n")

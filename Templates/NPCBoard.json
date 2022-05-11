@@ -1,6 +1,25 @@
 {
     "Sign": {
+        "Enums": {
+            "Accessories": {
+                "Type": "INT",
+                "Flags": {
+                    "Red Shirt": "0x800",
+                    "Blue Hat": "0x1000"
+                }
+            }
+        },
         "Structs": {
+            "LightInfo": {
+                "ID": {
+                    "Type": "INT",
+                    "ArraySize": 1
+                },
+                "Name": {
+                    "Type": "STRING",
+                    "ArraySize": 1
+                }
+            }
         },
         "Members": {
             "Transform": {
@@ -11,9 +30,13 @@
                 "Type": "STRING",
                 "ArraySize": 1
             },
-            "!!!": {
+            "LightCount": {
                 "Type": "INT",
                 "ArraySize": 1
+            },
+            "Lights": {
+                "Type": "LightInfo",
+                "ArraySize": "LightCount"
             },
             "Manager": {
                 "Type": "STRING",
@@ -48,7 +71,11 @@
                     ]
                 ],
                 "Character": "看板ＮＰＣマネージャー キャラ",
-                "!!!": 0,
+                "LightCount": 0,
+                "Lights": {
+                    "ID": 0,
+                    "Name": "LightX"
+                },
                 "Manager": "看板ＮＰＣマネージャー",
                 "Rail": "(null)",
                 "DisplayModel": "Generated from Bin Editor Template by Junior's Toolbox"
