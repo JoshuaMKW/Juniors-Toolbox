@@ -22,7 +22,7 @@ class A_ValueProperty(QWidget, ABCWidget):
     Represents an abstract widget that interfaces a property
     """
     valueChanged = Signal(QWidget, object)
-    IndentionWidth = 20
+    IndentionWidth = 10
 
     def __init__(self, name: str, readOnly: bool, parent: Optional["A_ValueProperty"] = None) -> None:
         super().__init__(parent)
@@ -31,6 +31,7 @@ class A_ValueProperty(QWidget, ABCWidget):
         self._resetValue = None
         self._readOnly = readOnly
         self._parent: Optional["A_ValueProperty"] = None
+
         self.setObjectName(name)
 
         self.valueChanged.connect(self.set_inputs)
@@ -154,7 +155,7 @@ class BoolProperty(A_ValueProperty):
 
     def _update_input_depth(self) -> None:
         self._input.setMinimumWidth(
-            max(80 - (10 * self.get_nested_depth()), 0))
+            max(80 - (self.IndentionWidth * self.get_nested_depth()), 0))
 
 
 class ByteProperty(A_ValueProperty):
@@ -200,7 +201,7 @@ class ByteProperty(A_ValueProperty):
 
     def _update_input_depth(self) -> None:
         self._input.setMinimumWidth(
-            max(80 - (10 * self.get_nested_depth()), 0))
+            max(80 - (self.IndentionWidth * self.get_nested_depth()), 0))
 
 
 class ShortProperty(A_ValueProperty):
@@ -246,7 +247,7 @@ class ShortProperty(A_ValueProperty):
 
     def _update_input_depth(self) -> None:
         self._input.setMinimumWidth(
-            max(80 - (10 * self.get_nested_depth()), 0))
+            max(80 - (self.IndentionWidth * self.get_nested_depth()), 0))
 
 
 class IntProperty(A_ValueProperty):
@@ -292,7 +293,7 @@ class IntProperty(A_ValueProperty):
 
     def _update_input_depth(self) -> None:
         self._input.setMinimumWidth(
-            max(80 - (10 * self.get_nested_depth()), 0))
+            max(80 - (self.IndentionWidth * self.get_nested_depth()), 0))
 
 
 class FloatProperty(A_ValueProperty):
@@ -333,7 +334,7 @@ class FloatProperty(A_ValueProperty):
 
     def _update_input_depth(self) -> None:
         self._input.setMinimumWidth(
-            max(80 - (10 * self.get_nested_depth()), 0))
+            max(80 - (self.IndentionWidth * self.get_nested_depth()), 0))
 
 
 class DoubleProperty(A_ValueProperty):
@@ -374,7 +375,7 @@ class DoubleProperty(A_ValueProperty):
 
     def _update_input_depth(self) -> None:
         self._input.setMinimumWidth(
-            max(80 - (10 * self.get_nested_depth()), 0))
+            max(80 - (self.IndentionWidth * self.get_nested_depth()), 0))
 
 
 class StringProperty(A_ValueProperty):
@@ -411,7 +412,7 @@ class StringProperty(A_ValueProperty):
 
     def _update_input_depth(self) -> None:
         self._input.setMinimumWidth(
-            max(80 - (10 * self.get_nested_depth()), 0))
+            max(80 - (self.IndentionWidth * self.get_nested_depth()), 0))
 
 
 class CommentProperty(A_ValueProperty):
@@ -445,7 +446,7 @@ class CommentProperty(A_ValueProperty):
 
     def _update_input_depth(self) -> None:
         self._input.setMinimumWidth(
-            max(80 - (10 * self.get_nested_depth()), 0))
+            max(80 - (self.IndentionWidth * self.get_nested_depth()), 0))
 
 
 class EnumProperty(A_ValueProperty):
@@ -633,7 +634,7 @@ class Vector3Property(A_ValueProperty):
     def _update_input_depth(self) -> None:
         for inputBox in self.__xyzInputs:
             inputBox.setMinimumWidth(
-                max(80 - (10 * self.get_nested_depth()), 0))
+                max(80 - (self.IndentionWidth * self.get_nested_depth()), 0))
 
     def __update_axis(self, value: float, axis: int = 0):
         self.get_value()[axis] = value
@@ -675,7 +676,7 @@ class RGBA8Property(A_ValueProperty):
 
     def _update_input_depth(self) -> None:
         self._input.setMinimumWidth(
-            max(80 - (10 * self.get_nested_depth()), 0))
+            max(80 - (self.IndentionWidth * self.get_nested_depth()), 0))
 
 
 class RGB8Property(A_ValueProperty):
@@ -699,7 +700,7 @@ class RGB8Property(A_ValueProperty):
 
     def _update_input_depth(self) -> None:
         self._input.setMinimumWidth(
-            max(80 - (10 * self.get_nested_depth()), 0))
+            max(80 - (self.IndentionWidth * self.get_nested_depth()), 0))
 
     @Slot(QWidget, object)
     def set_inputs(self):
@@ -727,10 +728,9 @@ class StructProperty(A_ValueProperty):
         super().__init__(name, readOnly, parent)
 
     def construct(self) -> None:
-        # TODO: PUT FRAMELAYOUT CHILDREN IN FORMLAYOUT
         self._frameLayout = FrameLayout(title=self.get_name())
         self._frameLayout._main_v_layout.setContentsMargins(0, 2, 0, 2)
-        self._frameLayout._content_layout.setContentsMargins(10, 2, 0, 2)
+        self._frameLayout._content_layout.setContentsMargins(self.IndentionWidth, 2, 0, 2)
 
         self._formLayout = QFormLayout()
         self._formLayout.setRowWrapPolicy(QFormLayout.WrapLongRows)

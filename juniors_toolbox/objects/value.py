@@ -63,6 +63,9 @@ class QualifiedName():
     def __str__(self) -> str:
         return "::".join(self.__scopes)
 
+    def __hash__(self) -> int:
+        return hash(str(self))
+
     def __eq__(self, other: object) -> bool:
         if isinstance(other, (QualifiedName, str)):
             return str(self) == str(other)
