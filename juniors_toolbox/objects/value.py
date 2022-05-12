@@ -338,9 +338,17 @@ class A_Member(A_Clonable, ABC):
         """
         Get a template name formatted
         """
-        char = "abcdefghijklmnopqrstuvwxyz"[arrayidx]
-        templateName = name.replace("{c}", char)
-        templateName = templateName.replace("{C}", char.upper())
+        characters = "abcdefghijklmnopqrstuvwxyz"
+        charactersLen = len(characters)
+        chars = ""
+        otherIdx = arrayidx
+        for i in range(4, -1, -1):
+            chars = "abcdefghijklmnopqrstuvwxyz"[otherIdx % charactersLen] + chars
+            if otherIdx < 26:
+                break
+            otherIdx = (otherIdx // 26) - 1
+        templateName = name.replace("{c}", chars)
+        templateName = templateName.replace("{C}", chars.upper())
         templateName = templateName.replace("{i}", str(arrayidx))
         return templateName
 

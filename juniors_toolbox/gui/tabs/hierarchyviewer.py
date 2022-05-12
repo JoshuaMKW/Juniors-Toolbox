@@ -5,10 +5,10 @@ from os import walk
 from pathlib import Path
 from threading import Event
 from types import LambdaType
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 from queue import LifoQueue
 
-from PySide6.QtCore import Qt, QTimer, Slot
+from PySide6.QtCore import Qt, QTimer, Slot, Signal
 from PySide6.QtGui import QDragEnterEvent, QDropEvent, QKeyEvent, QUndoCommand, QUndoStack, QDragMoveEvent, QDragLeaveEvent, QColor, QFont
 from PySide6.QtWidgets import (QFormLayout, QFrame, QGridLayout, QComboBox,
                                QLabel, QScrollArea,
@@ -16,9 +16,9 @@ from PySide6.QtWidgets import (QFormLayout, QFrame, QGridLayout, QComboBox,
 from juniors_toolbox.gui import ToolboxManager
 from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
-from juniors_toolbox.gui.widgets.property import A_ValueProperty, PropertyFactory, StructProperty
+from juniors_toolbox.gui.widgets.property import A_ValueProperty, ArrayProperty, PropertyFactory, StructProperty
 from juniors_toolbox.objects.object import A_SceneObject, MapObject
-from juniors_toolbox.objects.value import A_Member, MemberEnum, ValueType
+from juniors_toolbox.objects.value import A_Member, MemberEnum, QualifiedName, ValueType
 from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.utils import VariadicArgs, VariadicKwargs
 
@@ -114,6 +114,8 @@ class NameRefHierarchyWidget(A_DockingInterface):
 
         self.undoStack = QUndoStack(self)
         self.undoStack.setUndoLimit(32)
+
+        self.__object: Optional[A_SceneObject] = None
 
     def populate(self, scene: Optional[SMSScene], *args: VariadicArgs, **kwargs: VariadicKwargs) -> None:
         def inner_populate(obj: A_SceneObject, parentNode: NameRefHierarchyWidgetItem, column: int):
@@ -244,31 +246,35 @@ class NameRefHierarchyWidget(A_DockingInterface):
             return
 
         sceneObj = item.object
+        self.__object = sceneObj
+
         title = f"{sceneObj.get_explicit_name()} Properties"
 
-        def _inner_populate(member: A_Member) -> A_ValueProperty:
-            enumInfo = {}
-            if isinstance(member, MemberEnum):
-                enumInfo = member.get_enum_info()
+        properties: List[A_ValueProperty] = []
+        propertiesMap: dict[QualifiedName, A_ValueProperty] = {}
+        for member in sceneObj.get_members(includeArrays=False):
+            arrayRef: int | A_Member
+            arrayProp: Optional[ArrayProperty] = None
+            if isinstance(member._arraySize, A_Member):
+                arrayRef = propertiesMap[member._arraySize.get_qualified_name()]
+                arrayProp = ArrayProperty(
+                    name=member.get_formatted_name(),
+                    readOnly=False,
+                    sizeRef=arrayRef
+                )
+                arrayProp.sizeChanged.connect(self.__set_array_instance)
+                properties.append(arrayProp)
+            else:
+                arrayRef = member._arraySize
 
-            prop = PropertyFactory.create_property(
-                name=member.get_formatted_name(),
-                valueType=member.get_type(),
-                value=member.get_value(),
-                readOnly=member.is_read_only(),
-                enumInfo=enumInfo
-            )
-            prop.valueChanged.connect(lambda _p, _v: member.set_value(_v))
-            if member.is_struct():
-                for child in member.get_children():
-                    if child.is_from_array():
-                        pass
-                    prop.add_property(_inner_populate(child))
-            return prop
-
-        properties = []
-        for member in sceneObj.get_members():
-            properties.append(_inner_populate(member))
+            for i in range(member.get_array_size()):
+                child = member[i]
+                childProp = self.__create_property(child, propertiesMap)
+                if arrayProp is not None:
+                    arrayProp.add_property(childProp)
+                else:
+                    properties.append(childProp)
+                propertiesMap[childProp.get_qualified_name()] = childProp
 
         manager = ToolboxManager.get_instance()
         propertiesTab.populate(scene, properties=properties, title=title)
@@ -308,3 +314,57 @@ class NameRefHierarchyWidget(A_DockingInterface):
             self.undoStack.redo()
         elif event.key() == Qt.Key_Z:
             self.undoStack.undo()
+
+    def __set_array_instance(self, prop: ArrayProperty, size: int):
+        if self.__object is None:
+            raise RuntimeError("Object missing for array resize")
+        member = self.__object.get_member(prop.get_qualified_name())
+        if member is None:
+            raise RuntimeError("Member missing for array resize")
+        rowCount = prop.get_property_count()
+        if size < rowCount:
+            return
+        for i in range(rowCount, size):
+            arrayMember = member[i]
+            prop.add_property(self.__create_property(arrayMember, {}))
+
+    def __create_property(self, member: A_Member, propertiesMap: dict[QualifiedName, A_ValueProperty]) -> A_ValueProperty:
+        enumInfo = {}
+        if isinstance(member, MemberEnum):
+            enumInfo = member.get_enum_info()
+
+        prop = PropertyFactory.create_property(
+            name=member.get_formatted_name(),
+            valueType=member.get_type(),
+            value=member.get_value(),
+            readOnly=member.is_read_only(),
+            enumInfo=enumInfo
+        )
+        prop.valueChanged.connect(lambda _p, _v: member.set_value(_v))
+        if member.is_struct():
+            for child in member.get_children(includeArrays=False):
+                arrayRef: int | A_Member
+                arrayProp: Optional[ArrayProperty] = None
+                if isinstance(child._arraySize, A_Member):
+                    arrayRef = propertiesMap[child._arraySize.get_qualified_name()]
+                    arrayProp = ArrayProperty(
+                        name=child.get_formatted_name(),
+                        readOnly=False,
+                        sizeRef=arrayRef
+                    )
+                    arrayProp.sizeChanged.connect(lambda prop, size: self.__set_array_instance(child, prop, size))
+                    prop.add_property(arrayProp)
+                else:
+                    arrayRef = child._arraySize
+
+                for i in range(child.get_array_size()):
+                    _arrayChild = child[i]
+                    # if _arrayChild.is_from_array():
+                    #     pass
+                    _childProp = self.__create_property(_arrayChild, propertiesMap)
+                    if arrayProp is not None:
+                        arrayProp.add_property(_childProp)
+                    else:
+                        prop.add_property(_childProp)
+                    propertiesMap[_childProp.get_qualified_name()] = _childProp
+        return prop
