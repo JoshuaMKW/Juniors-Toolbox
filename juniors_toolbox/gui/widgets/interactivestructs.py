@@ -25,7 +25,6 @@ class InteractiveListWidgetItem(QListWidgetItem):
             Qt.ItemIsEditable |
             Qt.ItemIsDragEnabled
         )
-
         self._prevName_ = ""
         self._newItem_ = True
 
@@ -49,7 +48,6 @@ class InteractiveTreeWidgetItem(QTreeWidgetItem):
             Qt.ItemIsEditable |
             Qt.ItemIsDragEnabled
         )
-
         self._prevName_ = ""
         self._newItem_ = True
 

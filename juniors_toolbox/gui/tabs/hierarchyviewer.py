@@ -89,7 +89,6 @@ class NameRefHierarchyTreeWidgetItem(InteractiveTreeWidgetItem):
         flags = self.flags()
         if obj.is_group():
             flags |= Qt.ItemIsDropEnabled
-            # flags &= Qt.ItemIsEditable
         self.setFlags(flags)
         self.setText(0, obj.get_explicit_name())
 
@@ -100,6 +99,9 @@ class NameRefHierarchyTreeWidgetItem(InteractiveTreeWidgetItem):
 
 
 class NameRefHierarchyTreeWidget(InteractiveTreeWidget):
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        self.setEditTriggers(self.NoEditTriggers)
 
     def get_context_menu(self, point: QPoint) -> Optional[QMenu]:
         # Infos about the node selected.
@@ -135,6 +137,9 @@ class NameRefHierarchyTreeWidget(InteractiveTreeWidget):
         menu.addAction(deleteAction)
 
         return menu
+    
+    def editItem(self, item: QTreeWidgetItem, column: int = 0, new: bool = False) -> None:
+        return
 
     @Slot(list)
     def duplicate_items(self, items: List[NameRefHierarchyTreeWidgetItem]) -> List[NameRefHierarchyTreeWidgetItem]:
@@ -258,7 +263,7 @@ class NameRefHierarchyWidget(A_DockingInterface):
     def __init__(self, title: str = "", parent: Optional[QWidget] = None):
         super().__init__(title, parent)
 
-        self.treeWidget = InteractiveTreeWidget()
+        self.treeWidget = NameRefHierarchyTreeWidget()
 
         self.treeWidget.setContextMenuPolicy(Qt.CustomContextMenu)
         self.treeWidget.setAlternatingRowColors(False)
