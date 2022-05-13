@@ -171,7 +171,7 @@ class NameRefHierarchyWidget(A_DockingInterface):
         self.undoStack = QUndoStack(self)
         self.undoStack.setUndoLimit(32)
 
-        self.__object: Optional[A_SceneObject] = None
+        self.__selectedObject: Optional[A_SceneObject] = None
 
     def populate(self, scene: Optional[SMSScene], *args: VariadicArgs, **kwargs: VariadicKwargs) -> None:
         def inner_populate(obj: A_SceneObject, parentNode: NameRefHierarchyWidgetItem, column: int):
@@ -302,7 +302,7 @@ class NameRefHierarchyWidget(A_DockingInterface):
             return
 
         sceneObj = item.object
-        self.__object = sceneObj
+        self.__selectedObject = sceneObj
 
         title = f"{sceneObj.get_explicit_name()} Properties"
 
@@ -392,9 +392,9 @@ class NameRefHierarchyWidget(A_DockingInterface):
 
     def __set_array_instance(self, prop: ArrayProperty, size: int):
         otime = time.time()
-        if self.__object is None:
+        if self.__selectedObject is None:
             raise RuntimeError("Object missing for array resize")
-        member = self.__object.get_member(prop.get_qualified_name())
+        member = self.__selectedObject.get_member(prop.get_qualified_name())
         if member is None:
             raise RuntimeError("Member missing for array resize")
         rowCount = prop.get_property_count()
