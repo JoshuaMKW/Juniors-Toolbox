@@ -11,6 +11,7 @@ from juniors_toolbox.gui.tabs import TabWidgetManager
 from juniors_toolbox.gui.tabs.hierarchyviewer import NameRefHierarchyWidget
 from juniors_toolbox.gui.tabs.projectviewer import ProjectViewerWidget
 from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
+from juniors_toolbox.gui.templates import ToolboxTemplates
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.gui.windows.mainwindow import MainWindow
 from juniors_toolbox.scene import SMSScene
@@ -47,16 +48,11 @@ class JuniorsToolbox(QApplication):
 
         self.gui = MainWindow()
         self.manager = ToolboxManager()
-
-        self.__scenePath: Optional[Path] = None
-        self.__openTabs: Dict[str, A_DockingInterface] = {}
-        self.__tabs: Dict[str, A_DockingInterface] = {}
-
+        self.templates = ToolboxTemplates()
         TabWidgetManager.init()
 
-        # Set up tab syncing
-        objectPropertyTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
-        objectHierarchyTab = TabWidgetManager.get_tab(NameRefHierarchyWidget)
+        self.__openTabs: Dict[str, A_DockingInterface] = {}
+        self.__tabs: Dict[str, A_DockingInterface] = {}
 
         self.gui.setWindowTitle(self.get_window_title())
         self.update_theme(MainWindow.Theme.LIGHT)

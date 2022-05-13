@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Optional
 from juniors_toolbox.gui.settings import ToolboxSettings
 from juniors_toolbox.scene import SMSScene
+from juniors_toolbox.utils.filesystem import resource_path
 
 from PySide6.QtCore import Signal, QObject
 
@@ -67,3 +68,6 @@ class ToolboxManager(QObject):
     
     def save_settings(self, path: Path) -> None:
         self.__settings.save(path)
+
+    def get_template_folder(self) -> Path:
+        return resource_path("Templates")

@@ -17,7 +17,7 @@ from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.gui.tools import clear_layout, walk_layout
 from juniors_toolbox.gui.widgets.colorbutton import A_ColorButton
 from juniors_toolbox.gui.widgets.explicitlineedit import ExplicitLineEdit
-from juniors_toolbox.gui.widgets.interactivelist import InteractiveListWidget, InteractiveListWidgetItem
+from juniors_toolbox.gui.widgets.interactivestructs import InteractiveListWidget, InteractiveListWidgetItem
 from juniors_toolbox.objects.object import MapObject
 from juniors_toolbox.utils import VariadicArgs, VariadicKwargs
 from juniors_toolbox.utils.jdrama import NameRef
@@ -31,7 +31,7 @@ class PrmEntryListItem(InteractiveListWidgetItem):
         super().__init__(item)
         self.entry = entry
 
-    def clone(self) -> "PrmEntryListItem":
+    def copy(self) -> "PrmEntryListItem":
         entry = PrmEntry(
             self.entry.key,
             self.entry.value

@@ -45,7 +45,7 @@
                 "Type": "INT",
                 "ArraySize": 1
             },
-            "Lights": {
+            "Light{i}": {
                 "Type": "LightInfo",
                 "ArraySize": "LightCount"
             },
@@ -135,7 +135,7 @@
                 ],
                 "Character": "大砲の掃除モンテ男マネージャー キャラ",
                 "LightCount": 0,
-                "Lights": {
+                "Light{i}": {
                     "ID": 0,
                     "Name": "LightX"
                 },

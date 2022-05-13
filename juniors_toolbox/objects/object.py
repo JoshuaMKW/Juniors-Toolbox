@@ -8,6 +8,7 @@ from attr import field
 
 from numpy import array
 from requests import JSONDecodeError
+from juniors_toolbox.gui.templates import Template, ToolboxTemplates
 from juniors_toolbox.objects.value import A_Member, MemberComment, MemberEnum, MemberStruct, MemberValue, QualifiedName, ValueType
 from juniors_toolbox.utils.types import RGB32, RGB8, RGBA8, Transform, Vec3f
 from juniors_toolbox.utils import A_Serializable, VariadicArgs, VariadicKwargs, jdrama
@@ -174,30 +175,20 @@ class A_SceneObject(jdrama.NameRef, ABC):
         """
         self._members = []
 
-        templateFile = self.TEMPLATE_PATH / f"{self.get_ref()}.json"
-        if not templateFile.is_file():
+        templateManager = ToolboxTemplates.get_instance()
+        template = templateManager.get_template(self.get_ref())
+        if template is None:
             return False
 
-        with templateFile.open("r", encoding="utf-8") as tf:
+        wizardInfo = template.get_wizard(subkind)
+        if wizardInfo is None:
             try:
-                templateInfo: dict = json.load(tf)
-            except:
-                print(templateFile)
+                _iter = template.iter_wizards()
+                wizardInfo = next(_iter)[1]
+            except StopIteration:
                 return False
 
-        objname, objdata = templateInfo.popitem()
-        enumInfo: Dict[str, dict] = objdata["Enums"]
-        structInfo: Dict[str, dict] = objdata["Structs"]
-        memberInfo: Dict[str, dict] = objdata["Members"]
-        wizardInfo: Dict[str, dict] = objdata["Wizard"]
-
-        if subkind not in wizardInfo:
-            try:
-                subkind = list(wizardInfo.keys())[0]
-            except IndexError:
-                pass
-
-        def _init_struct_member(name: str, minfo: dict[str, Any], winfo: dict[str, Any]) -> A_Member:
+        def _init_struct_member(name: str, template: Template, minfo: dict[str, Any], winfo: dict[str, Any]) -> A_Member:
             kind = ValueType(minfo["Type"].strip())
             defaultValue = winfo[name]
 
@@ -217,19 +208,21 @@ class A_SceneObject(jdrama.NameRef, ABC):
                 memberStruct = MemberStruct(name)
                 memberStruct.set_array_size(repeatRef)  # type: ignore
                 memberType = minfo["Type"].strip()
-                if memberType in structInfo:
-                    struct = structInfo[memberType]
+                struct = template.get_struct(memberType)
+                _enumInfo = template.get_enum(memberType)
+                if struct is not None:
                     wizard = winfo[name]
                     for sname, sinfo in struct.items():
                         memberStruct.add_child(
-                            _init_struct_member(sname, sinfo, wizard))
+                            _init_struct_member(sname, template, sinfo, wizard))
                     return memberStruct
-                elif memberType in enumInfo:
-                    _enumInfo = enumInfo[memberType]
-                    for _enum in _enumInfo["Flags"]:
-                        _enumInfo["Flags"][_enum] = int(_enumInfo["Flags"][_enum], 0)
+                elif _enumInfo is not None:
                     memberEnum = MemberEnum(
-                        name, defaultValue, ValueType.ENUM, enumInfo=_enumInfo)
+                        name,
+                        defaultValue,
+                        ValueType.ENUM,
+                        enumInfo=_enumInfo
+                    )
                     memberEnum.set_array_size(repeatRef) # type: ignore
                     return memberEnum
                 else:
@@ -258,9 +251,9 @@ class A_SceneObject(jdrama.NameRef, ABC):
 
             return member
 
-        for name, info in memberInfo.items():
+        for name, info in template.iter_members():
             self._members.append(_init_struct_member(
-                name, info, wizardInfo[subkind]))
+                name, template, info, wizardInfo))
 
         return True
 

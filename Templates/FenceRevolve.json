@@ -27,7 +27,7 @@
                 "Type": "INT",
                 "ArraySize": 1
             },
-            "Lights": {
+            "Light{i}": {
                 "Type": "LightInfo",
                 "ArraySize": "LightCount"
             },
@@ -61,7 +61,7 @@
                 ],
                 "Character": "fence キャラ",
                 "LightCount": 0,
-                "Lights": {
+                "Light{i}": {
                     "ID": 0,
                     "Name": "LightX"
                 },

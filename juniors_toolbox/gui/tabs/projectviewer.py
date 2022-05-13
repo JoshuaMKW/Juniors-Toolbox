@@ -12,7 +12,7 @@ from juniors_toolbox.gui.images import get_icon, get_image
 from juniors_toolbox.gui.widgets import ABCMetaWidget, ABCWidget
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.gui.tools import clear_layout, walk_layout
-from juniors_toolbox.gui.widgets.interactivelist import InteractiveListWidget, InteractiveListWidgetItem
+from juniors_toolbox.gui.widgets.interactivestructs import InteractiveListWidget, InteractiveListWidgetItem
 from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.utils import A_Serializable, VariadicArgs, VariadicKwargs
 from juniors_toolbox.utils.bmg import BMG
@@ -225,7 +225,7 @@ class ProjectAssetListItem(InteractiveListWidgetItem):
 
         self._init_fn_ = lambda self: None
 
-    def clone(self) -> "ProjectAssetListItem":
+    def copy(self) -> "ProjectAssetListItem":
         item = ProjectAssetListItem(
             self,
             self.__isFolder

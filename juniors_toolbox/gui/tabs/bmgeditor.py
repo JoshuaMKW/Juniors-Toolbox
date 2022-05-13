@@ -6,7 +6,7 @@ from typing import Any, BinaryIO, Callable, Dict, List, Optional, Union
 from juniors_toolbox.gui import ToolboxManager
 
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
-from juniors_toolbox.gui.widgets.interactivelist import (
+from juniors_toolbox.gui.widgets.interactivestructs import (
     InteractiveListWidget, InteractiveListWidgetItem)
 from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.utils import VariadicArgs, VariadicKwargs
@@ -888,7 +888,7 @@ class BMGMessageListItem(InteractiveListWidgetItem):
         super().__init__(item)
         self.message = message
 
-    def clone(self) -> "BMGMessageListItem":
+    def copy(self) -> "BMGMessageListItem":
         message = BMG.MessageEntry(
             self.message.name,
             self.message.message,

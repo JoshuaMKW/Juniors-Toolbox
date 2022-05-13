@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from multiprocessing.sharedctypes import Value
 from typing import Any, BinaryIO, Callable, Dict, Iterable, List, Optional, overload
+from juniors_toolbox.gui.templates import TemplateEnumType
 from juniors_toolbox.utils import A_Clonable
 
 from juniors_toolbox.utils.iohelper import (read_bool, read_double, read_float,
@@ -643,7 +644,7 @@ class MemberEnum(MemberValue):
     """
     Class describing an Enum bound member
     """
-    def __init__(self, name: str, value: Any, type: ValueType, *, readOnly: bool = False, enumInfo: dict[str, int]) -> None:
+    def __init__(self, name: str, value: Any, type: ValueType, *, readOnly: bool = False, enumInfo: TemplateEnumType) -> None:
         super().__init__(name, value, type, readOnly=readOnly)
         self._enumInfo = enumInfo
         self._enumFlags: dict[str, bool] = {}
