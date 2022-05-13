@@ -3,10 +3,11 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Union
 
 from PySide6.QtCore import QCoreApplication, QMetaObject, QRect, Signal, Slot
-from PySide6.QtGui import QIcon, QResizeEvent, QAction
+from PySide6.QtGui import QIcon, QResizeEvent, QAction, QCloseEvent, QShowEvent
 from PySide6.QtWidgets import (QMainWindow, QMenu, QMenuBar,
                                QTabWidget)
 from juniors_toolbox import __name__, __version__
+from juniors_toolbox.gui.settings import ToolboxSettings
 from juniors_toolbox.utils import VariadicArgs, VariadicKwargs
 from juniors_toolbox.utils.filesystem import get_program_folder, resource_path
 
@@ -54,6 +55,16 @@ class MainWindow(QMainWindow):
             self.themeChanged.emit(MainWindow.Theme.DARK)
         else:
             self.themeChanged.emit(MainWindow.Theme.LIGHT)
+
+    def showEvent(self, event: QShowEvent) -> None:
+        settings = ToolboxSettings.get_instance()
+        settings.load()
+        return super().showEvent(event)
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        settings = ToolboxSettings.get_instance()
+        settings.save()
+        super().closeEvent(event)
 
 
     def reset_ui(self):

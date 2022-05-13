@@ -5,74 +5,84 @@ from enum import Enum, IntEnum
 from pathlib import Path
 from typing import IO, Callable, Optional
 
-from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
+from PySide6.QtCore import QSettings, QObject, QByteArray
 
 
-class ToolboxSettings():
+class ToolboxSettings(QObject):
     """
     Program settings and GUI layout information
     """
+    __singleton: Optional["ToolboxSettings"] = None
 
     class Themes(IntEnum):
         LIGHT = 0
         DARK = 1
 
-    def __init__(self, settings: Optional[dict] = None):
-        if settings is None:
-            settings = {}
+    def __new__(cls: type["ToolboxSettings"]) -> "ToolboxSettings":
+        if ToolboxSettings.__singleton is not None:
+            return ToolboxSettings.__singleton
+        return super(ToolboxSettings, cls).__new__(cls)
 
-        self.settings = settings
+    def __init__(self, settings: Optional[QSettings] = None, parent: Optional[QObject] = None) -> None:
+        if ToolboxSettings.__singleton is not None:
+            return
+            
+        super().__init__(parent)
+        self.load(settings)
+
+        ToolboxSettings.__singleton = self
+
+    @staticmethod
+    def get_instance() -> "ToolboxSettings":
+        if ToolboxSettings.__singleton is None:
+            return ToolboxSettings()
+        return ToolboxSettings.__singleton
 
     def is_dark_theme(self) -> bool:
-        return self.settings["Theme"] == self.Themes.DARK
+        return self.settings.value("Settings/Theme", self.Themes.LIGHT) == self.Themes.DARK
 
     def set_theme(self, theme: Themes) -> None:
-        self.settings["Theme"] = theme
+        self.settings.setValue("Settings/Theme", theme)
 
     def is_updates_enabled(self) -> bool:
-        return self.settings["Update"]
+        return bool(self.settings.value("Settings/Update", True))
 
     def set_updates_enabled(self, enabled: bool) -> None:
-        self.settings["Update"] = enabled
+        self.settings.setValue("Settings/Update", enabled)
 
-    def is_widget_enabled(self, widget: A_DockingInterface) -> bool:
-        widgetName = widget.objectName()
-        if widgetName not in self.settings["Layout"]:
-            return False
+    def save(self) -> bool:
+        from juniors_toolbox.gui.application import JuniorsToolbox
+        window = JuniorsToolbox.get_instance_window()
 
-        widgetLayout = self.settings["Layout"][widgetName]
-        return widgetLayout["Enabled"]
-
-    def set_widget_enabled(self, widget: A_DockingInterface, enabled: bool) -> None:
-        widgetName = widget.objectName()
-        if widgetName not in self.settings["Layout"]:
-            return
-
-        widgetLayout = self.settings["Layout"][widgetName]
-        widgetLayout["Enabled"] = enabled
-
-    def get_widget_placement(self, widget: A_DockingInterface) -> Optional[dict]:
-        widgetName = widget.objectName()
-        if widgetName not in self.settings["Layout"]:
-            return None
-
-        widgetLayout = self.settings["Layout"][widgetName]
-        return widgetLayout["Placement"]
-
-    def set_widget_placement(self, widget: A_DockingInterface) -> None:
-        ...
-
-    def save(self, config: Path, dump: Callable[[dict, IO], None] = json_dump) -> bool:
-        config.parent.mkdir(parents=True, exist_ok=True)
-        mode = "w" if dump == json_dump else "wb"
-        with config.open(mode) as f:
-            dump(self.settings, f)
+        if window.actionDarkTheme.isChecked():
+            self.set_theme(self.Themes.DARK)
+        else:
+            self.set_theme(self.Themes.LIGHT)
+        self.settings.setValue("GUI/Geometry", window.saveGeometry())
+        self.settings.setValue("GUI/State", window.saveState())
         return True
 
-    def load(self, config: Path, load: Callable[[IO], dict] = json_load) -> bool:
-        if not config.is_file():
-            return False
-        mode = "r" if load == json_load else "rb"
-        with config.open(mode) as f:
-            self.settings = load(f)
+    def load(self, settings: Optional[QSettings] = None) -> bool:
+        from juniors_toolbox.gui.application import JuniorsToolbox
+        window = JuniorsToolbox.get_instance_window()
+
+        if settings is None:
+            settings = QSettings("JoshuaMK", "Junior's Toolbox")
+        self.settings = settings
+
+        geometry = self.settings.value("GUI/Geometry", QByteArray(b""))
+        state = self.settings.value("GUI/State", QByteArray(b""))
+        window.restoreGeometry(geometry)
+        window.restoreState(state)
+        window.actionDarkTheme.blockSignals(True)
+        window.actionDarkTheme.setChecked(self.is_dark_theme())
+        window.actionDarkTheme.blockSignals(False)
+        window.signal_theme(self.is_dark_theme())
+
         return True
+
+    def reset(self):
+        self.settings.clear()
+
+    def clear_settings(self):
+        self.settings.remove("Settings")

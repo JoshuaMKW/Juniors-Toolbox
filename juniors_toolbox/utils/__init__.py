@@ -5,8 +5,6 @@ from typing import Any, BinaryIO, Callable, Dict, List, Optional, Protocol, Type
 
 JSYSTEM_PADDING_TEXT = "This is padding data to alignment....."
 
-_T = TypeVar("_T")
-
 
 class classproperty(property):
     def __get__(self, __obj: Any, __type: type | None = None) -> Any:

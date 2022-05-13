@@ -30,6 +30,7 @@ class A_DockingInterface(QDockWidget, ABCWidget):
     def closeEvent(self, event: QCloseEvent) -> None:
         super().closeEvent(event)
         self.closed.emit(self)
+        # event.ignore()
         # self.closed.emit(self)
 
     @Slot(QHideEvent)

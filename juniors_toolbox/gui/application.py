@@ -25,20 +25,19 @@ class JuniorsToolbox(QApplication):
     Junior's Toolbox Application
     """
     __singleton: Optional["JuniorsToolbox"] = None
-    __singleton_ready = False
 
     def __new__(cls, *args: VariadicArgs, **kwargs: VariadicKwargs) -> "JuniorsToolbox":
-        if cls.__singleton is None:
-            cls.__singleton = super().__new__(cls, *args, **kwargs)
-        return cls.__singleton
+        if JuniorsToolbox.__singleton is not None:
+            return JuniorsToolbox.__singleton
+        return super().__new__(cls, *args, **kwargs)
 
     def __init__(self):
-        if self.__singleton_ready:
+        if JuniorsToolbox.__singleton is not None:
             return
 
         super().__init__()
 
-        self.__singleton_ready = True
+        JuniorsToolbox.__singleton = self
 
         # Force Windows Taskbar Icon
         if sys.platform in {"win32", "cygwin", "msys"}:
@@ -60,6 +59,7 @@ class JuniorsToolbox(QApplication):
 
         # Set up tab spawning
         self.gui.tabActionRequested.connect(self.openDockerTab)
+        self.gui.themeChanged.connect(self.update_theme)
 
         # Set up file dialogs
         self.gui.actionNew.triggered.connect(
@@ -79,13 +79,14 @@ class JuniorsToolbox(QApplication):
         )  # throw away checked flag
 
         # Set up theme toggle
-        self.gui.themeChanged.connect(self.update_theme)
 
         fontFolder = resource_path("gui/fonts/")
         for fontFile in fontFolder.iterdir():
             if not fontFile.is_file():
                 continue
             id = QFontDatabase.addApplicationFont(str(fontFile))
+
+        self.__init_tabs()
 
     # --- GETTER / SETTER --- #
 
@@ -196,7 +197,7 @@ class JuniorsToolbox(QApplication):
         self.scene = SMSScene()
 
     def is_docker_empty(self) -> bool:
-        return len(self.__openTabs) == 0
+        return all(not tab.isVisible() for tab in TabWidgetManager.iter_tabs())
 
     def set_central_status(self, empty: bool):
         if empty:
@@ -236,34 +237,57 @@ class JuniorsToolbox(QApplication):
     @Slot(str)
     def openDockerTab(self, name: str):
         tab = TabWidgetManager.get_tab_n(name)
-        if name in self.__openTabs or tab is None:
+        if tab is None:
             return
-        deTab = self.__tabs.setdefault(name, tab)
-        deTab.setObjectName(name)
-        # deTab.setWidget(tab)
-        deTab.setFloating(len(self.__openTabs) > 0)
-        deTab.setAllowedAreas(Qt.AllDockWidgetAreas)
-            
-        areas = [Qt.LeftDockWidgetArea, Qt.RightDockWidgetArea]
-        self.gui.addDockWidget(areas[len(self.__openTabs) % 2], deTab)
-
-        deTab.setParent(self.gui)
-        deTab.topLevelChanged.connect(
-            lambda _: self.set_central_status(self.is_docker_empty()))
-        deTab.closed.connect(self.closeDockerTab)
-
-        deTab.show()
-        self.__openTabs[name] = deTab
-
+        tab.show()
         self.set_central_status(self.is_docker_empty())
 
     @Slot(str)
     def closeDockerTab(self, tab: A_DockingInterface):
-        if tab.windowTitle() not in self.__openTabs:
-            return
         # tab.setWidget(None)
-        tab.setParent(None)
-        self.gui.removeDockWidget(tab)
-
-        self.__openTabs.pop(tab.windowTitle())
+        tab.hide()
+        # tab.setParent(None)
+        # self.gui.removeDockWidget(tab)
         self.set_central_status(self.is_docker_empty())
+
+    def __init_tabs(self):
+        areas = [Qt.LeftDockWidgetArea, Qt.RightDockWidgetArea]
+        for i, tab in enumerate(TabWidgetManager.iter_tabs()):
+            tab.setObjectName(tab.windowTitle())
+            tab.setFloating(not self.is_docker_empty())
+            tab.setAllowedAreas(Qt.AllDockWidgetAreas)
+            tab.topLevelChanged.connect(lambda _: self.set_central_status(self.is_docker_empty()))
+            tab.closed.connect(self.closeDockerTab)
+            self.gui.addDockWidget(areas[len(self.__openTabs) % 2], tab)
+            tab.setParent(self.gui)
+            # tab.setParent(self.gui)
+
+        self.set_central_status(self.is_docker_empty())
+
+
+
+        return True
+
+    # @Slot(str)
+    # def openDockerTab(self, name: str):
+    #     tab = TabWidgetManager.get_tab_n(name)
+    #     if name in self.__openTabs or tab is None:
+    #         return
+    #     deTab = self.__tabs.setdefault(name, tab)
+    #     deTab.setObjectName(name)
+    #     # deTab.setWidget(tab)
+    #     deTab.setFloating(len(self.__openTabs) > 0)
+    #     deTab.setAllowedAreas(Qt.AllDockWidgetAreas)
+            
+    #     areas = [Qt.LeftDockWidgetArea, Qt.RightDockWidgetArea]
+    #     self.gui.addDockWidget(areas[len(self.__openTabs) % 2], deTab)
+
+    #     deTab.setParent(self.gui)
+    #     deTab.topLevelChanged.connect(
+    #         lambda _: self.set_central_status(self.is_docker_empty()))
+    #     deTab.closed.connect(self.closeDockerTab)
+
+    #     deTab.show()
+    #     self.__openTabs[name] = deTab
+
+    #     self.set_central_status(self.is_docker_empty())
