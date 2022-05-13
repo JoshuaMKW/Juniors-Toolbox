@@ -391,7 +391,7 @@ class NameRefHierarchyWidget(A_DockingInterface):
             self.undoStack.undo()
 
     def __set_array_instance(self, prop: ArrayProperty, size: int):
-        otime = time.time()
+        # TODO: Somehow speed this up, or simply show a waiting dialog?
         if self.__selectedObject is None:
             raise RuntimeError("Object missing for array resize")
         member = self.__selectedObject.get_member(prop.get_qualified_name())
@@ -403,7 +403,6 @@ class NameRefHierarchyWidget(A_DockingInterface):
         for i in range(rowCount, size):
             arrayMember = member[i]
             prop.add_property(self.__create_property(arrayMember, {}))
-        print(time.time() - otime)
 
     def __create_property(self, member: A_Member, propertiesMap: dict[QualifiedName, A_ValueProperty]) -> A_ValueProperty:
         enumInfo = {}
