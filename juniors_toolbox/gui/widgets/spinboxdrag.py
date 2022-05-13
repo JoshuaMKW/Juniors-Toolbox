@@ -25,7 +25,7 @@ class SpinBoxLineEdit(QLineEdit):
         self._klass_ = float if isFloat else int
         self._min = float(_min)
         self._max = float(_max)
-        self.__mouseLastPos: QPoint = None
+        self.__mouseLastPos: Optional[QPoint] = None
         self.__mouseLoopCounter = [0, 0]
         self._startValue = None
 
@@ -207,7 +207,7 @@ class SpinBoxDragInt(QSpinBox):
     def is_signed(self) -> bool:
         return self.__signed
 
-    def set_signed(self, signed: bool) -> None:
+    def set_signed(self, signed: bool = True) -> None:
         self.__signed = signed
         self.contextUpdated.emit()
 
