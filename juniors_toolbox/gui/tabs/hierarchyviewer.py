@@ -407,7 +407,6 @@ class NameRefHierarchyWidget(A_DockingInterface):
 
     def __create_property(self, member: A_Member, propertiesMap: dict[QualifiedName, A_ValueProperty]) -> A_ValueProperty:
         enumInfo = {}
-        otime = time.time()
         if isinstance(member, MemberEnum):
             enumInfo = member.get_enum_info()
 
@@ -461,7 +460,6 @@ class NameRefHierarchyWidget(A_DockingInterface):
                     else:
                         prop.add_property(_childProp)
                     propertiesMap[_childProp.get_qualified_name()] = _childProp
-        print(prop.__class__.__name__, time.time() - otime)
         return prop
 
     def __add_property(self, prop: A_ValueProperty): ...
