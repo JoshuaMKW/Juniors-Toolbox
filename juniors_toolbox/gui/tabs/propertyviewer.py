@@ -72,6 +72,25 @@ class SelectedPropertiesWidget(A_DockingInterface):
                 return prop.get_property(name)
         return None
 
+    def add_property(self, scope: QualifiedName, prop: A_ValueProperty):
+        parent = self.get_property(scope)
+        formRow = self.gridLayout.rowCount()
+        if parent is None:
+            if prop.is_container():
+                self.gridLayout.addWidget(prop, formRow, 0, 1, 1)
+                self.gridLayout.setRowStretch(formRow, 0)
+                self.gridLayout.setRowStretch(formRow + 1, 0)
+                self._form = QFormLayout()
+                self._form.setLabelAlignment(Qt.AlignVCenter)
+                self._form.setRowWrapPolicy(QFormLayout.WrapLongRows)
+                self._form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+                self._form.setContentsMargins(0, 2, 0, 2)
+                self.gridLayout.addLayout(self._form, formRow+1, 0, 1, 1)
+            else:
+                self._form.addRow(prop.get_name(), prop)
+        else:
+            parent.add_property(prop)
+
     def populate(self, scene: Optional[SMSScene], *args: VariadicArgs, **kwargs: VariadicKwargs) -> None:
         data: List[A_ValueProperty] = kwargs.get("properties", [])
         self.__populate_properties(data)
@@ -87,26 +106,26 @@ class SelectedPropertiesWidget(A_DockingInterface):
 
     def __populate_properties(self, properties: List[A_ValueProperty]) -> None:
         self.reset()
-        form = QFormLayout()
-        form.setLabelAlignment(Qt.AlignVCenter)
-        form.setRowWrapPolicy(QFormLayout.WrapLongRows)
-        form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
-        form.setContentsMargins(0, 2, 0, 2)
+        self._form = QFormLayout()
+        self._form.setLabelAlignment(Qt.AlignVCenter)
+        self._form.setRowWrapPolicy(QFormLayout.WrapLongRows)
+        self._form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        self._form.setContentsMargins(0, 2, 0, 2)
         formRow = 0
         for prop in properties:
             if prop.is_container():
-                self.gridLayout.addLayout(form, formRow, 0, 1, 1)
+                self.gridLayout.addLayout(self._form, formRow, 0, 1, 1)
                 self.gridLayout.addWidget(prop, formRow + 1, 0, 1, 1)
                 self.gridLayout.setRowStretch(formRow, 0)
                 self.gridLayout.setRowStretch(formRow + 1, 0)
-                form = QFormLayout()
-                form.setLabelAlignment(Qt.AlignVCenter)
-                form.setRowWrapPolicy(QFormLayout.WrapLongRows)
-                form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
-                form.setContentsMargins(0, 2, 0, 2)
+                self._form = QFormLayout()
+                self._form.setLabelAlignment(Qt.AlignVCenter)
+                self._form.setRowWrapPolicy(QFormLayout.WrapLongRows)
+                self._form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+                self._form.setContentsMargins(0, 2, 0, 2)
                 formRow += 2
                 continue
-            form.addRow(prop.get_name(), prop)
-        self.gridLayout.addLayout(form, formRow, 0, 1, 1)
+            self._form.addRow(prop.get_name(), prop)
+        self.gridLayout.addLayout(self._form, formRow, 0, 1, 1)
         self.gridLayout.setRowStretch(formRow, 0)
         self.gridLayout.setRowStretch(formRow + 1, 1)

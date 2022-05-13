@@ -338,9 +338,17 @@ class A_Member(A_Clonable, ABC):
         """
         Get a template name formatted
         """
-        char = "abcdefghijklmnopqrstuvwxyz"[arrayidx]
-        templateName = name.replace("{c}", char)
-        templateName = templateName.replace("{C}", char.upper())
+        characters = "abcdefghijklmnopqrstuvwxyz"
+        charactersLen = len(characters)
+        chars = ""
+        otherIdx = arrayidx
+        for i in range(4, -1, -1):
+            chars = "abcdefghijklmnopqrstuvwxyz"[otherIdx % charactersLen] + chars
+            if otherIdx < 26:
+                break
+            otherIdx = (otherIdx // 26) - 1
+        templateName = name.replace("{c}", chars)
+        templateName = templateName.replace("{C}", chars.upper())
         templateName = templateName.replace("{i}", str(arrayidx))
         return templateName
 
@@ -383,6 +391,15 @@ class A_Member(A_Clonable, ABC):
     def get_formatted_name(self) -> str:
         return self.get_formatted_template_name(self._name, self._arrayIdx)
 
+    def get_concrete_name(self) -> str:
+        """
+        Return the name without formatters
+        """
+        name = self._name.replace("{c}", "")
+        name = name.replace("{C}", "")
+        name = name.replace("{i}", "")
+        return name
+
     def get_parent(self) -> Optional["MemberStruct"]:
         """
         Get the parent of this `Member`, which is a `Member` representing a struct
@@ -416,6 +433,18 @@ class A_Member(A_Clonable, ABC):
             parent = parent.get_parent()
         return QualifiedName(*scopes[::-1])
 
+    def is_defined_array(self) -> bool:
+        """
+        Check if this member has an indefinite array size
+        """
+        if self.is_from_array():
+            return True
+
+        if isinstance(self._arraySize, int):
+            return self._arraySize > 0
+
+        return True
+
     def get_array_size(self) -> int:
         """
         Get the array size of this member, which is the number of times this member is repeated
@@ -424,7 +453,11 @@ class A_Member(A_Clonable, ABC):
             return 1
 
         if isinstance(self._arraySize, int):
-            return self._arraySize if self._arraySize > 0 else 127
+            if self._arraySize > 127:
+                return 127
+            elif self._arraySize <= 0:
+                return 127
+            return self._arraySize
 
         return int(self._arraySize._value)
 
