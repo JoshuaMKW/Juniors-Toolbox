@@ -194,7 +194,7 @@ class JuniorsToolbox(QApplication):
         self.gui.show()
 
     def reset(self):
-        self.scene = SMSScene()
+        self.manager.reset_scene()
 
     def is_docker_empty(self) -> bool:
         return all(not tab.isVisible() for tab in TabWidgetManager.iter_tabs())

@@ -353,8 +353,8 @@ class MapObject(A_SceneObject):
     Class describing a map object
     """
 
-    def __init__(self, nameref: str):
-        super().__init__(nameref)
+    def __init__(self, nameref: str, subkind: str = "Default"):
+        super().__init__(nameref, subkind)
 
     @classmethod
     def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **kwargs: VariadicKwargs) -> Optional["MapObject"]:
@@ -409,19 +409,14 @@ class MapObject(A_SceneObject):
         _copy.key = self.key.copy(deep=deep)
 
         if self._parent:
-            _copy._parent = self._parent.copy(deep=deep)
+            _copy._parent = self._parent
 
-        for i, member in enumerate(self.get_members()):
-            if deep:
-                self.create_member(
-                    index=i,
-                    qualifiedName=member.get_qualified_name(),
-                    value=member._value,
-                    type=member._type,
-                    strict=True
-                )
+        for member in self.get_members():
+            copyMember = _copy.get_member(member.get_qualified_name())
+            if copyMember is not None:
+                copyMember.set_value(member.get_value())
             else:
-                self._members.append(member)
+                _copy._members.append(member)
 
         return _copy
 
@@ -563,24 +558,17 @@ class GroupObject(A_SceneObject):
         _copy.key = self.key.copy(deep=deep)
 
         if self._parent:
-            _copy._parent = self._parent.copy(deep=deep)
+            _copy._parent = self._parent
 
         for child in self.iter_grouped_children():
-            if deep:
-                self.add_to_group(child.copy(deep=True))
-            self.add_to_group(child)
+            _copy.add_to_group(child.copy(deep=deep))
 
-        for i, member in enumerate(self.get_members()):
-            if deep:
-                self.create_member(
-                    index=i,
-                    qualifiedName=member.get_qualified_name(),
-                    value=member._value,
-                    type=member._type,
-                    strict=True
-                )
+        for member in self.get_members():
+            copyMember = _copy.get_member(member.get_qualified_name())
+            if copyMember is not None:
+                copyMember.set_value(member.get_value())
             else:
-                self._members.append(member)
+                _copy._members.append(member)
 
         return _copy
 
@@ -600,11 +588,13 @@ class GroupObject(A_SceneObject):
     def add_to_group(self, obj: "A_SceneObject", /):
         self._grouped.append(obj)
         obj._parent = self
+        self.set_member(QualifiedName("Grouped"), len(self._grouped))
 
     def remove_from_group(self, obj: "A_SceneObject", /):
         try:
             self._grouped.remove(obj)
             obj._parent = None
+            self.set_member(QualifiedName("Grouped"), len(self._grouped))
         except ValueError:
             pass
 

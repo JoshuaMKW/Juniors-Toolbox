@@ -372,7 +372,7 @@ class A_Member(A_Clonable, ABC):
         return self._value
 
     def set_value(self, value: Any):
-        if not self.is_read_only():
+        if not self.is_read_only() or True:
             self._value = value
         else:
             print("Tried setting value of read only member")
@@ -635,6 +635,7 @@ class MemberValue(A_Member):
         cls = self.__class__
         _copy = cls(self._name, self._value, self._type)
         _copy._arraySize = self._arraySize
+        _copy._readOnly = self._readOnly
         if not deep:
             _copy._arrayInstances = self._arrayInstances.copy()
         return _copy
@@ -666,6 +667,12 @@ class MemberEnum(MemberValue):
             self._value |= self._enumInfo[enum]
         else:
             self._value &= self._enumInfo[enum]
+
+    def copy(self, *, deep: bool = False) -> "MemberEnum":
+        _copy: "MemberEnum" = super().copy(deep=deep)
+        _copy._enumInfo = self._enumInfo
+        _copy._enumFlags = self._enumFlags
+        return _copy
 
     def __update_enum(self):
         for key, value in self._enumInfo["Flags"].items():
@@ -742,6 +749,7 @@ class MemberStruct(A_Member):
         cls = self.__class__
         _copy = cls(self._name)
         _copy._arraySize = self._arraySize
+        _copy._readOnly = self._readOnly
         if not deep:
             _copy._arrayInstances = self._arrayInstances.copy()
         for name, child in self._children.items():

@@ -23,9 +23,13 @@
                 "Type": "STRING",
                 "ArraySize": 1
             },
-            "!!!": {
+            "LightCount": {
                 "Type": "INT",
                 "ArraySize": 1
+            },
+            "Light{i}": {
+                "Type": "LightInfo",
+                "ArraySize": "LightCount"
             }
         },
         "Wizard": {
@@ -48,7 +52,11 @@
                     ]
                 ],
                 "Character": "落書き管理 キャラ",
-                "!!!": 0
+                "LightCount": 0,
+                "Light{i}": {
+                    "ID": 0,
+                    "Name": "LightX"
+                }
             }
         }
     }

@@ -38,6 +38,8 @@ class InteractiveTreeWidgetItem(QTreeWidgetItem):
     _newItem_: bool
 
     def __init__(self, item: Union["InteractiveTreeWidgetItem", str], type: int = 0) -> None:
+        self._prevName_ = ""
+        self._newItem_ = True
         if isinstance(item, InteractiveTreeWidgetItem):
             super().__init__(item)
         else:
@@ -48,11 +50,13 @@ class InteractiveTreeWidgetItem(QTreeWidgetItem):
             Qt.ItemIsEditable |
             Qt.ItemIsDragEnabled
         )
-        self._prevName_ = ""
-        self._newItem_ = True
 
     def copy(self, *, deep: bool = False) -> "InteractiveTreeWidgetItem":
         item = InteractiveTreeWidgetItem(self)
+        for i in range(self.childCount()):
+            child: InteractiveTreeWidgetItem = self.child(i)
+            item.addChild(child.copy(deep=deep))
+        item.setText(0, self.text(0))
         return item
 
 

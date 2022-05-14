@@ -11,6 +11,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 from juniors_toolbox.gui import ToolboxManager
 from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
+from juniors_toolbox.gui.templates import ToolboxTemplates
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.gui.widgets.interactivestructs import (
     InteractiveTreeWidget, InteractiveTreeWidgetItem)
@@ -18,18 +19,18 @@ from juniors_toolbox.gui.widgets.property import (A_ValueProperty,
                                                   ArrayProperty, ByteProperty,
                                                   PropertyFactory,
                                                   StructProperty)
-from juniors_toolbox.objects.object import A_SceneObject, MapObject
+from juniors_toolbox.objects.object import A_SceneObject, GroupObject, MapObject
 from juniors_toolbox.objects.value import (A_Member, MemberEnum, QualifiedName,
                                            ValueType)
 from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.utils import VariadicArgs, VariadicKwargs, jdrama
-from PySide6.QtCore import (QObject, QPoint, QRunnable, Qt, QThread,
+from PySide6.QtCore import (QObject, QPoint, QRunnable, Qt, QThread, QModelIndex,
                             QThreadPool, QTimer, Signal, Slot)
-from PySide6.QtGui import (QAction, QColor, QDragEnterEvent, QDragLeaveEvent,
+from PySide6.QtGui import (QAction, QColor, QDragEnterEvent, QDragLeaveEvent, QStandardItemModel, QStandardItem,
                            QDragMoveEvent, QDropEvent, QFont, QKeyEvent,
                            QUndoCommand, QUndoStack)
-from PySide6.QtWidgets import (QComboBox, QDialog, QFormLayout, QFrame,
-                               QGridLayout, QLabel, QLineEdit, QListWidget,
+from PySide6.QtWidgets import (QComboBox, QDialog, QFormLayout, QFrame, QCompleter,
+                               QGridLayout, QLabel, QLineEdit, QListWidget, QListView,
                                QListWidgetItem, QMenu, QPushButton,
                                QScrollArea, QTreeWidget, QTreeWidgetItem,
                                QWidget)
@@ -45,41 +46,105 @@ class StringListProperty(StructProperty):
         self._frameLayout.addWidget(prop)
 
 
+class NameRefListWidgetItem(QListWidgetItem):
+    def __init__(self, text: str, type: int = 0, subKind: str = "Default"):
+        super().__init__(text, type)
+        self.subKind = subKind
+
+
 class NameRefSelectionDialog(QDialog):
-    def __init__(self, parent: Optional[QWidget] = None, f: Qt.WindowFlags = 0) -> None:
-        super().__init__(parent, f)
-        self.nameRefListWidget = QListWidget()
+    def __init__(self, isGroup: bool, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Create Map Object...")
+        self.setFixedSize(400, 500)
+        self._isGroup = isGroup
+
+        self.mainLayout = QGridLayout()
+        self.nameRefListWidget = QListView()
+        self.nameRefListWidget.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.nameRefListWidget.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.nameRefListWidget.clicked.connect(self.nameref_clicked)
+        self.nameRefListWidget.doubleClicked.connect(self.nameref_double_clicked)
+        self.mainLayout.addWidget(self.nameRefListWidget, 0, 0, 1, 1)
+
+        self.searchLayout = QGridLayout()
         self.searchBar = QLineEdit()
+        self.completer = QCompleter()
+        self.completer.setCaseSensitivity(Qt.CaseInsensitive)
+        self.searchBar.setCompleter(self.completer)
+        self.searchBar.setPlaceholderText(" *Search here*")
+        self.searchBar.textChanged.connect(self.check_nameref_exists)
         self.selectButton = QPushButton("Select")
-        self.selectButton.triggered.connect(self.accept)
+        self.selectButton.setMinimumSize(60, 30)
+        self.selectButton.setEnabled(False)
+        self.selectButton.clicked.connect(self.accept)
         self.cancelButton = QPushButton("Cancel")
-        self.cancelButton.triggered.connect(self.reject)
+        self.cancelButton.setMinimumSize(60, 30)
+        self.cancelButton.clicked.connect(self.reject)
+        self.searchLayout.addWidget(self.searchBar, 0, 0, 1, 3)
+        self.searchLayout.addWidget(self.selectButton, 1, 1, 1, 1)
+        self.searchLayout.addWidget(self.cancelButton, 1, 2, 1, 1)
+        self.searchLayout.setColumnStretch(0, 1)
+        self.searchLayout.setColumnStretch(1, 0)
+        self.searchLayout.setColumnStretch(2, 0)
+        self.mainLayout.addLayout(self.searchLayout, 1, 0, 1, 1)
+
+        self.setLayout(self.mainLayout)
         self.populate()
 
     def populate(self):
-        manager = ToolboxManager.get_instance()
-        templates = manager.get_template_folder()
-        for template in templates.iterdir():
-            self.nameRefListWidget.addItem(template.stem)
+        model = QStandardItemModel()
+        manager = ToolboxTemplates.get_instance()
+        for template in manager.iter_templates():
+            keycode = jdrama.get_key_code(template.get_name())
+            isGroupCode = keycode in A_SceneObject._KNOWN_GROUP_HASHES
+            if self._isGroup and not isGroupCode:
+                continue
+            elif not self._isGroup and isGroupCode:
+                continue
+            for name, info in template.iter_wizards():
+                item = QStandardItem(f"{template.get_name()} [{name}]")
+                model.appendRow(item)
+        self.nameRefListWidget.setModel(model)
+        self.completer.setModel(model)
 
     def get_nameref(self) -> jdrama.NameRef:
-        return jdrama.NameRef(self.searchBar.text())
+        text = self.searchBar.text()
+        lpos = text.find("[")
+        return jdrama.NameRef(text[:lpos].strip())
 
-    @Slot(QListWidgetItem)
-    def nameref_clicked(self, item: QListWidgetItem):
-        self.searchBar.blockSignals(True)
-        self.searchBar.setText(item.text())
-        self.searchBar.selectAll()
-        self.searchBar.blockSignals(True)
+    def get_subkind(self) -> str:
+        text = self.searchBar.text()
+        lpos = text.find("[")
+        rpos = text.find("]")
+        return text[lpos+1:rpos]
 
-    @Slot(QListWidgetItem)
-    def nameref_double_clicked(self, item: QListWidgetItem):
+    @Slot(QModelIndex)
+    def nameref_clicked(self, index: QModelIndex):
         self.searchBar.blockSignals(True)
-        self.searchBar.setText(item.text())
+        self.searchBar.setText(index.data(Qt.DisplayRole))
         self.searchBar.selectAll()
+        self.searchBar.blockSignals(False)
+        self.selectButton.setEnabled(True)
+
+    @Slot(QModelIndex)
+    def nameref_double_clicked(self, index: QModelIndex):
         self.searchBar.blockSignals(True)
+        self.searchBar.setText(index.data(Qt.DisplayRole))
+        self.searchBar.selectAll()
+        self.searchBar.blockSignals(False)
+        self.selectButton.setEnabled(True)
         self.accept()
-        
+
+    @Slot(str)
+    def check_nameref_exists(self, text: str):
+        model = self.nameRefListWidget.model()
+        for row in range(model.rowCount()):
+            index = model.index(row, 0)
+            if text == index.data(Qt.DisplayRole):
+                self.selectButton.setEnabled(True)
+                return
+        self.selectButton.setEnabled(False)
 
 
 class NameRefHierarchyTreeWidgetItem(InteractiveTreeWidgetItem):
@@ -105,21 +170,22 @@ class NameRefHierarchyTreeWidget(InteractiveTreeWidget):
 
     def get_context_menu(self, point: QPoint) -> Optional[QMenu]:
         # Infos about the node selected.
-        item: Optional[InteractiveTreeWidgetItem] = self.itemAt(point)
+        item: Optional[NameRefHierarchyTreeWidgetItem] = self.itemAt(point)
         if item is None:
             return None
 
         # We build the menu.
         menu = QMenu(self)
 
-        newObjectAction = QAction("New Object", self)
-        newObjectAction.triggered.connect(
-            lambda clicked=None: self.pick_new_object(self.selectedItems())
-        )
-        newGroupAction = QAction("New Group", self)
-        newGroupAction.triggered.connect(
-            lambda clicked=None: self.pick_new_group(self.selectedItems())
-        )
+        if item.object.is_group():
+            newObjectAction = QAction("New Object", self)
+            newObjectAction.triggered.connect(
+                lambda clicked=None: self.pick_new_object(item)
+            )
+            newGroupAction = QAction("New Group", self)
+            newGroupAction.triggered.connect(
+                lambda clicked=None: self.pick_new_group(item)
+            )
         duplicateAction = QAction("Duplicate", self)
         duplicateAction.triggered.connect(
             lambda clicked=None: self.duplicate_items(self.selectedItems())
@@ -129,15 +195,16 @@ class NameRefHierarchyTreeWidget(InteractiveTreeWidget):
             lambda clicked=None: self.delete_items(self.selectedItems())
         )
 
-        menu.addAction(newObjectAction)
-        menu.addAction(newGroupAction)
-        menu.addSeparator()
+        if item.object.is_group():
+            menu.addAction(newObjectAction)
+            menu.addAction(newGroupAction)
+            menu.addSeparator()
         menu.addAction(duplicateAction)
         menu.addSeparator()
         menu.addAction(deleteAction)
 
         return menu
-    
+
     def editItem(self, item: QTreeWidgetItem, column: int = 0, new: bool = False) -> None:
         return
 
@@ -148,12 +215,48 @@ class NameRefHierarchyTreeWidget(InteractiveTreeWidget):
         """
         newItems = []
         for item in items:
-            newItem = item.copy()
+            newItem = item.copy(deep=True)
             parent = item.parent()
             parent.insertChild(parent.indexOfChild(item) + 1, newItem)
             newItems.append(newItem)
         return newItems
 
+    @Slot(NameRefHierarchyTreeWidgetItem)
+    def pick_new_object(self, item: NameRefHierarchyTreeWidgetItem):
+        dialog = NameRefSelectionDialog(False, self)
+        if dialog.exec() == QDialog.Rejected:
+            return
+
+        nameref, subkind = dialog.get_nameref(), dialog.get_subkind()
+
+        obj = MapObject(nameref.get_ref(), subkind)
+        newItem = NameRefHierarchyTreeWidgetItem(obj, obj.get_explicit_name())
+
+        item.addChild(newItem)
+        item.object.add_to_group(obj)
+
+    @Slot(NameRefHierarchyTreeWidgetItem)
+    def pick_new_group(self, item: NameRefHierarchyTreeWidgetItem):
+        dialog = NameRefSelectionDialog(True, self)
+        if dialog.exec() == QDialog.Rejected:
+            return
+
+        nameref, subkind = dialog.get_nameref(), dialog.get_subkind()
+
+        obj = GroupObject(nameref.get_ref(), subkind)
+        grouped = obj.create_member(
+            index=int(hash(nameref) in {15406, 9858}),
+            qualifiedName=QualifiedName("Grouped"),
+            value=0,
+            type=ValueType.U32,
+            strict=True,
+        )
+        if grouped is not None:
+            grouped._readOnly = True
+        newItem = NameRefHierarchyTreeWidgetItem(obj, obj.get_explicit_name())
+
+        item.addChild(newItem)
+        item.object.add_to_group(obj)
 
 class NameRefHierarchyWidget(A_DockingInterface):
     class UndoCommand(QUndoCommand):
@@ -172,7 +275,8 @@ class NameRefHierarchyWidget(A_DockingInterface):
         def set_prev(self, prev: "NameRefHierarchyWidget"):
             self.prevgblindex = prev.treeWidget.currentIndex()
             self.prevparent = prev.treeWidget.currentItem().parent()
-            self.previndex = self.prevparent.indexOfChild(prev.treeWidget.currentItem())
+            self.previndex = self.prevparent.indexOfChild(
+                prev.treeWidget.currentItem())
 
         def set_current(self, cur: "NameRefHierarchyWidget", event: QDropEvent):
             self.dropevent = QDropEvent(
@@ -287,7 +391,8 @@ class NameRefHierarchyWidget(A_DockingInterface):
     def populate(self, scene: Optional[SMSScene], *args: VariadicArgs, **kwargs: VariadicKwargs) -> None:
         def inner_populate(obj: A_SceneObject, parentNode: NameRefHierarchyTreeWidgetItem, column: int):
             for g in obj.iter_grouped_children():
-                childNode = NameRefHierarchyTreeWidgetItem(g, g.get_explicit_name())
+                childNode = NameRefHierarchyTreeWidgetItem(
+                    g, g.get_explicit_name())
                 # childNode.setText(column, g.get_explicit_name())
                 parentNode.addChild(childNode)
                 if g.is_group():
@@ -320,7 +425,8 @@ class NameRefHierarchyWidget(A_DockingInterface):
         tablesNode.setFlags(Qt.ItemIsSelectable |
                             Qt.ItemIsEnabled | Qt.ItemIsDropEnabled)
         for table in scene.iter_tables():
-            node = NameRefHierarchyTreeWidgetItem(table, table.get_explicit_name())
+            node = NameRefHierarchyTreeWidgetItem(
+                table, table.get_explicit_name())
             # node.setText(0, table.get_explicit_name())
             tablesNode.addChild(node)
             if table.is_group():

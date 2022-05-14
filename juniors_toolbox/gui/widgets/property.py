@@ -1072,8 +1072,9 @@ class PropertyFactory():
                 name, value
             )
         elif valueType == ValueType.ENUM:
+            enumInfo = kwargs.get("enumInfo", {})
             prop = EnumProperty(
-                name, kwargs.get("enumInfo", {}), readOnly
+                name, readOnly, value, enumInfo
             )
         elif valueType == ValueType.VECTOR3:
             prop = Vector3Property(
