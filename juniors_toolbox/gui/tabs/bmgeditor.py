@@ -776,7 +776,7 @@ class BMGMessagePreviewWidget(QWidget):
                 pathLerp += charWidth / plen
                 lineWidth += charWidth
             else:
-                charWidth = fontMetrics.horizontalAdvanceChar(ord(char))
+                charWidth = fontMetrics.horizontalAdvanceChar(char)
                 if char in self.PaddingMap:
                     charWidth += self.PaddingMap[char]
                 painter.drawText(0, 0, char)
