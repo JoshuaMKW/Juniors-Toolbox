@@ -1,10 +1,11 @@
 from typing import Dict, Iterable, Optional, TypeVar
+from juniors_toolbox.gui.tabs.dataeditor import DataEditorWidget
 from juniors_toolbox.gui.tabs.hierarchyviewer import NameRefHierarchyWidget
 from juniors_toolbox.gui.tabs.prmeditor import PrmEditorWidget
 from juniors_toolbox.gui.tabs.projectviewer import ProjectViewerWidget
 from juniors_toolbox.gui.tabs.renderer import SceneRendererWidget
 from juniors_toolbox.gui.tabs.rail import RailViewerWidget
-from juniors_toolbox.gui.tabs.bmgeditor import BMGMessageEditor
+from juniors_toolbox.gui.tabs.bmgeditor import BMGMessageEditorWidget
 from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 
@@ -17,10 +18,10 @@ class TabWidgetManager():
         "Selected Properties": SelectedPropertiesWidget,
         "Rail List": RailViewerWidget,
         "Rail Editor": None,
-        "BMG Editor": BMGMessageEditor,
+        "BMG Editor": BMGMessageEditorWidget,
         "PRM Editor": PrmEditorWidget,
         "Demo Editor": None,
-        "Data Viewer": None,
+        "Data Viewer": DataEditorWidget,
         "Scene Renderer": SceneRendererWidget
     }
 

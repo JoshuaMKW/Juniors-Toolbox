@@ -1355,7 +1355,7 @@ class BMGMessageMenuBar(QMenuBar):
         return 12
 
 
-class BMGMessageEditor(A_DockingInterface):
+class BMGMessageEditorWidget(A_DockingInterface):
     def __init__(self, title: str = "", parent: Optional[QWidget] = None):
         super().__init__(title, parent)
         self.setAcceptDrops(True)

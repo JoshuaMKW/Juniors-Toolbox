@@ -10,6 +10,7 @@ from types import LambdaType
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 from juniors_toolbox.gui import ToolboxManager
+from juniors_toolbox.gui.tabs.dataeditor import DataEditorWidget
 from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
 from juniors_toolbox.gui.templates import ToolboxTemplates
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
@@ -167,6 +168,7 @@ class NameRefHierarchyTreeWidget(InteractiveTreeWidget):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setEditTriggers(self.NoEditTriggers)
+        self.itemClicked.connect(self.populate_data_view)
 
     def get_context_menu(self, point: QPoint) -> Optional[QMenu]:
         # Infos about the node selected.
@@ -257,6 +259,15 @@ class NameRefHierarchyTreeWidget(InteractiveTreeWidget):
 
         item.addChild(newItem)
         item.object.add_to_group(obj)
+
+    @Slot(NameRefHierarchyTreeWidgetItem)
+    def populate_data_view(self, item: NameRefHierarchyTreeWidgetItem):
+        from juniors_toolbox.gui.tabs import TabWidgetManager
+        dataEditorTab = TabWidgetManager.get_tab(DataEditorWidget)
+        if dataEditorTab is None or item is None:
+            return
+        obj = item.object
+        dataEditorTab.populate(None, serializable=obj)
 
 class NameRefHierarchyWidget(A_DockingInterface):
     class UndoCommand(QUndoCommand):
