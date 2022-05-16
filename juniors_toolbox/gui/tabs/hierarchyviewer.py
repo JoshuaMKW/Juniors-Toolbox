@@ -266,7 +266,10 @@ class NameRefHierarchyTreeWidget(InteractiveTreeWidget):
         dataEditorTab = TabWidgetManager.get_tab(DataEditorWidget)
         if dataEditorTab is None or item is None:
             return
-        obj = item.object
+        if item.parent() is None:
+            obj = item.child(0).object
+        else:
+            obj = item.object
         dataEditorTab.populate(None, serializable=obj)
 
 class NameRefHierarchyWidget(A_DockingInterface):
@@ -375,6 +378,9 @@ class NameRefHierarchyWidget(A_DockingInterface):
                                       ] = _childProp
             return prop
 
+    OBJECT_NODE_NAME = "Objects (scene.bin)"
+    TABLE_NODE_NAME = "Tables (tables.bin)"
+
     def __init__(self, title: str = "", parent: Optional[QWidget] = None):
         super().__init__(title, parent)
 
@@ -417,7 +423,7 @@ class NameRefHierarchyWidget(A_DockingInterface):
         headerFont.setBold(True)
 
         objectsNode = QTreeWidgetItem()
-        objectsNode.setText(0, "Objects")
+        objectsNode.setText(0, self.OBJECT_NODE_NAME)
         objectsNode.setFont(0, headerFont)
         objectsNode.setFlags(Qt.ItemIsSelectable |
                              Qt.ItemIsEnabled | Qt.ItemIsDropEnabled)
@@ -431,7 +437,7 @@ class NameRefHierarchyWidget(A_DockingInterface):
         self.treeWidget.addTopLevelItem(objectsNode)
 
         tablesNode = QTreeWidgetItem()
-        tablesNode.setText(0, "Tables")
+        tablesNode.setText(0, self.TABLE_NODE_NAME)
         tablesNode.setFont(0, headerFont)
         tablesNode.setFlags(Qt.ItemIsSelectable |
                             Qt.ItemIsEnabled | Qt.ItemIsDropEnabled)
@@ -461,7 +467,7 @@ class NameRefHierarchyWidget(A_DockingInterface):
 
         if item.parent() is None:
             metadataProperties = []
-            if item.text(0) == "Objects":
+            if item.text(0) == self.OBJECT_NODE_NAME:
                 title = "Object Hierarchy Properties"
                 metadataProperties.append(
                     PropertyFactory.create_property(
