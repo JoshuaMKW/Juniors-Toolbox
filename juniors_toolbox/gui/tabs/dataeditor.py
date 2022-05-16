@@ -1,10 +1,11 @@
 
 from enum import IntEnum
-from typing import Optional
+from typing import BinaryIO, Optional
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QThread
 from PySide6.QtGui import QFont, QTextCharFormat, QTextCursor, QColor, QPalette
 from PySide6.QtWidgets import QWidget, QPlainTextEdit, QGridLayout, QLabel
+from juniors_toolbox.gui import Serializer
 
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.scene import SMSScene
@@ -17,13 +18,13 @@ class EditMode(IntEnum):
     WRITE = 1
 
 
-class TextEditorWidget(QPlainTextEdit):
+class DataEditorTextEdit(QPlainTextEdit):
     def __init__(self, editMode: EditMode, parent: Optional[QWidget] = None):
         super().__init__(parent)
         font = QFont("Courier New", 10)
         self.setFont(font)
         self.setFocusPolicy(Qt.NoFocus)
-        self.setStyleSheet("TextEditorWidget {background: #00000000}")
+        self.setStyleSheet(self.__class__.__name__ + " {background: #00000000}")
 
         self._editMode = editMode
         self.set_edit_mode(editMode)
@@ -42,7 +43,7 @@ class DataEditorLabel(QLabel):
         font = QFont("Courier New", 10)
         self.setFont(font)
         self.setFocusPolicy(Qt.NoFocus)
-        self.setStyleSheet("DataEditorLabel {background: #00000000; color: #2F4FCF}")
+        self.setStyleSheet(self.__class__.__name__ + " {background: #00000000; color: #2F4FCF}")
 
 
 class DataEditorWidget(A_DockingInterface):
@@ -63,20 +64,20 @@ class DataEditorWidget(A_DockingInterface):
         self.mainLayout.addWidget(self.mainTextLabel, 0, 1, 1, 1)
         self.mainLayout.addWidget(self.asciiTextLabel, 0, 2, 1, 1)
 
-        self.offsetTextArea = TextEditorWidget(self._editMode)
+        self.offsetTextArea = DataEditorTextEdit(self._editMode)
         self.offsetTextArea.setFixedWidth(90)
-        self.offsetTextArea.setFrameShape(TextEditorWidget.NoFrame)
+        self.offsetTextArea.setFrameShape(DataEditorTextEdit.NoFrame)
         self.offsetTextArea.setTextInteractionFlags(Qt.NoTextInteraction)
         self.offsetTextArea.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.offsetTextArea.setCursor(Qt.ArrowCursor)
         self.offsetTextArea.setStyleSheet("background: #00000000; color: #2F4FCF")
-        self.mainTextArea = TextEditorWidget(self._editMode)
+        self.mainTextArea = DataEditorTextEdit(self._editMode)
         self.mainTextArea.setFixedWidth(304)
-        self.mainTextArea.setFrameShape(TextEditorWidget.NoFrame)
+        self.mainTextArea.setFrameShape(DataEditorTextEdit.NoFrame)
         self.mainTextArea.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.asciiTextArea = TextEditorWidget(self._editMode)
+        self.asciiTextArea = DataEditorTextEdit(self._editMode)
         self.asciiTextArea.setMinimumWidth(160)
-        self.asciiTextArea.setFrameShape(TextEditorWidget.NoFrame)
+        self.asciiTextArea.setFrameShape(DataEditorTextEdit.NoFrame)
         self.asciiTextArea.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 
         self.mainLayout.addWidget(self.offsetTextArea, 1, 0, 1, 1)
@@ -93,11 +94,20 @@ class DataEditorWidget(A_DockingInterface):
         self.rowLength = 16  # How many bytes in a row.
         self.packetWidth = 4  # How many bytes in a packet
 
+
     def populate(self, scene: Optional[SMSScene], *args: VariadicArgs, **kwargs: VariadicKwargs) -> None:
         if "serializable" not in kwargs:
             return
         serializable: A_Serializable = kwargs["serializable"]
-        self.generate_view(serializable.to_bytes())
+        self.serializeThread = QThread()
+        self.serializer = Serializer(serializable)
+        self.serializer.moveToThread(self.serializeThread)
+        self.serializeThread.started.connect(self.serializer.run)
+        self.serializer.finished.connect(self.generate_view)
+        self.serializer.finished.connect(self.serializeThread.quit)
+        self.serializer.finished.connect(self.serializer.deleteLater)
+        self.serializeThread.finished.connect(self.serializeThread.deleteLater)
+        self.serializeThread.start()
 
     # generateView ... Generates text view for hexdump likedness.
     def generate_view(self, text: bytes):

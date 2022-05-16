@@ -1,5 +1,5 @@
 from typing import Dict, Iterable, Optional, TypeVar
-from juniors_toolbox.gui.tabs.dataeditor import DataEditorWidget
+from juniors_toolbox.gui.tabs.dataeditor import DataEditorTextEdit, DataEditorWidget
 from juniors_toolbox.gui.tabs.hierarchyviewer import NameRefHierarchyWidget
 from juniors_toolbox.gui.tabs.prmeditor import PrmEditorWidget
 from juniors_toolbox.gui.tabs.projectviewer import ProjectViewerWidget
