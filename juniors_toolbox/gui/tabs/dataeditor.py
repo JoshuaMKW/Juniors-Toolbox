@@ -3,8 +3,8 @@ from enum import IntEnum
 from typing import BinaryIO, Optional
 
 from PySide6.QtCore import Qt, QThread
-from PySide6.QtGui import QFont, QTextCharFormat, QTextCursor, QColor, QPalette
-from PySide6.QtWidgets import QWidget, QPlainTextEdit, QGridLayout, QLabel
+from PySide6.QtGui import QFont, QTextCharFormat, QTextCursor, QColor, QPalette, QTextFormat, QTextFrameFormat
+from PySide6.QtWidgets import QWidget, QPlainTextEdit, QGridLayout, QLabel, QTextEdit
 from juniors_toolbox.gui import Serializer
 
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
@@ -145,14 +145,29 @@ class DataEditorWidget(A_DockingInterface):
     # highlightMain ... Bi-directional highlighting from main.
 
     def highlight_main(self):
-        # Create and get cursors for getting and setting selections.
-        highlightCursor = QTextCursor(self.asciiTextArea.document())
-        cursor = self.mainTextArea.textCursor()
+        self.mainTextArea.blockSignals(True)
+        self.asciiTextArea.blockSignals(True)
+
+        asciiCursor = self.asciiTextArea.textCursor()
+        asciiCursor.clearSelection()
+        self.asciiTextArea.setTextCursor(asciiCursor)
+
+        # Create and get cursors for getting a
+        selfHighlightCursor = QTextCursor(self.mainTextArea.document())
+        otherHighlightCursor = QTextCursor(self.asciiTextArea.document())
 
         # Clear any current selections and reset text color.
-        highlightCursor.select(QTextCursor.Document)
-        highlightCursor.setCharFormat(QTextCharFormat())
-        highlightCursor.clearSelection()
+        selfHighlightCursor.select(QTextCursor.Document)
+        selfHighlightCursor.setCharFormat(QTextCharFormat())
+        selfHighlightCursor.clearSelection()
+        otherHighlightCursor.select(QTextCursor.Document)
+        otherHighlightCursor.setCharFormat(QTextCharFormat())
+        otherHighlightCursor.clearSelection()
+
+        highlightSelection = QTextEdit.ExtraSelection()
+        highlightSelection.format.setBackground(self.palette().color(QPalette.Highlight))
+        highlightSelection.format.setForeground(self.palette().color(QPalette.Text))
+        cursor = self.mainTextArea.textCursor()
 
         # Information about where selections and rows start.
         selectedText = cursor.selectedText()  # The actual text selected.
@@ -164,7 +179,6 @@ class DataEditorWidget(A_DockingInterface):
         selectionEnd = cursor.selectionEnd()
 
         mainText = self.mainTextArea.toPlainText()
-        print(selectionStart, selectionEnd)
 
         lines = mainText[selectionStart:selectionEnd].split("\n")
         totalBytes = sum([align_int(len(line.replace(" ", "")), 2) for line in lines]) >> 1
@@ -180,17 +194,84 @@ class DataEditorWidget(A_DockingInterface):
         asciiText = self.asciiTextArea.toPlainText()
 
         # Select text and highlight it.
-        highlightCursor.setPosition(asciiStart, QTextCursor.MoveAnchor)
-        highlightCursor.setPosition(asciiEnd, QTextCursor.KeepAnchor)
+        # Select text and highlight it.
+        otherHighlightCursor.setPosition(asciiStart, QTextCursor.MoveAnchor)
+        otherHighlightCursor.setPosition(asciiEnd, QTextCursor.KeepAnchor)
+        highlightSelection.cursor = otherHighlightCursor
+        
+        self.asciiTextArea.setExtraSelections([highlightSelection])
 
-        highlight = QTextCharFormat()
-        highlight.setBackground(QColor(90, 160, 220))
-        highlightCursor.setCharFormat(highlight)
-        highlightCursor.clearSelection()
+        self.asciiTextArea.blockSignals(False)
+        self.mainTextArea.blockSignals(False)
 
     # highlightAscii ... Bi-directional highlighting from ascii.
     def highlight_ascii(self):
-        selectedText = self.asciiTextArea.textCursor().selectedText()
+        self.asciiTextArea.blockSignals(True)
+        self.mainTextArea.blockSignals(True)
+
+        mainCursor = self.asciiTextArea.textCursor()
+        mainCursor.clearSelection()
+        self.mainTextArea.setTextCursor(mainCursor)
+
+        selfHighlightCursor = QTextCursor(self.asciiTextArea.document())
+        otherHighlightCursor = QTextCursor(self.mainTextArea.document())
+
+        # Clear any current selections and reset text color.
+        selfHighlightCursor.select(QTextCursor.Document)
+        selfHighlightCursor.setCharFormat(QTextCharFormat())
+        selfHighlightCursor.clearSelection()
+        otherHighlightCursor.select(QTextCursor.Document)
+        otherHighlightCursor.setCharFormat(QTextCharFormat())
+        otherHighlightCursor.clearSelection()
+
+        # Create and get cursors for getting and setting selections.
+        highlightSelection = QTextEdit.ExtraSelection()
+        highlightSelection.format.setBackground(self.palette().color(QPalette.Highlight))
+        highlightSelection.format.setForeground(self.palette().color(QPalette.Text))
+        cursor = self.asciiTextArea.textCursor()
+
+        # Information about where selections and rows start.
+        selectedText = cursor.selectedText()  # The actual text selected.
+        selectionStart = cursor.selectionStart()
+        selectionEnd = cursor.selectionEnd()
+
+        asciiText = self.asciiTextArea.toPlainText()
+
+        lines = asciiText[:selectionStart].split("\n")
+        newLines = len(lines) - 1
+        bytesStart = sum([len(line) for line in lines]) << 1
+        bytesSpaces = ((bytesStart) % (self.rowLength << 1)) // 8
+        bytesStart += (newLines * 4)
+
+        lines = asciiText[selectionStart:selectionEnd].split("\n")
+        newLines = len(lines) - 1
+        totalBytes = sum([len(line) for line in lines]) << 1
+        modulus = (self.rowLength << 1)
+        modulusBytes = (totalBytes + (bytesStart % 8)) % modulus
+        if totalBytes != 0 and modulusBytes == 0:
+            totalSpaces = 3
+        else:
+            totalSpaces = max((modulusBytes-1) // 8, 0)
+        totalBytes += (newLines * 3) + newLines
+
+        print(totalSpaces)
+
+        totalBytes = totalBytes
+        bytesStart = bytesStart + bytesSpaces
+        bytesEnd = bytesStart + totalBytes + totalSpaces
+
+        bytesText = self.mainTextArea.toPlainText()
+
+        # Select text and highlight it.
+        otherHighlightCursor.setPosition(bytesStart, QTextCursor.MoveAnchor)
+        otherHighlightCursor.setPosition(bytesEnd, QTextCursor.KeepAnchor)
+        highlightSelection.cursor = otherHighlightCursor
+        
+        self.mainTextArea.setExtraSelections([highlightSelection])
+
+
+        self.mainTextArea.blockSignals(False)
+        self.asciiTextArea.blockSignals(False)
 
     def sync_scrolls(self):
         scroll0 = self.offsetTextArea.verticalScrollBar()
