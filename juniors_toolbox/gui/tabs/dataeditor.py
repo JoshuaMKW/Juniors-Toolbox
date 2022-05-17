@@ -151,6 +151,8 @@ class DataEditorWidget(A_DockingInterface):
         asciiCursor = self.asciiTextArea.textCursor()
         asciiCursor.clearSelection()
         self.asciiTextArea.setTextCursor(asciiCursor)
+        
+        self.mainTextArea.setExtraSelections([])
 
         # Create and get cursors for getting a
         selfHighlightCursor = QTextCursor(self.mainTextArea.document())
@@ -213,6 +215,8 @@ class DataEditorWidget(A_DockingInterface):
         mainCursor.clearSelection()
         self.mainTextArea.setTextCursor(mainCursor)
 
+        self.asciiTextArea.setExtraSelections([])
+
         selfHighlightCursor = QTextCursor(self.asciiTextArea.document())
         otherHighlightCursor = QTextCursor(self.mainTextArea.document())
 
@@ -239,22 +243,24 @@ class DataEditorWidget(A_DockingInterface):
 
         lines = asciiText[:selectionStart].split("\n")
         newLines = len(lines) - 1
-        bytesStart = sum([len(line) for line in lines]) << 1
-        bytesSpaces = ((bytesStart) % (self.rowLength << 1)) // 8
-        bytesStart += (newLines * 4)
+        bytesPreLength = sum([len(line) for line in lines]) << 1
+        bytesSpaces = ((bytesPreLength) % (self.rowLength << 1)) // 8
+        bytesStart = bytesPreLength + (newLines * 4)
 
         lines = asciiText[selectionStart:selectionEnd].split("\n")
         newLines = len(lines) - 1
         totalBytes = sum([len(line) for line in lines]) << 1
         modulus = (self.rowLength << 1)
-        modulusBytes = (totalBytes + (bytesStart % 8)) % modulus
+        modulusBytes = (totalBytes + ((bytesPreLength) % 8)) % modulus
+
         if totalBytes != 0 and modulusBytes == 0:
             totalSpaces = 3
         else:
             totalSpaces = max((modulusBytes-1) // 8, 0)
-        totalBytes += (newLines * 3) + newLines
 
-        print(totalSpaces)
+        totalBytes += (newLines * 4)
+
+        print(totalSpaces, bytesPreLength % modulus, modulusBytes, totalBytes)
 
         totalBytes = totalBytes
         bytesStart = bytesStart + bytesSpaces
