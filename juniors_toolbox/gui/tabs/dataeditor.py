@@ -200,6 +200,9 @@ class DataEditorWidget(A_DockingInterface):
         highlightSelection.cursor = otherHighlightCursor
         
         self.asciiTextArea.setExtraSelections([highlightSelection])
+        self.asciiTextArea.blockSignals(True)
+        self.asciiTextArea.verticalScrollBar().setValue(self.mainTextArea.verticalScrollBar().value())
+        self.asciiTextArea.blockSignals(False)
 
         self.asciiTextArea.blockSignals(False)
         self.mainTextArea.blockSignals(False)
@@ -259,7 +262,9 @@ class DataEditorWidget(A_DockingInterface):
         highlightSelection.cursor = otherHighlightCursor
         
         self.mainTextArea.setExtraSelections([highlightSelection])
-
+        self.mainTextArea.blockSignals(True)
+        self.mainTextArea.verticalScrollBar().setValue(self.asciiTextArea.verticalScrollBar().value())
+        self.mainTextArea.blockSignals(False)
 
         self.mainTextArea.blockSignals(False)
         self.asciiTextArea.blockSignals(False)
