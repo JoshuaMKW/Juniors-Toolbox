@@ -410,7 +410,6 @@ class NameRefHierarchyWidget(A_DockingInterface):
             for g in obj.iter_grouped_children():
                 childNode = NameRefHierarchyTreeWidgetItem(
                     g, g.get_explicit_name())
-                # childNode.setText(column, g.get_explicit_name())
                 parentNode.addChild(childNode)
                 if g.is_group():
                     inner_populate(g, childNode, column)
@@ -444,7 +443,6 @@ class NameRefHierarchyWidget(A_DockingInterface):
         for table in scene.iter_tables():
             node = NameRefHierarchyTreeWidgetItem(
                 table, table.get_explicit_name())
-            # node.setText(0, table.get_explicit_name())
             tablesNode.addChild(node)
             if table.is_group():
                 inner_populate(table, node, 0)
