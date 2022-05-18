@@ -193,8 +193,6 @@ class DataEditorWidget(A_DockingInterface):
         asciiStart = asciiStart
         asciiEnd = asciiStart + totalBytes
 
-        asciiText = self.asciiTextArea.toPlainText()
-
         # Select text and highlight it.
         # Select text and highlight it.
         otherHighlightCursor.setPosition(asciiStart, QTextCursor.MoveAnchor)
@@ -235,7 +233,6 @@ class DataEditorWidget(A_DockingInterface):
         cursor = self.asciiTextArea.textCursor()
 
         # Information about where selections and rows start.
-        selectedText = cursor.selectedText()  # The actual text selected.
         selectionStart = cursor.selectionStart()
         selectionEnd = cursor.selectionEnd()
 
@@ -244,29 +241,17 @@ class DataEditorWidget(A_DockingInterface):
         lines = asciiText[:selectionStart].split("\n")
         newLines = len(lines) - 1
         bytesPreLength = sum([len(line) for line in lines]) << 1
-        bytesSpaces = ((bytesPreLength) % (self.rowLength << 1)) // 8
+        bytesSpaces = (bytesPreLength % (self.rowLength << 1)) // 8
         bytesStart = bytesPreLength + (newLines * 4)
 
         lines = asciiText[selectionStart:selectionEnd].split("\n")
         newLines = len(lines) - 1
-        totalBytes = sum([len(line) for line in lines]) << 1
-        modulus = (self.rowLength << 1)
-        modulusBytes = (totalBytes + ((bytesPreLength) % 8)) % modulus
+        totalPreLength = sum([len(line) for line in lines]) << 1
+        totalSpaces = (totalPreLength + (bytesPreLength % 8) - 1) // 8
 
-        if totalBytes != 0 and modulusBytes == 0:
-            totalSpaces = 3
-        else:
-            totalSpaces = max((modulusBytes-1) // 8, 0)
-
-        totalBytes += (newLines * 4)
-
-        print(totalSpaces, bytesPreLength % modulus, modulusBytes, totalBytes)
-
-        totalBytes = totalBytes
+        totalBytes = max(totalPreLength + totalSpaces, 0)
         bytesStart = bytesStart + bytesSpaces
-        bytesEnd = bytesStart + totalBytes + totalSpaces
-
-        bytesText = self.mainTextArea.toPlainText()
+        bytesEnd = bytesStart + totalBytes
 
         # Select text and highlight it.
         otherHighlightCursor.setPosition(bytesStart, QTextCursor.MoveAnchor)
