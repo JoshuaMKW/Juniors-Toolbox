@@ -10,6 +10,7 @@ from types import LambdaType
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 from juniors_toolbox.gui import ToolboxManager
+from juniors_toolbox.gui.tabs.dataeditor import DataEditorWidget
 from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
 from juniors_toolbox.gui.templates import ToolboxTemplates
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
@@ -167,6 +168,7 @@ class NameRefHierarchyTreeWidget(InteractiveTreeWidget):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setEditTriggers(self.NoEditTriggers)
+        self.itemClicked.connect(self.populate_data_view)
 
     def get_context_menu(self, point: QPoint) -> Optional[QMenu]:
         # Infos about the node selected.
@@ -257,6 +259,18 @@ class NameRefHierarchyTreeWidget(InteractiveTreeWidget):
 
         item.addChild(newItem)
         item.object.add_to_group(obj)
+
+    @Slot(NameRefHierarchyTreeWidgetItem)
+    def populate_data_view(self, item: NameRefHierarchyTreeWidgetItem):
+        from juniors_toolbox.gui.tabs import TabWidgetManager
+        dataEditorTab = TabWidgetManager.get_tab(DataEditorWidget)
+        if dataEditorTab is None or item is None:
+            return
+        if item.parent() is None:
+            obj = item.child(0).object
+        else:
+            obj = item.object
+        dataEditorTab.populate(None, serializable=obj)
 
 class NameRefHierarchyWidget(A_DockingInterface):
     class UndoCommand(QUndoCommand):
@@ -364,6 +378,9 @@ class NameRefHierarchyWidget(A_DockingInterface):
                                       ] = _childProp
             return prop
 
+    OBJECT_NODE_NAME = "Objects (scene.bin)"
+    TABLE_NODE_NAME = "Tables (tables.bin)"
+
     def __init__(self, title: str = "", parent: Optional[QWidget] = None):
         super().__init__(title, parent)
 
@@ -406,7 +423,7 @@ class NameRefHierarchyWidget(A_DockingInterface):
         headerFont.setBold(True)
 
         objectsNode = QTreeWidgetItem()
-        objectsNode.setText(0, "Objects")
+        objectsNode.setText(0, self.OBJECT_NODE_NAME)
         objectsNode.setFont(0, headerFont)
         objectsNode.setFlags(Qt.ItemIsSelectable |
                              Qt.ItemIsEnabled | Qt.ItemIsDropEnabled)
@@ -420,7 +437,7 @@ class NameRefHierarchyWidget(A_DockingInterface):
         self.treeWidget.addTopLevelItem(objectsNode)
 
         tablesNode = QTreeWidgetItem()
-        tablesNode.setText(0, "Tables")
+        tablesNode.setText(0, self.TABLE_NODE_NAME)
         tablesNode.setFont(0, headerFont)
         tablesNode.setFlags(Qt.ItemIsSelectable |
                             Qt.ItemIsEnabled | Qt.ItemIsDropEnabled)
@@ -450,7 +467,7 @@ class NameRefHierarchyWidget(A_DockingInterface):
 
         if item.parent() is None:
             metadataProperties = []
-            if item.text(0) == "Objects":
+            if item.text(0) == self.OBJECT_NODE_NAME:
                 title = "Object Hierarchy Properties"
                 metadataProperties.append(
                     PropertyFactory.create_property(

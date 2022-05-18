@@ -1,12 +1,53 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
+from typing import BinaryIO, Callable, Optional, Type
 from juniors_toolbox.gui.settings import ToolboxSettings
 from juniors_toolbox.scene import SMSScene
+from juniors_toolbox.utils import A_Serializable
 from juniors_toolbox.utils.filesystem import resource_path
 
-from PySide6.QtCore import Signal, QObject
+from PySide6.QtCore import Signal, QObject, QRunnable, QSettings
+
+
+class Runnable(QObject, QRunnable):
+    finished = Signal(object)
+    
+    def __init__(self, fn: Callable, *args, **kwargs) -> None:
+        super().__init__()
+        self.fn = fn
+        self.args = args
+        self.kwargs = kwargs
+
+    def run(self) -> None:
+        ret = self.fn(*self.args, **self.kwargs)
+        self.finished.emit(ret)
+
+
+class Serializer(QObject, QRunnable):
+    finished = Signal(bytes)
+
+    def __init__(self, serializable: A_Serializable, parent: Optional[QObject] = None) -> None:
+        super().__init__(parent)
+        self._serializable = serializable
+    
+    def run(self) -> None:
+        data = self._serializable.to_bytes()
+        self.finished.emit(data)
+        
+
+class Deserializer(QObject, QRunnable):
+    finished = Signal(A_Serializable)
+
+    def __init__(self, cls: Type[A_Serializable], data: BinaryIO) -> None:
+        super().__init__()
+        self._cls = cls
+        self._data = data
+    
+    def run(self) -> None:
+        obj = self._cls.from_bytes(self._data)
+        self.finished.emit(obj)
+
 
 class ToolboxManager(QObject):
     __singleton: Optional["ToolboxManager"] = None
@@ -63,11 +104,11 @@ class ToolboxManager(QObject):
     def get_settings(self) -> ToolboxSettings:
         return self.__settings
 
-    def load_settings(self, path: Path) -> bool:
-        return self.__settings.load(path)
+    def load_settings(self, settings: Optional[QSettings] = None) -> bool:
+        return self.__settings.load(settings)
     
     def save_settings(self, path: Path) -> None:
-        self.__settings.save(path)
+        self.__settings.save()
 
     def get_template_folder(self) -> Path:
         return resource_path("Templates")
