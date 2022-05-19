@@ -70,6 +70,46 @@ class A_SceneObject(jdrama.NameRef, ABC):
             body += f"  {v.get_formatted_name()} = {v.get_value()}\n"
         return header + " {\n" + body + "}"
 
+    def get_simple_data(self) -> bytes:
+        data = BytesIO()
+        write_uint32(data, self.get_data_size())
+        data.write(super().to_bytes())
+        data.write(self.key.to_bytes())
+        data.write(self.get_member_data().getvalue())
+        return data.getvalue()
+
+    def get_simple_data_size(self) -> int:
+        return 12 + len(self.get_ref()) + len(self.key) + len(self.get_member_data().getbuffer())
+
+    def get_offset_of(self, name: QualifiedName, relative: bool = True) -> int:
+        """
+        Get the real offset of a member
+        """
+        def _member_offset(member: A_Member, offset: int) -> int:
+            for child in member.get_children():
+                if child.get_qualified_name() == name:
+                    return offset
+                if child.get_qualified_name().scopes(name):
+                    return _member_offset(child, offset)
+                offset += child.get_data_size()
+            return -1
+
+        offset = 0
+        if not relative:
+            data = BytesIO()
+            write_uint32(data, self.get_data_size())
+            data.write(super().to_bytes())
+            data.write(self.key.to_bytes())
+            offset += len(data.getvalue())
+
+        for member in self.get_members():
+            if member.get_qualified_name() == name:
+                return offset
+            if member.get_qualified_name().scopes(name):
+                return _member_offset(member, offset)
+            offset += member.get_data_size()
+        return -1
+
     def get_parent(self) -> Optional["GroupObject"]:
         """
         Get this object's parent group object
@@ -395,12 +435,7 @@ class MapObject(A_SceneObject):
         """
         Converts this object to raw bytes
         """
-        data = BytesIO()
-        write_uint32(data, self.get_data_size())
-        data.write(super().to_bytes())
-        data.write(self.key.to_bytes())
-        data.write(self.get_member_data().getvalue())
-        return data.getvalue()
+        return self.get_simple_data()
 
     def copy(self, *, deep: bool = False) -> "MapObject":
         cls = self.__class__
@@ -424,7 +459,7 @@ class MapObject(A_SceneObject):
         """
         Gets the length of this object in bytes
         """
-        return 12 + len(self.get_ref()) + len(self.key) + len(self.get_member_data().getbuffer())
+        return self.get_simple_data_size()
 
     def is_group(self) -> bool:
         """
@@ -540,11 +575,7 @@ class GroupObject(A_SceneObject):
         Converts this object to raw bytes
         """
         data = BytesIO()
-        write_uint32(data, self.get_data_size())
-
-        data.write(super().to_bytes())
-        data.write(self.key.to_bytes())
-        data.write(self.get_member_data().getvalue())
+        data.write(self.get_simple_data())
 
         for obj in self._grouped:
             data.write(obj.to_bytes())
@@ -579,8 +610,7 @@ class GroupObject(A_SceneObject):
         """
         Gets the length of this object in bytes
         """
-        length = 12 + len(self.get_ref()) + len(self.key) + \
-            len(self.get_member_data().getbuffer())
+        length = self.get_simple_data_size()
         for obj in self._grouped:
             length += obj.get_data_size()
         return length

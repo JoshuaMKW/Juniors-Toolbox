@@ -34,6 +34,8 @@ class QualifiedName():
         """
         Check if this scopes another qualified name
         """
+        if len(self) >= len(other):
+            return False
         return str(other).startswith(str(self))
 
     def __iter__(self):
@@ -64,6 +66,9 @@ class QualifiedName():
 
     def __str__(self) -> str:
         return "::".join(self.__scopes)
+
+    def __len__(self) -> int:
+        return len(self.__scopes)
 
     def __hash__(self) -> int:
         return hash(str(self))
@@ -196,6 +201,7 @@ _ENUM_TO_TYPE_TABLE = {
     ValueType.C_RGB32: RGB8,
     ValueType.C_RGBA: RGBA8,
     ValueType.VECTOR3: Vec3f,
+    ValueType.TRANSFORM: Transform,
     ValueType.COMMENT: str,
     ValueType.STRUCT: None
 }
@@ -224,6 +230,7 @@ _ENUM_TO_SIZE_TABLE = {
     ValueType.C_RGB32: 12,
     ValueType.C_RGBA: 4,
     ValueType.VECTOR3: 12,
+    ValueType.TRANSFORM: 36,
     ValueType.COMMENT: None,
     ValueType.STRUCT: None
 }
@@ -252,6 +259,7 @@ _ENUM_TO_SIGNED_TABLE = {
     ValueType.C_RGB32: False,
     ValueType.C_RGBA: False,
     ValueType.VECTOR3: False,
+    ValueType.TRANSFORM: False,
     ValueType.COMMENT: False,
     ValueType.STRUCT: False
 }
@@ -306,9 +314,8 @@ TEMPLATE_TYPE_WRITE_TABLE: dict[ValueType, Callable[[BinaryIO, Any], None]] = {
     ValueType.STR: __write_bin_string,
     ValueType.STRING: __write_bin_string,
     ValueType.ENUM: write_uint32,
-    ValueType.C_RGB8: lambda f, val: write_ubyte(f, val.tuple()),  # val = RGB8
+    ValueType.C_RGB8: lambda f, val: write_ubyte(f, val.tuple()),
     ValueType.C_RGBA8: lambda f, val: write_ubyte(f, val.tuple()),
-    # val = RGB8
     ValueType.C_RGB32: lambda f, val: write_uint32(f, val.tuple()),
     ValueType.C_RGBA: write_uint32,
     ValueType.VECTOR3: write_vec3f,
@@ -631,9 +638,11 @@ class MemberValue(A_Member):
 
     def get_data_size(self) -> int:
         size = self._type.get_size()
-        if size is None:
-            return 0
-        return size
+        if size is not None:
+            return size
+        elif self._type in {ValueType.STR, ValueType.STRING}:
+            return 2 + len(self._value.encode("shift-jis"))
+        return 0
 
     def load(self, stream: BinaryIO, endPos: Optional[int] = None) -> None:
         if endPos is None:

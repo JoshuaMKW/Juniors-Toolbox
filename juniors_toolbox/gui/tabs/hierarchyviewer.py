@@ -1,3 +1,4 @@
+from io import BytesIO
 import time
 from abc import ABC
 from dataclasses import dataclass
@@ -168,7 +169,6 @@ class NameRefHierarchyTreeWidget(InteractiveTreeWidget):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setEditTriggers(self.NoEditTriggers)
-        self.itemClicked.connect(self.populate_data_view)
 
     def get_context_menu(self, point: QPoint) -> Optional[QMenu]:
         # Infos about the node selected.
@@ -259,18 +259,6 @@ class NameRefHierarchyTreeWidget(InteractiveTreeWidget):
 
         item.addChild(newItem)
         item.object.add_to_group(obj)
-
-    @Slot(NameRefHierarchyTreeWidgetItem)
-    def populate_data_view(self, item: NameRefHierarchyTreeWidgetItem):
-        from juniors_toolbox.gui.tabs import TabWidgetManager
-        dataEditorTab = TabWidgetManager.get_tab(DataEditorWidget)
-        if dataEditorTab is None or item is None:
-            return
-        if item.parent() is None:
-            obj = item.child(0).object
-        else:
-            obj = item.object
-        dataEditorTab.populate(None, serializable=obj)
 
 class NameRefHierarchyWidget(A_DockingInterface):
     class UndoCommand(QUndoCommand):
@@ -395,8 +383,12 @@ class NameRefHierarchyWidget(A_DockingInterface):
         self.treeWidget.setDefaultDropAction(Qt.MoveAction)
         self.treeWidget.setHeaderHidden(True)
         self.treeWidget.setMinimumSize(300, 80)
-        self.treeWidget.currentItemChanged.connect(
-            self.__populate_properties_view)
+        self.treeWidget.itemClicked.connect(
+            self.__populate_properties_view
+        )
+        self.treeWidget.itemClicked.connect(
+            self.__populate_data_view
+        )
 
         self.setWidget(self.treeWidget)
 
@@ -535,8 +527,7 @@ class NameRefHierarchyWidget(A_DockingInterface):
 
         sceneObj = item.object
         self.__selectedObject = sceneObj
-
-        title = f"{sceneObj.get_explicit_name()} Properties"
+        self.__selectedObjectSize = sceneObj.get_simple_data_size()
 
         properties: List[A_ValueProperty] = []
         propertiesMap: dict[QualifiedName, A_ValueProperty] = {}
@@ -584,7 +575,23 @@ class NameRefHierarchyWidget(A_DockingInterface):
                 propertiesMap[childProp.get_qualified_name()] = childProp
 
         manager = ToolboxManager.get_instance()
-        propertiesTab.populate(scene, properties=properties, title=title)
+        propertiesTab.populate(
+            scene,
+            properties=properties,
+            title=f"{sceneObj.get_explicit_name()} Properties"
+        )
+
+    @Slot(NameRefHierarchyTreeWidgetItem)
+    def __populate_data_view(self, item: NameRefHierarchyTreeWidgetItem):
+        from juniors_toolbox.gui.tabs import TabWidgetManager
+        dataEditorTab = TabWidgetManager.get_tab(DataEditorWidget)
+        if dataEditorTab is None or item is None:
+            return
+        if item.parent() is None:
+            obj = item.child(0).object
+        else:
+            obj = item.object
+        dataEditorTab.populate(None, serializable=obj)
 
     def startDrag(self, supportedActions: Qt.DropActions):
         self.draggedItem = self.treeWidget.currentItem()
@@ -620,7 +627,7 @@ class NameRefHierarchyWidget(A_DockingInterface):
         if event.key() == Qt.Key_Y:
             self.undoStack.redo()
         elif event.key() == Qt.Key_Z:
-            self.undoStack.undo()
+            self.undoStack.undo() 
 
     def __set_array_instance(self, prop: ArrayProperty, size: int):
         # TODO: Somehow speed this up, or simply show a waiting dialog?
@@ -635,6 +642,7 @@ class NameRefHierarchyWidget(A_DockingInterface):
         for i in range(rowCount, size):
             arrayMember = member[i]
             prop.add_property(self.__create_property(arrayMember, {}))
+        self.__update_data_view()
 
     def __create_property(self, member: A_Member, propertiesMap: dict[QualifiedName, A_ValueProperty]) -> A_ValueProperty:
         enumInfo = {}
@@ -648,7 +656,7 @@ class NameRefHierarchyWidget(A_DockingInterface):
             readOnly=member.is_read_only(),
             enumInfo=enumInfo
         )
-        prop.valueChanged.connect(lambda _p, _v: member.set_value(_v))
+        prop.valueChanged.connect(lambda _p, _v: self.__update_data(member, _v))
         if member.is_struct():
             for child in member.get_children(includeArrays=False):
                 arrayRef: int | A_Member
@@ -692,4 +700,23 @@ class NameRefHierarchyWidget(A_DockingInterface):
                     propertiesMap[_childProp.get_qualified_name()] = _childProp
         return prop
 
-    def __add_property(self, prop: A_ValueProperty): ...
+    @Slot(A_Member, object)
+    def __update_data(self, member: A_Member, value: Any):
+        member.set_value(value)
+        self.__update_data_view()
+
+    @Slot(A_Member)
+    def __update_data_view(self):
+        from juniors_toolbox.gui.tabs import TabWidgetManager
+        dataEditorTab = TabWidgetManager.get_tab(DataEditorWidget)
+        if dataEditorTab is None or self.__selectedObject is None:
+            return
+
+        objData = self.__selectedObject.get_simple_data()
+        objOldLength = self.__selectedObjectSize
+        self.__selectedObjectSize = self.__selectedObject.get_simple_data_size()
+
+        data = dataEditorTab.get_data()
+        data = objData + data[objOldLength:]
+
+        dataEditorTab.set_data(data)

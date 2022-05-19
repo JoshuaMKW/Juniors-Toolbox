@@ -4,6 +4,7 @@ from async_timeout import Any
 
 from pip import List
 from juniors_toolbox.gui.layouts.framelayout import FrameLayout
+from juniors_toolbox.gui.tabs.dataeditor import DataEditorWidget
 from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
 
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
@@ -16,7 +17,7 @@ from juniors_toolbox.rail import Rail, RailKeyFrame, RalData
 from juniors_toolbox.scene import SMSScene
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import QGridLayout, QListWidget, QSplitter, QWidget, QListWidgetItem, QFormLayout
-from juniors_toolbox.utils import VariadicArgs, VariadicKwargs
+from juniors_toolbox.utils import A_Serializable, VariadicArgs, VariadicKwargs
 
 
 class S16Vector3Property(A_ValueProperty):
@@ -160,10 +161,12 @@ class RailViewerWidget(A_DockingInterface):
         railList = RailListWidget()
         railList.setMinimumWidth(100)
         railList.currentItemChanged.connect(self.__populate_nodelist)
+        railList.itemClicked.connect(self.__populate_data_view)
         self.railList = railList
 
         nodeList = RailNodeListWidget()
-        nodeList.currentItemChanged.connect(self.__populate_properties_view)
+        nodeList.itemClicked.connect(self.__populate_properties_view)
+        nodeList.itemClicked.connect(self.__populate_data_view)
         self.nodeList = nodeList
 
         splitter = QSplitter()
@@ -209,6 +212,7 @@ class RailViewerWidget(A_DockingInterface):
 
         # self.nodeList.currentItemChanged.emit()
 
+    @Slot(RailNodeListWidgetItem)
     def __populate_properties_view(self, item: RailNodeListWidgetItem) -> None:
         from juniors_toolbox.gui.tabs import TabWidgetManager
         propertiesTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
@@ -275,14 +279,14 @@ class RailViewerWidget(A_DockingInterface):
             )
             connectionsList.append(connection)
             connections.add_property(connection)
-        connectionsList[0].valueChanged.connect(lambda _, v: self._railNode.connections[0].set_value(v))
-        connectionsList[1].valueChanged.connect(lambda _, v: self._railNode.connections[1].set_value(v))
-        connectionsList[2].valueChanged.connect(lambda _, v: self._railNode.connections[2].set_value(v))
-        connectionsList[3].valueChanged.connect(lambda _, v: self._railNode.connections[3].set_value(v))
-        connectionsList[4].valueChanged.connect(lambda _, v: self._railNode.connections[4].set_value(v))
-        connectionsList[5].valueChanged.connect(lambda _, v: self._railNode.connections[5].set_value(v))
-        connectionsList[6].valueChanged.connect(lambda _, v: self._railNode.connections[6].set_value(v))
-        connectionsList[7].valueChanged.connect(lambda _, v: self._railNode.connections[7].set_value(v))
+        connectionsList[0].valueChanged.connect(lambda _, v: self.__update_connection(item, 0, v))
+        connectionsList[1].valueChanged.connect(lambda _, v: self.__update_connection(item, 1, v))
+        connectionsList[2].valueChanged.connect(lambda _, v: self.__update_connection(item, 2, v))
+        connectionsList[3].valueChanged.connect(lambda _, v: self.__update_connection(item, 3, v))
+        connectionsList[4].valueChanged.connect(lambda _, v: self.__update_connection(item, 4, v))
+        connectionsList[5].valueChanged.connect(lambda _, v: self.__update_connection(item, 5, v))
+        connectionsList[6].valueChanged.connect(lambda _, v: self.__update_connection(item, 6, v))
+        connectionsList[7].valueChanged.connect(lambda _, v: self.__update_connection(item, 7, v))
 
         connectionCount.set_maximum_value(8)
         connectionCount.set_minimum_value(0)
@@ -301,9 +305,25 @@ class RailViewerWidget(A_DockingInterface):
             ]
         )
 
-    def __update_connection(self, frame: RailKeyFrame, index: int, connection: int):
-        frame.connections[index].set_value(v)(connection)
-        frame.set_period_from(connection, self.nodeList.item(connection).node)
+    @Slot(InteractiveListWidgetItem)
+    def __populate_data_view(self, item: RailNodeListWidgetItem | RailListWidgetItem):
+        from juniors_toolbox.gui.tabs import TabWidgetManager
+        dataEditorTab = TabWidgetManager.get_tab(DataEditorWidget)
+        if dataEditorTab is None or item is None:
+            return
+        obj: A_Serializable
+        if isinstance(item, RailNodeListWidgetItem):
+            obj = item.node
+        else:
+            obj = item.rail
+        dataEditorTab.populate(None, serializable=obj)
+
+    def __update_connection(self, item: RailNodeListWidgetItem, index: int, connection: int):
+        frame = item.node
+        frame.connections[index].set_value(connection)
+        frame.set_period_from(index, self.nodeList.item(connection).node)
+        self.__populate_data_view(item)
+
 
     def __set_position(self, value: list):
         self._railNode.posX.set_value(value[0])

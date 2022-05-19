@@ -146,7 +146,7 @@ class BoolProperty(A_ValueProperty):
         self._input = lineEdit
 
         entry = QGridLayout()
-        entry.setContentsMargins(0, 2, 0, 2)
+        entry.setContentsMargins(0, 4, 0, 4)
         entry.addWidget(lineEdit)
         self.setLayout(entry)
 
@@ -202,7 +202,7 @@ class ByteProperty(A_ValueProperty):
         self._input = lineEdit
 
         entry = QGridLayout()
-        entry.setContentsMargins(0, 2, 0, 2)
+        entry.setContentsMargins(0, 4, 0, 4)
         entry.addWidget(lineEdit)
         self.setLayout(entry)
 
@@ -261,7 +261,7 @@ class ShortProperty(A_ValueProperty):
         self._input = lineEdit
 
         entry = QGridLayout()
-        entry.setContentsMargins(0, 2, 0, 2)
+        entry.setContentsMargins(0, 4, 0, 4)
         entry.addWidget(lineEdit)
         self.setLayout(entry)
 
@@ -320,7 +320,7 @@ class IntProperty(A_ValueProperty):
         self._input = lineEdit
 
         entry = QGridLayout()
-        entry.setContentsMargins(0, 2, 0, 2)
+        entry.setContentsMargins(0, 4, 0, 4)
         entry.addWidget(lineEdit)
         self.setLayout(entry)
 
@@ -370,7 +370,7 @@ class FloatProperty(A_ValueProperty):
         self._input = lineEdit
 
         entry = QGridLayout()
-        entry.setContentsMargins(0, 2, 0, 2)
+        entry.setContentsMargins(0, 4, 0, 4)
         entry.addWidget(lineEdit)
         self.setLayout(entry)
 
@@ -417,7 +417,7 @@ class DoubleProperty(A_ValueProperty):
         self._input = lineEdit
 
         entry = QGridLayout()
-        entry.setContentsMargins(0, 2, 0, 2)
+        entry.setContentsMargins(0, 4, 0, 4)
         entry.addWidget(lineEdit)
         self.setLayout(entry)
 
@@ -460,7 +460,7 @@ class StringProperty(A_ValueProperty):
         self._input = lineEdit
 
         entry = QGridLayout()
-        entry.setContentsMargins(0, 2, 0, 2)
+        entry.setContentsMargins(0, 4, 0, 4)
         entry.addWidget(lineEdit)
         self.setLayout(entry)
 
@@ -500,7 +500,7 @@ class CommentProperty(A_ValueProperty):
         self._input = lineEdit
 
         entry = QGridLayout()
-        entry.setContentsMargins(0, 2, 0, 2)
+        entry.setContentsMargins(0, 4, 0, 4)
         entry.addWidget(lineEdit)
         self.setLayout(entry)
 
@@ -639,7 +639,7 @@ class EnumProperty(A_ValueProperty):
         self._checkList.blockSignals(False)
 
         entry = QGridLayout()
-        entry.setContentsMargins(0, 2, 0, 2)
+        entry.setContentsMargins(0, 4, 0, 4)
         entry.addWidget(self._checkList)
 
         self.setLayout(entry)
@@ -675,7 +675,7 @@ class Vector3Property(A_ValueProperty):
         propertyName = self.get_name()
 
         containerLayout = QGridLayout()
-        containerLayout.setContentsMargins(0, 2, 0, 2)
+        containerLayout.setContentsMargins(0, 4, 0, 4)
         containerLayout.setRowStretch(0, 0)
         containerLayout.setRowStretch(1, 0)
 
@@ -746,7 +746,7 @@ class RGBA8Property(A_ValueProperty):
 
     def construct(self):
         layout = QGridLayout()
-        layout.setContentsMargins(0, 2, 0, 2)
+        layout.setContentsMargins(0, 4, 0, 4)
         colorbutton = ColorButtonRGBA8()
         colorbutton.set_color(self._value)
         colorbutton.setFrameStyle(QFrame.Box)
@@ -790,7 +790,7 @@ class RGB8Property(A_ValueProperty):
 
     def construct(self):
         layout = QGridLayout()
-        layout.setContentsMargins(0, 2, 0, 2)
+        layout.setContentsMargins(0, 4, 0, 4)
         colorbutton = ColorButtonRGB8()
         colorbutton.set_color(self._value)
         colorbutton.setFrameStyle(QFrame.Box)
@@ -839,14 +839,15 @@ class StructProperty(A_ValueProperty):
 
     def construct(self) -> None:
         self._frameLayout = FrameLayout(title=self.get_name())
-        self._frameLayout._main_v_layout.setContentsMargins(0, 2, 0, 2)
+        self._frameLayout._main_v_layout.setContentsMargins(0, 4, 0, 4)
         self._frameLayout._content_layout.setContentsMargins(
-            self.IndentionWidth, 2, 0, 2)
+            self.IndentionWidth, 0, 0, 0)
 
         self._formLayout = QFormLayout()
         self._formLayout.setRowWrapPolicy(QFormLayout.WrapLongRows)
         self._formLayout.setFieldGrowthPolicy(
             QFormLayout.AllNonFixedFieldsGrow)
+        self._formLayout.setContentsMargins(0, 4, 0, 4)
         self._frameLayout.addLayout(self._formLayout)
 
         self._properties: dict[str, A_ValueProperty] = {}
@@ -889,6 +890,7 @@ class StructProperty(A_ValueProperty):
             self._formLayout.setRowWrapPolicy(QFormLayout.WrapLongRows)
             self._formLayout.setFieldGrowthPolicy(
                 QFormLayout.AllNonFixedFieldsGrow)
+            self._formLayout.setContentsMargins(0, 4, 0, 4)
             self._frameLayout.addLayout(self._formLayout)
         else:
             self._formLayout.addRow(prop.get_name(), prop)
@@ -1006,7 +1008,7 @@ class ArrayProperty(A_ValueProperty):
             if self._frameLayoutWidget is None:
                 self._frameLayoutWidget = QWidget()
                 self._formLayout = QFormLayout()
-                self._formLayout.setContentsMargins(0, 2, 0, 2)
+                self._formLayout.setContentsMargins(0, 4, 0, 4)
                 self._formLayout.setSpacing(0)
                 self._formLayout.setRowWrapPolicy(QFormLayout.WrapLongRows)
                 self._formLayout.setFieldGrowthPolicy(
@@ -1043,9 +1045,9 @@ class ArrayProperty(A_ValueProperty):
     def __update_frame(self):
         self._frame.setTitle(
             f"Size ref: {self._sizeRef.get_name()} ({self._sizeRef.get_value()})")
-        if self.parent() is None:
-            return
         if self._sizeRef is not None and self._sizeRef.get_value() > 0:
+            if self.parent() is None:
+                return
             self.show()
         else:
             self.hide()
@@ -1088,13 +1090,16 @@ class TransformProperty(StructProperty):
         super().construct()
 
         value = self.get_value()
-        inputT = Vector3Property("Translation", False, value.translation, self)
+        inputT = Vector3Property("Translation", False, value.translation)
         inputR = Vector3Property(
-            "Rotation", False, value.rotation.to_euler(), self)
-        inputS = Vector3Property("Scale", False, value.scale, self)
+            "Rotation", False, value.rotation.to_euler())
+        inputS = Vector3Property("Scale", False, value.scale)
         inputT.valueChanged.connect(lambda _, _v: self.__update_trs(_v, 0))
         inputR.valueChanged.connect(lambda _, _v: self.__update_trs(_v, 1))
         inputS.valueChanged.connect(lambda _, _v: self.__update_trs(_v, 2))
+        inputT.set_parent_property(self)
+        inputR.set_parent_property(self)
+        inputS.set_parent_property(self)
         self.__trsInputs: List[Vector3Property] = [inputT, inputR, inputS]
 
     def is_container(self) -> bool:
