@@ -55,7 +55,6 @@ class JuniorsToolbox(QApplication):
 
         self.gui.setWindowTitle(self.get_window_title())
         self.update_theme(MainWindow.Theme.LIGHT)
-        self.set_central_status(self.is_docker_empty())
 
         # Set up tab spawning
         self.gui.tabActionRequested.connect(self.openDockerTab)
@@ -197,7 +196,7 @@ class JuniorsToolbox(QApplication):
         self.manager.reset_scene()
 
     def is_docker_empty(self) -> bool:
-        return all(not tab.isVisible() for tab in TabWidgetManager.iter_tabs())
+        return all(tab.isHidden() for tab in TabWidgetManager.iter_tabs())
 
     def set_central_status(self, empty: bool):
         if empty:
@@ -244,10 +243,7 @@ class JuniorsToolbox(QApplication):
 
     @Slot(str)
     def closeDockerTab(self, tab: A_DockingInterface):
-        # tab.setWidget(None)
         tab.hide()
-        # tab.setParent(None)
-        # self.gui.removeDockWidget(tab)
         self.set_central_status(self.is_docker_empty())
 
     def __init_tabs(self):
@@ -260,11 +256,10 @@ class JuniorsToolbox(QApplication):
             tab.closed.connect(self.closeDockerTab)
             self.gui.addDockWidget(areas[len(self.__openTabs) % 2], tab)
             tab.setParent(self.gui)
-            # tab.setParent(self.gui)
 
+        settings = ToolboxSettings.get_instance()
+        settings.load()
         self.set_central_status(self.is_docker_empty())
-
-
 
         return True
 

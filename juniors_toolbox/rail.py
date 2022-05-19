@@ -1,82 +1,134 @@
 from dataclasses import dataclass, field
 import enum
+from math import sqrt
 from typing import BinaryIO, Iterable, List, Optional, Tuple, Union
 from io import BytesIO
 
 from numpy import array, ndarray
+from juniors_toolbox.objects.value import MemberValue, ValueType
 
 from juniors_toolbox.utils.iohelper import (align_int, read_float, read_sint16, read_string, read_uint32,
-                                           write_float, write_sint16, write_string, write_uint16, write_uint32)
-from juniors_toolbox.utils import JSYSTEM_PADDING_TEXT, A_Serializable, VariadicArgs, VariadicKwargs
+                                            write_float, write_sint16, write_string, write_uint16, write_uint32)
+from juniors_toolbox.utils import JSYSTEM_PADDING_TEXT, A_Clonable, A_Serializable, VariadicArgs, VariadicKwargs
+from juniors_toolbox.utils.types import Vec3f
 
 
-@dataclass
-class RailKeyFrame(A_Serializable):
-    position: ndarray = array([0, 0, 0])
-    unk: ndarray = array([0, 0, 0])
-    rotation: ndarray = array([-1, -1, -1])
-    speed: int = -1
-    connections: List[int] = field(default_factory=lambda: [0]*8)
-    periods: List[float] = field(default_factory=lambda: [0]*8)
+class RailKeyFrame(A_Serializable, A_Clonable):
+    def __init__(self, x: int = 0, y: int = 0, z: int = 0, *, flags: int = 0) -> None:
+        super().__init__()
+        self.posX = MemberValue("PositionX", x, ValueType.S16)
+        self.posY = MemberValue("PositionY", y, ValueType.S16)
+        self.posZ = MemberValue("PositionZ", z, ValueType.S16)
+
+        self.connectionCount = MemberValue("Connections", 0, ValueType.S16)
+
+        self.flags = MemberValue("Flags", flags, ValueType.U32)
+
+        self.values = MemberValue("Value{i}", -1, ValueType.S16)
+        self.values.set_array_size(4)
+
+        self.connections = MemberValue("Connection{i}", 0, ValueType.S16)
+        self.connections.set_array_size(8)
+
+        self.periods = MemberValue("Period{i}", 0, ValueType.F32)
+        self.periods.set_array_size(8)
 
     @classmethod
     def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **kwargs: VariadicKwargs):
+        posX = read_sint16(data)
+        posY = read_sint16(data)
+        posZ = read_sint16(data)
+        connectionCount=read_sint16(data)
+        flags=read_uint32(data)
+
         frame = cls(
-            position = array(
-                [read_sint16(data),
-                 read_sint16(data),
-                 read_sint16(data)]
-            ),
-            unk = array(
-                [read_sint16(data),
-                 read_sint16(data),
-                 read_sint16(data)]
-            ),
-            rotation = array(
-                [read_sint16(data),
-                 read_sint16(data),
-                 read_sint16(data)]
-            ),
-            speed = read_sint16(data),
-            connections = [read_sint16(data) for _ in range(8)],
-            periods = [read_float(data) for _ in range(8)],
+            posX,
+            posY,
+            posZ,
+            flags=flags
         )
+
+        frame.connectionCount.set_value(connectionCount)
+
+        for i in range(4):
+            frame.values[i].set_value(read_sint16(data))
+
+        for i in range(8):
+            frame.connections[i].set_value(read_sint16(data))
+
+        for i in range(8):
+            frame.periods[i].set_value(read_float(data))
+
         return frame
 
     def to_bytes(self) -> bytes:
         stream = BytesIO()
 
-        for n in self.position:
-            write_sint16(stream, n)
+        write_sint16(stream, self.posX.get_value())
+        write_sint16(stream, self.posY.get_value())
+        write_sint16(stream, self.posZ.get_value())
 
-        for n in self.unk:
-            write_sint16(stream, n)
+        write_sint16(stream, self.connectionCount.get_value())
+        write_uint32(stream, self.flags.get_value())
 
-        for n in self.rotation:
-            write_sint16(stream, n)
+        for i in range(4):
+            write_sint16(stream, self.values[i].get_value())
 
-        write_sint16(stream, self.speed)
+        for i in range(8):
+            write_sint16(stream, self.connections[i].get_value())
 
-        for n in self.connections:
-            write_sint16(stream, n)
-
-        for n in self.periods:
-            write_float(stream, n)
+        for i in range(8):
+            write_float(stream, self.periods[i].get_value())
 
         return stream.getvalue()
 
-    def copy(self) -> "RailKeyFrame":
+    def copy(self, *, deep: bool = False) -> "RailKeyFrame":
         """
         Return a copy of this frame
         """
-        return RailKeyFrame(
-            self.position.copy(),
-            self.unk.copy(),
-            self.rotation.copy(),
-            self.speed,
-            self.connections.copy(),
-            self.periods.copy()
+        _copy = RailKeyFrame(
+            self.posX.get_value(),
+            self.posY.get_value(),
+            self.posZ.get_value(),
+            flags=self.flags.get_value()
         )
+        for i in range(_copy.values.get_array_size()):
+            _copy.values[i].set_value(
+                self.values[i].get_value()
+            )
+        for i in range(_copy.connections.get_array_size()):
+            _copy.connections[i].set_value(
+                self.connections[i].get_value()
+            )
+        for i in range(_copy.periods.get_array_size()):
+            _copy.periods[i].set_value(
+                self.periods[i].get_value()
+            )
+        return _copy
+
+    def add_connection(self, connection: int) -> bool:
+        if self.connectionCount.get_value() >= 8:
+            return False
+        self.connections[self.connectionCount.get_value()] = connection
+        self.connectionCount.set_value(self.connectionCount.get_value() + 1)
+        return True
+
+    def set_period_from(self, connection: int, connected: "RailKeyFrame"):
+        if connection not in range(8):
+            raise ValueError(f"Connection ({connection}) is beyond the array size")
+
+        thisPos = Vec3f(
+            self.posX.get_value(),
+            self.posY.get_value(),
+            self.posZ.get_value()
+        )
+        thatPos = Vec3f(
+            connected.posX.get_value(),
+            connected.posY.get_value(),
+            connected.posZ.get_value()
+        )
+        diff = thisPos - thatPos
+        self.periods[connection].set_value(sqrt(diff.dot(diff)))
 
     def size(self) -> int:
         return 68
@@ -85,7 +137,7 @@ class RailKeyFrame(A_Serializable):
         return 68
 
 
-class Rail(A_Serializable):
+class Rail(A_Serializable, A_Clonable):
     def __init__(self, name: str, frames: Optional[List[RailKeyFrame]] = None):
         if frames is None:
             frames = []
@@ -171,10 +223,10 @@ class Rail(A_Serializable):
         except IndexError:
             return False
 
-    def copy(self) -> "Rail":
+    def copy(self, *, deep: bool = False) -> "Rail":
         copy = Rail(self.name)
         for frame in self._frames:
-            copy._frames.append(frame.copy())
+            copy._frames.append(frame.copy(deep=deep))
         return copy
 
     def save(self, data: BinaryIO, headerloc: int, nameloc: int, dataloc: int):
@@ -217,7 +269,7 @@ class RalData(A_Serializable):
         self._rails = rails
 
     @classmethod
-    def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **kwargs: VariadicKwargs):
+    def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **kwargs: VariadicKwargs) -> Optional["RalData"]:
         this = cls()
         while (rail := Rail.from_bytes(data)) is not None:
             this._rails.append(rail)

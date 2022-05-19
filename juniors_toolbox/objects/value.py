@@ -3,6 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
+from io import BytesIO
 from multiprocessing.sharedctypes import Value
 from typing import Any, BinaryIO, Callable, Dict, Iterable, List, Optional, overload
 from juniors_toolbox.gui.templates import TemplateEnumType
@@ -583,6 +584,23 @@ class A_Member(A_Clonable, ABC):
         self._arrayInstances[index-1] = item
         item._arrayIdx = index
         item._parent = self.get_parent()
+
+    def __int__(self) -> int:
+        return int(self.get_value())
+
+    def __str__(self) -> str:
+        return str(self.get_value())
+
+    def __float__(self) -> float:
+        return float(self.get_value())
+
+    def __bool__(self) -> bool:
+        return bool(self.get_value())
+
+    def __bytes__(self) -> bytes:
+        stream = BytesIO()
+        self.save(stream)
+        return stream.getvalue()
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(qualname={self.get_qualified_name()}, value={self._value}, type={self._type})"

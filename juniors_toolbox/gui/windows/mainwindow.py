@@ -57,8 +57,6 @@ class MainWindow(QMainWindow):
             self.themeChanged.emit(MainWindow.Theme.LIGHT)
 
     def showEvent(self, event: QShowEvent) -> None:
-        settings = ToolboxSettings.get_instance()
-        settings.load()
         return super().showEvent(event)
 
     def closeEvent(self, event: QCloseEvent) -> None:

@@ -676,8 +676,7 @@ class NameRefHierarchyWidget(A_DockingInterface):
                         readOnly=False,
                         sizeRef=arraySizeProp
                     )
-                    arrayProp.sizeChanged.connect(
-                        lambda prop, size: self.__set_array_instance(prop, size))
+                    arrayProp.sizeChanged.connect(self.__set_array_instance)
                     prop.add_property(arrayProp)
                 else:
                     arrayRef = child._arraySize

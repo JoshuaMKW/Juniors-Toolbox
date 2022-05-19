@@ -10,7 +10,7 @@ from PySide6.QtWidgets import QWidget, QGridLayout, QFormLayout, QComboBox, QLab
 
 from juniors_toolbox.gui.layouts.framelayout import FrameLayout
 from juniors_toolbox.gui.widgets.colorbutton import A_ColorButton, ColorButtonRGB8, ColorButtonRGBA8
-from juniors_toolbox.gui.widgets.spinboxdrag import SpinBoxDragDouble, SpinBoxDragInt
+from juniors_toolbox.gui.widgets.spinboxdrag import SpinBoxDragDouble, SpinBoxDragHex, SpinBoxDragInt
 from juniors_toolbox.gui.widgets import ABCWidget
 from juniors_toolbox.objects.value import QualifiedName, ValueType
 from juniors_toolbox.utils.gx import color
@@ -115,6 +115,12 @@ class A_ValueProperty(QWidget, ABCWidget):
     def construct(self) -> None: ...
 
     @abstractmethod
+    def set_minimum_value(self, value: Any) -> None: ...
+
+    @abstractmethod
+    def set_maximum_value(self, value: Any) -> None: ...
+
+    @abstractmethod
     def _update_input_depth(self) -> None: ...
 
     @abstractmethod
@@ -150,6 +156,12 @@ class BoolProperty(A_ValueProperty):
         self._input.setCurrentIndex(int(self.get_value()))
         self._input.blockSignals(False)
 
+    def set_minimum_value(self, value: Any) -> None:
+        pass
+
+    def set_maximum_value(self, value: Any) -> None:
+        pass
+
     def get_value(self) -> bool:
         return bool(super().get_value())
 
@@ -164,16 +176,23 @@ class BoolProperty(A_ValueProperty):
 
 
 class ByteProperty(A_ValueProperty):
-    def __init__(self, name: str, readOnly: bool, value: Optional[Any] = None, signed: bool = True, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, name: str, readOnly: bool, value: Optional[Any] = None, signed: bool = True, hexadecimal: bool = False, parent: Optional[QWidget] = None) -> None:
         self._signed = signed
+        self._hex = hexadecimal
         super().__init__(name, readOnly, value, parent)
         self._resetValue = 0
 
     def construct(self) -> None:
-        lineEdit = SpinBoxDragInt(
-            intSize=SpinBoxDragInt.IntSize.BYTE,
-            signed=self._signed
-        )
+        if self._hex:
+            lineEdit = SpinBoxDragHex(
+                intSize=SpinBoxDragInt.IntSize.BYTE,
+                signed=False
+            )
+        else:
+            lineEdit = SpinBoxDragInt(
+                intSize=SpinBoxDragInt.IntSize.BYTE,
+                signed=self._signed
+            )
         lineEdit.setObjectName(self.get_name())
         lineEdit.setMinimumWidth(80)
         lineEdit.setValue(self._value if self._value is not None else 0)
@@ -192,6 +211,12 @@ class ByteProperty(A_ValueProperty):
         self._input.blockSignals(True)
         self._input.setValue(self.get_value())
         self._input.blockSignals(False)
+
+    def set_minimum_value(self, value: Any) -> None:
+        self._input.setMinimum(value)
+
+    def set_maximum_value(self, value: Any) -> None:
+        self._input.setMaximum(value)
 
     def get_value(self) -> int:
         return super().get_value()
@@ -210,16 +235,23 @@ class ByteProperty(A_ValueProperty):
 
 
 class ShortProperty(A_ValueProperty):
-    def __init__(self, name: str, readOnly: bool, value: Optional[Any] = None, signed: bool = True, parent: Optional[QWidget] = None):
+    def __init__(self, name: str, readOnly: bool, value: Optional[Any] = None, signed: bool = True, hexadecimal: bool = False, parent: Optional[QWidget] = None):
         self._signed = signed
+        self._hex = hexadecimal
         super().__init__(name, readOnly, value, parent)
         self._resetValue = 0
 
     def construct(self):
-        lineEdit = SpinBoxDragInt(
-            intSize=SpinBoxDragInt.IntSize.SHORT,
-            signed=self._signed
-        )
+        if self._hex:
+            lineEdit = SpinBoxDragHex(
+                intSize=SpinBoxDragInt.IntSize.SHORT,
+                signed=False
+            )
+        else:
+            lineEdit = SpinBoxDragInt(
+                intSize=SpinBoxDragInt.IntSize.SHORT,
+                signed=self._signed
+            )
         lineEdit.setObjectName(self.get_name())
         lineEdit.setMinimumWidth(80)
         lineEdit.setValue(self._value if self._value is not None else 0)
@@ -238,6 +270,12 @@ class ShortProperty(A_ValueProperty):
         self._input.blockSignals(True)
         self._input.setValue(self.get_value())
         self._input.blockSignals(False)
+
+    def set_minimum_value(self, value: Any) -> None:
+        self._input.setMinimum(value)
+
+    def set_maximum_value(self, value: Any) -> None:
+        self._input.setMaximum(value)
 
     def get_value(self) -> int:
         return super().get_value()
@@ -256,16 +294,23 @@ class ShortProperty(A_ValueProperty):
 
 
 class IntProperty(A_ValueProperty):
-    def __init__(self, name: str, readOnly: bool, value: Optional[Any] = None, signed: bool = True, parent: Optional[QWidget] = None):
+    def __init__(self, name: str, readOnly: bool, value: Optional[Any] = None, signed: bool = True, hexadecimal: bool = False, parent: Optional[QWidget] = None):
         self._signed = signed
+        self._hex = hexadecimal
         super().__init__(name, readOnly, value, parent)
         self._resetValue = 0
 
     def construct(self):
-        lineEdit = SpinBoxDragInt(
-            intSize=SpinBoxDragInt.IntSize.WORD,
-            signed=self._signed
-        )
+        if self._hex:
+            lineEdit = SpinBoxDragHex(
+                intSize=SpinBoxDragInt.IntSize.WORD,
+                signed=False
+            )
+        else:
+            lineEdit = SpinBoxDragInt(
+                intSize=SpinBoxDragInt.IntSize.WORD,
+                signed=self._signed
+            )
         lineEdit.setObjectName(self.get_name())
         lineEdit.setMinimumWidth(80)
         lineEdit.setValue(self._value if self._value is not None else 0)
@@ -284,6 +329,12 @@ class IntProperty(A_ValueProperty):
         self._input.blockSignals(True)
         self._input.setValue(self.get_value())
         self._input.blockSignals(False)
+
+    def set_minimum_value(self, value: Any) -> None:
+        self._input.setMinimum(value)
+
+    def set_maximum_value(self, value: Any) -> None:
+        self._input.setMaximum(value)
 
     def get_value(self) -> int:
         return super().get_value()
@@ -329,6 +380,12 @@ class FloatProperty(A_ValueProperty):
         self._input.setValue(self.get_value())
         self._input.blockSignals(False)
 
+    def set_minimum_value(self, value: Any) -> None:
+        self._input.setMinimum(value)
+
+    def set_maximum_value(self, value: Any) -> None:
+        self._input.setMaximum(value)
+
     def get_value(self) -> float:
         return super().get_value()
 
@@ -370,6 +427,12 @@ class DoubleProperty(A_ValueProperty):
         self._input.setValue(self.get_value())
         self._input.blockSignals(False)
 
+    def set_minimum_value(self, value: Any) -> None:
+        self._input.setMinimum(value)
+
+    def set_maximum_value(self, value: Any) -> None:
+        self._input.setMaximum(value)
+
     def get_value(self) -> float:
         return super().get_value()
 
@@ -407,6 +470,12 @@ class StringProperty(A_ValueProperty):
         self._input.setText(self.get_value())
         self._input.blockSignals(False)
 
+    def set_minimum_value(self, value: Any) -> None:
+        pass
+
+    def set_maximum_value(self, value: Any) -> None:
+        pass
+
     def get_value(self) -> str:
         return super().get_value()
 
@@ -440,6 +509,12 @@ class CommentProperty(A_ValueProperty):
         self._input.blockSignals(True)
         self._input.setText(self.get_value())
         self._input.blockSignals(False)
+
+    def set_minimum_value(self, value: Any) -> None:
+        pass
+
+    def set_maximum_value(self, value: Any) -> None:
+        pass
 
     def get_value(self) -> str:
         return super().get_value()
@@ -575,6 +650,12 @@ class EnumProperty(A_ValueProperty):
         self._checkList.set_value(self.get_value())
         self._checkList.blockSignals(False)
 
+    def set_minimum_value(self, value: Any) -> None:
+        pass
+
+    def set_maximum_value(self, value: Any) -> None:
+        pass
+
     def get_value(self) -> int:
         return super().get_value()
 
@@ -594,7 +675,7 @@ class Vector3Property(A_ValueProperty):
         propertyName = self.get_name()
 
         containerLayout = QGridLayout()
-        containerLayout.setContentsMargins(0, 0, 0, 0)
+        containerLayout.setContentsMargins(0, 2, 0, 2)
         containerLayout.setRowStretch(0, 0)
         containerLayout.setRowStretch(1, 0)
 
@@ -631,6 +712,14 @@ class Vector3Property(A_ValueProperty):
         for i, _input in enumerate(self.__xyzInputs):
             _input.setValue(self.get_value()[i])
         self.blockSignals(False)
+
+    def set_minimum_value(self, value: Any) -> None:
+        for input in self.__xyzInputs:
+            input.setMinimum(value)
+
+    def set_maximum_value(self, value: Any) -> None:
+        for input in self.__xyzInputs:
+            input.setMaximum(value)
 
     def get_value(self) -> Vec3f:
         return super().get_value()
@@ -675,6 +764,12 @@ class RGBA8Property(A_ValueProperty):
         self._input.set_color(self.get_value())
         self._input.blockSignals(False)
 
+    def set_minimum_value(self, value: Any) -> None:
+        pass
+
+    def set_maximum_value(self, value: Any) -> None:
+        pass
+
     def get_value(self) -> RGBA8:
         return super().get_value()
 
@@ -716,6 +811,12 @@ class RGB8Property(A_ValueProperty):
         self._input.blockSignals(True)
         self._input.set_color(self.get_value())
         self._input.blockSignals(False)
+
+    def set_minimum_value(self, value: Any) -> None:
+        pass
+
+    def set_maximum_value(self, value: Any) -> None:
+        pass
 
     def get_value(self) -> RGB8:
         return super().get_value()
@@ -793,6 +894,12 @@ class StructProperty(A_ValueProperty):
             self._formLayout.addRow(prop.get_name(), prop)
         self._properties[prop.get_name()] = prop
         prop._parent = self
+
+    def set_minimum_value(self, value: Any) -> None:
+        pass
+
+    def set_maximum_value(self, value: Any) -> None:
+        pass
 
     def set_value(self, value: Any) -> None:
         super().set_value(value)
@@ -911,6 +1018,13 @@ class ArrayProperty(A_ValueProperty):
         self._properties[prop.get_name()] = prop
         self._propCount += 1
         prop._parent = self._parent
+        self.__adjust_properties(None, self.get_array_size())
+
+    def set_minimum_value(self, value: Any) -> None:
+        pass
+
+    def set_maximum_value(self, value: Any) -> None:
+        pass
 
     def set_value(self, value: Any) -> None:
         super().set_value(value)
@@ -927,9 +1041,11 @@ class ArrayProperty(A_ValueProperty):
         self.sizeChanged.emit(self, self.get_array_size())
 
     def __update_frame(self):
+        self._frame.setTitle(
+            f"Size ref: {self._sizeRef.get_name()} ({self._sizeRef.get_value()})")
+        if self.parent() is None:
+            return
         if self._sizeRef is not None and self._sizeRef.get_value() > 0:
-            self._frame.setTitle(
-                f"Size ref: {self._sizeRef.get_name()} ({self._sizeRef.get_value()})")
             self.show()
         else:
             self.hide()
@@ -943,17 +1059,23 @@ class ArrayProperty(A_ValueProperty):
     @Slot(A_ValueProperty, int)
     def __adjust_properties(self, prop: "ArrayProperty", size: int):
         _count = 0
-        for i in range(self.get_property_count()):
-            item = self._innerLayout.itemAt(i)
-            if item is None:
-                continue  # type: ignore
-            widget = item.widget()
-            if widget is not None:
+        for prop in self._properties.values():
+            if prop.is_container():
                 if _count < size:
-                    widget.show()
+                    prop.show()
                 else:
-                    widget.hide()
+                    prop.hide()
                 _count += 1
+            else:
+                layout: QFormLayout = prop.parentWidget().layout()
+                if _count < size:
+                    prop.show()
+                    layout.labelForField(prop).show()
+                else:
+                    prop.hide()
+                    layout.labelForField(prop).hide()
+                _count += 1
+
         self.__update_frame()
 
 
@@ -991,6 +1113,12 @@ class TransformProperty(StructProperty):
         inputR.set_inputs()
         inputS.set_inputs()
 
+    def set_minimum_value(self, value: Any) -> None:
+        pass
+
+    def set_maximum_value(self, value: Any) -> None:
+        pass
+
     def get_value(self) -> Transform:
         return super().get_value()
 
@@ -1027,33 +1155,36 @@ class PropertyFactory():
         """
         Creates a property. `valueType` must corrispond to `value`
         """
+        hexadecimal = kwargs.get("hexadecimal", False)
+        enumInfo = kwargs.get("enumInfo", {})
+
         if valueType == ValueType.BOOL:
             prop = BoolProperty(
                 name, readOnly, value
             )
         elif valueType == ValueType.S8:
             prop = ByteProperty(
-                name, readOnly, value, True
+                name, readOnly, value, True, hexadecimal
             )
         elif valueType in {ValueType.BYTE, ValueType.CHAR, ValueType.U8}:
             prop = ByteProperty(
-                name, readOnly, value, False
+                name, readOnly, value, False, hexadecimal
             )
         elif valueType in {ValueType.S16, ValueType.SHORT}:
             prop = ShortProperty(
-                name, readOnly, value, True
+                name, readOnly, value, True, hexadecimal
             )
         elif valueType == ValueType.U16:
             prop = ShortProperty(
-                name, readOnly, value, False
+                name, readOnly, value, False, hexadecimal
             )
         elif valueType in {ValueType.S32, ValueType.INT}:
             prop = IntProperty(
-                name, readOnly, value, True
+                name, readOnly, value, True, hexadecimal
             )
         elif valueType == ValueType.U32:
             prop = IntProperty(
-                name, readOnly, value, False
+                name, readOnly, value, False, hexadecimal
             )
         elif valueType in {ValueType.F32, ValueType.FLOAT}:
             prop = FloatProperty(
@@ -1072,7 +1203,6 @@ class PropertyFactory():
                 name, value
             )
         elif valueType == ValueType.ENUM:
-            enumInfo = kwargs.get("enumInfo", {})
             prop = EnumProperty(
                 name, readOnly, value, enumInfo
             )
