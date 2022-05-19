@@ -179,6 +179,10 @@ class NameRefHierarchyTreeWidget(InteractiveTreeWidget):
         # We build the menu.
         menu = QMenu(self)
 
+        if item.parent() is None:
+            ...
+            return menu
+
         if item.object.is_group():
             newObjectAction = QAction("New Object", self)
             newObjectAction.triggered.connect(
