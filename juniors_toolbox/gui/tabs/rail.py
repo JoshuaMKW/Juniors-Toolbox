@@ -10,13 +10,14 @@ from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.gui.widgets.interactivestructs import (
     InteractiveListWidget, InteractiveListWidgetItem)
+from juniors_toolbox.gui.widgets.listinterface import ListInterfaceWidget
 from juniors_toolbox.gui.widgets.property import A_ValueProperty, ArrayProperty, IntProperty, ShortProperty, Vector3Property
 from juniors_toolbox.gui.widgets.spinboxdrag import SpinBoxDragInt
 from juniors_toolbox.objects.object import MapObject
 from juniors_toolbox.rail import Rail, RailKeyFrame, RalData
 from juniors_toolbox.scene import SMSScene
 from PySide6.QtCore import Qt, Slot
-from PySide6.QtWidgets import QGridLayout, QListWidget, QSplitter, QWidget, QListWidgetItem, QFormLayout
+from PySide6.QtWidgets import QGridLayout, QListWidget, QSplitter, QWidget, QListWidgetItem, QFormLayout, QVBoxLayout
 from juniors_toolbox.utils import A_Serializable, VariadicArgs, VariadicKwargs
 
 
@@ -158,11 +159,25 @@ class RailViewerWidget(A_DockingInterface):
         super().__init__(title, parent)
         self.setMinimumSize(200, 80)
 
+        self.railWidget = QWidget()
+        self.railListLayout = QVBoxLayout()
+
+        railInterface = ListInterfaceWidget()
+        railInterface.addRequested.connect(self.new_rail)
+        railInterface.removeRequested.connect(
+            self.remove_selected_rail)
+        railInterface.copyRequested.connect(self.copy_selected_rail)
+        self.railInterface = railInterface
+
         railList = RailListWidget()
         railList.setMinimumWidth(100)
         railList.currentItemChanged.connect(self.__populate_nodelist)
         railList.itemClicked.connect(self.__populate_data_view)
         self.railList = railList
+
+        self.railListLayout.addWidget(self.railInterface)
+        self.railListLayout.addWidget(self.railList)
+        self.railWidget.setLayout(self.railListLayout)
 
         nodeList = RailNodeListWidget()
         nodeList.itemClicked.connect(self.__populate_properties_view)
@@ -171,7 +186,7 @@ class RailViewerWidget(A_DockingInterface):
 
         splitter = QSplitter()
         splitter.setChildrenCollapsible(False)
-        splitter.addWidget(railList)
+        splitter.addWidget(self.railWidget)
         splitter.addWidget(nodeList)
         self.splitter = splitter
 
@@ -304,6 +319,26 @@ class RailViewerWidget(A_DockingInterface):
                 connections
             ]
         )
+
+    @Slot()
+    def new_rail(self):
+        name = self.railList._resolve_name("rail")
+        item = RailListWidgetItem(
+            name,
+            Rail(name)
+        )
+        self.railList.blockSignals(True)
+        self.railList.addItem(item)
+        self.railList.blockSignals(False)
+        self.railList.editItem(item, new=True)
+
+    @Slot()
+    def remove_selected_rail(self):
+        self.railList.takeItem(self.railList.currentRow())
+
+    @Slot()
+    def copy_selected_rail(self):
+        self.railList.duplicate_items(self.railList.currentItem())
 
     @Slot(InteractiveListWidgetItem)
     def __populate_data_view(self, item: RailNodeListWidgetItem | RailListWidgetItem):

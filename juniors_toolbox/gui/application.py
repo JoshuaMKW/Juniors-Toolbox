@@ -8,9 +8,10 @@ from PySide6.QtWidgets import QApplication, QFileDialog, QLabel, QSizePolicy, QS
 from juniors_toolbox import __version__
 from juniors_toolbox.gui.settings import ToolboxSettings
 from juniors_toolbox.gui.tabs import TabWidgetManager
-from juniors_toolbox.gui.tabs.hierarchyviewer import NameRefHierarchyWidget
+from juniors_toolbox.gui.tabs.hierarchyviewer import NameRefHierarchyTreeWidgetItem, NameRefHierarchyWidget
 from juniors_toolbox.gui.tabs.projectviewer import ProjectViewerWidget
 from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
+from juniors_toolbox.gui.tabs.rail import RailListWidgetItem, RailViewerWidget
 from juniors_toolbox.gui.templates import ToolboxTemplates
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.gui.windows.mainwindow import MainWindow
@@ -139,30 +140,6 @@ class JuniorsToolbox(QApplication):
         self.scenePath = scene
         return self.scene is not None
 
-    def load_program_config(self):
-        """
-        Load the program config for further use
-        """
-        if not self.get_config_path().exists():
-            self.theme = MainWindow.Theme.LIGHT
-            return
-
-        self.manager.load_settings(self.get_config_path())
-
-        settings = self.manager.get_settings()
-        isDarkTheme = settings.is_dark_theme()
-        isUpdating = settings.is_updates_enabled()
-
-        self.theme = ToolboxSettings.Themes(int(isDarkTheme))
-
-        self.construct_ui_from_config()
-
-    def construct_ui_from_config(self):
-        """
-        Restructures the UI according to a config
-        """
-        config = self.settings
-
     def update_theme(self, theme: "MainWindow.Theme"):
         """
         Update the UI theme to the specified theme
@@ -246,6 +223,16 @@ class JuniorsToolbox(QApplication):
         tab.hide()
         self.set_central_status(self.is_docker_empty())
 
+    def __init_objects(self):
+        nameRefTab = TabWidgetManager.get_tab(NameRefHierarchyWidget)
+        nameRefTab.treeWidget.itemCreated.connect(self.__add_nameref)
+        nameRefTab.treeWidget.itemDeleted.connect(self.__remove_nameref)
+
+    def __init_rails(self):
+        railTab = TabWidgetManager.get_tab(RailViewerWidget)
+        railTab.railList.itemCreated.connect(self.__add_rail)
+        railTab.railList.itemDeleted.connect(self.__remove_rail)
+
     def __init_tabs(self):
         areas = [Qt.LeftDockWidgetArea, Qt.RightDockWidgetArea]
         for i, tab in enumerate(TabWidgetManager.iter_tabs()):
@@ -260,8 +247,48 @@ class JuniorsToolbox(QApplication):
         settings = ToolboxSettings.get_instance()
         settings.load()
         self.set_central_status(self.is_docker_empty())
+        
+        self.__init_objects()
+        self.__init_rails()
 
         return True
+
+    @Slot(RailListWidgetItem, int)
+    def __add_rail(self, item: RailListWidgetItem, index: int):
+        scene = self.manager.get_scene()
+        if scene is None:
+            return
+
+        scene.set_rail_by_index(index, item.rail)
+
+    @Slot(RailListWidgetItem, int)
+    def __remove_rail(self, item: RailListWidgetItem, index: int):
+        scene = self.manager.get_scene()
+        if scene is None:
+            return
+
+        scene.remove_rail(item.text())
+
+    @Slot(NameRefHierarchyTreeWidgetItem, int)
+    def __add_nameref(self, item: NameRefHierarchyTreeWidgetItem, index: int):
+        scene = self.manager.get_scene()
+        if scene is None:
+            return
+
+        ...
+
+    @Slot(NameRefHierarchyTreeWidgetItem, int)
+    def __remove_nameref(self, item: NameRefHierarchyTreeWidgetItem, index: int):
+        scene = self.manager.get_scene()
+        if scene is None:
+            return
+
+        obj = item.object
+        parent = obj.get_parent()
+        if parent is None:
+            scene._objects.remove(obj)
+        else:
+            parent.remove_from_group(obj)
 
     # @Slot(str)
     # def openDockerTab(self, name: str):

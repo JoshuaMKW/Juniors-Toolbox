@@ -8,6 +8,7 @@ from juniors_toolbox.gui import ToolboxManager
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.gui.widgets.interactivestructs import (
     InteractiveListWidget, InteractiveListWidgetItem)
+from juniors_toolbox.gui.widgets.listinterface import ListInterfaceWidget
 from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.utils import VariadicArgs, VariadicKwargs
 from juniors_toolbox.utils.bmg import BMG, RichMessage, SoundID
@@ -911,39 +912,9 @@ class BMGMessageListWidget(InteractiveListWidget):
         item.message.name = name
 
     @Slot(BMGMessageListItem)
-    def duplicate_item(self, item: BMGMessageListItem):
-        nitem = super().duplicate_item(item)
+    def duplicate_items(self, item: BMGMessageListItem):
+        nitem = super().duplicate_items(item)
         nitem.message.name = nitem.text()
-
-
-class BMGMessageListInterfaceWidget(QWidget):
-    addRequested = Signal()
-    removeRequested = Signal()
-    copyRequested = Signal()
-
-    def __init__(self, parent: Optional[QWidget] = None):
-        super().__init__(parent)
-        self.setMinimumWidth(180)
-        self.setFixedHeight(45)
-
-        addButton = QPushButton("New", self)
-        addButton.clicked.connect(self.addRequested.emit)
-        self.__addButton = addButton
-
-        removeButton = QPushButton("Remove", self)
-        removeButton.clicked.connect(self.removeRequested.emit)
-        self.__removeButton = removeButton
-
-        copyButton = QPushButton("Copy", self)
-        copyButton.clicked.connect(self.copyRequested.emit)
-        self.__copyButton = copyButton
-
-        layout = QHBoxLayout(self)
-        layout.addWidget(self.__addButton)
-        layout.addWidget(self.__removeButton)
-        layout.addWidget(self.__copyButton)
-
-        self.setLayout(layout)
 
 
 class BMGMessageInterfaceWidget(QWidget):
@@ -1370,7 +1341,7 @@ class BMGMessageEditorWidget(A_DockingInterface):
         messageListBox.currentItemChanged.connect(self.show_message)
         self.messageListBox = messageListBox
 
-        messageListInterface = BMGMessageListInterfaceWidget()
+        messageListInterface = ListInterfaceWidget()
         messageListInterface.addRequested.connect(self.new_message)
         messageListInterface.removeRequested.connect(
             self.remove_selected_message)
@@ -1621,7 +1592,7 @@ class BMGMessageEditorWidget(A_DockingInterface):
 
     @Slot()
     def copy_selected_message(self):
-        self.messageListBox.duplicate_item(self.messageListBox.currentItem())
+        self.messageListBox.duplicate_items(self.messageListBox.currentItem())
 
     @Slot()
     def update_message_text(self):

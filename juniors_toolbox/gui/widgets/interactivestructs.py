@@ -2,7 +2,7 @@ import time
 
 from typing import List, Optional, Union
 
-from PySide6.QtCore import QPoint, Qt, Slot, QMimeData, QItemSelectionModel
+from PySide6.QtCore import QPoint, Qt, Slot, Signal, QMimeData, QItemSelectionModel
 from PySide6.QtGui import QAction, QKeyEvent, QMouseEvent, QDragMoveEvent, QDragEnterEvent, QDragLeaveEvent, QDropEvent, QDrag, QPixmap, QPainter, QColor, QPen, QFont
 from PySide6.QtWidgets import (QAbstractItemView, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem,
                                QMenu, QWidget, QApplication)
@@ -61,6 +61,9 @@ class InteractiveTreeWidgetItem(QTreeWidgetItem):
 
 
 class InteractiveListWidget(QListWidget):
+    itemCreated = Signal(InteractiveListWidgetItem, int)
+    itemDeleted = Signal(InteractiveListWidgetItem, int)
+
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setAcceptDrops(True)
@@ -119,7 +122,9 @@ class InteractiveListWidget(QListWidget):
     @Slot(list)
     def delete_items(self, items: List[InteractiveListWidgetItem]):
         for item in items:
-            self.takeItem(self.row(item))
+            row = self.row(item)
+            self.itemDeleted.emit(item, row)
+            self.takeItem(row)
 
     @Slot(InteractiveListWidgetItem)
     def rename_item(self, item: Optional[InteractiveListWidgetItem] = None) -> str:
@@ -129,10 +134,11 @@ class InteractiveListWidget(QListWidget):
         if item is None:
             return ""
 
+        row = self.row(item)
         name = item.text()
         if name == "":
             if item._newItem_:
-                self.takeItem(self.row(item))
+                self.takeItem(row)
                 return ""
             name = item._prevName_
 
@@ -142,7 +148,10 @@ class InteractiveListWidget(QListWidget):
         item.setText(newName)
         self.blockSignals(False)
 
-        self.setCurrentRow(self.row(item))
+        self.setCurrentRow(row)
+
+        if item._newItem_:
+            self.itemCreated.emit(item, row)
 
         item._newItem_ = False
         return newName
@@ -353,6 +362,9 @@ class InteractiveListWidget(QListWidget):
         item.setSelected(True)
 
 class InteractiveTreeWidget(QTreeWidget):
+    itemCreated = Signal(InteractiveTreeWidgetItem, int)
+    itemDeleted = Signal(InteractiveTreeWidgetItem, int)
+    
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setAcceptDrops(True)
@@ -413,6 +425,7 @@ class InteractiveTreeWidget(QTreeWidget):
     @Slot(list)
     def delete_items(self, items: List[InteractiveTreeWidgetItem]):
         for item in items:
+            self.itemDeleted.emit(item, item.parent().indexOfChild(item))
             item.parent().removeChild(item)
 
     @Slot(InteractiveTreeWidgetItem)
@@ -438,6 +451,9 @@ class InteractiveTreeWidget(QTreeWidget):
 
         item.setSelected(True)
 
+        if item._newItem_:
+            self.itemCreated.emit(item, item.parent().indexOfChild(item))
+            
         item._newItem_ = False
         return newName
 
