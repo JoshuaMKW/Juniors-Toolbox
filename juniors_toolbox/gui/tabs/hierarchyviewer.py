@@ -265,6 +265,9 @@ class NameRefHierarchyTreeWidget(InteractiveTreeWidget):
         newItem = NameRefHierarchyTreeWidgetItem(obj, obj.get_explicit_name())
 
         item.addChild(newItem)
+        item.setSelected(False)
+        newItem.setSelected(True)
+        self.itemClicked.emit(newItem, 0)
         item.object.add_to_group(obj)
 
 class NameRefHierarchyWidget(A_DockingInterface):
