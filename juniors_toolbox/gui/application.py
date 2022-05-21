@@ -1,23 +1,27 @@
 import sys
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
-from PySide6.QtCore import QPoint, QSize, Slot
+from PySide6.QtCore import QPoint, QSize, Slot, QThread
 from PySide6.QtGui import QResizeEvent, Qt, QFontDatabase
 
 from PySide6.QtWidgets import QApplication, QFileDialog, QLabel, QSizePolicy, QStyleFactory, QWidget
 from juniors_toolbox import __version__
+from juniors_toolbox.gui.dialogs.updatefound import UpdateFoundDialog
 from juniors_toolbox.gui.settings import ToolboxSettings
 from juniors_toolbox.gui.tabs import TabWidgetManager
 from juniors_toolbox.gui.tabs.hierarchyviewer import NameRefHierarchyWidget
 from juniors_toolbox.gui.tabs.projectviewer import ProjectViewerWidget
 from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
 from juniors_toolbox.gui.templates import ToolboxTemplates
+from juniors_toolbox.gui.update import GitUpdateScraper
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.gui.windows.mainwindow import MainWindow
 from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.utils import VariadicArgs, VariadicKwargs
 from juniors_toolbox.utils.filesystem import get_program_folder, resource_path
 from juniors_toolbox.gui import ToolboxManager
+
+from github.GitRelease import GitRelease
 
 
 class JuniorsToolbox(QApplication):
@@ -77,6 +81,18 @@ class JuniorsToolbox(QApplication):
         self.gui.actionSaveAs.triggered.connect(
             lambda _: self.save_scene()
         )  # throw away checked flag
+
+        # Updates
+        self.updateThread = QThread()
+        self.updater = GitUpdateScraper("JoshuaMKW", "Juniors-Toolbox", self)
+        self.updater.moveToThread(self.updateThread)
+        self.updateThread.finished.connect(self.updateThread.deleteLater)
+        self.updateThread.start()
+
+        self.gui.actionCheckUpdate.triggered.connect(
+            self.updater.run
+        )
+        self.updater.updatesFound.connect(self.show_updates)
 
         # Set up theme toggle
 
@@ -249,6 +265,11 @@ class JuniorsToolbox(QApplication):
         # tab.setParent(None)
         # self.gui.removeDockWidget(tab)
         self.set_central_status(self.is_docker_empty())
+
+    @Slot(list)
+    def show_updates(self, updates: Iterable[GitRelease]):
+        dialog = UpdateFoundDialog(self.updater)
+        dialog.display_updates(updates)
 
     def __init_tabs(self):
         areas = [Qt.LeftDockWidgetArea, Qt.RightDockWidgetArea]

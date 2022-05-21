@@ -1,5 +1,4 @@
 from pathlib import Path
-from tkinter import W
 from typing import Optional, Tuple
 from unittest import skip
 from PySide6.QtCore import (QAbstractItemModel, QDataStream, QEvent, QIODevice,
