@@ -17,8 +17,9 @@ from juniors_toolbox.gui.widgets.spinboxdrag import SpinBoxDragInt
 from juniors_toolbox.objects.object import MapObject
 from juniors_toolbox.rail import Rail, RailKeyFrame, RalData
 from juniors_toolbox.scene import SMSScene
-from PySide6.QtCore import Qt, Slot
-from PySide6.QtWidgets import QGridLayout, QListWidget, QSplitter, QWidget, QListWidgetItem, QFormLayout, QVBoxLayout
+from PySide6.QtCore import Qt, Slot, QPoint, Signal
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import QGridLayout, QListWidget, QSplitter, QWidget, QListWidgetItem, QFormLayout, QVBoxLayout, QMenu
 from juniors_toolbox.utils import A_Serializable, VariadicArgs, VariadicKwargs
 
 
@@ -122,10 +123,72 @@ class RailListWidgetItem(InteractiveListWidgetItem):
 
 
 class RailNodeListWidget(InteractiveListWidget):
+    nodeCreated = Signal(RailNodeListWidgetItem)
+    nodeUpdated = Signal(RailNodeListWidgetItem)
+
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setAcceptDrops(False)
         self.setDragDropMode(InteractiveListWidget.DragDropMode.InternalMove)
+
+    def get_context_menu(self, point: QPoint) -> Optional[QMenu]:
+        # Infos about the node selected.
+        item: Optional[RailNodeListWidgetItem] = self.itemAt(point)
+        if item is None:
+            return None
+
+        # We build the menu.
+        menu = QMenu(self)
+
+        insertBefore = QAction("Insert Node Before...", self)
+        insertBefore.triggered.connect(
+            lambda clicked=None: self.create_node(self.indexFromItem(item).row() - 1)
+        )
+        insertAfter = QAction("Insert Node After...", self)
+        insertBefore.triggered.connect(
+            lambda clicked=None: self.create_node(self.indexFromItem(item).row())
+        )
+
+        connectToNeighbors = QAction("Connect to Neighbors", self)
+        connectToNeighbors.triggered.connect(
+            lambda clicked=None: self.connect_to_neighbors(item)
+        )
+        connectToPrev = QAction("Connect to Prev", self)
+        connectToPrev.triggered.connect(
+            lambda clicked=None: self.connect_to_prev(item)
+        )
+        connectToNext = QAction("Connect to Next", self)
+        connectToNext.triggered.connect(
+            lambda clicked=None: self.connect_to_next(item)
+        )
+        connectToReferring = QAction("Connect to Referring Nodes", self)
+        connectToReferring.triggered.connect(
+            lambda clicked=None: self.connect_to_referring(item)
+        )
+
+        duplicateAction = QAction("Duplicate", self)
+        duplicateAction.triggered.connect(
+            lambda clicked=None: self.duplicate_items(self.selectedItems())
+        )
+
+        deleteAction = QAction("Delete", self)
+        deleteAction.triggered.connect(
+            lambda clicked=None: self.delete_items(self.selectedItems())
+        )
+
+        menu.addAction(insertBefore)
+        menu.addAction(insertAfter)
+        menu.addSeparator()
+        menu.addAction(connectToNeighbors)
+        menu.addAction(connectToPrev)
+        menu.addAction(connectToNext)
+        menu.addAction(connectToReferring)
+        menu.addSeparator()
+        menu.addAction(duplicateAction)
+        menu.addSeparator()
+        menu.addAction(deleteAction)
+
+        return menu
 
     @Slot(RailNodeListWidgetItem)
     def rename_item(self, item: RailNodeListWidgetItem) -> None:
@@ -134,6 +197,165 @@ class RailNodeListWidget(InteractiveListWidget):
     @Slot(RailNodeListWidgetItem)
     def duplicate_items(self, items: List[RailNodeListWidgetItem]) -> None:
         super().duplicate_items(items)
+
+    @Slot(int)
+    def create_node(self, index: int) -> None:
+        node = RailKeyFrame()
+        name = self._get_node_name(self.count(), node)
+
+        item = RailNodeListWidgetItem(name, node)
+        oldItem = self.currentItem()
+
+        self.blockSignals(True)
+        self.insertItem(index, item)
+        for _item in self.selectedItems():
+            _item.setSelected(False)
+        self.blockSignals(False)
+
+        item.setSelected(True)
+
+        self.nodeCreated.emit(item)
+        self.currentItemChanged.emit(item, oldItem)
+
+    @Slot(RailNodeListWidgetItem)
+    def connect_to_neighbors(self, item: RailNodeListWidgetItem):
+        thisIndex = self.indexFromItem(item).row()
+        thisNode = item.node
+
+        if thisIndex == 0:
+            prevIndex = self.count() - 1
+        else:
+            prevIndex = thisIndex - 1
+
+        if thisIndex == self.count() - 1:
+            nextIndex = 0
+        else:
+            nextIndex = thisIndex + 1
+
+        prevItem: RailNodeListWidgetItem = self.item(prevIndex)
+        nextItem: RailNodeListWidgetItem = self.item(nextIndex)
+
+        prevNode = prevItem.node
+        nextNode = nextItem.node
+
+        thisNode.connectionCount.set_value(2)
+
+        preConnectionCount = prevNode.connectionCount.get_value()
+        if preConnectionCount < 1:
+            prevNode.connectionCount.set_value(1)
+            preConnectionCount = 1
+
+        if nextNode.connectionCount.get_value() < 1:
+            nextNode.connectionCount.set_value(1)
+
+        prevNode.connections[preConnectionCount - 1].set_value(thisIndex)
+        prevNode.set_period_from(preConnectionCount - 1, thisNode)
+        thisNode.connections[0].set_value(prevIndex)
+        thisNode.set_period_from(0, prevNode)
+        thisNode.connections[1].set_value(nextIndex)
+        thisNode.set_period_from(1, nextNode)
+        nextNode.connections[0].set_value(thisIndex)
+        nextNode.set_period_from(0, thisNode)
+
+        prevItem.setText(self._get_node_name(prevIndex, prevNode))
+        item.setText(self._get_node_name(thisIndex, thisNode))
+        nextItem.setText(self._get_node_name(nextIndex, nextNode))
+
+        self.nodeUpdated.emit(item)
+
+    @Slot(RailNodeListWidgetItem)
+    def connect_to_prev(self, item: RailNodeListWidgetItem):
+        thisIndex = self.indexFromItem(item).row()
+        thisNode = item.node
+
+        if thisIndex == 0:
+            prevIndex = self.count() - 1
+        else:
+            prevIndex = thisIndex - 1
+
+        prevItem: RailNodeListWidgetItem = self.item(prevIndex)
+        prevNode = prevItem.node
+
+        thisNode.connectionCount.set_value(1)
+        preConnectionCount = prevNode.connectionCount.get_value()
+        if preConnectionCount < 1:
+            prevNode.connectionCount.set_value(1)
+            preConnectionCount = 1
+
+        prevNode.connections[preConnectionCount - 1].set_value(thisIndex)
+        prevNode.set_period_from(preConnectionCount - 1, thisNode)
+        thisNode.connections[0].set_value(prevIndex)
+        thisNode.set_period_from(0, prevNode)
+
+        prevItem.setText(self._get_node_name(prevIndex, prevNode))
+        item.setText(self._get_node_name(thisIndex, thisNode))
+
+        self.nodeUpdated.emit(item)
+
+    @Slot(RailNodeListWidgetItem)
+    def connect_to_next(self, item: RailNodeListWidgetItem):
+        thisIndex = self.indexFromItem(item).row()
+        thisNode = item.node
+
+        if thisIndex == self.count() - 1:
+            nextIndex = 0
+        else:
+            nextIndex = thisIndex + 1
+
+        nextItem: RailNodeListWidgetItem = self.item(nextIndex)
+        nextNode = nextItem.node
+
+        thisNode.connectionCount.set_value(1)
+        if nextNode.connectionCount.get_value() < 1:
+            nextNode.connectionCount.set_value(1)
+
+        thisNode.connections[0].set_value(nextIndex)
+        thisNode.set_period_from(0, nextNode)
+        nextNode.connections[0].set_value(thisIndex)
+        nextNode.set_period_from(0, thisNode)
+
+        item.setText(self._get_node_name(thisIndex, thisNode))
+        nextItem.setText(self._get_node_name(nextIndex, nextNode))
+
+        self.nodeUpdated.emit(item)
+
+    @Slot(RailNodeListWidgetItem)
+    def connect_to_referring(self, item: RailNodeListWidgetItem):
+        thisIndex = self.indexFromItem(item).row()
+        thisNode = item.node
+
+        existingConnections = []
+        for i in range(thisNode.connectionCount.get_value()):
+            existingConnections.append(thisNode.connections[i].get_value())
+
+        connectionIndex = thisNode.connectionCount.get_value()
+        for row in range(self.count()):
+            if connectionIndex > 7:
+                break
+
+            if row == thisIndex or row in existingConnections:
+                continue
+
+            otherItem: RailNodeListWidgetItem = self.item(row)
+            otherNode = otherItem.node
+            for i in range(otherNode.connectionCount.get_value()):
+                connection = otherNode.connections[i].get_value()
+                if connection == thisIndex:
+                    thisNode.connections[connectionIndex].set_value(row)
+                    thisNode.set_period_from(connectionIndex, otherNode)
+                    thisNode.connectionCount.set_value(connectionIndex + 1)
+                    connectionIndex += 1
+
+        item.setText(self._get_node_name(thisIndex, thisNode))
+
+        self.nodeUpdated.emit(item)
+
+    def _get_node_name(self, index: int, node: RailKeyFrame):
+        connections = []
+        for x in range(node.connectionCount.get_value()):
+            connections.append(node.connections[x].get_value())
+        name = f"Node {index} - {connections}"
+        return name
 
 
 class RailListWidget(InteractiveListWidget):
@@ -172,23 +394,42 @@ class RailViewerWidget(A_DockingInterface):
         railList = RailListWidget()
         railList.setMinimumWidth(100)
         railList.currentItemChanged.connect(self.__populate_nodelist)
-        railList.itemClicked.connect(self.__populate_rail_properties_view)
-        railList.itemClicked.connect(self.__populate_data_view)
+        railList.currentItemChanged.connect(
+            self.__populate_rail_properties_view)
+        railList.currentItemChanged.connect(self.__populate_data_view)
         self.railList = railList
 
         self.railListLayout.addWidget(self.railInterface)
         self.railListLayout.addWidget(self.railList)
         self.railWidget.setLayout(self.railListLayout)
 
+        self.nodeWidget = QWidget()
+        self.nodeListLayout = QVBoxLayout()
+
+        nodeInterface = ListInterfaceWidget()
+        nodeInterface.addRequested.connect(self.new_node)
+        nodeInterface.removeRequested.connect(
+            self.remove_selected_node)
+        nodeInterface.copyRequested.connect(self.copy_selected_node)
+        self.nodeInterface = nodeInterface
+
         nodeList = RailNodeListWidget()
-        nodeList.itemClicked.connect(self.__populate_node_properties_view)
-        nodeList.itemClicked.connect(self.__populate_data_view)
+        nodeList.currentItemChanged.connect(
+            self.__populate_node_properties_view)
+        nodeList.currentItemChanged.connect(self.__populate_data_view)
+        nodeList.itemDeleted.connect(self.remove_deleted_node)
+        nodeList.nodeUpdated.connect(self.__populate_node_properties_view)
+        nodeList.nodeUpdated.connect(self.__populate_data_view)
         self.nodeList = nodeList
+
+        self.nodeListLayout.addWidget(self.nodeInterface)
+        self.nodeListLayout.addWidget(self.nodeList)
+        self.nodeWidget.setLayout(self.nodeListLayout)
 
         splitter = QSplitter()
         splitter.setChildrenCollapsible(False)
         splitter.addWidget(self.railWidget)
-        splitter.addWidget(nodeList)
+        splitter.addWidget(self.nodeWidget)
         self.splitter = splitter
 
         self.setWidget(splitter)
@@ -216,7 +457,7 @@ class RailViewerWidget(A_DockingInterface):
 
         rail = item.rail
         for i, node in enumerate(rail.iter_frames()):
-            item = RailNodeListWidgetItem(self.__get_node_name(i, node), node)
+            item = RailNodeListWidgetItem(self.nodeList._get_node_name(i, node), node)
             item.setFlags(
                 Qt.ItemIsSelectable |
                 Qt.ItemIsEnabled
@@ -240,25 +481,10 @@ class RailViewerWidget(A_DockingInterface):
             "Node Count",
             value=f"  = {len(self._rail._frames)}"
         )
-            
+
         totalSizeProperty = CommentProperty(
             "Total Size",
-            value=f"  = 0x{self._rail.size():X}"
-        )
-
-        headerSizeProperty = CommentProperty(
-            "Header Size",
-            value=f"  = 0x{self._rail.header_size()}"
-        )
-
-        nameSizeProperty = CommentProperty(
-            "Names Size",
-            value=f"  = 0x{self._rail.name_size()}"
-        )
-
-        dataSizeProperty = CommentProperty(
-            "Data Size",
-            value=f"  = 0x{self._rail.data_size()}"
+            value=f"  = 0x{self._rail.get_size():X}"
         )
 
         isSplineProperty = BoolProperty(
@@ -266,7 +492,8 @@ class RailViewerWidget(A_DockingInterface):
             readOnly=False,
             value=self._rail.name.startswith("S_")
         )
-        isSplineProperty.valueChanged.connect(lambda _, v: self.__set_rail_spline(v))
+        isSplineProperty.valueChanged.connect(
+            lambda _, v: self.__set_rail_spline(v))
 
         propertiesTab.populate(
             None,
@@ -274,9 +501,6 @@ class RailViewerWidget(A_DockingInterface):
             properties=[
                 nodeCountProperty,
                 totalSizeProperty,
-                headerSizeProperty,
-                nameSizeProperty,
-                dataSizeProperty,
                 isSplineProperty
             ]
         )
@@ -308,7 +532,8 @@ class RailViewerWidget(A_DockingInterface):
             value=self._railNode.flags.get_value(),
             hexadecimal=True
         )
-        flags.valueChanged.connect(lambda _, v: self._railNode.flags.set_value(v))
+        flags.valueChanged.connect(
+            lambda _, v: self._railNode.flags.set_value(v))
 
         valueList: list[A_ValueProperty] = []
         for i in range(4):
@@ -319,10 +544,14 @@ class RailViewerWidget(A_DockingInterface):
                 signed=True
             )
             valueList.append(value)
-        valueList[0].valueChanged.connect(lambda _, v: self._railNode.values[0].set_value(v))
-        valueList[1].valueChanged.connect(lambda _, v: self._railNode.values[1].set_value(v))
-        valueList[2].valueChanged.connect(lambda _, v: self._railNode.values[2].set_value(v))
-        valueList[3].valueChanged.connect(lambda _, v: self._railNode.values[3].set_value(v))
+        valueList[0].valueChanged.connect(
+            lambda _, v: self._railNode.values[0].set_value(v))
+        valueList[1].valueChanged.connect(
+            lambda _, v: self._railNode.values[1].set_value(v))
+        valueList[2].valueChanged.connect(
+            lambda _, v: self._railNode.values[2].set_value(v))
+        valueList[3].valueChanged.connect(
+            lambda _, v: self._railNode.values[3].set_value(v))
 
         connectionCount = IntProperty(
             "Connections",
@@ -330,7 +559,8 @@ class RailViewerWidget(A_DockingInterface):
             value=self._railNode.connectionCount.get_value(),
             signed=False
         )
-        connectionCount.valueChanged.connect(lambda _, v: self.__update_connection_count(item, v))
+        connectionCount.valueChanged.connect(
+            lambda _, v: self.__update_connection_count(item, v))
 
         connections = ArrayProperty(
             "Connections",
@@ -350,14 +580,22 @@ class RailViewerWidget(A_DockingInterface):
             connection.set_maximum_value(self.nodeList.count() - 1)
             connectionsList.append(connection)
             connections.add_property(connection)
-        connectionsList[0].valueChanged.connect(lambda _, v: self.__update_connection(item, 0, v))
-        connectionsList[1].valueChanged.connect(lambda _, v: self.__update_connection(item, 1, v))
-        connectionsList[2].valueChanged.connect(lambda _, v: self.__update_connection(item, 2, v))
-        connectionsList[3].valueChanged.connect(lambda _, v: self.__update_connection(item, 3, v))
-        connectionsList[4].valueChanged.connect(lambda _, v: self.__update_connection(item, 4, v))
-        connectionsList[5].valueChanged.connect(lambda _, v: self.__update_connection(item, 5, v))
-        connectionsList[6].valueChanged.connect(lambda _, v: self.__update_connection(item, 6, v))
-        connectionsList[7].valueChanged.connect(lambda _, v: self.__update_connection(item, 7, v))
+        connectionsList[0].valueChanged.connect(
+            lambda _, v: self.__update_connection(item, 0, v))
+        connectionsList[1].valueChanged.connect(
+            lambda _, v: self.__update_connection(item, 1, v))
+        connectionsList[2].valueChanged.connect(
+            lambda _, v: self.__update_connection(item, 2, v))
+        connectionsList[3].valueChanged.connect(
+            lambda _, v: self.__update_connection(item, 3, v))
+        connectionsList[4].valueChanged.connect(
+            lambda _, v: self.__update_connection(item, 4, v))
+        connectionsList[5].valueChanged.connect(
+            lambda _, v: self.__update_connection(item, 5, v))
+        connectionsList[6].valueChanged.connect(
+            lambda _, v: self.__update_connection(item, 6, v))
+        connectionsList[7].valueChanged.connect(
+            lambda _, v: self.__update_connection(item, 7, v))
 
         connectionCount.set_maximum_value(8)
         connectionCount.set_minimum_value(0)
@@ -397,6 +635,26 @@ class RailViewerWidget(A_DockingInterface):
     def copy_selected_rail(self):
         self.railList.duplicate_items([self.railList.currentItem()])
 
+    @Slot()
+    def new_node(self, index: int):
+        self.nodeList.create_node(index)
+        node = self.nodeList.item(index)
+        self._rail.insert_frame(index, node)
+
+    @Slot()
+    def remove_selected_node(self):
+        self.remove_deleted_node(
+            self.nodeList.takeItem(self.nodeList.currentRow())
+        )
+
+    @Slot(RailNodeListWidgetItem)
+    def remove_deleted_node(self, item: RailNodeListWidgetItem):
+        self._rail.remove_frame(item.node)
+
+    @Slot()
+    def copy_selected_node(self):
+        self.nodeList.duplicate_items([self.nodeList.currentItem()])
+
     @Slot(InteractiveListWidgetItem)
     def __populate_data_view(self, item: RailNodeListWidgetItem | RailListWidgetItem):
         from juniors_toolbox.gui.tabs import TabWidgetManager
@@ -410,23 +668,18 @@ class RailViewerWidget(A_DockingInterface):
             obj = item.rail
         dataEditorTab.populate(None, serializable=obj)
 
-    def __get_node_name(self, index: int, node: RailKeyFrame):
-        connections = []
-        for x in range(node.connectionCount.get_value()):
-            connections.append(node.connections[x].get_value())
-        name = f"Node {index} - {connections}"
-        return name
-
     def __update_connection_count(self, item: RailNodeListWidgetItem, count: int):
         self._railNode.connectionCount.set_value(count)
-        item.setText(self.__get_node_name(self.nodeList.indexFromItem(item).row(), item.node))
+        item.setText(self.nodeList._get_node_name(
+            self.nodeList.indexFromItem(item).row(), item.node))
         self.__populate_data_view(item)
 
     def __update_connection(self, item: RailNodeListWidgetItem, index: int, connection: int):
         frame = item.node
         frame.connections[index].set_value(connection)
         frame.set_period_from(index, self.nodeList.item(connection).node)
-        item.setText(self.__get_node_name(self.nodeList.indexFromItem(item).row(), item.node))
+        item.setText(self.nodeList._get_node_name(
+            self.nodeList.indexFromItem(item).row(), item.node))
         self.__populate_data_view(item)
 
     def __set_position(self, value: list):

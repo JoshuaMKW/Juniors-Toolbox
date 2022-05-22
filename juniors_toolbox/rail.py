@@ -92,6 +92,9 @@ class RailKeyFrame(A_Serializable, A_Clonable):
             self.posZ.get_value(),
             flags=self.flags.get_value()
         )
+        _copy.connectionCount.set_value(
+            self.connectionCount.get_value()
+        )
         for i in range(_copy.values.get_array_size()):
             _copy.values[i].set_value(
                 self.values[i].get_value()
@@ -245,20 +248,20 @@ class Rail(A_Serializable, A_Clonable):
         for frame in self._frames:
             data.write(frame.to_bytes())
 
-    def size(self) -> int:
-        return self.header_size() + self.name_size() + self.data_size()
+    def get_size(self) -> int:
+        return self.get_header_size() + self.get_name_size() + self.get_data_size()
 
-    def header_size(self) -> int:
+    def get_header_size(self) -> int:
         return 12
 
-    def name_size(self) -> int:
+    def get_name_size(self) -> int:
         return len(self.name) + 1
 
-    def data_size(self) -> int:
+    def get_data_size(self) -> int:
         return 68 * len(self._frames)
 
     def __len__(self) -> int:
-        return self.size()
+        return self.get_size()
 
 
 class RalData(A_Serializable):
@@ -276,16 +279,16 @@ class RalData(A_Serializable):
         return this
 
     def to_bytes(self) -> bytes:
-        headerloc = self.header_start()
-        nameloc = self.name_start()
-        dataloc = self.data_start()
+        headerloc = self.get_header_start()
+        nameloc = self.get_name_start()
+        dataloc = self.get_data_start()
 
         data = BytesIO()
         for rail in self._rails:
             rail.save(data, headerloc, nameloc, dataloc)
-            headerloc += rail.header_size()
-            nameloc += rail.name_size()
-            dataloc += rail.data_size()
+            headerloc += rail.get_header_size()
+            nameloc += rail.get_name_size()
+            dataloc += rail.get_data_size()
 
         data.seek(headerloc)
         data.write(b"\x00"*12)
@@ -335,20 +338,20 @@ class RalData(A_Serializable):
                 return True
         return False
 
-    def size(self) -> int:
-        return align_int(sum([r.size() for r in self._rails]), 32)
+    def get_size(self) -> int:
+        return align_int(sum([r.get_size() for r in self._rails]), 32)
 
-    def header_start(self) -> int:
+    def get_header_start(self) -> int:
         return 0
 
-    def name_start(self) -> int:
-        return sum([r.header_size() for r in self._rails]) + 12
+    def get_name_start(self) -> int:
+        return sum([r.get_header_size() for r in self._rails]) + 12
 
-    def data_start(self) -> int:
-        return align_int(sum([r.header_size() + r.name_size() for r in self._rails]), 4) + 12
+    def get_data_start(self) -> int:
+        return align_int(sum([r.get_header_size() + r.get_name_size() for r in self._rails]), 4) + 12
 
     def __len__(self) -> int:
-        return self.size()
+        return self.get_size()
 
     def __contains__(self, other: Union[str, Rail]) -> bool:
         if isinstance(other, Rail):
