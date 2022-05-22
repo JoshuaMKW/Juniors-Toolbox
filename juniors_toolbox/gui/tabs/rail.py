@@ -142,11 +142,11 @@ class RailNodeListWidget(InteractiveListWidget):
 
         insertBefore = QAction("Insert Node Before...", self)
         insertBefore.triggered.connect(
-            lambda clicked=None: self.create_node(self.indexFromItem(item).row() - 1)
+            lambda clicked=None: self.create_node(self.indexFromItem(item).row())
         )
         insertAfter = QAction("Insert Node After...", self)
-        insertBefore.triggered.connect(
-            lambda clicked=None: self.create_node(self.indexFromItem(item).row())
+        insertAfter.triggered.connect(
+            lambda clicked=None: self.create_node(self.indexFromItem(item).row() + 1)
         )
 
         connectToNeighbors = QAction("Connect to Neighbors", self)
@@ -198,18 +198,30 @@ class RailNodeListWidget(InteractiveListWidget):
     def duplicate_items(self, items: List[RailNodeListWidgetItem]) -> None:
         super().duplicate_items(items)
 
+    @Slot(list)
+    def delete_items(self, items: List[InteractiveListWidgetItem]):
+        for item in items:
+            row = self.row(item)
+            self.itemDeleted.emit(item, row)
+            self.takeItem(row)
+        
+        for row in range(self.count()):
+            _item: RailNodeListWidgetItem = self.item(row)
+            _item.setText(self._get_node_name(row, _item.node))
+
     @Slot(int)
     def create_node(self, index: int) -> None:
         node = RailKeyFrame()
-        name = self._get_node_name(self.count(), node)
 
-        item = RailNodeListWidgetItem(name, node)
+        item = RailNodeListWidgetItem("", node)
         oldItem = self.currentItem()
 
         self.blockSignals(True)
         self.insertItem(index, item)
-        for _item in self.selectedItems():
+        for row in range(self.count()):
+            _item: RailNodeListWidgetItem = self.item(row)
             _item.setSelected(False)
+            _item.setText(self._get_node_name(row, _item.node))
         self.blockSignals(False)
 
         item.setSelected(True)
@@ -434,6 +446,11 @@ class RailViewerWidget(A_DockingInterface):
 
         self.setWidget(splitter)
 
+        self._rail: Optional[Rail] = None
+        self._railItem: Optional[RailListWidgetItem] = None
+        self._railNode: Optional[RailKeyFrame] = None
+        self._railNodeItem: Optional[RailNodeListWidgetItem] = None
+
     def populate(self, scene: Optional[SMSScene], *args: VariadicArgs, **kwargs: VariadicKwargs) -> None:
         self.railList.blockSignals(True)
         self.nodeList.blockSignals(True)
@@ -448,6 +465,8 @@ class RailViewerWidget(A_DockingInterface):
                 citem = self.railList.currentItem()
                 if citem is not None:
                     self.__populate_nodelist(citem)
+                self._railItem = self.railList.currentItem()
+                self._rail = self._railItem.rail
         self.railList.blockSignals(False)
         self.nodeList.blockSignals(False)
 
@@ -465,7 +484,7 @@ class RailViewerWidget(A_DockingInterface):
             self.nodeList.addItem(item)
 
         self.nodeList.blockSignals(False)
-        self.nodeList.setCurrentRow(0)
+        # self.nodeList.setCurrentRow(0)
 
     @Slot(RailListWidgetItem)
     def __populate_rail_properties_view(self, item: RailListWidgetItem) -> None:
