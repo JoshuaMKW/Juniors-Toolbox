@@ -484,7 +484,6 @@ class RailViewerWidget(A_DockingInterface):
             self.nodeList.addItem(item)
 
         self.nodeList.blockSignals(False)
-        # self.nodeList.setCurrentRow(0)
 
     @Slot(RailListWidgetItem)
     def __populate_rail_properties_view(self, item: RailListWidgetItem) -> None:
