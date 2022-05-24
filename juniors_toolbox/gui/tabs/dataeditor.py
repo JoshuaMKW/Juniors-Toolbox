@@ -2,7 +2,7 @@
 from enum import IntEnum
 from typing import BinaryIO, Optional
 
-from PySide6.QtCore import Qt, QThread, Signal, Slot
+from PySide6.QtCore import Qt, QThread, Signal, Slot, QMutex, QMutexLocker
 from PySide6.QtGui import QFont, QTextCharFormat, QTextCursor, QColor, QPalette, QTextFormat, QTextFrameFormat
 from PySide6.QtWidgets import QWidget, QPlainTextEdit, QGridLayout, QLabel, QTextEdit
 from juniors_toolbox.gui import Serializer
@@ -98,7 +98,7 @@ class DataEditorWidget(A_DockingInterface):
         self.packetWidth = 4  # How many bytes in a packet
 
         self._data = b""
-
+        self._dataMutex = QMutex()
 
     def populate(self, scene: Optional[SMSScene], *args: VariadicArgs, **kwargs: VariadicKwargs) -> None:
         if "serializable" not in kwargs:
@@ -115,8 +115,9 @@ class DataEditorWidget(A_DockingInterface):
         self.serializeThread.start()
 
     def set_data(self, data: bytes):
-        self._data = data
-        self.dataChanged.emit(data)
+        with QMutexLocker(self._dataMutex) as mutexLock:
+            self._data = data
+            self.dataChanged.emit(data)
 
     def get_data(self) -> bytes:
         return self._data

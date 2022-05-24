@@ -10,14 +10,14 @@ from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
 
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.gui.widgets.interactivestructs import (
-    InteractiveListWidget, InteractiveListWidgetItem)
+    InteractiveListView, InteractiveListWidget, InteractiveListWidgetItem)
 from juniors_toolbox.gui.widgets.listinterface import ListInterfaceWidget
 from juniors_toolbox.gui.widgets.property import A_ValueProperty, ArrayProperty, BoolProperty, CommentProperty, IntProperty, ShortProperty, Vector3Property
 from juniors_toolbox.gui.widgets.spinboxdrag import SpinBoxDragInt
 from juniors_toolbox.objects.object import MapObject
 from juniors_toolbox.rail import Rail, RailKeyFrame, RalData
 from juniors_toolbox.scene import SMSScene
-from PySide6.QtCore import Qt, Slot, QPoint, Signal
+from PySide6.QtCore import Qt, Slot, QPoint, Signal, QModelIndex, QPersistentModelIndex, QItemSelection, QItemSelectionModel
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QGridLayout, QListWidget, QSplitter, QWidget, QListWidgetItem, QFormLayout, QVBoxLayout, QMenu
 from juniors_toolbox.utils import A_Serializable, VariadicArgs, VariadicKwargs
@@ -103,6 +103,7 @@ class RailNodeListWidgetItem(QListWidgetItem):
         super().__init__(item)
         self.setFlags(
             Qt.ItemIsSelectable |
+            Qt.ItemIsDragEnabled |
             Qt.ItemIsEnabled
         )
         self.node = node
@@ -122,63 +123,81 @@ class RailListWidgetItem(InteractiveListWidgetItem):
         return item
 
 
-class RailNodeListWidget(InteractiveListWidget):
+class RailNodeListWidget(InteractiveListView):
     nodeCreated = Signal(RailNodeListWidgetItem)
     nodeUpdated = Signal(RailNodeListWidgetItem)
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
-        self.setAcceptDrops(False)
-        self.setDragDropMode(InteractiveListWidget.DragDropMode.InternalMove)
+        self.setAcceptDrops(True)
+        self.setDragEnabled(True)
+        self.setDragDropMode(InteractiveListView.InternalMove)
+        self.setSelectionMode(InteractiveListView.SingleSelection)
+        self.indexEdited.connect(self.__update_node_names)
+
+    def create_rail_node(self, row: int, rail: RailKeyFrame) -> bool:
+        return super().create_row(row, self._get_node_name(row, rail), rail)
+
+    def get_rail_node(self, row: int) -> RailKeyFrame:
+        return self.model().index(row, 0).data(Qt.UserRole)
 
     def get_context_menu(self, point: QPoint) -> Optional[QMenu]:
         # Infos about the node selected.
-        item: Optional[RailNodeListWidgetItem] = self.itemAt(point)
-        if item is None:
+        index: Optional[InteractiveListWidgetItem] = self.indexAt(point)
+        if index is None:
             return None
 
         # We build the menu.
         menu = QMenu(self)
 
-        insertBefore = QAction("Insert Node Before...", self)
-        insertBefore.triggered.connect(
-            lambda clicked=None: self.create_node(self.indexFromItem(item).row())
-        )
-        insertAfter = QAction("Insert Node After...", self)
-        insertAfter.triggered.connect(
-            lambda clicked=None: self.create_node(self.indexFromItem(item).row() + 1)
-        )
+        model = self.model()
+        selectedRows = self.selectedIndexes()
+        selectedIndexes: List[QModelIndex] = []
+        for i in selectedRows:
+            selectedIndexes.append(model.index(i, 0))
+
+        start = selectedIndexes[0]
+
+        if len(selectedIndexes) == 1:
+            insertBefore = QAction("Insert Node Before...", self)
+            insertBefore.triggered.connect(
+                lambda clicked=None: self.create_node(start.row())
+            )
+            insertAfter = QAction("Insert Node After...", self)
+            insertAfter.triggered.connect(
+                lambda clicked=None: self.create_node(start.row() + 1)
+            )
+            menu.addAction(insertBefore)
+            menu.addAction(insertAfter)
+            menu.addSeparator()
 
         connectToNeighbors = QAction("Connect to Neighbors", self)
         connectToNeighbors.triggered.connect(
-            lambda clicked=None: self.connect_to_neighbors(item)
+            lambda clicked=None: self.connect_to_neighbors(selectedIndexes)
         )
         connectToPrev = QAction("Connect to Prev", self)
         connectToPrev.triggered.connect(
-            lambda clicked=None: self.connect_to_prev(item)
+            lambda clicked=None: self.connect_to_prev(selectedIndexes)
         )
         connectToNext = QAction("Connect to Next", self)
         connectToNext.triggered.connect(
-            lambda clicked=None: self.connect_to_next(item)
+            lambda clicked=None: self.connect_to_next(selectedIndexes)
         )
         connectToReferring = QAction("Connect to Referring Nodes", self)
         connectToReferring.triggered.connect(
-            lambda clicked=None: self.connect_to_referring(item)
+            lambda clicked=None: self.connect_to_referring(selectedIndexes)
         )
 
         duplicateAction = QAction("Duplicate", self)
         duplicateAction.triggered.connect(
-            lambda clicked=None: self.duplicate_items(self.selectedItems())
+            lambda clicked=None: self.duplicate_indexes(selectedIndexes)
         )
 
         deleteAction = QAction("Delete", self)
         deleteAction.triggered.connect(
-            lambda clicked=None: self.delete_items(self.selectedItems())
+            lambda clicked=None: self.delete_indexes(selectedIndexes)
         )
 
-        menu.addAction(insertBefore)
-        menu.addAction(insertAfter)
-        menu.addSeparator()
         menu.addAction(connectToNeighbors)
         menu.addAction(connectToPrev)
         menu.addAction(connectToNext)
@@ -195,172 +214,166 @@ class RailNodeListWidget(InteractiveListWidget):
         pass
 
     @Slot(RailNodeListWidgetItem)
-    def duplicate_items(self, items: List[RailNodeListWidgetItem]) -> None:
-        super().duplicate_items(items)
+    def duplicate_indexes(self, indexes: List[RailNodeListWidgetItem]) -> None:
+        super().duplicate_indexes(indexes)
 
     @Slot(list)
-    def delete_items(self, items: List[InteractiveListWidgetItem]):
-        for item in items:
-            row = self.row(item)
-            self.itemDeleted.emit(item, row)
-            self.takeItem(row)
-        
-        for row in range(self.count()):
-            _item: RailNodeListWidgetItem = self.item(row)
-            _item.setText(self._get_node_name(row, _item.node))
+    def delete_indexes(self, indexes: List[InteractiveListWidgetItem]):
+        super().delete_indexes(indexes)
+        self.__update_node_names()
 
-    @Slot(int)
-    def create_node(self, index: int) -> None:
-        node = RailKeyFrame()
+    @Slot(list)
+    def connect_to_neighbors(self, indexes: list[QModelIndex]):
+        model = self.model()
 
-        item = RailNodeListWidgetItem("", node)
-        oldItem = self.currentItem()
+        for index in indexes:
+            thisRow = index.row()
+            thisNode = self.get_rail_node(thisRow)
 
-        self.blockSignals(True)
-        self.insertItem(index, item)
-        for row in range(self.count()):
-            _item: RailNodeListWidgetItem = self.item(row)
-            _item.setSelected(False)
-            _item.setText(self._get_node_name(row, _item.node))
-        self.blockSignals(False)
+            if thisRow == model.rowCount() - 1:
+                nextRow = 0
+            else:
+                nextRow = thisRow + 1
 
-        item.setSelected(True)
+            if thisRow == 0:
+                prevRow = model.rowCount() - 1
+            else:
+                prevRow = thisRow - 1
 
-        self.nodeCreated.emit(item)
-        self.currentItemChanged.emit(item, oldItem)
+            nextIndex = model.index(nextRow, 0)
+            nextNode = self.get_rail_node(nextRow)
 
-    @Slot(RailNodeListWidgetItem)
-    def connect_to_neighbors(self, item: RailNodeListWidgetItem):
-        thisIndex = self.indexFromItem(item).row()
-        thisNode = item.node
+            prevIndex = model.index(prevRow, 0)
+            prevNode = self.get_rail_node(prevRow)
 
-        if thisIndex == 0:
-            prevIndex = self.count() - 1
-        else:
-            prevIndex = thisIndex - 1
+            thisNode.connectionCount.set_value(1)
 
-        if thisIndex == self.count() - 1:
-            nextIndex = 0
-        else:
-            nextIndex = thisIndex + 1
+            preConnectionCount = prevNode.connectionCount.get_value()
+            if preConnectionCount < 1:
+                prevNode.connectionCount.set_value(1)
+                preConnectionCount = 1
 
-        prevItem: RailNodeListWidgetItem = self.item(prevIndex)
-        nextItem: RailNodeListWidgetItem = self.item(nextIndex)
+            if nextNode.connectionCount.get_value() < 1:
+                nextNode.connectionCount.set_value(1)
 
-        prevNode = prevItem.node
-        nextNode = nextItem.node
+            prevNode.connections[preConnectionCount - 1].set_value(thisRow)
+            prevNode.set_period_from(preConnectionCount - 1, thisNode)
+            thisNode.connections[0].set_value(prevRow)
+            thisNode.set_period_from(0, prevNode)
+            thisNode.connections[1].set_value(nextNode)
+            thisNode.set_period_from(1, nextNode)
+            nextNode.connections[0].set_value(thisRow)
+            nextNode.set_period_from(0, thisNode)
 
-        thisNode.connectionCount.set_value(2)
+            model.setData(index, self._get_node_name(
+                thisRow, thisNode), Qt.DisplayRole)
+            model.setData(prevIndex, self._get_node_name(
+                thisRow, prevNode), Qt.DisplayRole)
+            model.setData(nextIndex, self._get_node_name(
+                thisRow, nextNode), Qt.DisplayRole)
 
-        preConnectionCount = prevNode.connectionCount.get_value()
-        if preConnectionCount < 1:
-            prevNode.connectionCount.set_value(1)
-            preConnectionCount = 1
+            self.nodeUpdated.emit(index)
 
-        if nextNode.connectionCount.get_value() < 1:
-            nextNode.connectionCount.set_value(1)
+    @Slot(list)
+    def connect_to_prev(self, indexes: list[QModelIndex]):
+        model = self.model()
 
-        prevNode.connections[preConnectionCount - 1].set_value(thisIndex)
-        prevNode.set_period_from(preConnectionCount - 1, thisNode)
-        thisNode.connections[0].set_value(prevIndex)
-        thisNode.set_period_from(0, prevNode)
-        thisNode.connections[1].set_value(nextIndex)
-        thisNode.set_period_from(1, nextNode)
-        nextNode.connections[0].set_value(thisIndex)
-        nextNode.set_period_from(0, thisNode)
+        for index in indexes:
+            thisRow = index.row()
+            thisNode = self.get_rail_node(thisRow)
 
-        prevItem.setText(self._get_node_name(prevIndex, prevNode))
-        item.setText(self._get_node_name(thisIndex, thisNode))
-        nextItem.setText(self._get_node_name(nextIndex, nextNode))
+            if thisRow == 0:
+                prevRow = model.rowCount() - 1
+            else:
+                prevRow = thisRow - 1
 
-        self.nodeUpdated.emit(item)
+            prevIndex = model.index(prevRow, 0)
+            prevNode = self.get_rail_node(prevRow)
 
-    @Slot(RailNodeListWidgetItem)
-    def connect_to_prev(self, item: RailNodeListWidgetItem):
-        thisIndex = self.indexFromItem(item).row()
-        thisNode = item.node
+            thisNode.connectionCount.set_value(1)
+            preConnectionCount = prevNode.connectionCount.get_value()
+            if preConnectionCount < 1:
+                prevNode.connectionCount.set_value(1)
+                preConnectionCount = 1
 
-        if thisIndex == 0:
-            prevIndex = self.count() - 1
-        else:
-            prevIndex = thisIndex - 1
+            prevNode.connections[preConnectionCount - 1].set_value(thisRow)
+            prevNode.set_period_from(preConnectionCount - 1, thisNode)
+            thisNode.connections[0].set_value(prevRow)
+            thisNode.set_period_from(0, prevNode)
 
-        prevItem: RailNodeListWidgetItem = self.item(prevIndex)
-        prevNode = prevItem.node
+            model.setData(index, self._get_node_name(
+                thisRow, thisNode), Qt.DisplayRole)
+            model.setData(prevIndex, self._get_node_name(
+                thisRow, prevNode), Qt.DisplayRole)
 
-        thisNode.connectionCount.set_value(1)
-        preConnectionCount = prevNode.connectionCount.get_value()
-        if preConnectionCount < 1:
-            prevNode.connectionCount.set_value(1)
-            preConnectionCount = 1
+            self.nodeUpdated.emit(index)
 
-        prevNode.connections[preConnectionCount - 1].set_value(thisIndex)
-        prevNode.set_period_from(preConnectionCount - 1, thisNode)
-        thisNode.connections[0].set_value(prevIndex)
-        thisNode.set_period_from(0, prevNode)
+    @Slot(list)
+    def connect_to_next(self, indexes: list[QModelIndex]):
+        model = self.model()
 
-        prevItem.setText(self._get_node_name(prevIndex, prevNode))
-        item.setText(self._get_node_name(thisIndex, thisNode))
+        for index in indexes:
+            thisRow = index.row()
+            thisNode = self.get_rail_node(thisRow)
 
-        self.nodeUpdated.emit(item)
+            if thisRow == model.rowCount() - 1:
+                nextRow = 0
+            else:
+                nextRow = thisRow + 1
 
-    @Slot(RailNodeListWidgetItem)
-    def connect_to_next(self, item: RailNodeListWidgetItem):
-        thisIndex = self.indexFromItem(item).row()
-        thisNode = item.node
+            nextIndex = model.index(nextRow, 0)
+            nextNode = self.get_rail_node(nextRow)
 
-        if thisIndex == self.count() - 1:
-            nextIndex = 0
-        else:
-            nextIndex = thisIndex + 1
+            thisNode.connectionCount.set_value(1)
+            if nextNode.connectionCount.get_value() < 1:
+                nextNode.connectionCount.set_value(1)
 
-        nextItem: RailNodeListWidgetItem = self.item(nextIndex)
-        nextNode = nextItem.node
+            thisNode.connections[0].set_value(nextRow)
+            thisNode.set_period_from(0, nextNode)
+            nextNode.connections[0].set_value(thisRow)
+            nextNode.set_period_from(0, thisNode)
 
-        thisNode.connectionCount.set_value(1)
-        if nextNode.connectionCount.get_value() < 1:
-            nextNode.connectionCount.set_value(1)
+            model.setData(index, self._get_node_name(
+                thisRow, thisNode), Qt.DisplayRole)
+            model.setData(nextIndex, self._get_node_name(
+                thisRow, nextNode), Qt.DisplayRole)
 
-        thisNode.connections[0].set_value(nextIndex)
-        thisNode.set_period_from(0, nextNode)
-        nextNode.connections[0].set_value(thisIndex)
-        nextNode.set_period_from(0, thisNode)
+            self.nodeUpdated.emit(index)
 
-        item.setText(self._get_node_name(thisIndex, thisNode))
-        nextItem.setText(self._get_node_name(nextIndex, nextNode))
+    @Slot(list)
+    def connect_to_referring(self, indexes: list[QModelIndex]):
+        model = self.model()
 
-        self.nodeUpdated.emit(item)
+        for index in indexes:
+            thisRow = index.row()
+            thisNode = self.get_rail_node(thisRow)
 
-    @Slot(RailNodeListWidgetItem)
-    def connect_to_referring(self, item: RailNodeListWidgetItem):
-        thisIndex = self.indexFromItem(item).row()
-        thisNode = item.node
+            existingConnections = []
+            for i in range(thisNode.connectionCount.get_value()):
+                existingConnections.append(thisNode.connections[i].get_value())
 
-        existingConnections = []
-        for i in range(thisNode.connectionCount.get_value()):
-            existingConnections.append(thisNode.connections[i].get_value())
+            connectionIndex = thisNode.connectionCount.get_value()
+            for row in range(model.rowCount()):
+                if connectionIndex > 7:
+                    break
 
-        connectionIndex = thisNode.connectionCount.get_value()
-        for row in range(self.count()):
-            if connectionIndex > 7:
-                break
+                if row == thisRow or row in existingConnections:
+                    continue
 
-            if row == thisIndex or row in existingConnections:
-                continue
+                otherIndex = model.index(row, 0)
+                otherNode = self.get_rail_node(otherIndex.row())
+                for i in range(otherNode.connectionCount.get_value()):
+                    connection = otherNode.connections[i].get_value()
+                    if connection == thisRow:
+                        thisNode.connections[connectionIndex].set_value(row)
+                        thisNode.set_period_from(connectionIndex, otherNode)
+                        thisNode.connectionCount.set_value(connectionIndex + 1)
+                        connectionIndex += 1
 
-            otherItem: RailNodeListWidgetItem = self.item(row)
-            otherNode = otherItem.node
-            for i in range(otherNode.connectionCount.get_value()):
-                connection = otherNode.connections[i].get_value()
-                if connection == thisIndex:
-                    thisNode.connections[connectionIndex].set_value(row)
-                    thisNode.set_period_from(connectionIndex, otherNode)
-                    thisNode.connectionCount.set_value(connectionIndex + 1)
-                    connectionIndex += 1
+            model.setData(index, self._get_node_name(
+                index, thisNode), Qt.DisplayRole)
 
-        item.setText(self._get_node_name(thisIndex, thisNode))
-
-        self.nodeUpdated.emit(item)
+            self.nodeUpdated.emit(index)
 
     def _get_node_name(self, index: int, node: RailKeyFrame):
         connections = []
@@ -369,23 +382,45 @@ class RailNodeListWidget(InteractiveListWidget):
         name = f"Node {index} - {connections}"
         return name
 
+    def __update_node_names(self):
+        model = self.model()
+        for row in range(model.rowCount()):
+            index = model.index(row, 0)
+            model.setData(
+                index,
+                self._get_node_name(
+                    index,
+                    self.get_rail_node(row)
+                ),
+                Qt.DisplayRole
+            )
 
-class RailListWidget(InteractiveListWidget):
+
+class RailListView(InteractiveListView):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setAcceptDrops(False)
-        self.setDragDropMode(InteractiveListWidget.DragDropMode.InternalMove)
+        self.setDragDropMode(InteractiveListView.DragDropMode.InternalMove)
         # self.setDefaultDropAction(Qt.MoveAction)
 
-    @Slot(RailListWidgetItem)
-    def rename_item(self, item: RailListWidgetItem) -> None:
-        name = super().rename_item(item)
-        item.rail.name = name
+    def create_rail(self, row: int, rail: Rail) -> bool:
+        return super().create_row(row, rail.name, rail)
 
-    @Slot(RailListWidgetItem)
-    def duplicate_items(self, items: List[RailListWidgetItem]) -> None:
-        nitem = super().duplicate_items(items)
-        nitem.rail.name = nitem.text()
+    def get_rail(self, row: int) -> Rail:
+        return self.model().index(row, 0).data(Qt.UserRole)
+
+    @Slot(QModelIndex)
+    def rename_index(self, index: QModelIndex) -> None:
+        name = super().rename_index(index)
+        rail: Rail = index.data(Qt.UserRole)
+        rail.name = name
+
+    @Slot(QModelIndex)
+    def duplicate_indexes(self, indexes: List[QModelIndex]) -> None:
+        nindexes: list[QModelIndex] = super().duplicate_indexes(indexes)
+        for nindex in nindexes:
+            rail: Rail = nindex.data(Qt.UserRole)
+            rail.name = nindex.data(Qt.DisplayRole)
 
 
 class RailViewerWidget(A_DockingInterface):
@@ -403,12 +438,12 @@ class RailViewerWidget(A_DockingInterface):
         railInterface.copyRequested.connect(self.copy_selected_rail)
         self.railInterface = railInterface
 
-        railList = RailListWidget()
+        railList = RailListView()
         railList.setMinimumWidth(100)
-        railList.currentItemChanged.connect(self.__populate_nodelist)
-        railList.currentItemChanged.connect(
+        railList.currentSelectionChanged.connect(self.__populate_nodelist)
+        railList.currentSelectionChanged.connect(
             self.__populate_rail_properties_view)
-        railList.currentItemChanged.connect(self.__populate_data_view)
+        railList.currentSelectionChanged.connect(self.__populate_data_view)
         self.railList = railList
 
         self.railListLayout.addWidget(self.railInterface)
@@ -426,10 +461,10 @@ class RailViewerWidget(A_DockingInterface):
         self.nodeInterface = nodeInterface
 
         nodeList = RailNodeListWidget()
-        nodeList.currentItemChanged.connect(
+        nodeList.currentSelectionChanged.connect(
             self.__populate_node_properties_view)
-        nodeList.currentItemChanged.connect(self.__populate_data_view)
-        nodeList.itemDeleted.connect(self.remove_deleted_node)
+        nodeList.currentSelectionChanged.connect(self.__populate_data_view)
+        nodeList.indexDeleted.connect(self.remove_deleted_node)
         nodeList.nodeUpdated.connect(self.__populate_node_properties_view)
         nodeList.nodeUpdated.connect(self.__populate_data_view)
         self.nodeList = nodeList
@@ -456,32 +491,43 @@ class RailViewerWidget(A_DockingInterface):
         self.nodeList.blockSignals(True)
         self.railList.clear()
         self.nodeList.clear()
+
+        railSelectionModel = self.railList.selectionModel()
+        railModel = self.railList.model()
         if scene is not None:
-            for rail in scene.iter_rails():
-                item = RailListWidgetItem(rail.name, rail)
-                self.railList.addItem(item)
-            if self.railList.count() > 0:
-                self.railList.setCurrentRow(0)
-                citem = self.railList.currentItem()
-                if citem is not None:
-                    self.__populate_nodelist(citem)
-                self._railItem = self.railList.currentItem()
-                self._rail = self._railItem.rail
+            for i, rail in enumerate(scene.iter_rails()):
+                self.railList.create_rail(i, rail)
+            if railModel.rowCount() > 0:
+                railSelectionModel.setCurrentIndex(
+                    railModel.index(0, 0),
+                    QItemSelectionModel.ClearAndSelect
+                )
+                index = railSelectionModel.currentIndex()
+                if railSelectionModel.hasSelection():
+                    self.__populate_nodelist(
+                        railSelectionModel.selection(),
+                        QItemSelection()
+                    )
+                self._railIndex = index
+                self._rail = self.railList.get_rail(index.row())
+
         self.railList.blockSignals(False)
         self.nodeList.blockSignals(False)
 
-    def __populate_nodelist(self, item: RailListWidgetItem) -> None:
+    def __populate_nodelist(self, selected: QItemSelection, deselected: QItemSelection) -> None:
+        model = self.nodeList.model()
+        selectionModel = self.nodeList.selectionModel()
+
         self.nodeList.blockSignals(True)
         self.nodeList.clear()
 
-        rail = item.rail
+        indexes = selected.indexes()
+
+
+        index = model.index(indexes[0], 0)
+        rail = self.railList.get_rail(index.row())
         for i, node in enumerate(rail.iter_frames()):
-            item = RailNodeListWidgetItem(self.nodeList._get_node_name(i, node), node)
-            item.setFlags(
-                Qt.ItemIsSelectable |
-                Qt.ItemIsEnabled
-            )
-            self.nodeList.addItem(item)
+            self.nodeList.create_rail_node(i, node)
 
         self.nodeList.blockSignals(False)
 
@@ -635,29 +681,41 @@ class RailViewerWidget(A_DockingInterface):
 
     @Slot()
     def new_rail(self):
-        name = self.railList._resolve_name("rail")
-        item = RailListWidgetItem(
-            name,
-            Rail(name)
-        )
+        model = self.railList.model()
+        row = model.rowCount()
+
         self.railList.blockSignals(True)
-        self.railList.addItem(item)
+        self.railList.create_rail(
+            row,
+            self.railList._resolve_name("rail")
+        )
         self.railList.blockSignals(False)
-        self.railList.editItem(item, new=True)
+
+        self.railList.edit(model.index(row, 0))
 
     @Slot()
     def remove_selected_rail(self):
-        self.railList.takeItem(self.railList.currentRow())
-
+        model = self.railList.model()
+        selectionModel = self.railList.selectionModel()
+        model.removeRow(selectionModel.currentIndex().row())
+ 
     @Slot()
     def copy_selected_rail(self):
-        self.railList.duplicate_items([self.railList.currentItem()])
+        model = self.railList.model()
+        selectionModel = self.railList.selectionModel()
+
+        indexes: list[QModelIndex] = []
+        for row in selectionModel.selectedIndexes():
+            indexes.append(model.index(row, 0))
+
+        self.railList.duplicate_indexes(indexes)
 
     @Slot()
     def new_node(self, index: int):
-        self.nodeList.create_node(index)
-        node = self.nodeList.item(index)
-        self._rail.insert_frame(index, node)
+        node = RailKeyFrame()
+        self.nodeList.create_rail_node(index, node)
+        if self._rail:
+            self._rail.insert_frame(index, node)
 
     @Slot()
     def remove_selected_node(self):
