@@ -1,11 +1,12 @@
 
 from enum import IntEnum
 from typing import BinaryIO, Optional
+import time
 
-from PySide6.QtCore import Qt, QThread, Signal, Slot
+from PySide6.QtCore import Qt, QThread, Signal, Slot, QMutex, QMutexLocker, QRunnable, QObject, QThreadPool
 from PySide6.QtGui import QFont, QTextCharFormat, QTextCursor, QColor, QPalette, QTextFormat, QTextFrameFormat
 from PySide6.QtWidgets import QWidget, QPlainTextEdit, QGridLayout, QLabel, QTextEdit
-from juniors_toolbox.gui import Serializer
+from juniors_toolbox.gui import RunnableSerializer, ThreadSerializer, WorkerSignals
 
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.scene import SMSScene
@@ -44,6 +45,81 @@ class DataEditorLabel(QLabel):
         self.setFont(font)
         self.setFocusPolicy(Qt.NoFocus)
         self.setStyleSheet(self.__class__.__name__ + " {background: #00000000; color: #2F4FCF}")
+
+
+class DataEditorCompiler(QRunnable):
+    def __init__(self, data: bytes, parent: Optional[QObject] = None) -> None:
+        super().__init__(parent)
+        self.rowSpacing = 32  # How many bytes before a double space.
+        self.rowLength = 16  # How many bytes in a row.
+        self.packetWidth = 4  # How many bytes in a packet
+
+        self._data = data
+        self.signals = WorkerSignals()
+
+    def run(self) -> None:
+        print("running")
+        VALID_CHARACTERS = list(range(32, 128))
+        offset = 0
+
+        offsetText = ""
+        mainText = ""
+        asciiText = ""
+
+        data = self._data
+
+        for chars in range(1, len(data) + 1):
+            byte = data[chars - 1]
+            if byte in VALID_CHARACTERS:
+                asciiText += chr(data[chars - 1])
+            else:
+                asciiText += "."
+
+            mainText += format(byte, "02X")
+            if chars % self.rowLength == 0:
+                offsetText += format(offset, "08X") + "\n"
+                offset += self.rowLength
+                mainText += "\n"
+                asciiText += "\n"
+            elif chars % self.packetWidth == 0:
+                mainText += " "
+        if len(data) % self.rowLength != 0:
+            offsetText += format(offset, "08X") + "\n"
+
+        print("finished")
+        self.signals.finished.emit()
+        self.signals.result.emit((offsetText, mainText, asciiText))
+
+    def _process_data(self) -> tuple:
+        VALID_CHARACTERS = list(range(32, 128))
+        offset = 0
+
+        offsetText = ""
+        mainText = ""
+        asciiText = ""
+
+        data = self._data
+
+        for chars in range(1, len(data) + 1):
+            byte = data[chars - 1]
+            if byte in VALID_CHARACTERS:
+                asciiText += chr(data[chars - 1])
+            else:
+                asciiText += "."
+
+            mainText += format(byte, "02X")
+            if chars % self.rowLength == 0:
+                offsetText += format(offset, "08X") + "\n"
+                offset += self.rowLength
+                mainText += "\n"
+                asciiText += "\n"
+            elif chars % self.packetWidth == 0:
+                mainText += " "
+        if len(data) % self.rowLength != 0:
+            offsetText += format(offset, "08X") + "\n"
+
+        return (offsetText, mainText, asciiText)
+
 
 
 class DataEditorWidget(A_DockingInterface):
@@ -93,25 +169,24 @@ class DataEditorWidget(A_DockingInterface):
         self._sync_selections()
         self.dataChanged.connect(self.generate_view)
 
-        self.rowSpacing = 32  # How many bytes before a double space.
-        self.rowLength = 16  # How many bytes in a row.
-        self.packetWidth = 4  # How many bytes in a packet
-
         self._data = b""
+        self._mutex = QMutex()
 
+        self.serializeThread = QThread()
 
     def populate(self, scene: Optional[SMSScene], *args: VariadicArgs, **kwargs: VariadicKwargs) -> None:
         if "serializable" not in kwargs:
             return
+
         serializable: A_Serializable = kwargs["serializable"]
-        self.serializeThread = QThread()
-        self.serializer = Serializer(serializable)
+        
+        self.serializeThread.quit()
+        while self.serializeThread.isRunning():
+            time.sleep(0.01)
+
+        self.serializer = ThreadSerializer(serializable)
         self.serializer.moveToThread(self.serializeThread)
-        self.serializeThread.started.connect(self.serializer.run)
-        self.serializer.finished.connect(self.set_data)
-        self.serializer.finished.connect(self.serializeThread.quit)
-        self.serializer.finished.connect(self.serializer.deleteLater)
-        self.serializeThread.finished.connect(self.serializeThread.deleteLater)
+        self.serializer.result.connect(self.set_data)
         self.serializeThread.start()
 
     def set_data(self, data: bytes):
@@ -123,34 +198,8 @@ class DataEditorWidget(A_DockingInterface):
 
     @Slot(bytes)
     def generate_view(self, data: bytes):
-        VALID_CHARACTERS = list(range(32, 128))
-        offset = 0
-
-        offsetText = ""
-        mainText = ""
-        asciiText = ""
-
-        for chars in range(1, len(data) + 1):
-            byte = data[chars - 1]
-            if byte in VALID_CHARACTERS:
-                asciiText += chr(data[chars - 1])
-            else:
-                asciiText += "."
-
-            mainText += format(byte, "02X")
-            if chars % self.rowLength == 0:
-                offsetText += format(offset, "08X") + "\n"
-                offset += self.rowLength
-                mainText += "\n"
-                asciiText += "\n"
-            elif chars % self.packetWidth == 0:
-                mainText += " "
-        if len(data) % self.rowLength != 0:
-            offsetText += format(offset, "08X") + "\n"
-
-        self.offsetTextArea.setPlainText(offsetText)
-        self.mainTextArea.setPlainText(mainText)
-        self.asciiTextArea.setPlainText(asciiText)
+        compiler = DataEditorCompiler(data)
+        self.set_text_fields(compiler._process_data())
 
     @Slot()
     def highlight_main(self):
@@ -278,6 +327,12 @@ class DataEditorWidget(A_DockingInterface):
         self.mainTextArea.blockSignals(False)
         self.asciiTextArea.blockSignals(False)
 
+    @Slot(tuple)
+    def set_text_fields(self, texts: tuple):
+        self.offsetTextArea.setPlainText(texts[0])
+        self.mainTextArea.setPlainText(texts[1])
+        self.asciiTextArea.setPlainText(texts[2])
+
     def _sync_scrolls(self):
         scroll0 = self.offsetTextArea.verticalScrollBar()
         scroll1 = self.mainTextArea.verticalScrollBar()
@@ -310,3 +365,9 @@ class DataEditorWidget(A_DockingInterface):
     def _sync_selections(self):
         self.mainTextArea.selectionChanged.connect(self.highlight_main)
         self.asciiTextArea.selectionChanged.connect(self.highlight_ascii)
+
+    def __remove_thread(self, thread: QThread):
+        try:
+            self._threads.remove(thread)
+        except KeyError:
+            pass

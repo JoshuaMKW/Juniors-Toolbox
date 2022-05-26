@@ -393,10 +393,10 @@ class NameRefHierarchyWidget(A_DockingInterface):
         self.treeWidget.setDefaultDropAction(Qt.MoveAction)
         self.treeWidget.setHeaderHidden(True)
         self.treeWidget.setMinimumSize(300, 80)
-        self.treeWidget.itemClicked.connect(
+        self.treeWidget.currentItemChanged.connect(
             self.__populate_properties_view
         )
-        self.treeWidget.itemClicked.connect(
+        self.treeWidget.currentItemChanged.connect(
             self.__populate_data_view
         )
 

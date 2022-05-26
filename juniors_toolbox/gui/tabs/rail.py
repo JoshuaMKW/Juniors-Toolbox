@@ -103,6 +103,7 @@ class RailNodeListWidgetItem(QListWidgetItem):
         super().__init__(item)
         self.setFlags(
             Qt.ItemIsSelectable |
+            Qt.ItemIsDragEnabled |
             Qt.ItemIsEnabled
         )
         self.node = node
@@ -477,10 +478,6 @@ class RailViewerWidget(A_DockingInterface):
         rail = item.rail
         for i, node in enumerate(rail.iter_frames()):
             item = RailNodeListWidgetItem(self.nodeList._get_node_name(i, node), node)
-            item.setFlags(
-                Qt.ItemIsSelectable |
-                Qt.ItemIsEnabled
-            )
             self.nodeList.addItem(item)
 
         self.nodeList.blockSignals(False)
