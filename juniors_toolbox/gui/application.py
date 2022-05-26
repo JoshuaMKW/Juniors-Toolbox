@@ -1,11 +1,14 @@
 import sys
+import webbrowser
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
-from PySide6.QtCore import QPoint, QSize, Slot
+from PySide6.QtCore import QPoint, QSize, Slot, QUrl
 from PySide6.QtGui import QResizeEvent, Qt, QFontDatabase
+from PySide6.QtWebEngineWidgets import QWebEngineView
 
 from PySide6.QtWidgets import QApplication, QFileDialog, QLabel, QSizePolicy, QStyleFactory, QWidget
 from juniors_toolbox import __version__
+from juniors_toolbox.gui.dialogs.issuedialog import GithubIssueDialog
 from juniors_toolbox.gui.settings import ToolboxSettings
 from juniors_toolbox.gui.tabs import TabWidgetManager
 from juniors_toolbox.gui.tabs.hierarchyviewer import NameRefHierarchyWidget
@@ -77,6 +80,9 @@ class JuniorsToolbox(QApplication):
         self.gui.actionSaveAs.triggered.connect(
             lambda _: self.save_scene()
         )  # throw away checked flag
+        self.gui.actionReportBug.triggered.connect(
+            lambda _: self.open_issue_page()
+        )
 
         # Set up theme toggle
 
@@ -115,7 +121,8 @@ class JuniorsToolbox(QApplication):
 
     @scenePath.setter
     def scenePath(self, path: Path):
-        projectViewer = TabWidgetManager.get_tab(ProjectViewerWidget) # type: ignore
+        projectViewer = TabWidgetManager.get_tab(
+            ProjectViewerWidget)  # type: ignore
         projectViewer.scenePath = path
         self.manager.load_scene(path)
         self.update_elements(self.scene)
@@ -250,13 +257,22 @@ class JuniorsToolbox(QApplication):
         # self.gui.removeDockWidget(tab)
         self.set_central_status(self.is_docker_empty())
 
+    @Slot()
+    def open_issue_page(self):
+        webbrowser.open(
+            "https://github.com/JoshuaMKW/Juniors-Toolbox/issues/new?assignees=JoshuaMKW&labels=bug&template=bug_report.md&title=%5BBUG%5D+Short+Description",
+            new=0,
+            autoraise=True
+        )
+
     def __init_tabs(self):
         areas = [Qt.LeftDockWidgetArea, Qt.RightDockWidgetArea]
         for i, tab in enumerate(TabWidgetManager.iter_tabs()):
             tab.setObjectName(tab.windowTitle())
             tab.setFloating(not self.is_docker_empty())
             tab.setAllowedAreas(Qt.AllDockWidgetAreas)
-            tab.topLevelChanged.connect(lambda _: self.set_central_status(self.is_docker_empty()))
+            tab.topLevelChanged.connect(
+                lambda _: self.set_central_status(self.is_docker_empty()))
             tab.closed.connect(self.closeDockerTab)
             self.gui.addDockWidget(areas[len(self.__openTabs) % 2], tab)
             tab.setParent(self.gui)
@@ -278,7 +294,7 @@ class JuniorsToolbox(QApplication):
     #     # deTab.setWidget(tab)
     #     deTab.setFloating(len(self.__openTabs) > 0)
     #     deTab.setAllowedAreas(Qt.AllDockWidgetAreas)
-            
+
     #     areas = [Qt.LeftDockWidgetArea, Qt.RightDockWidgetArea]
     #     self.gui.addDockWidget(areas[len(self.__openTabs) % 2], deTab)
 
