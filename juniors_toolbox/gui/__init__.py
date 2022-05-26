@@ -56,7 +56,6 @@ class ThreadWorker(QObject):
         
     @Slot()
     def process(self):
-        print("test")
         try:
             result = self.fn(*self.args, **self.kwargs)
         except:
@@ -64,7 +63,6 @@ class ThreadWorker(QObject):
             exctype, value = sys.exc_info()[:2]
             self.error.emit((exctype, value, traceback.format_exc()))
         else:
-            print("Emitting Result")
             self.result.emit(result)  # Return the result of the processing
         finally:
             self.finished.emit()  # Done

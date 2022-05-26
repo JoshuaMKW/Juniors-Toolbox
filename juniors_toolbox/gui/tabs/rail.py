@@ -131,6 +131,8 @@ class RailNodeListWidget(InteractiveListWidget):
         super().__init__(parent)
         self.setAcceptDrops(False)
         self.setDragDropMode(InteractiveListWidget.DragDropMode.InternalMove)
+        self.model().rowsMoved.connect(self._update_node_names)
+        self.itemCreated.connect(self._update_node_names)
 
     def get_context_menu(self, point: QPoint) -> Optional[QMenu]:
         # Infos about the node selected.
@@ -143,28 +145,28 @@ class RailNodeListWidget(InteractiveListWidget):
 
         insertBefore = QAction("Insert Node Before...", self)
         insertBefore.triggered.connect(
-            lambda clicked=None: self.create_node(self.indexFromItem(item).row())
+            lambda clicked=None: self.create_node(self.row(item))
         )
         insertAfter = QAction("Insert Node After...", self)
         insertAfter.triggered.connect(
-            lambda clicked=None: self.create_node(self.indexFromItem(item).row() + 1)
+            lambda clicked=None: self.create_node(self.row(item) + 1)
         )
 
         connectToNeighbors = QAction("Connect to Neighbors", self)
         connectToNeighbors.triggered.connect(
-            lambda clicked=None: self.connect_to_neighbors(item)
+            lambda clicked=None: self.connect_to_neighbors(self.selectedItems())
         )
         connectToPrev = QAction("Connect to Prev", self)
         connectToPrev.triggered.connect(
-            lambda clicked=None: self.connect_to_prev(item)
+            lambda clicked=None: self.connect_to_prev(self.selectedItems())
         )
         connectToNext = QAction("Connect to Next", self)
         connectToNext.triggered.connect(
-            lambda clicked=None: self.connect_to_next(item)
+            lambda clicked=None: self.connect_to_next(self.selectedItems())
         )
         connectToReferring = QAction("Connect to Referring Nodes", self)
         connectToReferring.triggered.connect(
-            lambda clicked=None: self.connect_to_referring(item)
+            lambda clicked=None: self.connect_to_referring(self.selectedItems())
         )
 
         duplicateAction = QAction("Duplicate", self)
@@ -196,11 +198,11 @@ class RailNodeListWidget(InteractiveListWidget):
         pass
 
     @Slot(RailNodeListWidgetItem)
-    def duplicate_items(self, items: List[RailNodeListWidgetItem]) -> None:
+    def duplicate_items(self, items: list[RailNodeListWidgetItem]) -> None:
         super().duplicate_items(items)
 
     @Slot(list)
-    def delete_items(self, items: List[InteractiveListWidgetItem]):
+    def delete_items(self, items: list[InteractiveListWidgetItem]):
         for item in items:
             row = self.row(item)
             self.itemDeleted.emit(item, row)
@@ -230,138 +232,154 @@ class RailNodeListWidget(InteractiveListWidget):
         self.nodeCreated.emit(item)
         self.currentItemChanged.emit(item, oldItem)
 
-    @Slot(RailNodeListWidgetItem)
-    def connect_to_neighbors(self, item: RailNodeListWidgetItem):
-        thisIndex = self.indexFromItem(item).row()
-        thisNode = item.node
+    @Slot(list)
+    def connect_to_neighbors(self, items: list[RailNodeListWidgetItem]):
+        if len(items) == 0:
+            return
 
-        if thisIndex == 0:
-            prevIndex = self.count() - 1
-        else:
-            prevIndex = thisIndex - 1
+        for item in items:
+            thisIndex = self.row(item)
+            thisNode = item.node
 
-        if thisIndex == self.count() - 1:
-            nextIndex = 0
-        else:
-            nextIndex = thisIndex + 1
+            if thisIndex == 0:
+                prevIndex = self.count() - 1
+            else:
+                prevIndex = thisIndex - 1
 
-        prevItem: RailNodeListWidgetItem = self.item(prevIndex)
-        nextItem: RailNodeListWidgetItem = self.item(nextIndex)
+            if thisIndex == self.count() - 1:
+                nextIndex = 0
+            else:
+                nextIndex = thisIndex + 1
 
-        prevNode = prevItem.node
-        nextNode = nextItem.node
+            prevItem: RailNodeListWidgetItem = self.item(prevIndex)
+            nextItem: RailNodeListWidgetItem = self.item(nextIndex)
 
-        thisNode.connectionCount.set_value(2)
+            prevNode = prevItem.node
+            nextNode = nextItem.node
 
-        preConnectionCount = prevNode.connectionCount.get_value()
-        if preConnectionCount < 1:
-            prevNode.connectionCount.set_value(1)
-            preConnectionCount = 1
+            thisNode.connectionCount.set_value(2)
 
-        if nextNode.connectionCount.get_value() < 1:
-            nextNode.connectionCount.set_value(1)
+            preConnectionCount = prevNode.connectionCount.get_value()
+            if preConnectionCount < 1:
+                prevNode.connectionCount.set_value(1)
+                preConnectionCount = 1
 
-        prevNode.connections[preConnectionCount - 1].set_value(thisIndex)
-        prevNode.set_period_from(preConnectionCount - 1, thisNode)
-        thisNode.connections[0].set_value(prevIndex)
-        thisNode.set_period_from(0, prevNode)
-        thisNode.connections[1].set_value(nextIndex)
-        thisNode.set_period_from(1, nextNode)
-        nextNode.connections[0].set_value(thisIndex)
-        nextNode.set_period_from(0, thisNode)
+            if nextNode.connectionCount.get_value() < 1:
+                nextNode.connectionCount.set_value(1)
 
-        prevItem.setText(self._get_node_name(prevIndex, prevNode))
-        item.setText(self._get_node_name(thisIndex, thisNode))
-        nextItem.setText(self._get_node_name(nextIndex, nextNode))
+            prevNode.connections[preConnectionCount - 1].set_value(thisIndex)
+            prevNode.set_period_from(preConnectionCount - 1, thisNode)
+            thisNode.connections[0].set_value(prevIndex)
+            thisNode.set_period_from(0, prevNode)
+            thisNode.connections[1].set_value(nextIndex)
+            thisNode.set_period_from(1, nextNode)
+            nextNode.connections[0].set_value(thisIndex)
+            nextNode.set_period_from(0, thisNode)
 
-        self.nodeUpdated.emit(item)
+            prevItem.setText(self._get_node_name(prevIndex, prevNode))
+            item.setText(self._get_node_name(thisIndex, thisNode))
+            nextItem.setText(self._get_node_name(nextIndex, nextNode))
 
-    @Slot(RailNodeListWidgetItem)
-    def connect_to_prev(self, item: RailNodeListWidgetItem):
-        thisIndex = self.indexFromItem(item).row()
-        thisNode = item.node
+        self.nodeUpdated.emit(items[0])
 
-        if thisIndex == 0:
-            prevIndex = self.count() - 1
-        else:
-            prevIndex = thisIndex - 1
+    @Slot(list)
+    def connect_to_prev(self, items: list[RailNodeListWidgetItem]):
+        if len(items) == 0:
+            return
+            
+        for item in items:
+            thisIndex = self.row(item)
+            thisNode = item.node
 
-        prevItem: RailNodeListWidgetItem = self.item(prevIndex)
-        prevNode = prevItem.node
+            if thisIndex == 0:
+                prevIndex = self.count() - 1
+            else:
+                prevIndex = thisIndex - 1
 
-        thisNode.connectionCount.set_value(1)
-        preConnectionCount = prevNode.connectionCount.get_value()
-        if preConnectionCount < 1:
-            prevNode.connectionCount.set_value(1)
-            preConnectionCount = 1
+            prevItem: RailNodeListWidgetItem = self.item(prevIndex)
+            prevNode = prevItem.node
 
-        prevNode.connections[preConnectionCount - 1].set_value(thisIndex)
-        prevNode.set_period_from(preConnectionCount - 1, thisNode)
-        thisNode.connections[0].set_value(prevIndex)
-        thisNode.set_period_from(0, prevNode)
+            thisNode.connectionCount.set_value(1)
+            preConnectionCount = prevNode.connectionCount.get_value()
+            if preConnectionCount < 1:
+                prevNode.connectionCount.set_value(1)
+                preConnectionCount = 1
 
-        prevItem.setText(self._get_node_name(prevIndex, prevNode))
-        item.setText(self._get_node_name(thisIndex, thisNode))
+            prevNode.connections[preConnectionCount - 1].set_value(thisIndex)
+            prevNode.set_period_from(preConnectionCount - 1, thisNode)
+            thisNode.connections[0].set_value(prevIndex)
+            thisNode.set_period_from(0, prevNode)
 
-        self.nodeUpdated.emit(item)
+            prevItem.setText(self._get_node_name(prevIndex, prevNode))
+            item.setText(self._get_node_name(thisIndex, thisNode))
 
-    @Slot(RailNodeListWidgetItem)
-    def connect_to_next(self, item: RailNodeListWidgetItem):
-        thisIndex = self.indexFromItem(item).row()
-        thisNode = item.node
+        self.nodeUpdated.emit(items[0])
 
-        if thisIndex == self.count() - 1:
-            nextIndex = 0
-        else:
-            nextIndex = thisIndex + 1
+    @Slot(list)
+    def connect_to_next(self, items: list[RailNodeListWidgetItem]):
+        if len(items) == 0:
+            return
+            
+        for item in items:
+            thisIndex = self.row(item)
+            thisNode = item.node
 
-        nextItem: RailNodeListWidgetItem = self.item(nextIndex)
-        nextNode = nextItem.node
+            if thisIndex == self.count() - 1:
+                nextIndex = 0
+            else:
+                nextIndex = thisIndex + 1
 
-        thisNode.connectionCount.set_value(1)
-        if nextNode.connectionCount.get_value() < 1:
-            nextNode.connectionCount.set_value(1)
+            nextItem: RailNodeListWidgetItem = self.item(nextIndex)
+            nextNode = nextItem.node
 
-        thisNode.connections[0].set_value(nextIndex)
-        thisNode.set_period_from(0, nextNode)
-        nextNode.connections[0].set_value(thisIndex)
-        nextNode.set_period_from(0, thisNode)
+            thisNode.connectionCount.set_value(1)
+            if nextNode.connectionCount.get_value() < 1:
+                nextNode.connectionCount.set_value(1)
 
-        item.setText(self._get_node_name(thisIndex, thisNode))
-        nextItem.setText(self._get_node_name(nextIndex, nextNode))
+            thisNode.connections[0].set_value(nextIndex)
+            thisNode.set_period_from(0, nextNode)
+            nextNode.connections[0].set_value(thisIndex)
+            nextNode.set_period_from(0, thisNode)
 
-        self.nodeUpdated.emit(item)
+            item.setText(self._get_node_name(thisIndex, thisNode))
+            nextItem.setText(self._get_node_name(nextIndex, nextNode))
 
-    @Slot(RailNodeListWidgetItem)
-    def connect_to_referring(self, item: RailNodeListWidgetItem):
-        thisIndex = self.indexFromItem(item).row()
-        thisNode = item.node
+        self.nodeUpdated.emit(items[0])
 
-        existingConnections = []
-        for i in range(thisNode.connectionCount.get_value()):
-            existingConnections.append(thisNode.connections[i].get_value())
+    @Slot(list)
+    def connect_to_referring(self, items: list[RailNodeListWidgetItem]):
+        if len(items) == 0:
+            return
+            
+        for item in items:
+            thisIndex = self.row(item)
+            thisNode = item.node
 
-        connectionIndex = thisNode.connectionCount.get_value()
-        for row in range(self.count()):
-            if connectionIndex > 7:
-                break
+            existingConnections = []
+            for i in range(thisNode.connectionCount.get_value()):
+                existingConnections.append(thisNode.connections[i].get_value())
 
-            if row == thisIndex or row in existingConnections:
-                continue
+            connectionIndex = thisNode.connectionCount.get_value()
+            for row in range(self.count()):
+                if connectionIndex > 7:
+                    break
 
-            otherItem: RailNodeListWidgetItem = self.item(row)
-            otherNode = otherItem.node
-            for i in range(otherNode.connectionCount.get_value()):
-                connection = otherNode.connections[i].get_value()
-                if connection == thisIndex:
-                    thisNode.connections[connectionIndex].set_value(row)
-                    thisNode.set_period_from(connectionIndex, otherNode)
-                    thisNode.connectionCount.set_value(connectionIndex + 1)
-                    connectionIndex += 1
+                if row == thisIndex or row in existingConnections:
+                    continue
 
-        item.setText(self._get_node_name(thisIndex, thisNode))
+                otherItem: RailNodeListWidgetItem = self.item(row)
+                otherNode = otherItem.node
+                for i in range(otherNode.connectionCount.get_value()):
+                    connection = otherNode.connections[i].get_value()
+                    if connection == thisIndex:
+                        thisNode.connections[connectionIndex].set_value(row)
+                        thisNode.set_period_from(connectionIndex, otherNode)
+                        thisNode.connectionCount.set_value(connectionIndex + 1)
+                        connectionIndex += 1
 
-        self.nodeUpdated.emit(item)
+            item.setText(self._get_node_name(thisIndex, thisNode))
+
+        self.nodeUpdated.emit(items[0])
 
     def _get_node_name(self, index: int, node: RailKeyFrame):
         connections = []
@@ -369,6 +387,13 @@ class RailNodeListWidget(InteractiveListWidget):
             connections.append(node.connections[x].get_value())
         name = f"Node {index} - {connections}"
         return name
+
+    @Slot()
+    def _update_node_names(self):
+        for i in range(self.count()):
+            item: RailNodeListWidgetItem = self.item(i)
+            name = self._get_node_name(i, item.node)
+            item.setText(name)
 
 
 class RailListWidget(InteractiveListWidget):
