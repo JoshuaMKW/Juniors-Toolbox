@@ -147,7 +147,7 @@ class RailNodeListWidget(InteractiveListWidget):
         insertBefore.triggered.connect(
             lambda clicked=None: self.create_node(self.row(item))
         )
-        insertAfter = QAction("Insert Node After...", self)
+        insertAfter = QAction("Insert Node After...", self) 
         insertAfter.triggered.connect(
             lambda clicked=None: self.create_node(self.row(item) + 1)
         )
@@ -455,9 +455,11 @@ class RailViewerWidget(A_DockingInterface):
         nodeList.currentItemChanged.connect(
             self.__populate_node_properties_view)
         nodeList.currentItemChanged.connect(self.__populate_data_view)
-        nodeList.itemDeleted.connect(self.remove_deleted_node)
+        nodeList.itemCreated.connect(self.push_node_to_rail)
+        nodeList.itemDeleted.connect(self.remove_node_from_rail)
         nodeList.nodeUpdated.connect(self.__populate_node_properties_view)
         nodeList.nodeUpdated.connect(self.__populate_data_view)
+        nodeList.model().rowsMoved.connect(lambda: self.__update_node_properties_name(self.nodeList.currentItem()))
         self.nodeList = nodeList
 
         self.nodeListLayout.addWidget(self.nodeInterface)
@@ -642,7 +644,7 @@ class RailViewerWidget(A_DockingInterface):
 
         propertiesTab.populate(
             None,
-            title=f"Node {self.nodeList.indexFromItem(item).row()} Properties",
+            title=f"Node {self.nodeList.row(item)} Properties",
             properties=[
                 position,
                 flags,
@@ -654,6 +656,14 @@ class RailViewerWidget(A_DockingInterface):
                 connections
             ]
         )
+
+    @Slot()
+    def __update_node_properties_name(self, item: RailNodeListWidgetItem):
+        from juniors_toolbox.gui.tabs import TabWidgetManager
+        propertiesTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
+        if propertiesTab is not None:
+            propertiesTab.setWindowTitle(f"Node {self.nodeList.row(item)} Properties")
+
 
     @Slot()
     def new_rail(self):
@@ -678,22 +688,32 @@ class RailViewerWidget(A_DockingInterface):
     @Slot()
     def new_node(self, index: int):
         self.nodeList.create_node(index)
-        node = self.nodeList.item(index)
-        self._rail.insert_frame(index, node)
+        if self._rail is None:
+            return
+        item = self.nodeList.item(index)
+        self.push_node_to_rail(item)
 
     @Slot()
     def remove_selected_node(self):
-        self.remove_deleted_node(
+        self.remove_node_from_rail(
             self.nodeList.takeItem(self.nodeList.currentRow())
         )
 
     @Slot(RailNodeListWidgetItem)
-    def remove_deleted_node(self, item: RailNodeListWidgetItem):
+    def remove_node_from_rail(self, item: RailNodeListWidgetItem):
+        if self._rail is None:
+            return
         self._rail.remove_frame(item.node)
 
     @Slot()
     def copy_selected_node(self):
         self.nodeList.duplicate_items([self.nodeList.currentItem()])
+
+    @Slot()
+    def push_node_to_rail(self, item: RailNodeListWidgetItem):
+        if self._rail is None:
+            return
+        self._rail.insert_frame(self.nodeList.row(item), item.node)
 
     @Slot(InteractiveListWidgetItem)
     def __populate_data_view(self, item: RailNodeListWidgetItem | RailListWidgetItem):
@@ -727,9 +747,18 @@ class RailViewerWidget(A_DockingInterface):
         self._railNode.posY.set_value(value[1])
         self._railNode.posZ.set_value(value[2])
 
-    def __set_rail_spline(self,  isSpline: bool):
+    def __set_rail_spline(self, isSpline: bool):
+        if self._rail is None or self._railItem is None:
+            return
+
         name = self._rail.name.lstrip("S_")
         if isSpline:
             name = f"S_{name}"
         self._rail.name = name
         self._railItem.setText(name)
+
+        from juniors_toolbox.gui.tabs import TabWidgetManager
+        propertiesTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
+        if propertiesTab is not None:
+            propertiesTab.setWindowTitle(f"{self._rail.name} Properties")
+
