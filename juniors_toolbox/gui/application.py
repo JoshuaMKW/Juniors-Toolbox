@@ -4,14 +4,13 @@ from typing import Dict, Iterable, List, Optional, Tuple
 from PySide6.QtCore import QPoint, QSize, Slot
 from PySide6.QtGui import QResizeEvent, Qt, QFontDatabase
 
-from PySide6.QtWidgets import QApplication, QFileDialog, QLabel, QSizePolicy, QStyleFactory, QWidget
+from PySide6.QtWidgets import QApplication, QFileDialog, QLabel, QSizePolicy, QStyleFactory, QWidget, QListWidgetItem
 from juniors_toolbox import __version__
 from juniors_toolbox.gui.settings import ToolboxSettings
 from juniors_toolbox.gui.tabs import TabWidgetManager
 from juniors_toolbox.gui.tabs.hierarchyviewer import NameRefHierarchyTreeWidgetItem, NameRefHierarchyWidget
 from juniors_toolbox.gui.tabs.projectviewer import ProjectViewerWidget
 from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
-from juniors_toolbox.gui.tabs.rail import RailListWidgetItem, RailViewerWidget
 from juniors_toolbox.gui.templates import ToolboxTemplates
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.gui.windows.mainwindow import MainWindow
@@ -253,16 +252,16 @@ class JuniorsToolbox(QApplication):
 
         return True
 
-    @Slot(RailListWidgetItem, int)
-    def __add_rail(self, item: RailListWidgetItem, index: int):
+    @Slot(QListWidgetItem, int)
+    def __add_rail(self, item: QListWidgetItem, index: int):
         scene = self.manager.get_scene()
         if scene is None:
             return
 
-        scene.set_rail_by_index(index, item.rail)
+        scene.set_rail_by_index(index, item.data(Qt.UserRole))
 
-    @Slot(RailListWidgetItem, int)
-    def __remove_rail(self, item: RailListWidgetItem, index: int):
+    @Slot(QListWidgetItem, int)
+    def __remove_rail(self, item: QListWidgetItem, index: int):
         scene = self.manager.get_scene()
         if scene is None:
             return

@@ -1,9 +1,9 @@
+from io import BytesIO
 from pathlib import Path
 from tkinter.font import names
-from typing import Optional, Union
+from typing import Optional, Union, List
 from async_timeout import Any
 
-from pip import List
 from juniors_toolbox.gui.layouts.framelayout import FrameLayout
 from juniors_toolbox.gui.tabs.dataeditor import DataEditorWidget
 from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
@@ -17,8 +17,8 @@ from juniors_toolbox.gui.widgets.spinboxdrag import SpinBoxDragInt
 from juniors_toolbox.objects.object import MapObject
 from juniors_toolbox.rail import Rail, RailKeyFrame, RalData
 from juniors_toolbox.scene import SMSScene
-from PySide6.QtCore import Qt, Slot, QPoint, Signal
-from PySide6.QtGui import QAction
+from PySide6.QtCore import Qt, Slot, QPoint, Signal, QDataStream, QModelIndex, QMimeData
+from PySide6.QtGui import QAction, QDragEnterEvent, QDragLeaveEvent, QDragMoveEvent, QDropEvent, QStandardItemModel, QStandardItem
 from PySide6.QtWidgets import QGridLayout, QListWidget, QSplitter, QWidget, QListWidgetItem, QFormLayout, QVBoxLayout, QMenu
 from juniors_toolbox.utils import A_Serializable, VariadicArgs, VariadicKwargs
 
@@ -112,15 +112,45 @@ class RailNodeListWidgetItem(QListWidgetItem):
         item = RailNodeListWidgetItem(self, self.node.copy())
         return item
 
+    def read(self, in_: QDataStream) -> None:
+        super().read(in_)
+        nodeLength = in_.readInt32()
+        rawData = b""
+        in_.readRawData(
+            rawData,
+            nodeLength
+        )
+        data = BytesIO(rawData)
+        self.node = RailKeyFrame.from_bytes(data)
 
-class RailListWidgetItem(InteractiveListWidgetItem):
-    def __init__(self, item: Union["RailListWidgetItem", str], rail: Rail) -> None:
-        super().__init__(item)
-        self.rail = rail
+    def write(self, out: QDataStream) -> None:
+        super().write(out)
+        nodeData = self.node.to_bytes()
+        out.writeInt32(
+            len(nodeData)
+        )
+        out.writeRawData(
+            nodeData,
+            len(nodeData)
+        )
 
-    def copy(self, *, deep: bool = False) -> "RailListWidgetItem":
-        item = RailListWidgetItem(self, self.rail.copy(deep=deep))
-        return item
+
+class RailListModel(QStandardItemModel):
+    MimeType = "scene/rail-data"
+
+    def mimeData(self, indexes: List[int]) -> QMimeData:
+        mimeData = super().mimeData(indexes)
+        mimeData.setData(self.MimeType, b"")
+        return mimeData
+
+
+class RailNodeListModel(QStandardItemModel):
+    MimeType = "scene/rail-node-data"
+
+    def mimeData(self, indexes: List[int]) -> QMimeData:
+        mimeData = super().mimeData(indexes)
+        mimeData.setData(self.MimeType, b"")
+        return mimeData
 
 
 class RailNodeListWidget(InteractiveListWidget):
@@ -129,10 +159,18 @@ class RailNodeListWidget(InteractiveListWidget):
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
+        self.setModel(RailNodeListModel())
+
         self.setAcceptDrops(False)
-        self.setDragDropMode(InteractiveListWidget.DragDropMode.InternalMove)
-        self.model().rowsMoved.connect(self._update_node_names)
+        self.setDragDropMode(InteractiveListWidget.DragDropMode.DragDrop)
+
+        model = self.model()
+        model.rowsMoved.connect(self._update_node_names)
+        model.rowsInserted.connect(self._update_dropped_items)
         self.itemCreated.connect(self._update_node_names)
+
+        self._first = 0
+        self._last = 0
 
     def get_context_menu(self, point: QPoint) -> Optional[QMenu]:
         # Infos about the node selected.
@@ -210,13 +248,21 @@ class RailNodeListWidget(InteractiveListWidget):
         
         for row in range(self.count()):
             _item: RailNodeListWidgetItem = self.item(row)
-            _item.setText(self._get_node_name(row, _item.node))
+            _item.setText(self._get_node_name(row, _item.data(Qt.UserRole)))
 
     @Slot(int)
     def create_node(self, index: int) -> None:
         node = RailKeyFrame()
 
-        item = RailNodeListWidgetItem("", node)
+        item = QListWidgetItem()
+        item.setFlags(
+            Qt.ItemIsSelectable |
+            Qt.ItemIsDragEnabled |
+            Qt.ItemIsEnabled
+        )
+        item.setData(Qt.UserRole, node)
+
+        self.node = node
         oldItem = self.currentItem()
 
         self.blockSignals(True)
@@ -224,7 +270,7 @@ class RailNodeListWidget(InteractiveListWidget):
         for row in range(self.count()):
             _item: RailNodeListWidgetItem = self.item(row)
             _item.setSelected(False)
-            _item.setText(self._get_node_name(row, _item.node))
+            _item.setText(self._get_node_name(row, _item.data(Qt.UserRole)))
         self.blockSignals(False)
 
         item.setSelected(True)
@@ -239,7 +285,7 @@ class RailNodeListWidget(InteractiveListWidget):
 
         for item in items:
             thisIndex = self.row(item)
-            thisNode = item.node
+            thisNode: RailKeyFrame = item.data(Qt.UserRole)
 
             if thisIndex == 0:
                 prevIndex = self.count() - 1
@@ -254,8 +300,8 @@ class RailNodeListWidget(InteractiveListWidget):
             prevItem: RailNodeListWidgetItem = self.item(prevIndex)
             nextItem: RailNodeListWidgetItem = self.item(nextIndex)
 
-            prevNode = prevItem.node
-            nextNode = nextItem.node
+            prevNode: RailKeyFrame = prevItem.data(Qt.UserRole)
+            nextNode: RailKeyFrame = nextItem.data(Qt.UserRole)
 
             thisNode.connectionCount.set_value(2)
 
@@ -289,7 +335,7 @@ class RailNodeListWidget(InteractiveListWidget):
             
         for item in items:
             thisIndex = self.row(item)
-            thisNode = item.node
+            thisNode: RailKeyFrame = item.data(Qt.UserRole)
 
             if thisIndex == 0:
                 prevIndex = self.count() - 1
@@ -297,7 +343,7 @@ class RailNodeListWidget(InteractiveListWidget):
                 prevIndex = thisIndex - 1
 
             prevItem: RailNodeListWidgetItem = self.item(prevIndex)
-            prevNode = prevItem.node
+            prevNode: RailKeyFrame = prevItem.data(Qt.UserRole)
 
             thisNode.connectionCount.set_value(1)
             preConnectionCount = prevNode.connectionCount.get_value()
@@ -322,7 +368,7 @@ class RailNodeListWidget(InteractiveListWidget):
             
         for item in items:
             thisIndex = self.row(item)
-            thisNode = item.node
+            thisNode: RailKeyFrame = item.data(Qt.UserRole)
 
             if thisIndex == self.count() - 1:
                 nextIndex = 0
@@ -330,7 +376,7 @@ class RailNodeListWidget(InteractiveListWidget):
                 nextIndex = thisIndex + 1
 
             nextItem: RailNodeListWidgetItem = self.item(nextIndex)
-            nextNode = nextItem.node
+            nextNode: RailKeyFrame = nextItem.data(Qt.UserRole)
 
             thisNode.connectionCount.set_value(1)
             if nextNode.connectionCount.get_value() < 1:
@@ -353,7 +399,7 @@ class RailNodeListWidget(InteractiveListWidget):
             
         for item in items:
             thisIndex = self.row(item)
-            thisNode = item.node
+            thisNode: RailKeyFrame = item.data(Qt.UserRole)
 
             existingConnections = []
             for i in range(thisNode.connectionCount.get_value()):
@@ -368,7 +414,7 @@ class RailNodeListWidget(InteractiveListWidget):
                     continue
 
                 otherItem: RailNodeListWidgetItem = self.item(row)
-                otherNode = otherItem.node
+                otherNode: RailKeyFrame = otherItem.data(Qt.UserRole)
                 for i in range(otherNode.connectionCount.get_value()):
                     connection = otherNode.connections[i].get_value()
                     if connection == thisIndex:
@@ -390,28 +436,97 @@ class RailNodeListWidget(InteractiveListWidget):
 
     @Slot()
     def _update_node_names(self):
-        for i in range(self.count()):
-            item: RailNodeListWidgetItem = self.item(i)
-            name = self._get_node_name(i, item.node)
+        for row in range(self.count()):
+            item = self.item(row)
+            name = self._get_node_name(row, item.data(Qt.UserRole))
             item.setText(name)
 
+    @Slot(QModelIndex, int, int)
+    def _update_dropped_items(self, parentIdx: QModelIndex, first: int, last: int):
+        self._first = first
+        self._last = last
+
+    @Slot(Qt.DropActions)
+    def startDrag(self, actions: Qt.DropActions):
+        super().startDrag(actions)
+
+
+    @Slot(QDragEnterEvent)
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
+        mimedata = event.mimeData()
+        if not mimedata.hasFormat(RailNodeListModel.MimeType):
+            event.ignore()
+            return
+
+        if event.source() == self:
+            event.setDropAction(Qt.MoveAction)
+        elif event.source() is None:
+            event.setDropAction(Qt.CopyAction)
+        else:
+            event.ignore()
+            return
+
+        super().dragEnterEvent(event)
+
+    @Slot(QDragMoveEvent)
+    def dragMoveEvent(self, event: QDragMoveEvent) -> None:
+        mimedata = event.mimeData()
+        if not mimedata.hasFormat(RailNodeListModel.MimeType):
+            event.ignore()
+            return
+
+        if event.source() == self:
+            event.setDropAction(Qt.MoveAction)
+        elif event.source() is None:
+            event.setDropAction(Qt.CopyAction)
+        else:
+            event.ignore()
+            return
+
+        super().dragMoveEvent(event)
+
+    @Slot(QDropEvent)
+    def dropEvent(self, event: QDropEvent) -> None:
+        mimedata = event.mimeData()
+        if not mimedata.hasFormat(RailNodeListModel.MimeType):
+            event.ignore()
+            return
+
+        if event.source() == self:
+            event.setDropAction(Qt.MoveAction)
+        elif event.source() is None:
+            event.setDropAction(Qt.CopyAction)
+        else:
+            event.ignore()
+            return
+            
+        super().dropEvent(event)
+        self.clearSelection()
+        self.setCurrentItem(self.item(self._first))
+        for row in range(self._first, self._last + 1):
+            item = self.item(row)
+            item.setSelected(True)
+            self.itemCreated.emit(item, row)
+            self.nodeCreated.emit(item)
 
 class RailListWidget(InteractiveListWidget):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
+        self.setModel(RailListModel())
+
         self.setAcceptDrops(False)
         self.setDragDropMode(InteractiveListWidget.DragDropMode.InternalMove)
         # self.setDefaultDropAction(Qt.MoveAction)
 
-    @Slot(RailListWidgetItem)
-    def rename_item(self, item: RailListWidgetItem) -> None:
+    @Slot(QListWidgetItem)
+    def rename_item(self, item: QListWidgetItem) -> None:
         name = super().rename_item(item)
-        item.rail.name = name
+        item.data(Qt.UserRole).name = name
 
-    @Slot(RailListWidgetItem)
-    def duplicate_items(self, items: List[RailListWidgetItem]) -> None:
+    @Slot(QListWidgetItem)
+    def duplicate_items(self, items: List[QListWidgetItem]) -> None:
         nitem = super().duplicate_items(items)
-        nitem.rail.name = nitem.text()
+        nitem.data(Qt.UserRole).name = nitem.text()
 
 
 class RailViewerWidget(A_DockingInterface):
@@ -475,7 +590,7 @@ class RailViewerWidget(A_DockingInterface):
         self.setWidget(splitter)
 
         self._rail: Optional[Rail] = None
-        self._railItem: Optional[RailListWidgetItem] = None
+        self._railItem: Optional[QListWidgetItem] = None
         self._railNode: Optional[RailKeyFrame] = None
         self._railNodeItem: Optional[RailNodeListWidgetItem] = None
 
@@ -486,7 +601,8 @@ class RailViewerWidget(A_DockingInterface):
         self.nodeList.clear()
         if scene is not None:
             for rail in scene.iter_rails():
-                item = RailListWidgetItem(rail.name, rail)
+                item = QListWidgetItem(rail.name)
+                item.setData(Qt.UserRole, rail)
                 self.railList.addItem(item)
             if self.railList.count() > 0:
                 self.railList.setCurrentRow(0)
@@ -494,29 +610,35 @@ class RailViewerWidget(A_DockingInterface):
                 if citem is not None:
                     self.__populate_nodelist(citem)
                 self._railItem = self.railList.currentItem()
-                self._rail = self._railItem.rail
+                self._rail = self._railItem.data(Qt.UserRole)
         self.railList.blockSignals(False)
         self.nodeList.blockSignals(False)
 
-    def __populate_nodelist(self, item: RailListWidgetItem) -> None:
+    def __populate_nodelist(self, item: QListWidgetItem) -> None:
         self.nodeList.blockSignals(True)
         self.nodeList.clear()
 
-        rail = item.rail
+        rail: Rail = item.data(Qt.UserRole)
         for i, node in enumerate(rail.iter_frames()):
-            item = RailNodeListWidgetItem(self.nodeList._get_node_name(i, node), node)
+            item = QListWidgetItem(self.nodeList._get_node_name(i, node))
+            item.setFlags(
+                Qt.ItemIsSelectable |
+                Qt.ItemIsDragEnabled |
+                Qt.ItemIsEnabled
+            )
+            item.setData(Qt.UserRole, node)
             self.nodeList.addItem(item)
 
         self.nodeList.blockSignals(False)
 
-    @Slot(RailListWidgetItem)
-    def __populate_rail_properties_view(self, item: RailListWidgetItem) -> None:
+    @Slot(QListWidgetItem)
+    def __populate_rail_properties_view(self, item: QListWidgetItem) -> None:
         from juniors_toolbox.gui.tabs import TabWidgetManager
         propertiesTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
         if propertiesTab is None or item is None:
             return
 
-        self._rail = item.rail
+        self._rail = item.data(Qt.UserRole)
         self._railItem = item
 
         nodeCountProperty = CommentProperty(
@@ -554,7 +676,7 @@ class RailViewerWidget(A_DockingInterface):
         if propertiesTab is None or item is None:
             return
 
-        self._railNode = item.node
+        self._railNode: RailKeyFrame = item.data(Qt.UserRole)
         self._railNodeItem = item
 
         position = S16Vector3Property(
@@ -664,14 +786,11 @@ class RailViewerWidget(A_DockingInterface):
         if propertiesTab is not None:
             propertiesTab.setWindowTitle(f"Node {self.nodeList.row(item)} Properties")
 
-
     @Slot()
     def new_rail(self):
         name = self.railList._resolve_name("rail")
-        item = RailListWidgetItem(
-            name,
-            Rail(name)
-        )
+        item = QListWidgetItem(name)
+        item.setData(Qt.UserRole, Rail(name))
         self.railList.blockSignals(True)
         self.railList.addItem(item)
         self.railList.blockSignals(False)
@@ -703,7 +822,7 @@ class RailViewerWidget(A_DockingInterface):
     def remove_node_from_rail(self, item: RailNodeListWidgetItem):
         if self._rail is None:
             return
-        self._rail.remove_frame(item.node)
+        self._rail.remove_frame(item.data(Qt.UserRole))
 
     @Slot()
     def copy_selected_node(self):
@@ -713,33 +832,33 @@ class RailViewerWidget(A_DockingInterface):
     def push_node_to_rail(self, item: RailNodeListWidgetItem):
         if self._rail is None:
             return
-        self._rail.insert_frame(self.nodeList.row(item), item.node)
+        self._rail.insert_frame(self.nodeList.row(item), item.data(Qt.UserRole))
 
     @Slot(InteractiveListWidgetItem)
-    def __populate_data_view(self, item: RailNodeListWidgetItem | RailListWidgetItem):
+    def __populate_data_view(self, item: RailNodeListWidgetItem | QListWidgetItem):
         from juniors_toolbox.gui.tabs import TabWidgetManager
         dataEditorTab = TabWidgetManager.get_tab(DataEditorWidget)
         if dataEditorTab is None or item is None:
             return
         obj: A_Serializable
         if isinstance(item, RailNodeListWidgetItem):
-            obj = item.node
+            obj = item.data(Qt.UserRole)
         else:
-            obj = item.rail
+            obj = item.data(Qt.UserRole)
         dataEditorTab.populate(None, serializable=obj)
 
     def __update_connection_count(self, item: RailNodeListWidgetItem, count: int):
         self._railNode.connectionCount.set_value(count)
         item.setText(self.nodeList._get_node_name(
-            self.nodeList.indexFromItem(item).row(), item.node))
+            self.nodeList.indexFromItem(item).row(), item.data(Qt.UserRole)))
         self.__populate_data_view(item)
 
     def __update_connection(self, item: RailNodeListWidgetItem, index: int, connection: int):
-        frame = item.node
+        frame = item.data(Qt.UserRole)
         frame.connections[index].set_value(connection)
         frame.set_period_from(index, self.nodeList.item(connection).node)
         item.setText(self.nodeList._get_node_name(
-            self.nodeList.indexFromItem(item).row(), item.node))
+            self.nodeList.indexFromItem(item).row(), item.data(Qt.UserRole)))
         self.__populate_data_view(item)
 
     def __set_position(self, value: list):
