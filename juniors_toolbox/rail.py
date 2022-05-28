@@ -109,10 +109,19 @@ class RailKeyFrame(A_Serializable, A_Clonable):
             )
         return _copy
 
+    def is_connected(self) -> bool:
+        return self.connectionCount.get_value() > 0
+
+    def is_connected_to(self, index: int):
+        for i in range(self.connectionCount.get_value()):
+            if self.connections[i].get_value() == index:
+                return True
+        return False
+
     def add_connection(self, connection: int) -> bool:
         if self.connectionCount.get_value() >= 8:
             return False
-        self.connections[self.connectionCount.get_value()] = connection
+        self.connections[self.connectionCount.get_value()].set_value(connection)
         self.connectionCount.set_value(self.connectionCount.get_value() + 1)
         return True
 

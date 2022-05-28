@@ -1,9 +1,9 @@
+from email.policy import default
 from pathlib import Path
 from tkinter.font import names
 from typing import Optional, Union
 from async_timeout import Any
 
-from pip import List
 from juniors_toolbox.gui.layouts.framelayout import FrameLayout
 from juniors_toolbox.gui.tabs.dataeditor import DataEditorWidget
 from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
@@ -17,8 +17,8 @@ from juniors_toolbox.gui.widgets.spinboxdrag import SpinBoxDragInt
 from juniors_toolbox.objects.object import MapObject
 from juniors_toolbox.rail import Rail, RailKeyFrame, RalData
 from juniors_toolbox.scene import SMSScene
-from PySide6.QtCore import Qt, Slot, QPoint, Signal, QModelIndex, QPersistentModelIndex, QItemSelection, QItemSelectionModel
-from PySide6.QtGui import QAction
+from PySide6.QtCore import Qt, Slot, QPoint, Signal, QModelIndex, QPersistentModelIndex, QItemSelection, QItemSelectionModel, QObject, QMimeData, QDataStream, QAbstractListModel
+from PySide6.QtGui import QAction, QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import QGridLayout, QListWidget, QSplitter, QWidget, QListWidgetItem, QFormLayout, QVBoxLayout, QMenu
 from juniors_toolbox.utils import A_Serializable, VariadicArgs, VariadicKwargs
 
@@ -98,6 +98,274 @@ class S16Vector3Property(A_ValueProperty):
         self.valueChanged.emit(self, self.get_value())
 
 
+class RailListModel(QStandardItemModel):
+    def __init__(self, parent: Optional[QObject] = None) -> None:
+        super().__init__(parent)
+        self._rails: list[Rail] = []
+
+    def rowCount(self, parent: Union[QModelIndex, QPersistentModelIndex] = QModelIndex()) -> int:
+        return len(self._rails)
+
+    def columnCount(self, parent: Union[QModelIndex, QPersistentModelIndex] = QModelIndex()) -> int:
+        return 1
+
+    def supportedDragActions(self) -> Qt.DropActions:
+        return Qt.MoveAction
+
+    def supportedDropActions(self) -> Qt.DropActions:
+        return Qt.CopyAction
+
+    def flags(self, index: Union[QModelIndex, QPersistentModelIndex]) -> Qt.ItemFlags:
+        return Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled | Qt.ItemIsEnabled | Qt.ItemIsSelectable
+
+    def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.EditRole) -> Any:
+        if section == 0:
+            return "Nodes"
+        return None
+
+    def data(self, index: Union[QModelIndex, QPersistentModelIndex], role: int = Qt.EditRole) -> Any:
+        if not index.isValid():
+            return None
+
+        rail = self._rails[index.row()]
+        if role == Qt.DisplayRole:
+            return rail.name
+
+        elif role == Qt.EditRole:
+            return rail.name
+
+        elif role == Qt.SizeHintRole:
+            return Qt.MinimumSize
+
+        elif role == Qt.ToolTipRole:
+            return f"Rail \"{rail.name}\""
+
+        elif role == Qt.WhatsThisRole:
+            return f"Rail \"{rail.name}\""
+
+        elif role == Qt.StatusTipRole:
+            return f"{len(list(rail.iter_frames()))} nodes"
+
+        elif role == Qt.UserRole:
+            return rail
+
+        return None
+
+    def setData(self, index: Union[QModelIndex, QPersistentModelIndex], value: Any, role: int = Qt.EditRole) -> bool:
+        if not index.isValid():
+            return False
+
+        oldRail = self._rails[index.row()]
+        if role == Qt.DisplayRole:
+            oldRail.name = value
+
+        elif role == Qt.EditRole:
+            oldRail.name = value
+
+        elif role == Qt.UserRole:
+            self._rails[index.row()] = value
+            return True
+
+        return False
+
+    def setItemData(self, index: Union[QModelIndex, QPersistentModelIndex], roles: dict[int, Any]) -> bool:
+        if not index.isValid():
+            return False
+
+        for role, value in roles.items():
+            self.setData(index, value, role)
+
+        return True
+
+    def insertRows(self, row: int, count: int, parent: Union[QModelIndex, QPersistentModelIndex] = QModelIndex()) -> bool:
+        self.beginInsertRows(parent, row, row + count)
+        for _indexRow in range(row, row + count + 1):
+            self._rails.insert(_indexRow+1, Rail("TODO UNIQUE NAME"))
+        self.endInsertRows()
+        return True
+
+    def removeRows(self, row: int, count: int, parent: Union[QModelIndex, QPersistentModelIndex] = QModelIndex()) -> bool:
+        self.beginRemoveRows(parent, row, row + count)
+        successful = True
+        for _indexRow in range(row + count, row-1, -1):
+            successful &= self.removeRow(_indexRow, parent)
+        self.endRemoveRows()
+        return successful
+
+    def removeRow(self, row: int, parent: Union[QModelIndex, QPersistentModelIndex] = QModelIndex()) -> bool:
+        try:
+            self._rails.pop(row)
+        except IndexError:
+            return False
+        finally:
+            return True
+
+    def insertColumns(self, column: int, count: int, parent: Union[QModelIndex, QPersistentModelIndex] = QModelIndex()) -> bool:
+        return True
+
+    def removeColumns(self, column: int, count: int, parent: Union[QModelIndex, QPersistentModelIndex] = QModelIndex()) -> bool:
+        return True
+
+    def removeColumn(self, column: int, parent: Union[QModelIndex, QPersistentModelIndex] = QModelIndex()) -> bool:
+        return True
+
+    def canDropMimeData(self, data: QMimeData, action: Qt.DropAction, row: int, column: int, parent: Union[QModelIndex, QPersistentModelIndex]) -> bool:
+        if data.sender() == self and action != Qt.MoveAction:
+            return False
+        return super().canDropMimeData(data, action, row, column, parent)
+
+    def dropMimeData(self, data: QMimeData, action: Qt.DropAction, row: int, column: int, parent: Union[QModelIndex, QPersistentModelIndex]) -> bool:
+        return super().dropMimeData(data, action, row, column, parent)
+
+    def mimeTypes(self) -> list[str]:
+        mimeTypes = super().mimeTypes()
+        mimeTypes.append("application/x-raildatalist")
+        return mimeTypes
+
+    def mimeData(self, indexes: list[int]) -> QMimeData:
+        data = super().mimeData(indexes)
+        data.setData("application/x-raildatalist", b"")
+        return data
+
+
+class RailNodeListModel(QAbstractListModel):
+    def __init__(self, parent: Optional[QObject] = None) -> None:
+        super().__init__(parent)
+        self._nodes: list[RailKeyFrame] = []
+
+    def rowCount(self, parent: Union[QModelIndex, QPersistentModelIndex] = QModelIndex()) -> int:
+        return len(self._nodes)
+
+    def columnCount(self, parent: Union[QModelIndex, QPersistentModelIndex] = QModelIndex()) -> int:
+        return 1
+
+    def supportedDragActions(self) -> Qt.DropActions:
+        return Qt.MoveAction
+
+    def supportedDropActions(self) -> Qt.DropActions:
+        return Qt.CopyAction
+
+    def flags(self, index: Union[QModelIndex, QPersistentModelIndex]) -> Qt.ItemFlags:
+        return Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled | Qt.ItemIsEnabled | Qt.ItemIsSelectable
+
+    def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.EditRole) -> Any:
+        if section == 0:
+            return "Nodes"
+        return None
+
+    def data(self, index: Union[QModelIndex, QPersistentModelIndex], role: int = Qt.EditRole) -> Any:
+        if not index.isValid():
+            return None
+
+        node = self._nodes[index.row()]
+        if role == Qt.DisplayRole:
+            connections = []
+            for x in range(node.connectionCount.get_value()):
+                connections.append(node.connections[x].get_value())
+            name = f"Node {index} - {connections}"
+            return name
+
+        elif role == Qt.EditRole:
+            connections = []
+            for x in range(node.connectionCount.get_value()):
+                connections.append(node.connections[x].get_value())
+            name = f"Node {index} - {connections}"
+            return name
+
+        elif role == Qt.SizeHintRole:
+            return Qt.MinimumSize
+
+        elif role == Qt.ToolTipRole:
+            connections = []
+            for x in range(node.connectionCount.get_value()):
+                connections.append(node.connections[x].get_value())
+            return f"Rail Node {index.row()}\nConnections: [{connections}]"
+
+        elif role == Qt.WhatsThisRole:
+            connections = []
+            for x in range(node.connectionCount.get_value()):
+                connections.append(node.connections[x].get_value())
+            return f"Rail Node {index.row()}\nConnections: [{connections}]"
+
+        elif role == Qt.StatusTipRole:
+            return "Node Connected" if node.is_connected() else "Node Disconnected"
+
+        elif role == Qt.UserRole:
+            return node
+
+        return None
+
+    def setData(self, index: Union[QModelIndex, QPersistentModelIndex], value: Any, role: int = Qt.EditRole) -> bool:
+        if not index.isValid():
+            return False
+
+        oldNode = self._nodes[index.row()]
+        if role == Qt.UserRole:
+            self._nodes[index.row()] = value
+            return True
+
+        return False
+
+    def setItemData(self, index: Union[QModelIndex, QPersistentModelIndex], roles: dict[int, Any]) -> bool:
+        if not index.isValid():
+            return False
+
+        for role, value in roles.items():
+            self.setData(index, value, role)
+
+        return True
+
+    def insertRows(self, row: int, count: int, parent: Union[QModelIndex, QPersistentModelIndex] = QModelIndex()) -> bool:
+        self.beginInsertRows(parent, row, row + count)
+        for _indexRow in range(row, row + count + 1):
+            self._nodes.insert(_indexRow+1, RailKeyFrame())
+        self.endInsertRows()
+        return True
+
+    def removeRows(self, row: int, count: int, parent: Union[QModelIndex, QPersistentModelIndex] = QModelIndex()) -> bool:
+        self.beginRemoveRows(parent, row, row + count)
+        successful = True
+        for _indexRow in range(row + count, row-1, -1):
+            successful &= self.removeRow(_indexRow, parent)
+        self.endRemoveRows()
+        return successful
+
+    def removeRow(self, row: int, parent: Union[QModelIndex, QPersistentModelIndex] = QModelIndex()) -> bool:
+        try:
+            self._nodes.pop(row)
+        except IndexError:
+            return False
+        finally:
+            return True
+
+    def insertColumns(self, column: int, count: int, parent: Union[QModelIndex, QPersistentModelIndex] = QModelIndex()) -> bool:
+        return True
+
+    def removeColumns(self, column: int, count: int, parent: Union[QModelIndex, QPersistentModelIndex] = QModelIndex()) -> bool:
+        return True
+
+    def removeColumn(self, column: int, parent: Union[QModelIndex, QPersistentModelIndex] = QModelIndex()) -> bool:
+        return True
+
+    def canDropMimeData(self, data: QMimeData, action: Qt.DropAction, row: int, column: int, parent: Union[QModelIndex, QPersistentModelIndex]) -> bool:
+        if data.sender() == self and action != Qt.MoveAction:
+            return False
+        return super().canDropMimeData(data, action, row, column, parent)
+
+    def dropMimeData(self, data: QMimeData, action: Qt.DropAction, row: int, column: int, parent: Union[QModelIndex, QPersistentModelIndex]) -> bool:
+        return super().dropMimeData(data, action, row, column, parent)
+
+    def mimeTypes(self) -> list[str]:
+        mimeTypes = super().mimeTypes()
+        mimeTypes.append("application/x-railnodedatalist")
+        return mimeTypes
+
+    def mimeData(self, indexes: list[int]) -> QMimeData:
+        data = super().mimeData(indexes)
+        data.setData("application/x-railnodedatalist", b"")
+        return data
+
+
 class RailNodeListWidgetItem(QListWidgetItem):
     def __init__(self, item: Union["RailNodeListWidgetItem", str], node: RailKeyFrame) -> None:
         super().__init__(item)
@@ -129,6 +397,7 @@ class RailNodeListWidget(InteractiveListView):
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
+        self.setModel(RailNodeListModel())
         self.setAcceptDrops(True)
         self.setDragEnabled(True)
         self.setDragDropMode(InteractiveListView.InternalMove)
@@ -523,7 +792,6 @@ class RailViewerWidget(A_DockingInterface):
 
         indexes = selected.indexes()
 
-
         index = model.index(indexes[0], 0)
         rail = self.railList.get_rail(index.row())
         for i, node in enumerate(rail.iter_frames()):
@@ -698,7 +966,7 @@ class RailViewerWidget(A_DockingInterface):
         model = self.railList.model()
         selectionModel = self.railList.selectionModel()
         model.removeRow(selectionModel.currentIndex().row())
- 
+
     @Slot()
     def copy_selected_rail(self):
         model = self.railList.model()
