@@ -39,7 +39,7 @@ class S16Vector3Property(A_ValueProperty):
         inputX = SpinBoxDragInt()
         inputY = SpinBoxDragInt()
         inputZ = SpinBoxDragInt()
-        self.__xyzInputs: List[SpinBoxDragInt] = [inputX, inputY, inputZ]
+        self.__xyzInputs: list[SpinBoxDragInt] = [inputX, inputY, inputZ]
         for i in range(3):
             axis = "XYZ"[i]
             spinBox = self.__xyzInputs[i]
@@ -365,6 +365,75 @@ class RailNodeListModel(QAbstractListModel):
         data.setData("application/x-railnodedatalist", b"")
         return data
 
+    def get_context_menu(self, point: QPoint) -> Optional[QMenu]:
+        # Infos about the node selected.
+        index = self.index()
+        index: Optional[InteractiveListWidgetItem] = self.indexAt(point)
+        if index is None:
+            return None
+
+        # We build the menu.
+        menu = QMenu(self)
+
+        model = self.model()
+        selectedRows = self.selectedIndexes()
+        selectedIndexes: list[QModelIndex] = []
+        for i in selectedRows:
+            selectedIndexes.append(model.index(i, 0))
+
+        start = selectedIndexes[0]
+
+        if len(selectedIndexes) == 1:
+            insertBefore = QAction("Insert Node Before...", self)
+            insertBefore.triggered.connect(
+                lambda clicked=None: self.create_node(start.row())
+            )
+            insertAfter = QAction("Insert Node After...", self)
+            insertAfter.triggered.connect(
+                lambda clicked=None: self.create_node(start.row() + 1)
+            )
+            menu.addAction(insertBefore)
+            menu.addAction(insertAfter)
+            menu.addSeparator()
+
+        connectToNeighbors = QAction("Connect to Neighbors", self)
+        connectToNeighbors.triggered.connect(
+            lambda clicked=None: self.connect_to_neighbors(selectedIndexes)
+        )
+        connectToPrev = QAction("Connect to Prev", self)
+        connectToPrev.triggered.connect(
+            lambda clicked=None: self.connect_to_prev(selectedIndexes)
+        )
+        connectToNext = QAction("Connect to Next", self)
+        connectToNext.triggered.connect(
+            lambda clicked=None: self.connect_to_next(selectedIndexes)
+        )
+        connectToReferring = QAction("Connect to Referring Nodes", self)
+        connectToReferring.triggered.connect(
+            lambda clicked=None: self.connect_to_referring(selectedIndexes)
+        )
+
+        duplicateAction = QAction("Duplicate", self)
+        duplicateAction.triggered.connect(
+            lambda clicked=None: self.duplicate_indexes(selectedIndexes)
+        )
+
+        deleteAction = QAction("Delete", self)
+        deleteAction.triggered.connect(
+            lambda clicked=None: self.delete_indexes(selectedIndexes)
+        )
+
+        menu.addAction(connectToNeighbors)
+        menu.addAction(connectToPrev)
+        menu.addAction(connectToNext)
+        menu.addAction(connectToReferring)
+        menu.addSeparator()
+        menu.addAction(duplicateAction)
+        menu.addSeparator()
+        menu.addAction(deleteAction)
+
+        return menu
+
 
 class RailNodeListWidgetItem(QListWidgetItem):
     def __init__(self, item: Union["RailNodeListWidgetItem", str], node: RailKeyFrame) -> None:
@@ -421,7 +490,7 @@ class RailNodeListWidget(InteractiveListView):
 
         model = self.model()
         selectedRows = self.selectedIndexes()
-        selectedIndexes: List[QModelIndex] = []
+        selectedIndexes: list[QModelIndex] = []
         for i in selectedRows:
             selectedIndexes.append(model.index(i, 0))
 
@@ -483,11 +552,11 @@ class RailNodeListWidget(InteractiveListView):
         pass
 
     @Slot(RailNodeListWidgetItem)
-    def duplicate_indexes(self, indexes: List[RailNodeListWidgetItem]) -> None:
+    def duplicate_indexes(self, indexes: list[RailNodeListWidgetItem]) -> None:
         super().duplicate_indexes(indexes)
 
     @Slot(list)
-    def delete_indexes(self, indexes: List[InteractiveListWidgetItem]):
+    def delete_indexes(self, indexes: list[InteractiveListWidgetItem]):
         super().delete_indexes(indexes)
         self.__update_node_names()
 
@@ -685,7 +754,7 @@ class RailListView(InteractiveListView):
         rail.name = name
 
     @Slot(QModelIndex)
-    def duplicate_indexes(self, indexes: List[QModelIndex]) -> None:
+    def duplicate_indexes(self, indexes: list[QModelIndex]) -> None:
         nindexes: list[QModelIndex] = super().duplicate_indexes(indexes)
         for nindex in nindexes:
             rail: Rail = nindex.data(Qt.UserRole)
@@ -876,13 +945,13 @@ class RailViewerWidget(A_DockingInterface):
                 signed=True
             )
             valueList.append(value)
-        valueList[0].valueChanged.connect(
+        valuelist[0].valueChanged.connect(
             lambda _, v: self._railNode.values[0].set_value(v))
-        valueList[1].valueChanged.connect(
+        valuelist[1].valueChanged.connect(
             lambda _, v: self._railNode.values[1].set_value(v))
-        valueList[2].valueChanged.connect(
+        valuelist[2].valueChanged.connect(
             lambda _, v: self._railNode.values[2].set_value(v))
-        valueList[3].valueChanged.connect(
+        valuelist[3].valueChanged.connect(
             lambda _, v: self._railNode.values[3].set_value(v))
 
         connectionCount = IntProperty(
@@ -912,21 +981,21 @@ class RailViewerWidget(A_DockingInterface):
             connection.set_maximum_value(self.nodeList.count() - 1)
             connectionsList.append(connection)
             connections.add_property(connection)
-        connectionsList[0].valueChanged.connect(
+        connectionslist[0].valueChanged.connect(
             lambda _, v: self.__update_connection(item, 0, v))
-        connectionsList[1].valueChanged.connect(
+        connectionslist[1].valueChanged.connect(
             lambda _, v: self.__update_connection(item, 1, v))
-        connectionsList[2].valueChanged.connect(
+        connectionslist[2].valueChanged.connect(
             lambda _, v: self.__update_connection(item, 2, v))
-        connectionsList[3].valueChanged.connect(
+        connectionslist[3].valueChanged.connect(
             lambda _, v: self.__update_connection(item, 3, v))
-        connectionsList[4].valueChanged.connect(
+        connectionslist[4].valueChanged.connect(
             lambda _, v: self.__update_connection(item, 4, v))
-        connectionsList[5].valueChanged.connect(
+        connectionslist[5].valueChanged.connect(
             lambda _, v: self.__update_connection(item, 5, v))
-        connectionsList[6].valueChanged.connect(
+        connectionslist[6].valueChanged.connect(
             lambda _, v: self.__update_connection(item, 6, v))
-        connectionsList[7].valueChanged.connect(
+        connectionslist[7].valueChanged.connect(
             lambda _, v: self.__update_connection(item, 7, v))
 
         connectionCount.set_maximum_value(8)
@@ -938,10 +1007,10 @@ class RailViewerWidget(A_DockingInterface):
             properties=[
                 position,
                 flags,
-                valueList[0],
-                valueList[1],
-                valueList[2],
-                valueList[3],
+                valuelist[0],
+                valuelist[1],
+                valuelist[2],
+                valuelist[3],
                 connectionCount,
                 connections
             ]
