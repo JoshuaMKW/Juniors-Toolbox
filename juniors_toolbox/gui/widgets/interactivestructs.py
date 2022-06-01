@@ -724,7 +724,7 @@ class InteractiveListView(QListView):
             newName = self._resolve_name(index.data(Qt.DisplayRole))
             userData: A_Clonable = index.data(Qt.UserRole)
 
-            newIndex = model.sibling(1, 0, index)
+            newIndex = model.sibling(index.row() + 1, 0, index)
             model.setData(newIndex, newName, Qt.DisplayRole)
             model.setData(newIndex, userData.copy(deep=True), Qt.UserRole)
             model.setData(newIndex, False, self.NewItemRole)

@@ -13,7 +13,7 @@ from juniors_toolbox.utils import JSYSTEM_PADDING_TEXT, A_Clonable, A_Serializab
 from juniors_toolbox.utils.types import Vec3f
 
 
-class RailKeyFrame(A_Serializable, A_Clonable):
+class RailNode(A_Serializable, A_Clonable):
     def __init__(self, x: int = 0, y: int = 0, z: int = 0, *, flags: int = 0) -> None:
         super().__init__()
         self.posX = MemberValue("PositionX", x, ValueType.S16)
@@ -33,33 +33,35 @@ class RailKeyFrame(A_Serializable, A_Clonable):
         self.periods = MemberValue("Period{i}", 0, ValueType.F32)
         self.periods.set_array_size(8)
 
+        self._rail = None
+
     @classmethod
     def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **kwargs: VariadicKwargs):
         posX = read_sint16(data)
         posY = read_sint16(data)
         posZ = read_sint16(data)
-        connectionCount=read_sint16(data)
-        flags=read_uint32(data)
+        connectionCount = read_sint16(data)
+        flags = read_uint32(data)
 
-        frame = cls(
+        node = cls(
             posX,
             posY,
             posZ,
             flags=flags
         )
 
-        frame.connectionCount.set_value(connectionCount)
+        node.connectionCount.set_value(connectionCount)
 
         for i in range(4):
-            frame.values[i].set_value(read_sint16(data))
+            node.values[i].set_value(read_sint16(data))
 
         for i in range(8):
-            frame.connections[i].set_value(read_sint16(data))
+            node.connections[i].set_value(read_sint16(data))
 
         for i in range(8):
-            frame.periods[i].set_value(read_float(data))
+            node.periods[i].set_value(read_float(data))
 
-        return frame
+        return node
 
     def to_bytes(self) -> bytes:
         stream = BytesIO()
@@ -82,11 +84,11 @@ class RailKeyFrame(A_Serializable, A_Clonable):
 
         return stream.getvalue()
 
-    def copy(self, *, deep: bool = False) -> "RailKeyFrame":
+    def copy(self, *, deep: bool = False) -> "RailNode":
         """
-        Return a copy of this frame
+        Return a copy of this node
         """
-        _copy = RailKeyFrame(
+        _copy = RailNode(
             self.posX.get_value(),
             self.posY.get_value(),
             self.posZ.get_value(),
@@ -110,24 +112,97 @@ class RailKeyFrame(A_Serializable, A_Clonable):
         return _copy
 
     def is_connected(self) -> bool:
+        if self.get_rail() is None:
+            return False
         return self.connectionCount.get_value() > 0
 
-    def is_connected_to(self, index: int):
+    def is_connected_to(self, node: int | "RailNode"):
+        rail = self.get_rail()
+        if rail is None:
+            return False
+
+        if isinstance(node, int):
+            uNode = rail.get_node(node)
+            if uNode is None:
+                return False
+            node = uNode
+
+        if node.get_rail() != rail:
+            return False
+
         for i in range(self.connectionCount.get_value()):
-            if self.connections[i].get_value() == index:
+            if self.connections[i].get_value() == node.get_index():
                 return True
         return False
 
-    def add_connection(self, connection: int) -> bool:
-        if self.connectionCount.get_value() >= 8:
+    def get_size(self) -> int:
+        return 68
+
+    def get_rail(self) -> Optional["Rail"]:
+        return self._rail
+
+    def get_index(self) -> int:
+        rail = self.get_rail()
+        if rail is None:
+            return -1
+
+        for i, node in enumerate(rail.iter_nodes()):
+            if node is self:
+                return i
+
+        return -1
+
+    def get_connections(self) -> list["RailNode"]:
+        rail = self.get_rail()
+        if rail is None:
+            return []
+
+        connections = []
+        for node in rail.iter_nodes():
+            if node is self:
+                continue
+            if node.is_connected_to(self):
+                connections.append(node)
+
+        return connections
+
+    def connect(self, srcSlot: int, node: "RailNode", dstSlot: int, *, reparent: bool = False) -> bool:
+        targetRail = node.get_rail()
+        if targetRail is None:
             return False
-        self.connections[self.connectionCount.get_value()].set_value(connection)
-        self.connectionCount.set_value(self.connectionCount.get_value() + 1)
+
+        currentRail = self.get_rail()
+        if reparent is False and currentRail != targetRail:
+            return False
+
+        self._connect_slots(srcSlot, node, dstSlot)
         return True
 
-    def set_period_from(self, connection: int, connected: "RailKeyFrame"):
+    def disconnect(self, slot: int, doubly: bool = False) -> bool:
+        self._disconnect_slots(slot, doubly)
+        return True
+
+    def get_connection_count(self) -> int:
+        return self.connectionCount.get_value()
+
+    def set_connection_count(self, count: int):
+        self.connectionCount.set_value(count)
+
+    def get_connection(self, slot: int) -> Optional["RailNode"]:
+        rail = self.get_rail()
+        if rail is None:
+            return None
+        
+        if slot >= self.connectionCount.get_value():
+            return None
+
+        index = self.connections[slot].get_value()
+        return rail.get_node(index)
+
+    def _set_period_from(self, connection: int, connected: "RailNode"):
         if connection not in range(8):
-            raise ValueError(f"Connection ({connection}) is beyond the array size")
+            raise ValueError(
+                f"Connection ({connection}) is beyond the array size")
 
         thisPos = Vec3f(
             self.posX.get_value(),
@@ -142,20 +217,193 @@ class RailKeyFrame(A_Serializable, A_Clonable):
         diff = thisPos - thatPos
         self.periods[connection].set_value(sqrt(diff.dot(diff)))
 
-    def size(self) -> int:
-        return 68
+    def connect_to_neighbors(self) -> bool:
+        rail = self.get_rail()
+        if rail is None:
+            return False
+
+        thisRow = self.get_index()
+
+        if thisRow == rail.get_node_count() - 1:
+            nextRow = 0
+        else:
+            nextRow = thisRow + 1
+
+        if thisRow == 0:
+            prevRow = rail.get_node_count() - 1
+        else:
+            prevRow = thisRow - 1
+
+        nextNode = rail.get_node(nextRow)
+        prevNode = rail.get_node(prevRow)
+        if nextNode is None or prevNode is None:
+            print(f"WARNING: Couldn't connect to neighbors ({prevRow}) and ({nextRow})")
+            return False
+
+        self.connectionCount.set_value(1)
+
+        preConnectionCount = prevNode.connectionCount.get_value()
+        if preConnectionCount < 1:
+            prevNode.connectionCount.set_value(1)
+            preConnectionCount = 1
+
+        if nextNode.connectionCount.get_value() < 1:
+            nextNode.connectionCount.set_value(1)
+
+        self.connect(
+            srcSlot=0,
+            node=prevNode,
+            dstSlot=preConnectionCount - 1
+        )
+        self.connect(
+            srcSlot=1,
+            node=nextNode,
+            dstSlot=0
+        )
+
+        return True
+
+    def connect_to_prev(self) -> bool:
+        rail = self.get_rail()
+        if rail is None:
+            return False
+
+        thisRow = self.get_index()
+
+        if thisRow == 0:
+            prevRow = rail.get_node_count() - 1
+        else:
+            prevRow = thisRow - 1
+
+        prevNode = rail.get_node(prevRow)
+        if prevNode is None:
+            print(f"WARNING: Couldn't connect to previous node ({prevRow})")
+            return False
+
+        self.connectionCount.set_value(1)
+        preConnectionCount = prevNode.connectionCount.get_value()
+        if preConnectionCount < 1:
+            prevNode.connectionCount.set_value(1)
+            preConnectionCount = 1
+
+        self.connect(
+            srcSlot=0,
+            node=prevNode,
+            dstSlot=preConnectionCount - 1
+        )
+
+        return True
+
+    def connect_to_next(self) -> bool:
+        rail = self.get_rail()
+        if rail is None:
+            return False
+
+        thisRow = self.get_index()
+
+        if thisRow == rail.get_node_count() - 1:
+            nextRow = 0
+        else:
+            nextRow = thisRow + 1
+
+        nextNode = rail.get_node(nextRow)
+        if nextNode is None:
+            print(f"WARNING: Couldn't connect to next node ({nextRow})")
+            return False
+
+        self.connectionCount.set_value(1)
+        if nextNode.connectionCount.get_value() < 1:
+            nextNode.connectionCount.set_value(1)
+        
+        self.connect(
+            srcSlot=0,
+            node=nextNode,
+            dstSlot=0
+        )
+
+        return True
+
+    def connect_to_referring(self) -> bool:
+        rail = self.get_rail()
+        if rail is None:
+            return False
+
+        connectionCount = self.connectionCount.get_value()
+        connectionIndex = connectionCount
+
+        existingConnections = []
+        for i in range(connectionCount):
+            existingConnections.append(self.connections[i].get_value())
+
+        index = self.get_index()
+        for row in range(rail.get_node_count()):
+            if connectionIndex > 7:
+                break
+
+            if row == index or row in existingConnections:
+                continue
+
+            otherNode = rail.get_node(row)
+            if otherNode is None:
+                print(f"WARNING: Couldn't connect to referring node ({row})")
+                continue
+
+            for i in range(otherNode.connectionCount.get_value()):
+                connection = otherNode.connections[i].get_value()
+                if connection == index:
+                    self.connections[connectionIndex].set_value(row)
+                    self._set_period_from(connectionIndex, otherNode)
+                    self.connectionCount.set_value(connectionIndex + 1)
+                    connectionIndex += 1
+
+        return True
+
+    def _connect_slots(self, srcSlot: int, node: "RailNode", dstSlot: int) -> None:
+        if srcSlot not in range(8):
+            raise ValueError(f"Source slot {srcSlot} exceeds capacity (8)")
+
+        if dstSlot not in range(8):
+            raise ValueError(
+                f"Destination slot {dstSlot} exceeds capacity (8)")
+
+        if not self.is_connected_to(node):
+            self.connections[srcSlot].set_value(node.get_index())
+            if srcSlot >= self.connectionCount.get_value():
+                self.connectionCount.set_value(srcSlot + 1)
+
+        if not node.is_connected_to(self):
+            node.connections[dstSlot].set_value(self.get_index())
+            if dstSlot >= node.connectionCount.get_value():
+                node.connectionCount.set_value(dstSlot + 1)
+
+        self._set_period_from(srcSlot, node)
+        node._set_period_from(dstSlot, self)
+
+    def _disconnect_slots(self, srcSlot: int, doubly: bool = False) -> None:
+        if srcSlot not in range(8):
+            raise ValueError(f"Source slot {srcSlot} exceeds capacity (8)")
+
+        if doubly:
+            dstIndex = self.connections[srcSlot].get_value()
+            for node in self.get_connections():
+                if node.get_index() == dstIndex:
+                    for i in range(node.connectionCount.get_value()):
+                        connection = node.connections[i]
+                        if connection.get_value() == self.get_index():
+                            connection.set_value(0)
+        self.connections[srcSlot].set_value(0)
 
     def __len__(self) -> int:
         return 68
 
 
 class Rail(A_Serializable, A_Clonable):
-    def __init__(self, name: str, frames: Optional[List[RailKeyFrame]] = None):
-        if frames is None:
-            frames = []
+    def __init__(self, name: str, nodes: Optional[List[RailNode]] = None):
+        if nodes is None:
+            nodes = []
 
         self.name = name
-        self._frames = frames
+        self._nodes = nodes
 
     @classmethod
     def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **kwargs: VariadicKwargs) -> Optional["Rail"]:
@@ -174,7 +422,7 @@ class Rail(A_Serializable, A_Clonable):
 
         data.seek(dataPos)
         for _ in range(size):
-            this._frames.append(RailKeyFrame.from_bytes(data))
+            this._nodes.append(RailNode.from_bytes(data))
 
         data.seek(_oldPos)
         return this
@@ -187,75 +435,15 @@ class Rail(A_Serializable, A_Clonable):
         self.save(data, 0, 0, 0)
         return data.getvalue()
 
-    def iter_frames(self) -> Iterable[RailKeyFrame]:
-        for frame in self._frames:
-            yield frame
-
-    def swap_frames(self, idx1: int, idx2: int) -> bool:
-        """
-        Swaps two frames in this rail
-
-        Returns True if successful
-        """
-        try:
-            frame1 = self._frames[idx1]
-            frame2 = self._frames[idx2]
-            self._frames[idx1] = frame2
-            self._frames[idx2] = frame1
-            return True
-        except IndexError:
-            return False
-
-    def insert_frame(self, idx: int, frame: RailKeyFrame) -> bool:
-        """
-        Inserts a frame into this rail at `idx`
-
-        Returns True if successful
-        """
-        try:
-            self._frames.insert(idx, frame)
-            return True
-        except IndexError:
-            return False
-
-    def remove_frame(self, frame: RailKeyFrame) -> bool:
-        """
-        Removes a frame from this rail
-        """
-        self._frames.remove(frame)
-        return True
-
-    def remove_frame_by_index(self, idx: int) -> bool:
-        """
-        Removes a frame at `idx` from this rail
-        """
-        try:
-            self._frames.pop(idx)
-            return True
-        except IndexError:
-            return False
-
     def copy(self, *, deep: bool = False) -> "Rail":
         copy = Rail(self.name)
-        for frame in self._frames:
-            copy._frames.append(frame.copy(deep=deep))
+        for node in self._nodes:
+            copy._nodes.append(node.copy(deep=deep))
         return copy
 
-    def save(self, data: BinaryIO, headerloc: int, nameloc: int, dataloc: int):
-        """
-        Stores the data form of this Rail
-        """
-        data.seek(headerloc, 0)
-        write_uint32(data, len(self._frames))
-        write_uint32(data, nameloc)
-        write_uint32(data, dataloc)
-
-        data.seek(nameloc, 0)
-        write_string(data, self.name)
-
-        data.seek(dataloc)
-        for frame in self._frames:
-            data.write(frame.to_bytes())
+    def iter_nodes(self) -> Iterable[RailNode]:
+        for node in self._nodes:
+            yield node
 
     def get_size(self) -> int:
         return self.get_header_size() + self.get_name_size() + self.get_data_size()
@@ -267,7 +455,78 @@ class Rail(A_Serializable, A_Clonable):
         return len(self.name) + 1
 
     def get_data_size(self) -> int:
-        return 68 * len(self._frames)
+        return 68 * len(self._nodes)
+
+    def get_node_count(self) -> int:
+        return len(self._nodes)
+
+    def get_nodes(self) -> list[RailNode]:
+        return self._nodes
+
+    def get_node(self, index: int) -> Optional["RailNode"]:
+        if index not in range(len(self._nodes)):
+            return None
+        return self._nodes[index]
+
+    def swap_nodes(self, index1: int, index2: int) -> bool:
+        """
+        Swaps two nodes in this rail
+
+        Returns True if successful
+        """
+        try:
+            node1 = self._nodes[index1]
+            node2 = self._nodes[index2]
+            self._nodes[index1] = node2
+            self._nodes[index2] = node1
+            return True
+        except IndexError:
+            return False
+
+    def insert_node(self, index: int, node: RailNode) -> bool:
+        """
+        Inserts a node into this rail at `index`
+
+        Returns True if successful
+        """
+        try:
+            self._nodes.insert(index, node)
+            return True
+        except IndexError:
+            return False
+
+    def remove_node(self, node: RailNode) -> bool:
+        """
+        Removes a node from this rail
+        """
+        self._nodes.remove(node)
+        return True
+
+    def remove_node_by_index(self, index: int) -> bool:
+        """
+        Removes a node at `index` from this rail
+        """
+        try:
+            self._nodes.pop(index)
+            return True
+        except IndexError:
+            return False
+
+    def save(self, data: BinaryIO, headerloc: int, nameloc: int, dataloc: int):
+        """
+        Stores the data form of this Rail
+        """
+        data.seek(headerloc, 0)
+        write_uint32(data, len(self._nodes))
+        write_uint32(data, nameloc)
+        write_uint32(data, dataloc)
+
+        data.seek(nameloc, 0)
+        write_string(data, self.name)
+
+        data.seek(dataloc)
+        for node in self._nodes:
+            data.write(node.to_bytes())
 
     def __len__(self) -> int:
         return self.get_size()
@@ -304,8 +563,11 @@ class RalData(A_Serializable):
         return data.getvalue()
 
     def iter_rails(self) -> Iterable[Rail]:
-        for frame in self._rails:
-            yield frame
+        for rail in self._rails:
+            yield rail
+
+    def get_rails(self) -> list[Rail]:
+        return self._rails
 
     def get_rail(self, name: str) -> Optional[Rail]:
         for rail in self._rails:
@@ -313,9 +575,9 @@ class RalData(A_Serializable):
                 return rail
         return None
 
-    def get_rail_by_index(self, idx: int) -> Optional[Rail]:
+    def get_rail_by_index(self, index: int) -> Optional[Rail]:
         try:
-            return self._rails[idx]
+            return self._rails[index]
         except IndexError:
             return None
 
@@ -326,9 +588,9 @@ class RalData(A_Serializable):
                 return
         self._rails.append(rail)
 
-    def set_rail_by_index(self, idx: int, rail: Rail) -> bool:
+    def set_rail_by_index(self, index: int, rail: Rail) -> bool:
         try:
-            self._rails[idx] = rail
+            self._rails[index] = rail
             return True
         except IndexError:
             return False
@@ -358,6 +620,13 @@ class RalData(A_Serializable):
 
     def get_data_start(self) -> int:
         return align_int(sum([r.get_header_size() + r.get_name_size() for r in self._rails]), 4) + 12
+
+    def _get_node_name(self, index: int, node: RailNode):
+        connections = []
+        for x in range(node.connectionCount.get_value()):
+            connections.append(node.connections[x].get_value())
+        name = f"Node {index} - {connections}"
+        return name
 
     def __len__(self) -> int:
         return self.get_size()
