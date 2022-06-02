@@ -830,7 +830,7 @@ class InteractiveListView(QListView):
         self.__selectionMode = self.selectionMode()
         self.__selectedIndexes = self.selectedIndexes()
         self.__dragHoverIndex = self.indexAt(event.pos())
-        self.__dragPreSelected = False if self.__dragHoverIndex is None else self.__dragHoverIndex.isSelected()
+        self.__dragPreSelected = False if self.__dragHoverIndex is None else self.selectionModel().isSelected(self.__dragHoverIndex)
         self.setSelectionMode(QListWidget.MultiSelection)
         event.acceptProposedAction()
 
