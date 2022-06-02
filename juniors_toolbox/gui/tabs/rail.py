@@ -18,10 +18,13 @@ from juniors_toolbox.gui.widgets.spinboxdrag import SpinBoxDragInt
 from juniors_toolbox.objects.object import MapObject
 from juniors_toolbox.rail import Rail, RailNode, RalData
 from juniors_toolbox.scene import SMSScene
-from PySide6.QtCore import Qt, Slot, QPoint, Signal, QModelIndex, QPersistentModelIndex, QItemSelection, QItemSelectionModel, QObject, QMimeData, QDataStream, QAbstractListModel
+from PySide6.QtCore import Qt, Slot, QPoint, Signal, QModelIndex, QPersistentModelIndex, QItemSelection, QItemSelectionModel, QObject, QMimeData, QDataStream, QAbstractListModel, QSize
 from PySide6.QtGui import QAction, QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import QGridLayout, QListWidget, QSplitter, QWidget, QListWidgetItem, QFormLayout, QVBoxLayout, QMenu, QListView
 from juniors_toolbox.utils import A_Serializable, VariadicArgs, VariadicKwargs
+
+
+from PySide6.QtTest import QAbstractItemModelTester
 
 
 class S16Vector3Property(A_ValueProperty):
@@ -319,7 +322,7 @@ class RailItem(QStandardItem):
             return self._rail.name
 
         elif role == Qt.SizeHintRole:
-            return Qt.MinimumSize
+            return QSize(40, self.font().pointSize() * 2)
 
         elif role == Qt.ToolTipRole:
             return f"Rail \"{self._rail.name}\""
@@ -347,7 +350,6 @@ class RailItem(QStandardItem):
 
     def clone(self) -> "RailItem":
         return RailItem(self)
-
 
 
 class RailNodeItem(QStandardItem):
@@ -406,7 +408,7 @@ class RailNodeItem(QStandardItem):
             return f"Node {self.row()} - {connections}"
 
         elif role == Qt.SizeHintRole:
-            return Qt.MinimumSize
+            return QSize(210, 70)
 
         elif role == Qt.ToolTipRole:
             return f"Rail Node {self.row()}\nConnections: [{connections}]"
@@ -509,7 +511,15 @@ class RailNodeListWidget(InteractiveListView):
         self.setDragEnabled(True)
         self.setDragDropMode(InteractiveListView.InternalMove)
         self.setSelectionMode(InteractiveListView.SingleSelection)
-        self.indexEdited.connect(self.__update_node_names)
+        self.indexEdited.connect(self._update_node_names)
+
+        selectionModel = self.selectionModel()
+        selectionModel.currentChanged.connect(
+            self._populate_properties_view
+        )
+        selectionModel.currentChanged.connect(
+            self._populate_data_view
+        )
 
     def model(self) -> RailNodeListModel:
         return super().model()
@@ -602,7 +612,7 @@ class RailNodeListWidget(InteractiveListView):
     @Slot(list)
     def delete_indexes(self, indexes: list[InteractiveListWidgetItem]):
         super().delete_indexes(indexes)
-        self.__update_node_names()
+        self._update_node_names()
 
     @Slot(list)
     def connect_to_neighbors(self, indexes: list[QModelIndex]):
@@ -764,7 +774,7 @@ class RailNodeListWidget(InteractiveListView):
         name = f"Node {index} - {connections}"
         return name
 
-    def __update_node_names(self):
+    def _update_node_names(self):
         model = self.model()
         for row in range(model.rowCount()):
             index = model.index(row, 0)
@@ -777,13 +787,161 @@ class RailNodeListWidget(InteractiveListView):
                 Qt.DisplayRole
             )
 
+    def _set_position(self, index: QModelIndex, value: list):
+        node = self.get_rail_node(index.row())
+        node.posX.set_value(value[0])
+        node.posY.set_value(value[1])
+        node.posZ.set_value(value[2])
+
+    def _update_connection_count(self, index: QModelIndex, count: int):
+        self.get_rail_node(index).connectionCount.set_value(count)
+        self._populate_data_view(index)
+
+    def _update_connection(self, index: QModelIndex, connection: int):
+        row = index.row()
+        node = self.get_rail_node(row)
+        node.connections[row].set_value(connection)
+        node._set_period_from(row, self.get_rail_node(connection))
+        self._populate_data_view(index)
+    
+    @Slot(QModelIndex, QModelIndex)
+    def _populate_properties_view(self, selected: QModelIndex, previous: QModelIndex) -> None:
+        from juniors_toolbox.gui.tabs import TabWidgetManager
+        propertiesTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
+        if propertiesTab is None:
+            return
+
+        railNode = self.get_rail_node(selected.row())
+
+        position = S16Vector3Property(
+            "Position",
+            readOnly=False,
+            value=[
+                railNode.posX.get_value(),
+                railNode.posY.get_value(),
+                railNode.posZ.get_value()
+            ]
+        )
+        position.valueChanged.connect(lambda _, v: self._set_position(selected, v))
+
+        flags = IntProperty(
+            "Flags",
+            readOnly=False,
+            value=railNode.flags.get_value(),
+            hexadecimal=True
+        )
+        flags.valueChanged.connect(
+            lambda _, v: railNode.flags.set_value(v))
+
+        valueList: list[A_ValueProperty] = []
+        for i in range(4):
+            value = ShortProperty(
+                f"Value {i}",
+                readOnly=False,
+                value=railNode.values[i].get_value(),
+                signed=True
+            )
+            valueList.append(value)
+        valueList[0].valueChanged.connect(
+            lambda _, v: railNode.values[0].set_value(v))
+        valueList[1].valueChanged.connect(
+            lambda _, v: railNode.values[1].set_value(v))
+        valueList[2].valueChanged.connect(
+            lambda _, v: railNode.values[2].set_value(v))
+        valueList[3].valueChanged.connect(
+            lambda _, v: railNode.values[3].set_value(v))
+
+        connectionCount = IntProperty(
+            "Connections",
+            readOnly=False,
+            value=railNode.connectionCount.get_value(),
+            signed=False
+        )
+        connectionCount.valueChanged.connect(
+            lambda _, v: self._update_connection_count(selected, v))
+
+        connections = ArrayProperty(
+            "Connections",
+            readOnly=False,
+            sizeRef=connectionCount
+        )
+
+        connectionsList: list[A_ValueProperty] = []
+        for i in range(8):
+            connection = ShortProperty(
+                f"Connection {i}",
+                readOnly=False,
+                value=railNode.connections[i].get_value(),
+                signed=False
+            )
+            connection.set_minimum_value(0)
+            connection.set_maximum_value(self.model().rowCount() - 1)
+            connectionsList.append(connection)
+            connections.add_property(connection)
+        connectionsList[0].valueChanged.connect(
+            lambda _, v: self._update_connection(selected, v))
+        connectionsList[1].valueChanged.connect(
+            lambda _, v: self._update_connection(selected, v))
+        connectionsList[2].valueChanged.connect(
+            lambda _, v: self._update_connection(selected, v))
+        connectionsList[3].valueChanged.connect(
+            lambda _, v: self._update_connection(selected, v))
+        connectionsList[4].valueChanged.connect(
+            lambda _, v: self._update_connection(selected, v))
+        connectionsList[5].valueChanged.connect(
+            lambda _, v: self._update_connection(selected, v))
+        connectionsList[6].valueChanged.connect(
+            lambda _, v: self._update_connection(selected, v))
+        connectionsList[7].valueChanged.connect(
+            lambda _, v: self._update_connection(selected, v))
+
+        connectionCount.set_maximum_value(8)
+        connectionCount.set_minimum_value(0)
+
+        propertiesTab.populate(
+            None,
+            title=f"Node {selected.row()} Properties",
+            properties=[
+                position,
+                flags,
+                valueList[0],
+                valueList[1],
+                valueList[2],
+                valueList[3],
+                connectionCount,
+                connections
+            ]
+        )
+
+    @Slot(QModelIndex, QModelIndex)
+    def _populate_data_view(self, selected: QModelIndex, previous: QModelIndex):
+        from juniors_toolbox.gui.tabs import TabWidgetManager
+        dataEditorTab = TabWidgetManager.get_tab(DataEditorWidget)
+        if dataEditorTab is None:
+            return
+        obj = self.get_rail_node(selected.row())
+        dataEditorTab.populate(None, serializable=obj)
+
 
 class RailListView(QListView):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
-        self.setModel(RailListModel())
+        self._model = RailListModel()
+        self._modelTester = QAbstractItemModelTester(
+            self._model,
+            QAbstractItemModelTester.FailureReportingMode.Fatal,
+            self
+        )
+        self.setModel(self._model)
         self.setAcceptDrops(False)
         self.setDragDropMode(InteractiveListView.DragDropMode.InternalMove)
+        selectionModel = self.selectionModel()
+        selectionModel.currentChanged.connect(
+            self._populate_properties_view
+        )
+        selectionModel.currentChanged.connect(
+            self._populate_data_view
+        )
         # self.setDefaultDropAction(Qt.MoveAction)
 
     def model(self) -> RailListModel:
@@ -791,17 +949,6 @@ class RailListView(QListView):
 
     def setModel(self, model: RailListModel) -> None:
         super().setModel(model)
-
-    # def get_rail(self, row: int) -> Rail:
-    #     model = self.model()
-    #     return model.data(model.index(row, 0), Qt.UserRole)
-
-    # def set_rail(self, row: int, rail: Rail):
-    #     model = self.model()
-    #     index = model.index(row, 0)
-    #     if not index.isValid():
-    #         index = model.createIndex(row, 0)
-    #     model.setData(model.index(row, 0), rail, Qt.UserRole)
 
     def get_rail(self, row: int) -> Rail:
         model = self.model()
@@ -811,6 +958,59 @@ class RailListView(QListView):
     def set_rail(self, row: int, rail: Rail):
         model = self.model()
         model.setItem(row, 0, RailItem(rail))
+    
+    def _set_rail_spline(self, index: QModelIndex, isSpline: bool):
+        rail = self.get_rail(index.row())
+        name = rail.name.lstrip("S_")
+        if isSpline:
+            name = f"S_{name}"
+        rail.name = name
+    
+    @Slot(QModelIndex, QModelIndex)
+    def _populate_properties_view(self, selected: QModelIndex, previous: QModelIndex) -> None:
+        from juniors_toolbox.gui.tabs import TabWidgetManager
+        propertiesTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
+        if propertiesTab is None:
+            return
+
+        rail = self.get_rail(selected.row())
+
+        nodeCountProperty = CommentProperty(
+            "Node Count",
+            value=f"  = {rail.get_node_count()}"
+        )
+
+        totalSizeProperty = CommentProperty(
+            "Total Size",
+            value=f"  = 0x{rail.get_size():X}"
+        )
+
+        isSplineProperty = BoolProperty(
+            "Is Spline",
+            readOnly=False,
+            value=rail.name.startswith("S_")
+        )
+        isSplineProperty.valueChanged.connect(
+            lambda _, v: self._set_rail_spline(selected, v))
+
+        propertiesTab.populate(
+            None,
+            title=f"{rail.name} Properties",
+            properties=[
+                nodeCountProperty,
+                totalSizeProperty,
+                isSplineProperty
+            ]
+        )
+    
+    @Slot(QModelIndex, QModelIndex)
+    def _populate_data_view(self, selected: QModelIndex, previous: QModelIndex):
+        from juniors_toolbox.gui.tabs import TabWidgetManager
+        dataEditorTab = TabWidgetManager.get_tab(DataEditorWidget)
+        if dataEditorTab is None:
+            return
+        obj = self.get_rail(selected.row())
+        dataEditorTab.populate(None, serializable=obj)
 
 
 class RailViewerWidget(A_DockingInterface):
@@ -830,13 +1030,8 @@ class RailViewerWidget(A_DockingInterface):
 
         railList = RailListView()
         railList.setMinimumWidth(100)
-        selectionModel = railList.selectionModel()
-        selectionModel.currentChanged.connect(self.__populate_nodelist)
-        selectionModel.currentChanged.connect(self.__populate_rail_properties_view)
-        selectionModel.currentChanged.connect(self.__populate_rail_data_view)
+        railList.selectionModel().currentChanged.connect(self.__populate_nodelist)
         self.railList = railList
-        self.railModel = RailListModel()
-        self.railList.setModel(self.railModel)
 
         self.railListLayout.addWidget(self.railInterface)
         self.railListLayout.addWidget(self.railList)
@@ -853,11 +1048,7 @@ class RailViewerWidget(A_DockingInterface):
         self.nodeInterface = nodeInterface
 
         nodeList = RailNodeListWidget()
-        nodeList.currentSelectionChanged.connect(
-            self.__populate_node_properties_view)
-        nodeList.currentSelectionChanged.connect(self.__populate_rail_node_data_view)
         nodeList.indexDeleted.connect(self.remove_deleted_node)
-        nodeList.nodeUpdated.connect(self.__populate_node_properties_view)
         self.nodeList = nodeList
 
         self.nodeListLayout.addWidget(self.nodeInterface)
@@ -871,11 +1062,6 @@ class RailViewerWidget(A_DockingInterface):
         self.splitter = splitter
 
         self.setWidget(splitter)
-
-        self._rail: Optional[Rail] = None
-        self._railItem: Optional[RailItem] = None
-        self._railNode: Optional[RailNode] = None
-        self._railNodeItem: Optional[RailNodeItem] = None
 
     def populate(self, scene: Optional[SMSScene], *args: VariadicArgs, **kwargs: VariadicKwargs) -> None:
         model = self.railList.model()
@@ -901,6 +1087,8 @@ class RailViewerWidget(A_DockingInterface):
                 self._railIndex = focusIndex
                 self._rail = self.railList.get_rail(focusIndex.row())
 
+        model.layoutChanged.emit()
+
     def __populate_nodelist(self, selected: QModelIndex, deselected: QModelIndex) -> None:
         model = self.nodeList.model()
         selectionModel = self.nodeList.selectionModel()
@@ -913,154 +1101,6 @@ class RailViewerWidget(A_DockingInterface):
             self.nodeList.create_rail_node(i, node)
 
         self.nodeList.blockSignals(False)
-
-    @Slot(QModelIndex, QModelIndex)
-    def __populate_rail_properties_view(self, selected: QModelIndex, previous: QModelIndex) -> None:
-        from juniors_toolbox.gui.tabs import TabWidgetManager
-        propertiesTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
-        if propertiesTab is None:
-            return
-
-        self._railIndex = selected
-        self._rail = self.railList.get_rail(selected.row())
-
-        nodeCountProperty = CommentProperty(
-            "Node Count",
-            value=f"  = {len(self._rail._frames)}"
-        )
-
-        totalSizeProperty = CommentProperty(
-            "Total Size",
-            value=f"  = 0x{self._rail.get_size():X}"
-        )
-
-        isSplineProperty = BoolProperty(
-            "Is Spline",
-            readOnly=False,
-            value=self._rail.name.startswith("S_")
-        )
-        isSplineProperty.valueChanged.connect(
-            lambda _, v: self.__set_rail_spline(v))
-
-        propertiesTab.populate(
-            None,
-            title=f"{self._rail.name} Properties",
-            properties=[
-                nodeCountProperty,
-                totalSizeProperty,
-                isSplineProperty
-            ]
-        )
-
-    @Slot(QModelIndex, QModelIndex)
-    def __populate_node_properties_view(self, selected: QModelIndex, previous: QModelIndex) -> None:
-        from juniors_toolbox.gui.tabs import TabWidgetManager
-        propertiesTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
-        if propertiesTab is None:
-            return
-
-        self._railNodeIndex = selected
-        self._railNode = self.nodeList.get_rail_node(selected.row())
-
-        position = S16Vector3Property(
-            "Position",
-            readOnly=False,
-            value=[
-                self._railNode.posX.get_value(),
-                self._railNode.posY.get_value(),
-                self._railNode.posZ.get_value()
-            ]
-        )
-        position.valueChanged.connect(lambda _, v: self.__set_position(v))
-
-        flags = IntProperty(
-            "Flags",
-            readOnly=False,
-            value=self._railNode.flags.get_value(),
-            hexadecimal=True
-        )
-        flags.valueChanged.connect(
-            lambda _, v: self._railNode.flags.set_value(v))
-
-        valueList: list[A_ValueProperty] = []
-        for i in range(4):
-            value = ShortProperty(
-                f"Value {i}",
-                readOnly=False,
-                value=self._railNode.values[i].get_value(),
-                signed=True
-            )
-            valueList.append(value)
-        valueList[0].valueChanged.connect(
-            lambda _, v: self._railNode.values[0].set_value(v))
-        valueList[1].valueChanged.connect(
-            lambda _, v: self._railNode.values[1].set_value(v))
-        valueList[2].valueChanged.connect(
-            lambda _, v: self._railNode.values[2].set_value(v))
-        valueList[3].valueChanged.connect(
-            lambda _, v: self._railNode.values[3].set_value(v))
-
-        connectionCount = IntProperty(
-            "Connections",
-            readOnly=False,
-            value=self._railNode.connectionCount.get_value(),
-            signed=False
-        )
-        connectionCount.valueChanged.connect(
-            lambda _, v: self.__update_connection_count(selected, v))
-
-        connections = ArrayProperty(
-            "Connections",
-            readOnly=False,
-            sizeRef=connectionCount
-        )
-
-        connectionsList: list[A_ValueProperty] = []
-        for i in range(8):
-            connection = ShortProperty(
-                f"Connection {i}",
-                readOnly=False,
-                value=self._railNode.connections[i].get_value(),
-                signed=False
-            )
-            connection.set_minimum_value(0)
-            connection.set_maximum_value(self.nodeList.count() - 1)
-            connectionsList.append(connection)
-            connections.add_property(connection)
-        connectionsList[0].valueChanged.connect(
-            lambda _, v: self.__update_connection(selected, 0, v))
-        connectionsList[1].valueChanged.connect(
-            lambda _, v: self.__update_connection(selected, 1, v))
-        connectionsList[2].valueChanged.connect(
-            lambda _, v: self.__update_connection(selected, 2, v))
-        connectionsList[3].valueChanged.connect(
-            lambda _, v: self.__update_connection(selected, 3, v))
-        connectionsList[4].valueChanged.connect(
-            lambda _, v: self.__update_connection(selected, 4, v))
-        connectionsList[5].valueChanged.connect(
-            lambda _, v: self.__update_connection(selected, 5, v))
-        connectionsList[6].valueChanged.connect(
-            lambda _, v: self.__update_connection(selected, 6, v))
-        connectionsList[7].valueChanged.connect(
-            lambda _, v: self.__update_connection(selected, 7, v))
-
-        connectionCount.set_maximum_value(8)
-        connectionCount.set_minimum_value(0)
-
-        propertiesTab.populate(
-            None,
-            title=f"Node {selected.row()} Properties",
-            properties=[
-                position,
-                flags,
-                valueList[0],
-                valueList[1],
-                valueList[2],
-                valueList[3],
-                connectionCount,
-                connections
-            ]
-        )
 
     @Slot()
     def new_rail(self):
@@ -1108,52 +1148,8 @@ class RailViewerWidget(A_DockingInterface):
 
     @Slot(RailNodeItem)
     def remove_deleted_node(self, item: RailNodeItem):
-        pass# self._rail.remove_frame(item.node)
+        pass# self._rail.remove_node(item.node)
 
     @Slot()
     def copy_selected_node(self):
         self.nodeList.duplicate_items([self.nodeList.currentItem()])
-
-    @Slot(InteractiveListWidgetItem)
-    def __populate_rail_data_view(self, selected: QItemSelection, previous: QItemSelection):
-        from juniors_toolbox.gui.tabs import TabWidgetManager
-        dataEditorTab = TabWidgetManager.get_tab(DataEditorWidget)
-        if dataEditorTab is None or selected.isEmpty():
-            return
-        firstIndex = selected.indexes()[0]
-        obj = self.railList.get_rail(firstIndex.row())
-        dataEditorTab.populate(None, serializable=obj)
-
-    @Slot(InteractiveListWidgetItem)
-    def __populate_rail_node_data_view(self, selected: QItemSelection, previous: QItemSelection):
-        from juniors_toolbox.gui.tabs import TabWidgetManager
-        dataEditorTab = TabWidgetManager.get_tab(DataEditorWidget)
-        if dataEditorTab is None or selected.isEmpty():
-            return
-        firstIndex = selected.indexes()[0]
-        obj = self.nodeList.get_rail_node(firstIndex.row())
-        dataEditorTab.populate(None, serializable=obj)
-
-    def __update_connection_count(self, index: QModelIndex, count: int):
-        self.nodeList.get_rail_node(index).connectionCount.set_value(count)
-        self.__populate_rail_node_data_view(index)
-
-    def __update_connection(self, index: QModelIndex, connection: int):
-        row = index.row()
-        frame = self.nodeList.get_rail_node(row)
-        frame.connections[row].set_value(connection)
-        frame._set_period_from(row, self.nodeList.get_rail_node(connection))
-        self.__populate_rail_node_data_view(index)
-
-    def __set_position(self, index: QModelIndex, value: list):
-        frame = self.nodeList.get_rail_node(index.row())
-        frame.posX.set_value(value[0])
-        frame.posY.set_value(value[1])
-        frame.posZ.set_value(value[2])
-
-    def __set_rail_spline(self, index: QModelIndex, isSpline: bool):
-        rail = self.railList.get_rail(index.row)
-        name = rail.name.lstrip("S_")
-        if isSpline:
-            name = f"S_{name}"
-        rail.name = name

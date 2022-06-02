@@ -394,7 +394,7 @@ class NameRefHierarchyWidget(A_DockingInterface):
         self.treeWidget.setHeaderHidden(True)
         self.treeWidget.setMinimumSize(300, 80)
         self.treeWidget.itemClicked.connect(
-            self.__populate_properties_view
+            self._populate_properties_view
         )
         self.treeWidget.itemClicked.connect(
             self.__populate_data_view
@@ -453,7 +453,7 @@ class NameRefHierarchyWidget(A_DockingInterface):
         # self.expandAll()
 
     @Slot(NameRefHierarchyTreeWidgetItem)
-    def __populate_properties_view(self, item: NameRefHierarchyTreeWidgetItem) -> None:
+    def _populate_properties_view(self, item: NameRefHierarchyTreeWidgetItem) -> None:
         from juniors_toolbox.gui.tabs import TabWidgetManager
         propertiesTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
         if propertiesTab is None or item is None:

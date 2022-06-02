@@ -15,6 +15,7 @@ from juniors_toolbox.gui.tabs.rail import RailViewerWidget
 from juniors_toolbox.gui.templates import ToolboxTemplates
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.gui.windows.mainwindow import MainWindow
+from juniors_toolbox.rail import Rail
 from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.utils import VariadicArgs, VariadicKwargs
 from juniors_toolbox.utils.filesystem import get_program_folder, resource_path
@@ -265,7 +266,7 @@ class JuniorsToolbox(QApplication):
 
         model = railTab.railList.model()
         for i in range(first, last + 1):
-            scene.set_rail_by_index(i, model.item(i, 0).data())
+            scene.set_rail_by_index(i, Rail("UNk"))
 
     @Slot(QModelIndex, int, int)
     def __remove_rails(self, parent: QModelIndex, first: int, last: int):

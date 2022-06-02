@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 import enum
-from math import sqrt
+from math import cos, sin, sqrt
 from typing import BinaryIO, Iterable, List, Optional, Tuple, Union
 from io import BytesIO
 
@@ -10,7 +12,7 @@ from juniors_toolbox.objects.value import MemberValue, ValueType
 from juniors_toolbox.utils.iohelper import (align_int, read_float, read_sint16, read_string, read_uint32,
                                             write_float, write_sint16, write_string, write_uint16, write_uint32)
 from juniors_toolbox.utils import JSYSTEM_PADDING_TEXT, A_Clonable, A_Serializable, VariadicArgs, VariadicKwargs
-from juniors_toolbox.utils.types import Vec3f
+from juniors_toolbox.utils.types import Quaternion, Vec3f
 
 
 class RailNode(A_Serializable, A_Clonable):
@@ -152,6 +154,23 @@ class RailNode(A_Serializable, A_Clonable):
 
         return -1
 
+    def get_connection_count(self) -> int:
+        return self.connectionCount.get_value()
+
+    def set_connection_count(self, count: int):
+        self.connectionCount.set_value(count)
+
+    def get_connection(self, slot: int) -> Optional["RailNode"]:
+        rail = self.get_rail()
+        if rail is None:
+            return None
+
+        if slot >= self.connectionCount.get_value():
+            return None
+
+        index = self.connections[slot].get_value()
+        return rail.get_node(index)
+
     def get_connections(self) -> list["RailNode"]:
         rail = self.get_rail()
         if rail is None:
@@ -181,23 +200,6 @@ class RailNode(A_Serializable, A_Clonable):
     def disconnect(self, slot: int, doubly: bool = False) -> bool:
         self._disconnect_slots(slot, doubly)
         return True
-
-    def get_connection_count(self) -> int:
-        return self.connectionCount.get_value()
-
-    def set_connection_count(self, count: int):
-        self.connectionCount.set_value(count)
-
-    def get_connection(self, slot: int) -> Optional["RailNode"]:
-        rail = self.get_rail()
-        if rail is None:
-            return None
-        
-        if slot >= self.connectionCount.get_value():
-            return None
-
-        index = self.connections[slot].get_value()
-        return rail.get_node(index)
 
     def _set_period_from(self, connection: int, connected: "RailNode"):
         if connection not in range(8):
@@ -237,7 +239,8 @@ class RailNode(A_Serializable, A_Clonable):
         nextNode = rail.get_node(nextRow)
         prevNode = rail.get_node(prevRow)
         if nextNode is None or prevNode is None:
-            print(f"WARNING: Couldn't connect to neighbors ({prevRow}) and ({nextRow})")
+            print(
+                f"WARNING: Couldn't connect to neighbors ({prevRow}) and ({nextRow})")
             return False
 
         self.connectionCount.set_value(1)
@@ -314,7 +317,7 @@ class RailNode(A_Serializable, A_Clonable):
         self.connectionCount.set_value(1)
         if nextNode.connectionCount.get_value() < 1:
             nextNode.connectionCount.set_value(1)
-        
+
         self.connect(
             srcSlot=0,
             node=nextNode,
@@ -468,6 +471,23 @@ class Rail(A_Serializable, A_Clonable):
             return None
         return self._nodes[index]
 
+    def get_centeroid(self) -> Vec3f:
+        nodeCount = self.get_node_count()
+        if nodeCount == 0:
+            return Vec3f()
+
+        xs, ys, zs = [], [], []
+        for node in self.iter_nodes():
+            xs.append(node.posX.get_value())
+            ys.append(node.posY.get_value())
+            zs.append(node.posZ.get_value())
+
+        return Vec3f(
+            sum(xs) / nodeCount,
+            sum(ys) / nodeCount,
+            sum(zs) / nodeCount,
+        )
+
     def swap_nodes(self, index1: int, index2: int) -> bool:
         """
         Swaps two nodes in this rail
@@ -528,6 +548,81 @@ class Rail(A_Serializable, A_Clonable):
         for node in self._nodes:
             data.write(node.to_bytes())
 
+    def translate(self, translation: Vec3f) -> "Rail":
+        _x = int(translation.x)
+        _y = int(translation.y)
+        _z = int(translation.z)
+
+        if 32767 < _x < -32768:
+            raise ValueError(
+                f"Translation on X axis ({_x}) not in range -32768 <> 32767")
+        if 32767 < _y < -32768:
+            raise ValueError(
+                f"Translation on Y axis ({_y}) not in range -32768 <> 32767")
+        if 32767 < _z < -32768:
+            raise ValueError(
+                f"Translation on Z axis ({_z}) not in range -32768 <> 32767")
+
+        for node in self.iter_nodes():
+            node.posX.set_value(node.posX.get_value() + _x)
+            node.posY.set_value(node.posY.get_value() + _y)
+            node.posZ.set_value(node.posZ.get_value() + _z)
+
+        return self
+
+    def invert(self, *, x: bool, y: bool, z: bool) -> "Rail":
+        if not any([x, y, z]):
+            return self
+
+        centeroid = self.get_centeroid()
+        for node in self.iter_nodes():
+            if x:
+                diffX = node.posX - centeroid.x
+                node.posX.set_value(node.posX.get_value() + (diffX * 2))
+            if y:
+                diffY = node.posY - centeroid.y
+                node.posY.set_value(node.posY.get_value() + (diffY * 2))
+            if z:
+                diffZ = node.posZ - centeroid.z
+                node.posZ.set_value(node.posZ.get_value() + (diffZ * 2))
+
+        return self
+
+    def rotate(self, rotation: Quaternion) -> "Rail":
+        euler = rotation.to_euler()
+
+        cosa = cos(euler.x)
+        sina = sin(euler.x)
+
+        cosb = cos(euler.y)
+        sinb = sin(euler.y)
+
+        cosc = cos(euler.z)
+        sinc = sin(euler.z)
+
+        Axx = cosa*cosb
+        Axy = cosa*sinb*sinc - sina*cosc
+        Axz = cosa*sinb*cosc + sina*sinc
+
+        Ayx = sina*cosb
+        Ayy = sina*sinb*sinc + cosa*cosc
+        Ayz = sina*sinb*cosc - cosa*sinc
+
+        Azx = -sinb
+        Azy = cosb*sinc
+        Azz = cosb*cosc
+
+        for node in self.iter_nodes():
+            px = node.posX.get_value()
+            py = node.posY.get_value()
+            pz = node.posZ.get_value()
+
+            node.posX.set_value(int(Axx*px) + int(Axy*py) + int(Axz*pz))
+            node.posY.set_value(int(Ayx*px) + int(Ayy*py) + int(Ayz*pz))
+            node.posZ.set_value(int(Azx*px) + int(Azy*py) + int(Azz*pz))
+
+        return self
+
     def __len__(self) -> int:
         return self.get_size()
 
@@ -561,6 +656,18 @@ class RalData(A_Serializable):
         data.seek(headerloc)
         data.write(b"\x00"*12)
         return data.getvalue()
+
+    def get_size(self) -> int:
+        return align_int(sum([r.get_size() for r in self._rails]), 32)
+
+    def get_header_start(self) -> int:
+        return 0
+
+    def get_name_start(self) -> int:
+        return sum([r.get_header_size() for r in self._rails]) + 12
+
+    def get_data_start(self) -> int:
+        return align_int(sum([r.get_header_size() + r.get_name_size() for r in self._rails]), 4) + 12
 
     def iter_rails(self) -> Iterable[Rail]:
         for rail in self._rails:
@@ -608,18 +715,6 @@ class RalData(A_Serializable):
                 self._rails.remove(r)
                 return True
         return False
-
-    def get_size(self) -> int:
-        return align_int(sum([r.get_size() for r in self._rails]), 32)
-
-    def get_header_start(self) -> int:
-        return 0
-
-    def get_name_start(self) -> int:
-        return sum([r.get_header_size() for r in self._rails]) + 12
-
-    def get_data_start(self) -> int:
-        return align_int(sum([r.get_header_size() + r.get_name_size() for r in self._rails]), 4) + 12
 
     def _get_node_name(self, index: int, node: RailNode):
         connections = []
