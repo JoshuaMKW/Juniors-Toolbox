@@ -3,7 +3,7 @@ import time
 from typing import Any, List, Optional, Sequence, Union
 
 from PySide6.QtCore import QPoint, Qt, Slot, Signal, QMimeData, QAbstractListModel, QAbstractItemModel, QItemSelectionModel, QModelIndex, QPersistentModelIndex, QItemSelection
-from PySide6.QtGui import QAction, QKeyEvent, QMouseEvent, QDragMoveEvent, QDragEnterEvent, QDragLeaveEvent, QDropEvent, QContextMenuEvent, QStandardItemModel
+from PySide6.QtGui import QAction, QKeyEvent, QMouseEvent, QDragMoveEvent, QDragEnterEvent, QDragLeaveEvent, QDropEvent, QContextMenuEvent, QStandardItemModel, QClipboard
 from PySide6.QtWidgets import (QAbstractItemView, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem, QListView, QTreeView,
                                QMenu, QWidget, QApplication)
 
@@ -64,9 +64,6 @@ class InteractiveTreeWidgetItem(QTreeWidgetItem):
 
 
 class InteractiveListWidget(QListWidget):
-    itemCreated = Signal(InteractiveListWidgetItem, int)
-    itemDeleted = Signal(InteractiveListWidgetItem, int)
-
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setAcceptDrops(True)
@@ -606,26 +603,24 @@ class InteractiveTreeWidget(QTreeWidget):
 
 
 class InteractiveListView(QListView):
-    indexCreated = Signal(QModelIndex)
-    indexEdited = Signal(QModelIndex)
-    indexDeleted = Signal(QModelIndex)
-    currentSelectionChanged = Signal(QItemSelection, QItemSelection)
-
-    PrevNameRole = Qt.UserRole + 1
-    NewItemRole = Qt.UserRole + 2
+    PrevNameRole = Qt.UserRole + 100
+    NewItemRole = Qt.UserRole + 101
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
-        self.setModel(QStandardItemModel())
-
         self.setAcceptDrops(True)
         self.setDragDropMode(QAbstractItemView.InternalMove)
         self.setSelectionMode(QAbstractItemView.ExtendedSelection)
-        self.doubleClicked.connect(self.__handle_double_click)
 
         self.__selectedIndexes: List[int] = []
         self.__dragHoverIndex: Optional[AnyModelIndex] = None
         self.__dragPreSelected = False
+
+    def model(self) -> QStandardItemModel:
+        return super().model()
+
+    def setModel(self, model: QStandardItemModel) -> None:
+        super().setModel(model)
 
     def get_context_menu(self, point: QPoint) -> Optional[QMenu]:
         # Infos about the node selected.
@@ -635,12 +630,7 @@ class InteractiveListView(QListView):
 
         # We build the menu.
         menu = QMenu(self)
-
-        model = self.model()
-        selectedRows = self.selectedIndexes()
-        selectedIndexes: List[QModelIndex] = []
-        for i in selectedRows:
-            selectedIndexes.append(model.index(i, 0))
+        selectedIndexes = self.selectedIndexes()
 
         duplicateAction = QAction("Duplicate", self)
         duplicateAction.triggered.connect(
@@ -662,20 +652,6 @@ class InteractiveListView(QListView):
 
         return menu
 
-    def create_row(self, row: int, name: str, userData: Optional[Any] = None) -> bool:
-        model = self.model()
-        if not model.insertRow(row):
-            return False
-        
-        index = model.index(row, 0)
-        model.setData(index, name, Qt.DisplayRole)
-        model.setData(index, userData, Qt.UserRole)
-        model.setData(index, name, self.PrevNameRole)
-        model.setData(index, True, self.NewItemRole)
-        self.selectionModel().select(index, QItemSelectionModel.ClearAndSelect)
-
-        return True
-
     def clear(self) -> None:
         model = self.model()
         model.removeRows(0, model.rowCount())
@@ -687,7 +663,7 @@ class InteractiveListView(QListView):
         """
         model = self.model()
 
-        name = index.data(Qt.DisplayRole)
+        name = index.data(Qt.EditRole)
         isNew = index.data(self.NewItemRole)
         oldName = index.data(self.PrevNameRole)
 
@@ -699,16 +675,14 @@ class InteractiveListView(QListView):
 
         newName = self._resolve_name(name, index)
 
+        model.item(index.row()).setData(newName, Qt.EditRole)
+
         model.blockSignals(True)
-        model.setData(index, newName, Qt.DisplayRole)
+        model.setData(index, False, self.NewItemRole)
         model.blockSignals(False)
 
         self.selectionModel().select(index, QItemSelectionModel.ClearAndSelect)
 
-        if isNew:
-            self.indexCreated.emit(index)
-
-        model.setData(index, False, self.NewItemRole)
         return newName
 
     @Slot(list)
@@ -716,24 +690,35 @@ class InteractiveListView(QListView):
         """
         Returns the new item
         """
+        if len(indexes) == 0:
+            return []
+            
         model = self.model()
-        model.blockSignals(True)
 
         newIndexes: list[AnyModelIndex] = []
-        for index in indexes:
-            newName = self._resolve_name(index.data(Qt.DisplayRole))
-            userData: A_Clonable = index.data(Qt.UserRole)
+        persistentIndexes = [QPersistentModelIndex(index) for index in indexes]
 
-            newIndex = model.sibling(index.row() + 1, 0, index)
+        for index in persistentIndexes:
+            mimeData = model.mimeData([index])
+            newName = self._resolve_name(index.data(Qt.DisplayRole))
+
+            model.dropMimeData(
+                mimeData,
+                Qt.CopyAction,
+                index.row() + 1,
+                0,
+                QModelIndex()
+            )
+
+            newIndex = model.index(
+                index.row() + 1,
+                0,
+                QModelIndex()
+            )
             model.setData(newIndex, newName, Qt.DisplayRole)
-            model.setData(newIndex, userData.copy(deep=True), Qt.UserRole)
-            model.setData(newIndex, False, self.NewItemRole)
-            model.setData(newIndex, newIndex.data(
-                Qt.DisplayRole), self.PrevNameRole)
 
             newIndexes.append(newIndex)
 
-        model.blockSignals(False)
         return newIndexes
 
     @Slot(list)
@@ -743,7 +728,6 @@ class InteractiveListView(QListView):
         for index in indexes:
             persistentIndexes.append(QPersistentModelIndex(index))
         for pindex in persistentIndexes:
-            self.indexDeleted.emit(pindex)
             model.removeRow(pindex.row())
 
     def _resolve_name(self, name: str, filterItem: AnyModelIndex = None) -> str:
@@ -778,40 +762,6 @@ class InteractiveListView(QListView):
             else:
                 i += 1
         return name
-
-    @Slot(QModelIndex)
-    def __handle_double_click(self, index: AnyModelIndex) -> None:
-        model = self.model()
-        model.setData(index, index.data(Qt.DisplayRole), self.PrevNameRole)
-        model.setData(index, False, self.NewItemRole)
-
-    @Slot(QModelIndex, int, int)
-    def rowsInserted(self, parent: AnyModelIndex, start: int, end: int) -> None:
-        super().rowsInserted(parent, start, end)
-        for i in range(start, end+1):
-            self.indexCreated.emit(self.model().index(i, 0))
-
-    @Slot(QModelIndex, int, int)
-    def rowsAboutToBeRemoved(self, parent: AnyModelIndex, start: int, end: int) -> None:
-        for i in range(start, end+1):
-            self.indexDeleted.emit(self.model().index(i, 0))
-        super().rowsAboutToBeRemoved(parent, start, end)
-
-    @Slot(QItemSelection, QItemSelection)
-    def selectionChanged(self, selected: QItemSelection, deselected: QItemSelection) -> None:
-        super().selectionChanged(selected, deselected)
-        self.currentSelectionChanged.emit(selected, deselected)
-
-    @Slot(QModelIndex, QModelIndex, list)
-    def dataChanged(self, topLeft: AnyModelIndex, bottomRight: AnyModelIndex, roles: Sequence[int] = None) -> None:
-        if roles is None:
-            roles = []
-        super().dataChanged(topLeft, bottomRight, roles)
-        for i in range(topLeft.row(), bottomRight.row()+1):
-            index = self.model().index(i, 0)
-            if Qt.DisplayRole in roles:
-                self.rename_index(index)
-            self.indexEdited.emit(index)
 
     @Slot(QContextMenuEvent)
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
@@ -903,11 +853,11 @@ class InteractiveListView(QListView):
         index = self.indexAt(mousePos)
         if mouseButton == Qt.LeftButton:
             if modifiers == Qt.ShiftModifier:
-                self.__handle_shift_click(index)
+                self._handle_shift_click(index)
                 event.accept()
                 return
             elif modifiers == Qt.ControlModifier:
-                self.__handle_ctrl_click(index)
+                self._handle_ctrl_click(index)
                 event.accept()
                 return
         super().mouseReleaseEvent(event)
@@ -915,10 +865,9 @@ class InteractiveListView(QListView):
     @Slot(QMouseEvent)
     def keyReleaseEvent(self, event: QKeyEvent) -> None:
         model = self.model()
-        selectedRows = self.selectedIndexes()
-        selectedIndexes: List[QModelIndex] = []
-        for i in selectedRows:
-            selectedIndexes.append(model.index(i, 0))
+
+        selectedIndexes = self.selectedIndexes()
+
         if event.key() == Qt.Key_Delete:
             self.delete_indexes(selectedIndexes)
             event.accept()
@@ -928,26 +877,23 @@ class InteractiveListView(QListView):
         modifiers = QApplication.keyboardModifiers()
         if modifiers == Qt.ControlModifier:
             if key == Qt.Key_C:
-                names = [index.data(Qt.DisplayRole)
-                         for index in selectedIndexes]
-                QApplication.clipboard().setText("__indexes__\n" + "\n".join(names))
+                QApplication.clipboard().setMimeData(
+                    model.mimeData(self.selectedIndexes()),
+                    QClipboard.Clipboard
+                )
             elif key == Qt.Key_V:
-                text = QApplication.clipboard().text()
-                names = text.split("\n")
-                if names[0] != "__indexes__":
-                    return
-                indexes: list[QModelIndex] = []
-                for row in range(model.rowCount()):
-                    index = model.index(row, 0)
-                    if index.data(Qt.DisplayRole) in names:
-                        indexes.append(index)
-                if len(indexes) == 0:
-                    event.ignore()
-                    return
-                self.duplicate_indexes(indexes)
+                mimeData = QApplication.clipboard().mimeData(QClipboard.Clipboard)
+                model.dropMimeData(
+                    mimeData,
+                    Qt.CopyAction,
+                    model.rowCount(),
+                    0,
+                    QModelIndex()
+                )
+
         event.accept()
 
-    def __handle_shift_click(self, index: QModelIndex) -> None:
+    def _handle_shift_click(self, index: QModelIndex) -> None:
         model = self.model()
         selectionModel = self.selectionModel()
 
@@ -971,7 +917,7 @@ class InteractiveListView(QListView):
                 QItemSelectionModel.Select if row in rows else QItemSelectionModel.Deselect
             )
 
-    def __handle_ctrl_click(self, index: QModelIndex) -> None:
+    def _handle_ctrl_click(self, index: QModelIndex) -> None:
         selectionModel = self.selectionModel()
         if index is None or selectionModel.isSelected(index):
             return

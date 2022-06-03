@@ -35,7 +35,7 @@ class RailNode(A_Serializable, A_Clonable):
         self.periods = MemberValue("Period{i}", 0, ValueType.F32)
         self.periods.set_array_size(8)
 
-        self._rail = None
+        self._rail: Optional[Rail] = None
 
     @classmethod
     def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **kwargs: VariadicKwargs):
@@ -425,7 +425,7 @@ class Rail(A_Serializable, A_Clonable):
 
         data.seek(dataPos)
         for _ in range(size):
-            this._nodes.append(RailNode.from_bytes(data))
+            this.add_node(RailNode.from_bytes(data))
 
         data.seek(_oldPos)
         return this
@@ -444,9 +444,8 @@ class Rail(A_Serializable, A_Clonable):
             copy._nodes.append(node.copy(deep=deep))
         return copy
 
-    def iter_nodes(self) -> Iterable[RailNode]:
-        for node in self._nodes:
-            yield node
+    def is_spline(self) -> bool:
+        return self.name.startswith("S_")
 
     def get_size(self) -> int:
         return self.get_header_size() + self.get_name_size() + self.get_data_size()
@@ -463,6 +462,10 @@ class Rail(A_Serializable, A_Clonable):
     def get_node_count(self) -> int:
         return len(self._nodes)
 
+    def iter_nodes(self) -> Iterable[RailNode]:
+        for node in self._nodes:
+            yield node
+
     def get_nodes(self) -> list[RailNode]:
         return self._nodes
 
@@ -470,6 +473,27 @@ class Rail(A_Serializable, A_Clonable):
         if index not in range(len(self._nodes)):
             return None
         return self._nodes[index]
+
+    def add_node(self, node: RailNode):
+        self._nodes.append(node)
+        node._rail = self
+
+    def insert_node(self, index: int, node: RailNode) -> bool:
+        try:
+            self._nodes.insert(index, node)
+            node._rail = self
+        except IndexError:
+            return False
+        finally:
+            return True
+
+    def remove_node(self, node: RailNode) -> bool:
+        try:
+            self._nodes.remove(node)
+        except ValueError:
+            return False
+        finally:
+            return True
 
     def get_centeroid(self) -> Vec3f:
         nodeCount = self.get_node_count()

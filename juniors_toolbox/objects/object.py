@@ -423,7 +423,7 @@ class MapObject(A_SceneObject):
             fileOffset = data.tell()
             if fileOffset >= objEndPos:
                 print(
-                    f"Reached end of object data before loading could complete! ({fileOffset} > {objEndPos}) ({thisObj.get_explicit_name()}::{member.get_qualified_name()})"
+                    f"Reached end of object data before loading could complete! ({fileOffset} >= {objEndPos}) ({thisObj.get_explicit_name()}::{member.get_qualified_name()})"
                 )
                 break
             member.load(data, objEndPos)
