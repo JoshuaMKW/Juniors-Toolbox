@@ -1,30 +1,40 @@
 from email.policy import default
+from io import BytesIO
 from operator import index
 from pathlib import Path
 from tkinter.font import names
 from typing import Optional, Union
-from async_timeout import Any
 
+from async_timeout import Any
+from soupsieve import select
 from juniors_toolbox.gui.layouts.framelayout import FrameLayout
 from juniors_toolbox.gui.tabs.dataeditor import DataEditorWidget
 from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
-
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.gui.widgets.interactivestructs import (
     InteractiveListView, InteractiveListWidget, InteractiveListWidgetItem)
 from juniors_toolbox.gui.widgets.listinterface import ListInterfaceWidget
-from juniors_toolbox.gui.widgets.property import A_ValueProperty, ArrayProperty, BoolProperty, CommentProperty, IntProperty, ShortProperty, Vector3Property
+from juniors_toolbox.gui.widgets.property import (A_ValueProperty,
+                                                  ArrayProperty, BoolProperty,
+                                                  CommentProperty, IntProperty,
+                                                  ShortProperty,
+                                                  Vector3Property)
 from juniors_toolbox.gui.widgets.spinboxdrag import SpinBoxDragInt
 from juniors_toolbox.objects.object import MapObject
 from juniors_toolbox.rail import Rail, RailNode, RalData
 from juniors_toolbox.scene import SMSScene
-from PySide6.QtCore import Qt, Slot, QPoint, Signal, QModelIndex, QPersistentModelIndex, QItemSelection, QItemSelectionModel, QObject, QMimeData, QDataStream, QAbstractListModel, QSize
-from PySide6.QtGui import QAction, QStandardItem, QStandardItemModel, QDragEnterEvent, QDragLeaveEvent, QDragMoveEvent, QDropEvent
-from PySide6.QtWidgets import QGridLayout, QListWidget, QSplitter, QWidget, QListWidgetItem, QFormLayout, QVBoxLayout, QMenu, QListView
 from juniors_toolbox.utils import A_Serializable, VariadicArgs, VariadicKwargs
-
-
+from PySide6.QtCore import (QAbstractListModel, QByteArray, QDataStream, QIODevice,
+                            QItemSelection, QItemSelectionModel, QMimeData,
+                            QModelIndex, QObject, QPersistentModelIndex,
+                            QPoint, QSize, Qt, Signal, Slot)
+from PySide6.QtGui import (QAction, QDragEnterEvent, QDragLeaveEvent,
+                           QDragMoveEvent, QDropEvent, QStandardItem,
+                           QStandardItemModel)
 from PySide6.QtTest import QAbstractItemModelTester
+from PySide6.QtWidgets import (QFormLayout, QGridLayout, QListView,
+                               QListWidget, QListWidgetItem, QMenu, QSplitter,
+                               QVBoxLayout, QWidget)
 
 
 class S16Vector3Property(A_ValueProperty):
@@ -141,10 +151,26 @@ class RailItem(QStandardItem):
         return False
 
     def read(self, in_: QDataStream) -> None:
-        return super().read(in_)
+        rail = Rail(in_.readString())
+
+        nodeCount = in_.readInt32()
+        for i in range(nodeCount):
+            rawData = QByteArray()
+            in_ >> rawData
+            rail.add_node(
+                RailNode.from_bytes(
+                    BytesIO(rawData.data())
+                )
+            )
+
+        self.setData(rail)
 
     def write(self, out: QDataStream) -> None:
-        return super().write(out)
+        rail: Rail = self.data()
+        out.writeString(rail.name)
+        out.writeInt32(rail.get_node_count())
+        for node in rail.iter_nodes():
+            out << node.to_bytes()
 
     def data(self, role: int = Qt.UserRole + 1) -> Any:
         if role == 255:
@@ -276,15 +302,13 @@ class RailNodeItem(QStandardItem):
 class RailListModel(QStandardItemModel):
     def __init__(self, parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
-
-    def itemPrototype(self) -> RailItem:
-        return RailItem()
+        self.setItemPrototype(RailItem())
 
     def supportedDragActions(self) -> Qt.DropActions:
-        return Qt.MoveAction
+        return Qt.CopyAction | Qt.MoveAction
 
     def supportedDropActions(self) -> Qt.DropActions:
-        return Qt.CopyAction
+        return Qt.CopyAction | Qt.MoveAction
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.UserRole + 1) -> Any:
         if section == 0:
@@ -300,18 +324,93 @@ class RailListModel(QStandardItemModel):
         return roles
 
     def canDropMimeData(self, data: QMimeData, action: Qt.DropAction, row: int, column: int, parent: Union[QModelIndex, QPersistentModelIndex]) -> bool:
-        if data.sender() == self and action != Qt.MoveAction:
+        print(action.name)
+        if not data.hasFormat("application/x-raildatalist"):
             return False
-        return super().canDropMimeData(data, action, row, column, parent)
+        if data.sender() == self:
+            return action == Qt.MoveAction
+        return data.sender() is None
 
     def dropMimeData(self, data: QMimeData, action: Qt.DropAction, row: int, column: int, parent: Union[QModelIndex, QPersistentModelIndex]) -> bool:
-        return super().dropMimeData(data, action, row, column, parent)
+        if action & Qt.CopyAction == 0:
+            return False
+
+        mimeType = self.mimeTypes()[0]
+
+        encodedData = data.data(mimeType)
+        stream = QDataStream(
+            encodedData,
+            QIODevice.ReadOnly
+        )
+
+        itemCount = stream.readInt32()
+        for i in range(itemCount):
+            # item = self.itemPrototype().clone()
+            item = RailItem()
+            item.read(stream)
+            item.setData(
+                self._resolve_name(item.data(Qt.DisplayRole)),
+                Qt.DisplayRole
+            )
+            self.insertRow(row + i, item)
+
+        self.layoutChanged.emit()
+        return True
 
     def mimeTypes(self) -> list[str]:
         return ["application/x-raildatalist"]
 
     def mimeData(self, indexes: list[int]) -> QMimeData:
-        return super().mimeData(indexes)
+        mimeType = self.mimeTypes()[0]
+        mimeData = QMimeData()
+
+        encodedData = QByteArray()
+        stream = QDataStream(
+            encodedData,
+            QIODevice.WriteOnly
+        )
+
+        stream.writeInt32(len(indexes))
+        for index in indexes:
+            item = self.itemFromIndex(index) # type: ignore
+            item.write(stream)
+
+        mimeData.setData(
+            mimeType,
+            encodedData
+        )
+        return mimeData
+    
+    def _resolve_name(self, name: str, filterItem: Optional[QStandardItem] = None) -> str:
+        renameContext = 1
+        ogName = name
+
+        possibleNames = []
+        for i in range(self.rowCount()):
+            if renameContext > 100:
+                raise FileExistsError(
+                    "Name exists beyond 100 unique iterations!")
+            item = self.item(i)
+            if item == filterItem:
+                continue
+            itemText: str = item.data(Qt.DisplayRole)
+            if itemText.startswith(ogName):
+                possibleNames.append(itemText)
+
+        i = 0
+        while True:
+            if i >= len(possibleNames):
+                break
+            if renameContext > 100:
+                raise FileExistsError(
+                    "Name exists beyond 100 unique iterations!")
+            if possibleNames[i] == name:
+                name = f"{ogName}{renameContext}"
+                renameContext += 1
+                i = 0
+            else:
+                i += 1
+        return name
 
 
 class RailNodeListModel(QStandardItemModel):
@@ -345,9 +444,12 @@ class RailNodeListModel(QStandardItemModel):
         return roles
 
     def canDropMimeData(self, data: QMimeData, action: Qt.DropAction, row: int, column: int, parent: Union[QModelIndex, QPersistentModelIndex]) -> bool:
-        # if data.sender() == self and action != Qt.MoveAction:
-        #     return False
-        return super().canDropMimeData(data, action, row, column, parent)
+        print(action.name)
+        if not data.hasFormat("application/x-railnodedatalist"):
+            return False
+        if data.sender() == self:
+            return action == Qt.MoveAction
+        return data.sender() is None
 
     def dropMimeData(self, data: QMimeData, action: Qt.DropAction, row: int, column: int, parent: Union[QModelIndex, QPersistentModelIndex]) -> bool:
         return super().dropMimeData(data, action, row, column, parent)
@@ -357,6 +459,37 @@ class RailNodeListModel(QStandardItemModel):
 
     def mimeData(self, indexes: list[int]) -> QMimeData:
         return super().mimeData(indexes)
+    
+    def _resolve_name(self, name: str, filterItem: Optional[QStandardItem] = None) -> str:
+        renameContext = 1
+        ogName = name
+
+        possibleNames = []
+        for i in range(self.rowCount()):
+            if renameContext > 100:
+                raise FileExistsError(
+                    "Name exists beyond 100 unique iterations!")
+            item = self.item(i)
+            if item == filterItem:
+                continue
+            itemText: str = item.data(Qt.DisplayRole)
+            if itemText.startswith(ogName):
+                possibleNames.append(itemText)
+
+        i = 0
+        while True:
+            if i >= len(possibleNames):
+                break
+            if renameContext > 100:
+                raise FileExistsError(
+                    "Name exists beyond 100 unique iterations!")
+            if possibleNames[i] == name:
+                name = f"{ogName}{renameContext}"
+                renameContext += 1
+                i = 0
+            else:
+                i += 1
+        return name
 
 
 class RailNodeListWidget(InteractiveListView):
@@ -402,10 +535,9 @@ class RailNodeListWidget(InteractiveListView):
         menu = QMenu(self)
 
         model = self.model()
-        selectedRows = self.selectedIndexes()
-        selectedIndexes: list[QModelIndex] = []
-        for i in selectedRows:
-            selectedIndexes.append(model.index(i, 0))
+        selectedIndexes: list[QModelIndex] = self.selectedIndexes()
+        if len(selectedIndexes) == 0:
+            return None
 
         start = selectedIndexes[0]
 
@@ -464,9 +596,48 @@ class RailNodeListWidget(InteractiveListView):
     def rename_item(self, item: RailNodeItem) -> None:
         pass
 
-    @Slot(RailNodeItem)
-    def duplicate_indexes(self, indexes: list[RailNodeItem]) -> None:
-        super().duplicate_indexes(indexes)
+    @Slot(list)
+    def duplicate_indexes(self, indexes: list[QModelIndex | QPersistentModelIndex]) -> list[QModelIndex | QPersistentModelIndex]:
+        """
+        Returns the new item
+        """
+        if len(indexes) == 0:
+            return []
+            
+        model = self.model()
+
+        newIndexes: list[QModelIndex | QPersistentModelIndex] = []
+        persistentIndexes = [QPersistentModelIndex(index) for index in indexes]
+
+        for index in persistentIndexes:
+            mimeData = model.mimeData([index])
+            newName = self._resolve_name(index.data(Qt.DisplayRole))
+
+            model.dropMimeData(
+                mimeData,
+                Qt.CopyAction,
+                index.row() + 1,
+                0,
+                QModelIndex()
+            )
+
+            newIndex = model.index(
+                index.row() + 1,
+                0,
+                QModelIndex()
+            )
+
+            node: RailNode = model.data(newIndex, Qt.UserRole + 1)
+            newNode = node.copy(deep=True)
+
+            model.setData(
+                newIndex,
+                newNode
+            )
+
+            newIndexes.append(newIndex)
+
+        return newIndexes
 
     @Slot(list)
     def delete_indexes(self, indexes: list[InteractiveListWidgetItem]):
@@ -733,9 +904,18 @@ class RailListView(InteractiveListView):
                 0,
                 QModelIndex()
             )
-            model.setData(newIndex, newName, Qt.DisplayRole)
+
+            rail: Rail = model.data(newIndex, Qt.UserRole + 1)
+            newRail = rail.copy(deep=True)
+            newRail.name = newName
+
+            model.setData(
+                newIndex,
+                newRail
+            )
 
             newIndexes.append(newIndex)
+            self.update(newIndex)
 
         return newIndexes
     
@@ -785,11 +965,9 @@ class RailListView(InteractiveListView):
         obj = self.get_rail(selected.row())
         dataEditorTab.populate(None, serializable=obj)
 
-    
     @Slot(Qt.DropActions)
     def startDrag(self, actions: Qt.DropActions):
         super().startDrag(actions)
-
 
     @Slot(QDragEnterEvent)
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
@@ -798,17 +976,7 @@ class RailListView(InteractiveListView):
             event.ignore()
             return
 
-        if event.source() == self:
-            event.setDropAction(Qt.MoveAction)
-            event.accept()
-            return
-        elif event.source() is None:
-            event.setDropAction(Qt.CopyAction)
-            event.accept()
-            return
-        else:
-            event.ignore()
-            return
+        event.accept()
 
     @Slot(QDragMoveEvent)
     def dragMoveEvent(self, event: QDragMoveEvent) -> None:
@@ -817,32 +985,79 @@ class RailListView(InteractiveListView):
             event.ignore()
             return
 
-        if event.source() == self:
-            event.acceptProposedAction()
-            return
-        elif event.source() is None:
-            event.acceptProposedAction()
-            return
+        selectionModel = self.selectionModel()
+
+        hoverIndex = self.indexAt(event.pos())
+        if hoverIndex != selectionModel.currentIndex():
+            selectionModel.select(
+                selectionModel.currentIndex(),
+                QItemSelectionModel.ClearAndSelect
+            )
+            selectionModel.select(
+                hoverIndex,
+                QItemSelectionModel.Select
+            )
         else:
-            event.ignore()
-            return
+            selectionModel.select(
+                selectionModel.currentIndex(),
+                QItemSelectionModel.ClearAndSelect
+            )
+
+        event.accept()
+
+    @Slot(QDragLeaveEvent)
+    def dragLeaveEvent(self, event: QDragLeaveEvent) -> None:
+        selectionModel = self.selectionModel()
+        selectionModel.select(
+            selectionModel.currentIndex(),
+            QItemSelectionModel.ClearAndSelect
+        )
+        event.accept()
 
     @Slot(QDropEvent)
     def dropEvent(self, event: QDropEvent) -> None:
+        model = self.model()
         mimedata = event.mimeData()
-        if not mimedata.hasFormat(self.model().mimeTypes()[0]):
+
+        index = self.indexAt(event.pos())
+
+        parent = QModelIndex()
+        row = model.rowCount()
+        column = 0
+        if index.isValid():
+            row = index.row()
+            column = index.column()
+            parent = index.parent()
+
+        action = event.dropAction()
+        if event.source() is None:
+            action = Qt.CopyAction
+
+        if not model.canDropMimeData(
+            mimedata,
+            action,
+            row,
+            column,
+            parent
+        ):
             event.ignore()
             return
 
-        super().dropEvent(event)
-        # self.clearSelection()
+        worked = model.dropMimeData(
+            mimedata,
+            action,
+            row,
+            column,
+            parent
+        )
 
-        # self.setCurrentItem(self.item(self._first))
-        # for row in range(self._first, self._last + 1):
-        #     item = self.item(row)
-        #     item.setSelected(True)
-        #     self.itemCreated.emit(item, row)
-        #     self.nodeCreated.emit(item)
+        selectionModel = self.selectionModel()
+        selectionModel.select(
+            selectionModel.currentIndex(),
+            QItemSelectionModel.ClearAndSelect
+        )
+
+        event.accept()
 
 
 class RailViewerWidget(A_DockingInterface):

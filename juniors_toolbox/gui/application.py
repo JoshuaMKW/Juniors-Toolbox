@@ -232,7 +232,7 @@ class JuniorsToolbox(QApplication):
     def __init_rails(self):
         railTab = TabWidgetManager.get_tab(RailViewerWidget)
         railTab.railList.model().rowsInserted.connect(self.__add_rails)
-        railTab.railList.model().rowsRemoved.connect(self.__remove_rails)
+        railTab.railList.model().rowsAboutToBeRemoved.connect(self.__remove_rails)
 
     def __init_tabs(self):
         areas = [Qt.LeftDockWidgetArea, Qt.RightDockWidgetArea]

@@ -3,7 +3,7 @@ import time
 from typing import Any, List, Optional, Sequence, Union
 
 from PySide6.QtCore import QPoint, Qt, Slot, Signal, QMimeData, QAbstractListModel, QAbstractItemModel, QItemSelectionModel, QModelIndex, QPersistentModelIndex, QItemSelection
-from PySide6.QtGui import QAction, QKeyEvent, QMouseEvent, QDragMoveEvent, QDragEnterEvent, QDragLeaveEvent, QDropEvent, QContextMenuEvent, QStandardItemModel, QClipboard
+from PySide6.QtGui import QAction, QKeyEvent, QMouseEvent, QDragMoveEvent, QDragEnterEvent, QDragLeaveEvent, QDropEvent, QContextMenuEvent, QStandardItemModel, QStandardItem, QClipboard
 from PySide6.QtWidgets import (QAbstractItemView, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem, QListView, QTreeView,
                                QMenu, QWidget, QApplication)
 
@@ -624,7 +624,7 @@ class InteractiveListView(QListView):
 
     def get_context_menu(self, point: QPoint) -> Optional[QMenu]:
         # Infos about the node selected.
-        index: Optional[InteractiveListWidgetItem] = self.indexAt(point)
+        index: Optional[QStandardItem] = self.indexAt(point)
         if index is None:
             return None
 
@@ -634,7 +634,7 @@ class InteractiveListView(QListView):
 
         duplicateAction = QAction("Duplicate", self)
         duplicateAction.triggered.connect(
-            lambda clicked=None: self.duplicate_indexes(selectedIndexes)
+            lambda clicked=None: self.duplicate_items(selectedIndexes)
         )
         renameAction = QAction("Rename", self)
         renameAction.triggered.connect(
@@ -656,7 +656,7 @@ class InteractiveListView(QListView):
         model = self.model()
         model.removeRows(0, model.rowCount())
 
-    @Slot(InteractiveListWidgetItem)
+    @Slot(QStandardItem)
     def rename_index(self, index: QModelIndex) -> str:
         """
         Returns the new name of the item
@@ -686,7 +686,7 @@ class InteractiveListView(QListView):
         return newName
 
     @Slot(list)
-    def duplicate_indexes(self, indexes: List[AnyModelIndex]) -> List[AnyModelIndex]:
+    def duplicate_items(self, indexes: list[QModelIndex | QPersistentModelIndex]) -> list[QStandardItem]:
         """
         Returns the new item
         """
@@ -695,12 +695,14 @@ class InteractiveListView(QListView):
             
         model = self.model()
 
-        newIndexes: list[AnyModelIndex] = []
-        persistentIndexes = [QPersistentModelIndex(index) for index in indexes]
+        items = [model.item(index.row()) for index in indexes]
+        newItems: list[QStandardItem] = []
 
-        for index in persistentIndexes:
+        for item in items:
+            index = item.index()
+
             mimeData = model.mimeData([index])
-            newName = self._resolve_name(index.data(Qt.DisplayRole))
+            newName = self._resolve_name(item.data(Qt.DisplayRole))
 
             model.dropMimeData(
                 mimeData,
@@ -710,16 +712,15 @@ class InteractiveListView(QListView):
                 QModelIndex()
             )
 
-            newIndex = model.index(
+            newItem = model.item(
                 index.row() + 1,
-                0,
-                QModelIndex()
+                0
             )
-            model.setData(newIndex, newName, Qt.DisplayRole)
 
-            newIndexes.append(newIndex)
+            newItems.append(newItem)
+            self.update(newItem.index())
 
-        return newIndexes
+        return newItems
 
     @Slot(list)
     def delete_indexes(self, indexes: List[AnyModelIndex]):
@@ -773,11 +774,12 @@ class InteractiveListView(QListView):
     @Slot(Qt.DropActions)
     def startDrag(self, supportedActions: Qt.DropActions) -> None:
         self.__selectedIndexes = self.selectedIndexes()
+        # self.__selectionMode = self.selectionMode()
         super().startDrag(supportedActions)
 
     @Slot(QDragEnterEvent)
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
-        self.__selectionMode = self.selectionMode()
+        # self.__selectionMode = self.selectionMode()
         self.__selectedIndexes = self.selectedIndexes()
         self.__dragHoverIndex = self.indexAt(event.pos())
         self.__dragPreSelected = False if self.__dragHoverIndex is None else self.selectionModel().isSelected(self.__dragHoverIndex)
@@ -820,7 +822,7 @@ class InteractiveListView(QListView):
 
         self.__dragHoverIndex = None
         self.__dragPreSelected = False
-        self.setSelectionMode(self.__selectionMode)
+        # self.setSelectionMode(self.__selectionMode)
         event.accept()
 
     @Slot(QDropEvent)
@@ -829,7 +831,7 @@ class InteractiveListView(QListView):
             self.selectionModel().select(self.__dragHoverIndex, QItemSelectionModel.Deselect)
         self.__dragHoverIndex = None
         self.__dragPreSelected = False
-        self.setSelectionMode(self.__selectionMode)
+        # self.setSelectionMode(self.__selectionMode)
         super().dropEvent(event)
 
     @Slot(QMouseEvent)
