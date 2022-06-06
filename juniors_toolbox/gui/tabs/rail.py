@@ -323,18 +323,17 @@ class RailListModel(QStandardItemModel):
                 roles[i] = variant
         return roles
 
-    def canDropMimeData(self, data: QMimeData, action: Qt.DropAction, row: int, column: int, parent: Union[QModelIndex, QPersistentModelIndex]) -> bool:
-        print(action.name)
-        if not data.hasFormat("application/x-raildatalist"):
-            return False
-        if data.sender() == self:
-            return action == Qt.MoveAction
-        return data.sender() is None
+    # def canDropMimeData(self, data: QMimeData, action: Qt.DropAction, row: int, column: int, parent: Union[QModelIndex, QPersistentModelIndex]) -> bool:
+    #     if not data.hasFormat("application/x-raildatalist"):
+    #         return False
+    #     if data.sender() == self:
+    #         return action & Qt.MoveAction
+    #     return data.sender() is None
+
+    def mimeTypes(self) -> list[str]:
+        return ["application/x-raildatalist"]
 
     def dropMimeData(self, data: QMimeData, action: Qt.DropAction, row: int, column: int, parent: Union[QModelIndex, QPersistentModelIndex]) -> bool:
-        if action & Qt.CopyAction == 0:
-            return False
-
         mimeType = self.mimeTypes()[0]
 
         encodedData = data.data(mimeType)
@@ -344,21 +343,29 @@ class RailListModel(QStandardItemModel):
         )
 
         itemCount = stream.readInt32()
-        for i in range(itemCount):
-            # item = self.itemPrototype().clone()
-            item = RailItem()
-            item.read(stream)
-            item.setData(
-                self._resolve_name(item.data(Qt.DisplayRole)),
-                Qt.DisplayRole
-            )
-            self.insertRow(row + i, item)
+        if action & Qt.CopyAction:
+            for i in range(itemCount):
+                item = RailItem()
+                item.read(stream)
+                item.setData(
+                    self._resolve_name(item.data(Qt.DisplayRole)),
+                    Qt.DisplayRole
+                )
+                self.insertRow(row + i, item)
+        else:
+            oldItems: list[RailItem] = []
+            for i in range(itemCount):
+                item = RailItem()
+                item.read(stream)
+                name = item.data(Qt.DisplayRole)
+                oldItems.append(
+                    self.findItems(name)[0]
+                )
+                self.insertRow(row + i, item)
+            for item in oldItems:
+                self.removeRow(item.row())
 
-        self.layoutChanged.emit()
-        return True
-
-    def mimeTypes(self) -> list[str]:
-        return ["application/x-raildatalist"]
+        return action == Qt.CopyAction
 
     def mimeData(self, indexes: list[int]) -> QMimeData:
         mimeType = self.mimeTypes()[0]
@@ -700,7 +707,7 @@ class RailNodeListWidget(InteractiveListView):
 
     def _update_connection_count(self, index: QModelIndex, count: int):
         self.get_rail_node(index.row()).connectionCount.set_value(count)
-        self.model().layoutChanged.emit()
+        self.update(index)
         self._populate_data_view(index, QModelIndex())
 
     def _update_connection(self, index: QModelIndex, slot: int, connection: int):
@@ -708,7 +715,7 @@ class RailNodeListWidget(InteractiveListView):
         node = self.get_rail_node(row)
         node.connections[slot].set_value(connection)
         node._set_period_from(slot, self.get_rail_node(connection))
-        self.model().layoutChanged.emit()
+        self.update(index)
         self._populate_data_view(index, QModelIndex())
     
     @Slot(QModelIndex, QModelIndex)
@@ -851,6 +858,7 @@ class RailListView(InteractiveListView):
             self._populate_data_view
         )
         self.setDefaultDropAction(Qt.MoveAction)
+        self.setDragDropOverwriteMode(False)
 
     def model(self) -> RailListModel:
         return super().model()
@@ -968,6 +976,7 @@ class RailListView(InteractiveListView):
     @Slot(Qt.DropActions)
     def startDrag(self, actions: Qt.DropActions):
         super().startDrag(actions)
+        
 
     @Slot(QDragEnterEvent)
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
@@ -975,6 +984,9 @@ class RailListView(InteractiveListView):
         if not mimedata.hasFormat(self.model().mimeTypes()[0]):
             event.ignore()
             return
+
+        self.setState(QListView.DraggingState)
+        self.startAutoScroll()
 
         event.accept()
 
@@ -985,34 +997,12 @@ class RailListView(InteractiveListView):
             event.ignore()
             return
 
-        selectionModel = self.selectionModel()
-
-        hoverIndex = self.indexAt(event.pos())
-        if hoverIndex != selectionModel.currentIndex():
-            selectionModel.select(
-                selectionModel.currentIndex(),
-                QItemSelectionModel.ClearAndSelect
-            )
-            selectionModel.select(
-                hoverIndex,
-                QItemSelectionModel.Select
-            )
-        else:
-            selectionModel.select(
-                selectionModel.currentIndex(),
-                QItemSelectionModel.ClearAndSelect
-            )
-
+        super().dragMoveEvent(event)
         event.accept()
 
     @Slot(QDragLeaveEvent)
     def dragLeaveEvent(self, event: QDragLeaveEvent) -> None:
-        selectionModel = self.selectionModel()
-        selectionModel.select(
-            selectionModel.currentIndex(),
-            QItemSelectionModel.ClearAndSelect
-        )
-        event.accept()
+        super().dragLeaveEvent(event)
 
     @Slot(QDropEvent)
     def dropEvent(self, event: QDropEvent) -> None:
@@ -1051,14 +1041,12 @@ class RailListView(InteractiveListView):
             parent
         )
 
-        selectionModel = self.selectionModel()
-        selectionModel.select(
-            selectionModel.currentIndex(),
-            QItemSelectionModel.ClearAndSelect
-        )
-
-        event.accept()
-
+        self.setState(QListView.NoState)
+        if worked:
+            event.accept()
+        else:
+            event.ignore()
+        
 
 class RailViewerWidget(A_DockingInterface):
     def __init__(self, title: str = "", parent: Optional[QWidget] = None) -> None:
