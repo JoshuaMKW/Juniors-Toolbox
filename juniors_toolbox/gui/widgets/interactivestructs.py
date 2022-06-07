@@ -608,13 +608,11 @@ class InteractiveListView(QListView):
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
-        self.setAcceptDrops(True)
-        self.setDragDropMode(QAbstractItemView.InternalMove)
-        self.setSelectionMode(QAbstractItemView.ExtendedSelection)
-
-        self.__selectedIndexes: List[int] = []
-        self.__dragHoverIndex: Optional[AnyModelIndex] = None
-        self.__dragPreSelected = False
+        self.setSelectionMode(QListView.ExtendedSelection)
+        self.setEditTriggers(QListView.DoubleClicked)
+        self.setDragDropMode(QListView.DragDrop)
+        self.setDefaultDropAction(Qt.MoveAction)
+        self.setDragDropOverwriteMode(False)
 
     def model(self) -> QStandardItemModel:
         return super().model()
@@ -702,7 +700,6 @@ class InteractiveListView(QListView):
             index = item.index()
 
             mimeData = model.mimeData([index])
-            newName = self._resolve_name(item.data(Qt.DisplayRole))
 
             model.dropMimeData(
                 mimeData,
@@ -771,80 +768,58 @@ class InteractiveListView(QListView):
             return
         menu.exec(event.globalPos())
 
-    @Slot(Qt.DropActions)
-    def startDrag(self, supportedActions: Qt.DropActions) -> None:
-        self.__selectedIndexes = self.selectedIndexes()
-        # self.__selectionMode = self.selectionMode()
-        super().startDrag(supportedActions)
+    @Slot(QDropEvent)
+    def dropEvent(self, event: QDropEvent) -> None:
+        model = self.model()
+        mimedata = event.mimeData()
 
-    @Slot(QDragEnterEvent)
-    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
-        # self.__selectionMode = self.selectionMode()
-        self.__selectedIndexes = self.selectedIndexes()
-        self.__dragHoverIndex = self.indexAt(event.pos())
-        self.__dragPreSelected = False if self.__dragHoverIndex is None else self.selectionModel().isSelected(self.__dragHoverIndex)
-        self.setSelectionMode(QListWidget.MultiSelection)
-        event.acceptProposedAction()
-
-    @Slot(QDragEnterEvent)
-    def dragMoveEvent(self, event: QDragMoveEvent) -> None:
         index = self.indexAt(event.pos())
-        if index != self.__dragHoverIndex:
-            if not self.__dragPreSelected and self.__dragHoverIndex:
-                self.setSelection(
-                    self.visualRect(self.__dragHoverIndex),
-                    QItemSelectionModel.Deselect
-                )
-            self.__dragHoverIndex = index
-            self.__dragPreSelected = False if index is None else self.selectionModel().isSelected(index)
 
-        if not self.__dragHoverIndex in self.__selectedIndexes:
-            self.setSelection(
-                self.visualRect(self.__dragHoverIndex),
-                QItemSelectionModel.Select
-            )
-        else:
+        parent = QModelIndex()
+        row = model.rowCount()
+        column = 0
+        if index.isValid():
+            row = index.row()
+            column = index.column()
+            parent = index.parent()
+
+        action = event.dropAction()
+        if event.source() is None:
+            action = Qt.CopyAction
+
+        if not model.canDropMimeData(
+            mimedata,
+            action,
+            row,
+            column,
+            parent
+        ):
             event.ignore()
             return
 
-        event.acceptProposedAction()
+        worked = model.dropMimeData(
+            mimedata,
+            action,
+            row,
+            column,
+            parent
+        )
 
-    @Slot(QDragLeaveEvent)
-    def dragLeaveEvent(self, event: QDragLeaveEvent) -> None:
-        if self.__dragHoverIndex is None:
+        self.setState(QListView.NoState)
+        if worked:
             event.accept()
-
-        if not self.__dragPreSelected and self.__dragHoverIndex:
-            self.setSelection(
-                self.visualRect(self.__dragHoverIndex),
-                QItemSelectionModel.Deselect
-            )
-
-        self.__dragHoverIndex = None
-        self.__dragPreSelected = False
-        # self.setSelectionMode(self.__selectionMode)
-        event.accept()
-
-    @Slot(QDropEvent)
-    def dropEvent(self, event: QDropEvent) -> None:
-        if self.__dragHoverIndex and not self.__dragPreSelected:
-            self.selectionModel().select(self.__dragHoverIndex, QItemSelectionModel.Deselect)
-        self.__dragHoverIndex = None
-        self.__dragPreSelected = False
-        # self.setSelectionMode(self.__selectionMode)
-        super().dropEvent(event)
+        else:
+            event.ignore()
 
     @Slot(QMouseEvent)
     def mousePressEvent(self, event: QMouseEvent) -> None:
         mouseButton = event.button()
         modifiers = QApplication.keyboardModifiers()
         if mouseButton == Qt.LeftButton:
-            if modifiers == Qt.ShiftModifier:
+            if modifiers == Qt.ControlModifier:
                 event.accept()
                 return
-            elif modifiers == Qt.ControlModifier:
-                event.accept()
-                return
+
         super().mousePressEvent(event)
 
     @Slot(QMouseEvent)
@@ -854,11 +829,7 @@ class InteractiveListView(QListView):
         modifiers = QApplication.keyboardModifiers()
         index = self.indexAt(mousePos)
         if mouseButton == Qt.LeftButton:
-            if modifiers == Qt.ShiftModifier:
-                self._handle_shift_click(index)
-                event.accept()
-                return
-            elif modifiers == Qt.ControlModifier:
+            if modifiers == Qt.ControlModifier:
                 self._handle_ctrl_click(index)
                 event.accept()
                 return
@@ -869,8 +840,9 @@ class InteractiveListView(QListView):
         model = self.model()
 
         selectedIndexes = self.selectedIndexes()
+        anySelected = len(selectedIndexes) > 0
 
-        if event.key() == Qt.Key_Delete:
+        if event.key() == Qt.Key_Delete and anySelected:
             self.delete_indexes(selectedIndexes)
             event.accept()
             return
@@ -878,18 +850,27 @@ class InteractiveListView(QListView):
         key = event.key()
         modifiers = QApplication.keyboardModifiers()
         if modifiers == Qt.ControlModifier:
-            if key == Qt.Key_C:
+            if key == Qt.Key_C and anySelected:
                 QApplication.clipboard().setMimeData(
                     model.mimeData(self.selectedIndexes()),
                     QClipboard.Clipboard
                 )
             elif key == Qt.Key_V:
-                mimeData = QApplication.clipboard().mimeData(QClipboard.Clipboard)
+                currentIndex = self.currentIndex()
+                if currentIndex.isValid():
+                    row = currentIndex.row() + 1
+                    column = currentIndex.column()
+                else:
+                    row = model.rowCount()
+                    column = 0
+                mimeData = QApplication.clipboard().mimeData(
+                    QClipboard.Clipboard
+                )
                 model.dropMimeData(
                     mimeData,
                     Qt.CopyAction,
-                    model.rowCount(),
-                    0,
+                    row,
+                    column,
                     QModelIndex()
                 )
 

@@ -143,6 +143,12 @@ class RailNode(A_Serializable, A_Clonable):
     def get_rail(self) -> Optional["Rail"]:
         return self._rail
 
+    # def set_rail(self, rail: Optional["Rail"] = None):
+    #     self._rail = rail
+    #     if rail is None:
+    #         return
+    #     rail.add_node(self)
+
     def get_index(self) -> int:
         rail = self.get_rail()
         if rail is None:
@@ -535,6 +541,7 @@ class Rail(A_Serializable, A_Clonable):
         """
         try:
             self._nodes.insert(index, node)
+            node._rail = self
             return True
         except IndexError:
             return False
