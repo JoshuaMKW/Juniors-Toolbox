@@ -476,10 +476,10 @@ class RailNodeListModel(QStandardItemModel):
                     self.item(oldItemRow)
                 )
                 newItems[row + i] = item
-            for item in oldItems:
-                self.removeRow(item.row())
             for row, item in newItems.items():
                 self.insertRow(row, item)
+            for item in oldItems:
+                self.removeRow(item.row())
 
         self.layoutChanged.emit()
 
