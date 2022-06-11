@@ -122,7 +122,7 @@ class SpinBoxDragDouble(QDoubleSpinBox):
         lineEdit.dragOffsetChanged.connect(self.__update_value)
         lineEdit.setMouseTracking(False)
         lineEdit.setDragEnabled(True)
-        self.__lineEdit = lineEdit
+        self._lineEdit = lineEdit
         self.setLineEdit(lineEdit)
 
         self.__isFloat = isFloat
@@ -154,7 +154,7 @@ class SpinBoxDragDouble(QDoubleSpinBox):
                 1.7976931348623158e+308
             )
 
-        lineEdit = self.__lineEdit
+        lineEdit = self._lineEdit
         lineEdit._min = self.minimum()
         lineEdit._max = self.maximum()
 

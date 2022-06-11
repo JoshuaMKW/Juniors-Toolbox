@@ -634,6 +634,7 @@ class InteractiveListView(QListView):
         duplicateAction.triggered.connect(
             lambda clicked=None: self.duplicate_items(selectedIndexes)
         )
+        
         renameAction = QAction("Rename", self)
         renameAction.triggered.connect(
             lambda clicked=None: self.edit(index)

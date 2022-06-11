@@ -682,10 +682,10 @@ class Vector3Property(A_ValueProperty):
         inputX = SpinBoxDragDouble(isFloat=True)
         inputY = SpinBoxDragDouble(isFloat=True)
         inputZ = SpinBoxDragDouble(isFloat=True)
-        self.__xyzInputs: List[SpinBoxDragDouble] = [inputX, inputY, inputZ]
+        self._xyzInputs: List[SpinBoxDragDouble] = [inputX, inputY, inputZ]
         for i in range(3):
             axis = "XYZ"[i]
-            spinBox = self.__xyzInputs[i]
+            spinBox = self._xyzInputs[i]
             spinBox.setObjectName(f"{propertyName}.{axis}")
             spinBox.setMinimumWidth(80)
             spinBox.setValue(self._value[i] if self._value is not None else 0)
@@ -709,16 +709,16 @@ class Vector3Property(A_ValueProperty):
     @Slot(QWidget, object)
     def set_inputs(self):
         self.blockSignals(True)
-        for i, _input in enumerate(self.__xyzInputs):
+        for i, _input in enumerate(self._xyzInputs):
             _input.setValue(self.get_value()[i])
         self.blockSignals(False)
 
     def set_minimum_value(self, value: Any) -> None:
-        for input in self.__xyzInputs:
+        for input in self._xyzInputs:
             input.setMinimum(value)
 
     def set_maximum_value(self, value: Any) -> None:
-        for input in self.__xyzInputs:
+        for input in self._xyzInputs:
             input.setMaximum(value)
 
     def get_value(self) -> Vec3f:
@@ -730,7 +730,7 @@ class Vector3Property(A_ValueProperty):
         super().set_value(value)
 
     def _update_input_depth(self) -> None:
-        for inputBox in self.__xyzInputs:
+        for inputBox in self._xyzInputs:
             inputBox.setMinimumWidth(
                 max(80 - (self.IndentionWidth * self.get_nested_depth()), 0))
 

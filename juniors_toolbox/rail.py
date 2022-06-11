@@ -7,11 +7,13 @@ from typing import BinaryIO, Iterable, List, Optional, Tuple, Union
 from io import BytesIO
 
 from numpy import array, ndarray
+import numpy
 from juniors_toolbox.objects.value import MemberValue, ValueType
 
 from juniors_toolbox.utils.iohelper import (align_int, read_float, read_sint16, read_string, read_uint32,
                                             write_float, write_sint16, write_string, write_uint16, write_uint32)
 from juniors_toolbox.utils import JSYSTEM_PADDING_TEXT, A_Clonable, A_Serializable, VariadicArgs, VariadicKwargs
+from juniors_toolbox.utils.subdivision import chaikin_generate_q_point, chaikin_generate_r_point
 from juniors_toolbox.utils.types import Quaternion, Vec3f
 
 
@@ -68,21 +70,29 @@ class RailNode(A_Serializable, A_Clonable):
     def to_bytes(self) -> bytes:
         stream = BytesIO()
 
+        connectionCount = self.connectionCount.get_value()
+
         write_sint16(stream, self.posX.get_value())
         write_sint16(stream, self.posY.get_value())
         write_sint16(stream, self.posZ.get_value())
 
-        write_sint16(stream, self.connectionCount.get_value())
+        write_sint16(stream, connectionCount)
         write_uint32(stream, self.flags.get_value())
 
         for i in range(4):
             write_sint16(stream, self.values[i].get_value())
 
         for i in range(8):
-            write_sint16(stream, self.connections[i].get_value())
+            if i < connectionCount:
+                write_sint16(stream, self.connections[i].get_value())
+            else:
+                write_sint16(stream, 0)
 
         for i in range(8):
-            write_float(stream, self.periods[i].get_value())
+            if i < connectionCount:
+                write_float(stream, self.periods[i].get_value())
+            else:
+                write_float(stream, 0.0)
 
         return stream.getvalue()
 
@@ -136,6 +146,37 @@ class RailNode(A_Serializable, A_Clonable):
             if self.connections[i].get_value() == node.get_index():
                 return True
         return False
+
+    def get_position(self) -> Vec3f:
+        return Vec3f(
+            float(self.posX.get_value()),
+            float(self.posY.get_value()),
+            float(self.posZ.get_value())
+        )
+
+    def set_position(self, pos: Vec3f):
+        self.posX.set_value(int(pos.x))
+        self.posY.set_value(int(pos.y))
+        self.posZ.set_value(int(pos.z))
+
+        rail = self.get_rail()
+        if rail is None:
+            return
+
+        for slot in range(self.connectionCount.get_value()):
+            node = rail.get_node(
+                self.connections[slot].get_value()
+            )
+            if node is None:
+                continue
+            self._set_period_from(slot, node)
+
+        for node in rail.iter_nodes():
+            if node is self:
+                continue
+            for slot in range(node.connectionCount.get_value()):
+                if node.connections[slot].get_value() == self.get_index():
+                    node._set_period_from(slot, self)
 
     def get_size(self) -> int:
         return 68
@@ -191,15 +232,24 @@ class RailNode(A_Serializable, A_Clonable):
 
         return connections
 
-    def connect(self, srcSlot: int, node: "RailNode", dstSlot: int, *, reparent: bool = False) -> bool:
+    def get_slot(self, node: "RailNode") -> int:
+        for slot in range(self.connectionCount.get_value()):
+            if self.connections[slot].get_value() == node.get_index():
+                return slot
+        return -1
+
+    def connect(self, srcSlot: int, node: "RailNode", dstSlot: int = -1, *, reparent: bool = False) -> bool:
         targetRail = node.get_rail()
         if targetRail is None:
             return False
 
         currentRail = self.get_rail()
-        if reparent is False and currentRail != targetRail:
-            return False
-
+        if currentRail != targetRail:
+            if reparent is False:
+                return False
+            self._rail = targetRail
+            self._rail.insert_node(node.get_index() + int(dstSlot > 0), self)
+            
         self._connect_slots(srcSlot, node, dstSlot)
         return True
 
@@ -207,10 +257,10 @@ class RailNode(A_Serializable, A_Clonable):
         self._disconnect_slots(slot, doubly)
         return True
 
-    def _set_period_from(self, connection: int, connected: "RailNode"):
-        if connection not in range(8):
+    def _set_period_from(self, slot: int, connected: "RailNode"):
+        if slot not in range(8):
             raise ValueError(
-                f"Connection ({connection}) is beyond the array size")
+                f"Slot ({slot}) is beyond the array size")
 
         thisPos = Vec3f(
             self.posX.get_value(),
@@ -223,7 +273,7 @@ class RailNode(A_Serializable, A_Clonable):
             connected.posZ.get_value()
         )
         diff = thisPos - thatPos
-        self.periods[connection].set_value(sqrt(diff.dot(diff)))
+        self.periods[slot].set_value(sqrt(diff.dot(diff)))
 
     def connect_to_neighbors(self) -> bool:
         rail = self.get_rail()
@@ -368,10 +418,12 @@ class RailNode(A_Serializable, A_Clonable):
         return True
 
     def _connect_slots(self, srcSlot: int, node: "RailNode", dstSlot: int) -> None:
+        dstValid = dstSlot != -1
+
         if srcSlot not in range(8):
             raise ValueError(f"Source slot {srcSlot} exceeds capacity (8)")
 
-        if dstSlot not in range(8):
+        if dstSlot not in range(8) and dstValid:
             raise ValueError(
                 f"Destination slot {dstSlot} exceeds capacity (8)")
 
@@ -379,14 +431,13 @@ class RailNode(A_Serializable, A_Clonable):
             self.connections[srcSlot].set_value(node.get_index())
             if srcSlot >= self.connectionCount.get_value():
                 self.connectionCount.set_value(srcSlot + 1)
+            self._set_period_from(srcSlot, node)
 
-        if not node.is_connected_to(self):
+        if not node.is_connected_to(self) and dstValid:
             node.connections[dstSlot].set_value(self.get_index())
             if dstSlot >= node.connectionCount.get_value():
                 node.connectionCount.set_value(dstSlot + 1)
-
-        self._set_period_from(srcSlot, node)
-        node._set_period_from(dstSlot, self)
+            node._set_period_from(dstSlot, self)
 
     def _disconnect_slots(self, srcSlot: int, doubly: bool = False) -> None:
         if srcSlot not in range(8):
@@ -456,6 +507,23 @@ class Rail(A_Serializable, A_Clonable):
     def get_size(self) -> int:
         return self.get_header_size() + self.get_name_size() + self.get_data_size()
 
+    def get_centeroid(self) -> Vec3f:
+        nodeCount = self.get_node_count()
+        if nodeCount == 0:
+            return Vec3f()
+
+        xs, ys, zs = [], [], []
+        for node in self.iter_nodes():
+            xs.append(node.posX.get_value())
+            ys.append(node.posY.get_value())
+            zs.append(node.posZ.get_value())
+
+        return Vec3f(
+            sum(xs) / nodeCount,
+            sum(ys) / nodeCount,
+            sum(zs) / nodeCount,
+        )
+
     def get_header_size(self) -> int:
         return 12
 
@@ -501,23 +569,6 @@ class Rail(A_Serializable, A_Clonable):
         finally:
             return True
 
-    def get_centeroid(self) -> Vec3f:
-        nodeCount = self.get_node_count()
-        if nodeCount == 0:
-            return Vec3f()
-
-        xs, ys, zs = [], [], []
-        for node in self.iter_nodes():
-            xs.append(node.posX.get_value())
-            ys.append(node.posY.get_value())
-            zs.append(node.posZ.get_value())
-
-        return Vec3f(
-            sum(xs) / nodeCount,
-            sum(ys) / nodeCount,
-            sum(zs) / nodeCount,
-        )
-
     def swap_nodes(self, index1: int, index2: int) -> bool:
         """
         Swaps two nodes in this rail
@@ -532,26 +583,6 @@ class Rail(A_Serializable, A_Clonable):
             return True
         except IndexError:
             return False
-
-    def insert_node(self, index: int, node: RailNode) -> bool:
-        """
-        Inserts a node into this rail at `index`
-
-        Returns True if successful
-        """
-        try:
-            self._nodes.insert(index, node)
-            node._rail = self
-            return True
-        except IndexError:
-            return False
-
-    def remove_node(self, node: RailNode) -> bool:
-        """
-        Removes a node from this rail
-        """
-        self._nodes.remove(node)
-        return True
 
     def remove_node_by_index(self, index: int) -> bool:
         """
@@ -653,6 +684,214 @@ class Rail(A_Serializable, A_Clonable):
             node.posZ.set_value(int(Azx*px) + int(Azy*py) + int(Azz*pz))
 
         return self
+
+    def scale(self, scale: Vec3f) -> "Rail":
+        centeroid = self.get_centeroid()
+
+        for node in self.iter_nodes():
+            px = node.posX.get_value()
+            py = node.posY.get_value()
+            pz = node.posZ.get_value()
+
+            px -= centeroid.x
+            py -= centeroid.y
+            pz -= centeroid.z
+
+            px *= scale.x
+            py *= scale.y
+            pz *= scale.z
+
+            px += centeroid.x
+            py += centeroid.y
+            pz += centeroid.z
+
+            node.posX.set_value(px)
+            node.posY.set_value(py)
+            node.posZ.set_value(pz)
+
+        return self
+
+    def subdivide(self, iterations=5) -> "Rail":
+        self._chaikin_algorithm(iterations)
+        return self
+
+    def _chaikin_algorithm(self, iterations: int = 5):
+        "Curve creation algoritm"
+        if iterations == 0:
+            return
+
+        nodeCount = self.get_node_count()
+        if nodeCount < 3:
+            return
+
+        nodeVisitedMap: dict[RailNode, bool] = {}
+
+        newNodes: list[RailNode] = []
+        oldNodes = self.get_nodes()
+        startNode = oldNodes[0].copy(deep=True)
+        endNode = oldNodes[-1].copy(deep=True)
+
+        i = 0
+        thisNode = oldNodes[0]
+        while True:  # Continue processing until all nodes are traversed
+            if nodeVisitedMap.get(thisNode, False):
+                i += 1
+                if i >= len(oldNodes):
+                    break  # All possible nodes traversed
+                thisNode = oldNodes[i]
+                continue
+
+            connectionCount = thisNode.connectionCount.get_value()
+
+            # Single connection means this is likely an end point and thus shouldn't be curved
+            if connectionCount == 1:
+                nodeVisitedMap[thisNode] = True
+                nextNode = thisNode.get_connection(0)
+                if nextNode is None:
+                    i += 1
+                    if i >= len(oldNodes):
+                        break  # All possible nodes traversed
+                    thisNode = oldNodes[i]
+                else:
+                    thisNode = nextNode
+                continue
+
+            # Traverse every connected slot of this node
+            qNode = thisNode
+            for slot in range(connectionCount):
+                otherNode = thisNode.get_connection(slot)
+                if otherNode is None:
+                    continue
+
+                rNode = qNode.copy(deep=True)
+
+                qNodePos = Vec3f(
+                    float(qNode.posX.get_value()),
+                    float(qNode.posY.get_value()),
+                    float(qNode.posZ.get_value())
+                )
+
+                rNodePos = Vec3f(
+                    float(otherNode.posX.get_value()),
+                    float(otherNode.posY.get_value()),
+                    float(otherNode.posZ.get_value())
+                )
+
+                qNode.set_position(
+                    chaikin_generate_q_point(qNodePos, rNodePos)
+                )
+
+                rNode.set_position(
+                    chaikin_generate_r_point(qNodePos, rNodePos)
+                )
+
+                rNode.set_connection_count(2)
+
+                # Read slots before insertion to maintain data
+                nextSlot = thisNode.get_slot(otherNode)
+                thisSlot = otherNode.get_slot(thisNode)
+
+                self.insert_node(qNode.get_index() + int(slot > 0), rNode)
+
+                rNode.connect(0, thisNode, nextSlot)
+                rNode.connect(1, otherNode,thisSlot)
+                rNode.values[3].set_value(1111)
+
+                nodeVisitedMap[rNode] = True
+            nodeVisitedMap[qNode] = True
+            
+        # for i, node in enumerate(oldNodes[1:], start=1):
+        #     if i + 1 >= nodeCount:
+        #         endNode = oldNodes[i]
+        #         break
+
+        #     qNode = node.copy(deep=True)
+
+
+        #     connectionCount = node.connectionCount.get_value()
+        #     if connectionCount != 2:
+        #         continue
+
+        #     nextNode = node.get_connection(1)
+        #     if nextNode is None or nodeVisitedMap.get(nextNode, False) is True:
+        #         continue
+
+        #     qNode = node
+        #     rNode = RailNode(
+        #         flags=qNode.flags.get_value()
+        #     )
+
+        #     nodePos = Vec3f(
+        #         float(node.posX.get_value()),
+        #         float(node.posY.get_value()),
+        #         float(node.posZ.get_value())
+        #     )
+
+        #     nextNodePos = Vec3f(
+        #         float(nextNode.posX.get_value()),
+        #         float(nextNode.posY.get_value()),
+        #         float(nextNode.posZ.get_value())
+        #     )
+
+        #     rNode.set_connection_count(2)
+        #     rNode.connect(0, qNode, 1, reparent=True)
+        #     rNode.connect(1, nextNode, nextNode.get_slot(qNode))
+        #     rNode.values[3].set_value(1234)
+
+        #     qNode.set_position(
+        #         chaikin_generate_q_point(nodePos, nextNodePos)
+        #     )
+        #     rNode.set_position(
+        #         chaikin_generate_r_point(nodePos, nextNodePos)
+        #     )
+
+        #     # newNodes.append(rNode)
+        #     # if slot == 0:
+        #     #     newNodes.append(qNode)
+                
+
+        #     # nodeVisitedMap[qNode] = True
+        #     nodeVisitedMap[rNode] = True
+
+        #     # for slot in range(connectionCount):
+        #     #     nextNode = node.get_connection(slot)
+        #     #     if nextNode is None or nodeVisitedMap.get(nextNode, False) is True:
+        #     #         continue
+
+        #     #     nodePos = Vec3f(
+        #     #         float(node.posX.get_value()),
+        #     #         float(node.posY.get_value()),
+        #     #         float(node.posZ.get_value())
+        #     #     )
+
+        #     #     nextNodePos = Vec3f(
+        #     #         float(nextNode.posX.get_value()),
+        #     #         float(nextNode.posY.get_value()),
+        #     #         float(nextNode.posZ.get_value())
+        #     #     )
+
+        #     #     rNode = RailNode(
+        #     #         flags=qNode.flags.get_value()
+        #     #     )
+
+        #     #     rNode.set_connection_count(2)
+        #     #     rNode.connect(0, qNode, slot)
+        #     #     rNode.connect(1, nextNode, nextNode.get_slot(qNode))
+
+        #     #     qNode.set_position(
+        #     #         chaikin_generate_q_point(nodePos, nextNodePos)
+        #     #     )
+        #     #     rNode.set_position(
+        #     #         chaikin_generate_r_point(nodePos, nextNodePos)
+        #     #     )
+
+        #     #     newNodes.append(rNode)
+
+        #     #     # nodeVisitedMap[qNode] = True
+        #     #     nodeVisitedMap[rNode] = True
+
+        # self._nodes = newNodes
+        self._chaikin_algorithm(iterations - 1)
 
     def __len__(self) -> int:
         return self.get_size()

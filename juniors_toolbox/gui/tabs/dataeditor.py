@@ -104,15 +104,16 @@ class DataEditorWidget(A_DockingInterface):
         if "serializable" not in kwargs:
             return
         serializable: A_Serializable = kwargs["serializable"]
-        self.serializeThread = QThread()
-        self.serializer = Serializer(serializable)
-        self.serializer.moveToThread(self.serializeThread)
-        self.serializeThread.started.connect(self.serializer.run)
-        self.serializer.finished.connect(self.set_data)
-        self.serializer.finished.connect(self.serializeThread.quit)
-        self.serializer.finished.connect(self.serializer.deleteLater)
-        self.serializeThread.finished.connect(self.serializeThread.deleteLater)
-        self.serializeThread.start()
+        # self.serializeThread = QThread()
+        # self.serializer = Serializer(serializable)
+        # self.serializer.moveToThread(self.serializeThread)
+        # self.serializeThread.started.connect(self.serializer.run)
+        # self.serializer.finished.connect(self.set_data)
+        # self.serializer.finished.connect(self.serializeThread.quit)
+        # self.serializer.finished.connect(self.serializer.deleteLater)
+        # self.serializeThread.finished.connect(self.serializeThread.deleteLater)
+        # self.serializeThread.start()
+        self.set_data(serializable.to_bytes())
 
     def set_data(self, data: bytes):
         with QMutexLocker(self._dataMutex) as mutexLock:

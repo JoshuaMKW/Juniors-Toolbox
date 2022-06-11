@@ -6,7 +6,6 @@ from tkinter.font import names
 from typing import Optional, Union
 
 from async_timeout import Any
-from soupsieve import select
 from juniors_toolbox.gui.layouts.framelayout import FrameLayout
 from juniors_toolbox.gui.tabs.dataeditor import DataEditorWidget
 from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
@@ -32,9 +31,11 @@ from PySide6.QtGui import (QAction, QDragEnterEvent, QDragLeaveEvent,
                            QDragMoveEvent, QDropEvent, QStandardItem,
                            QStandardItemModel)
 from PySide6.QtTest import QAbstractItemModelTester
-from PySide6.QtWidgets import (QFormLayout, QGridLayout, QListView,
+from PySide6.QtWidgets import (QFormLayout, QGridLayout, QListView, QDialog, QLabel, QDialogButtonBox, QSizePolicy,
                                QListWidget, QListWidgetItem, QMenu, QSplitter,
-                               QVBoxLayout, QWidget)
+                               QVBoxLayout, QWidget, QPushButton)
+
+from juniors_toolbox.utils.types import Quaternion, Vec3f
 
 
 class S16Vector3Property(A_ValueProperty):
@@ -110,6 +111,157 @@ class S16Vector3Property(A_ValueProperty):
     def __update_axis(self, value: int, axis: int = 0):
         self.get_value()[axis] = value
         self.valueChanged.emit(self, self.get_value())
+
+
+class TranslateRailDialog(QDialog):
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+
+        self.setWindowTitle("Translate Rail(s)...")
+        self.setFixedSize(500, 122)
+
+        self.mainLayout = QGridLayout()
+
+        self.label = QLabel("Translate By:")
+        font = self.label.font()
+        font.setPointSize(12)
+        self.label.setFont(font)
+        self.label.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Maximum)
+        self.label.setAlignment(Qt.AlignHCenter)
+        self.mainLayout.addWidget(self.label, 0, 0, 1, 1)
+
+        self.translateProperty = Vector3Property(
+            "Translate",
+            readOnly=False,
+            value=Vec3f.zero
+        )
+        self.translateProperty._xyzInputs[0].setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
+        self.translateProperty._xyzInputs[1].setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
+        self.translateProperty._xyzInputs[2].setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
+        self.mainLayout.addWidget(self.translateProperty, 1, 0, 1, 1)
+
+        self.buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.buttonBox.button(QDialogButtonBox.Ok).setMinimumSize(60, 30)
+        self.buttonBox.button(QDialogButtonBox.Cancel).setMinimumSize(60, 30)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+
+        self.mainLayout.addWidget(self.buttonBox, 2, 0, 1, 1)
+        
+        self.setLayout(self.mainLayout)
+
+
+class RotateRailDialog(QDialog):
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+
+        self.setWindowTitle("Rotate Rail(s)...")
+        self.setFixedSize(500, 122)
+        
+        self.mainLayout = QGridLayout()
+
+        self.label = QLabel("Rotate By:")
+        font = self.label.font()
+        font.setPointSize(12)
+        self.label.setFont(font)
+        self.label.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Maximum)
+        self.label.setAlignment(Qt.AlignHCenter)
+        self.mainLayout.addWidget(self.label, 0, 0, 1, 1)
+
+        self.rotateProperty = Vector3Property(
+            "Rotate",
+            readOnly=False,
+            value=Vec3f.zero
+        )
+        self.rotateProperty._xyzInputs[0].setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
+        self.rotateProperty._xyzInputs[1].setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
+        self.rotateProperty._xyzInputs[2].setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
+        self.mainLayout.addWidget(self.rotateProperty, 1, 0, 1, 2)
+
+        self.buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.buttonBox.button(QDialogButtonBox.Ok).setMinimumSize(60, 30)
+        self.buttonBox.button(QDialogButtonBox.Cancel).setMinimumSize(60, 30)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+        
+        self.mainLayout.addWidget(self.buttonBox, 2, 0, 1, 1)
+
+        self.setLayout(self.mainLayout)
+
+
+class ScaleRailDialog(QDialog):
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+
+        self.setWindowTitle("Scale Rail(s)...")
+        self.setFixedSize(500, 122)
+        
+        self.mainLayout = QGridLayout()
+
+        self.label = QLabel("Scale By:")
+        font = self.label.font()
+        font.setPointSize(12)
+        self.label.setFont(font)
+        self.label.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Maximum)
+        self.label.setAlignment(Qt.AlignHCenter)
+        self.mainLayout.addWidget(self.label, 0, 0, 1, 1)
+
+        self.scaleProperty = Vector3Property(
+            "Scale",
+            readOnly=False,
+            value=Vec3f.zero
+        )
+        self.scaleProperty._xyzInputs[0].setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
+        self.scaleProperty._xyzInputs[1].setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
+        self.scaleProperty._xyzInputs[2].setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
+        self.mainLayout.addWidget(self.scaleProperty, 1, 0, 1, 1)
+
+        self.buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.buttonBox.button(QDialogButtonBox.Ok).setMinimumSize(60, 30)
+        self.buttonBox.button(QDialogButtonBox.Cancel).setMinimumSize(60, 30)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+
+        self.mainLayout.addWidget(self.buttonBox, 2, 0, 1, 1)
+        
+        self.setLayout(self.mainLayout)
+
+
+class SubdivideRailDialog(QDialog):
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Subdivide Rail(s)...")
+        self.setFixedSize(300, 122)
+        
+        self.mainLayout = QGridLayout()
+
+        self.label = QLabel("Subdivide By:")
+        font = self.label.font()
+        font.setPointSize(12)
+        self.label.setFont(font)
+        self.label.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Maximum)
+        self.label.setAlignment(Qt.AlignHCenter)
+        self.mainLayout.addWidget(self.label, 0, 0, 1, 1)
+        
+        self.subdivideProperty = IntProperty(
+            "Subdivide",
+            readOnly=False,
+            value=1
+        )
+        self.subdivideProperty.set_maximum_value(10)
+        self.subdivideProperty.set_minimum_value(1)
+        self.subdivideProperty._input.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
+        self.mainLayout.addWidget(self.subdivideProperty, 1, 0, 1, 1)
+
+        self.buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.buttonBox.button(QDialogButtonBox.Ok).setMinimumSize(60, 30)
+        self.buttonBox.button(QDialogButtonBox.Cancel).setMinimumSize(60, 30)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+
+        self.mainLayout.addWidget(self.buttonBox, 2, 0, 1, 1)
+        
+        self.setLayout(self.mainLayout)
 
 
 class RailItem(QStandardItem):
@@ -875,6 +1027,72 @@ class RailListView(InteractiveListView):
     def set_rail(self, row: int, rail: Rail):
         model = self.model()
         model.setItem(row, RailItem(rail))
+
+    def get_context_menu(self, point: QPoint) -> Optional[QMenu]:
+        # Infos about the node selected.
+        index: Optional[InteractiveListWidgetItem] = self.indexAt(point)
+        if index is None:
+            return None
+
+        # We build the menu.
+        menu = QMenu(self)
+
+        model = self.model()
+        selectedIndexes: list[QModelIndex] = self.selectedIndexes()
+        if len(selectedIndexes) == 0:
+            return None
+
+        start = selectedIndexes[0]
+
+        actionSuffix = ""
+        if len(selectedIndexes) > 1:
+            actionSuffix = " Rails"
+
+        translateAction = QAction(f"Translate{actionSuffix}...", self)
+        translateAction.triggered.connect(
+            lambda clicked=None: self._translate_rails(selectedIndexes)
+        )
+        rotateAction = QAction(f"Rotate{actionSuffix}...", self)
+        rotateAction.triggered.connect(
+            lambda clicked=None: self._rotate_rails(selectedIndexes)
+        )
+        scaleAction = QAction(f"Scale{actionSuffix}...", self)
+        scaleAction.triggered.connect(
+            lambda clicked=None: self._scale_rails(selectedIndexes)
+        )
+
+        subdivideAction = QAction(f"Subdivide{actionSuffix}", self)
+        subdivideAction.triggered.connect(
+            lambda clicked=None: self._subdivide_rails(selectedIndexes)
+        )
+
+        duplicateAction = QAction("Duplicate", self)
+        duplicateAction.triggered.connect(
+            lambda clicked=None: self.duplicate_indexes(selectedIndexes)
+        )
+
+        renameAction = QAction("Rename", self)
+        renameAction.triggered.connect(
+            lambda clicked=None: self.edit(index)
+        )
+        deleteAction = QAction("Delete", self)
+        deleteAction.triggered.connect(
+            lambda clicked=None: self.delete_indexes(selectedIndexes)
+        )
+
+        menu.addAction(translateAction)
+        menu.addAction(rotateAction)
+        menu.addAction(scaleAction)
+        menu.addSeparator()
+        menu.addAction(subdivideAction)
+        menu.addSeparator()
+        menu.addAction(duplicateAction)
+        menu.addSeparator()
+        if len(selectedIndexes) > 1:
+            menu.addAction(renameAction)
+        menu.addAction(deleteAction)
+
+        return menu
     
     def _set_rail_spline(self, index: QModelIndex, isSpline: bool):
         rail = self.get_rail(index.row())
@@ -920,13 +1138,58 @@ class RailListView(InteractiveListView):
 
             model.setData(
                 newIndex,
-                newRail
+                newRail,
+                Qt.UserRole + 1
             )
 
             newIndexes.append(newIndex)
             self.update(newIndex)
 
         return newIndexes
+
+    @Slot(list)
+    def _translate_rails(self, indexes: list[QModelIndex]):
+        dialog = TranslateRailDialog(self)
+        if dialog.exec() != QDialog.Accepted:
+            return
+        
+        value = dialog.translateProperty.get_value()
+        for index in indexes:
+            rail = self.get_rail(index.row())
+            rail.translate(value)
+
+    @Slot(list)
+    def _rotate_rails(self, indexes: list[QModelIndex]):
+        dialog = RotateRailDialog(self)
+        if dialog.exec() != QDialog.Accepted:
+            return
+        
+        value = dialog.rotateProperty.get_value()
+        for index in indexes:
+            rail = self.get_rail(index.row())
+            rail.rotate(Quaternion.from_euler(value))
+
+    @Slot(list)
+    def _scale_rails(self, indexes: list[QModelIndex]):
+        dialog = ScaleRailDialog(self)
+        if dialog.exec() != QDialog.Accepted:
+            return
+        
+        value = dialog.scaleProperty.get_value()
+        for index in indexes:
+            rail = self.get_rail(index.row())
+            rail.scale(value)
+
+    @Slot(list)
+    def _subdivide_rails(self, indexes: list[QModelIndex]):
+        dialog = SubdivideRailDialog(self)
+        if dialog.exec() != QDialog.Accepted:
+            return
+        
+        value = dialog.subdivideProperty.get_value()
+        for index in indexes:
+            rail = self.get_rail(index.row())
+            rail.subdivide(value)
     
     @Slot(QModelIndex, QModelIndex)
     def _populate_properties_view(self, selected: QModelIndex, previous: QModelIndex) -> None:
@@ -973,6 +1236,22 @@ class RailListView(InteractiveListView):
             return
         obj = self.get_rail(selected.row())
         dataEditorTab.populate(None, serializable=obj)
+
+
+class RailInterfaceWidget(QWidget):
+    def __init__(self, parent: Optional[QWidget] = None, f: Qt.WindowFlags = 0) -> None:
+        super().__init__(parent, f)
+
+        self.translateButton = QPushButton("Translate")
+        self.scaleButton = QPushButton("Scale")
+        self.rotateButton = QPushButton("Rotate")
+        self.subdivideButton = QPushButton("Subdivide")
+
+        self.buttonLayout = QGridLayout()
+        self.buttonLayout.addWidget(self.translateButton, 0, 0, 2, 1)
+        self.buttonLayout.addWidget(self.scaleButton, 1, 0, 1, 1)
+        self.buttonLayout.addWidget(self.rotateButton, 1, 1, 1, 1)
+        self.buttonLayout.addWidget(self.subdivideButton, 2, 0, 2, 1)
         
 
 class RailViewerWidget(A_DockingInterface):
@@ -993,6 +1272,7 @@ class RailViewerWidget(A_DockingInterface):
         railList = RailListView()
         railList.setMinimumWidth(100)
         railList.selectionModel().currentChanged.connect(self.__populate_nodelist)
+        railList.model().rowsRemoved.connect(self.remove_selected_rail)
         self.railList = railList
 
         self.railListLayout.addWidget(self.railInterface)
@@ -1003,7 +1283,7 @@ class RailViewerWidget(A_DockingInterface):
         self.nodeListLayout = QVBoxLayout()
 
         nodeInterface = ListInterfaceWidget()
-        nodeInterface.addRequested.connect(self.new_node)
+        nodeInterface.addRequested.connect(lambda: self.new_node(self.nodeList.currentIndex()))
         nodeInterface.removeRequested.connect(
             self.remove_selected_node)
         nodeInterface.copyRequested.connect(self.copy_selected_node)
@@ -1060,15 +1340,18 @@ class RailViewerWidget(A_DockingInterface):
         model = self.nodeList.model()
         selectionModel = self.nodeList.selectionModel()
 
-        self.nodeList.blockSignals(True)
+        # self.nodeList.blockSignals(True)
         model = self.nodeList.model()
-        model.removeRows(0, model.rowCount())
+        # model.blockSignals(True)
+        if model.rowCount() > 0:
+            model.removeRows(0, model.rowCount())
 
         rail = self.railList.get_rail(selected.row())
         for i, node in enumerate(rail.iter_nodes()):
             self.nodeList.set_rail_node(i, node)
 
-        self.nodeList.blockSignals(False)
+        # model.blockSignals(False)
+        # self.nodeList.blockSignals(False)
 
     @Slot()
     def new_rail(self):
@@ -1097,30 +1380,41 @@ class RailViewerWidget(A_DockingInterface):
 
         indexes: list[QModelIndex] = []
         for row in selectionModel.selectedIndexes():
-            indexes.append(model.index(row, 0))
+            indexes.append(row)
 
         self.railList.duplicate_indexes(indexes)
 
     @Slot()
-    def new_node(self, index: int):
+    def new_node(self):
         node = RailNode()
-        self.nodeList.create_rail_node(index, node)
+        row = self.nodeList.model().rowCount()
+        self.nodeList.set_rail_node(row, node)
         if self._rail:
-            self._rail.insert_node(index, node)
+            self._rail.insert_node(row, node)
 
     @Slot()
     def remove_selected_node(self):
+        if not index.isValid():
+            return
         self.remove_deleted_node(
-            self.nodeList.takeItem(self.nodeList.currentRow())
+            self.nodeList.model().item(index.row())
         )
 
     @Slot(RailNodeItem)
     def remove_deleted_node(self, item: RailNodeItem):
-        pass# self._rail.remove_node(item.node)
+        node: Optional[RailNode] = item.data()
+        if node is None:
+            return
+        rail = node.get_rail()
+        if rail is None:
+            return
+        rail.remove_node(node)
 
     @Slot()
     def copy_selected_node(self):
-        self.nodeList.duplicate_items([self.nodeList.currentItem()])
+        self.nodeList.duplicate_items(
+            [self.nodeList.currentItem()]
+        )
 
     @Slot()
     def connect_rows_to_rail(self):
