@@ -159,6 +159,7 @@ class MainWindow(QMainWindow):
         self.menuHelp.addSeparator()
         self.menuHelp.addAction(self.actionAbout)
         self.menuWindow.addAction(self.actionDarkTheme)
+        self.menuWindow.addSeparator()
 
         self.actionDarkTheme.toggled.connect(self.signal_theme)
 
