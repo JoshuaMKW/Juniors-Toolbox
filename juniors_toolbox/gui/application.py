@@ -51,7 +51,6 @@ class JuniorsToolbox(QApplication):
         self.gui = MainWindow()
         self.manager = ToolboxManager()
         self.templates = ToolboxTemplates()
-        TabWidgetManager.init()
 
         self.__openTabs: Dict[str, A_DockingInterface] = {}
         self.__tabs: Dict[str, A_DockingInterface] = {}
