@@ -64,6 +64,7 @@ class ToolboxSettings(QObject):
 
     def load(self, settings: Optional[QSettings] = None) -> bool:
         from juniors_toolbox.gui.application import JuniorsToolbox
+        from juniors_toolbox.gui.tabs import TabWidgetManager
         window = JuniorsToolbox.get_instance_window()
 
         if settings is None:
@@ -74,6 +75,17 @@ class ToolboxSettings(QObject):
         state = self.settings.value("GUI/State", QByteArray(b""))
         window.restoreGeometry(geometry)
         window.restoreState(state)
+        
+        # Update tab checkboxes
+        for action in window.tabWidgetActions.values():
+            tab = TabWidgetManager.get_tab_n(action.text())
+            if tab is None:
+                continue
+            if not tab.isHidden():
+                action.blockSignals(True)
+                action.setChecked(True)
+                action.blockSignals(False)
+
         window.actionDarkTheme.blockSignals(True)
         window.actionDarkTheme.setChecked(self.is_dark_theme())
         window.actionDarkTheme.blockSignals(False)

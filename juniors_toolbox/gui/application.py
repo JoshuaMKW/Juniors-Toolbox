@@ -46,21 +46,22 @@ class JuniorsToolbox(QApplication):
         if sys.platform in {"win32", "cygwin", "msys"}:
             import ctypes
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
-                self.get_window_title())
+                self.get_window_title()
+            )
 
         self.gui = MainWindow()
         self.manager = ToolboxManager()
         self.templates = ToolboxTemplates()
 
-        self.__openTabs: Dict[str, A_DockingInterface] = {}
-        self.__tabs: Dict[str, A_DockingInterface] = {}
+        self._openTabs: Dict[str, A_DockingInterface] = {}
+        self._tabs: Dict[str, A_DockingInterface] = {}
 
         self.gui.setWindowTitle(self.get_window_title())
         self.update_theme(MainWindow.Theme.LIGHT)
         self.set_central_status(self.is_docker_empty())
 
         # Set up tab spawning
-        self.gui.tabActionRequested.connect(self.openDockerTab)
+        self.gui.tabActionRequested.connect(self.updateDockerTab)
         self.gui.themeChanged.connect(self.update_theme)
 
         # Set up file dialogs
@@ -89,9 +90,9 @@ class JuniorsToolbox(QApplication):
         for fontFile in fontFolder.iterdir():
             if not fontFile.is_file():
                 continue
-            id = QFontDatabase.addApplicationFont(str(fontFile))
+            QFontDatabase.addApplicationFont(str(fontFile))
 
-        self.__init_tabs()
+        self._init_tabs()
 
     # --- GETTER / SETTER --- #
 
@@ -241,19 +242,21 @@ class JuniorsToolbox(QApplication):
         return True
 
     @Slot(str)
-    def openDockerTab(self, name: str):
+    def updateDockerTab(self, name: str, checked: bool):
         tab = TabWidgetManager.get_tab_n(name)
         if tab is None:
             return
-        tab.show()
+
+        if checked:
+            tab.show()
+        else:
+            tab.hide()
+
         self.set_central_status(self.is_docker_empty())
 
     @Slot(str)
     def closeDockerTab(self, tab: A_DockingInterface):
-        # tab.setWidget(None)
         tab.hide()
-        # tab.setParent(None)
-        # self.gui.removeDockWidget(tab)
         self.set_central_status(self.is_docker_empty())
 
     @Slot()
@@ -264,7 +267,7 @@ class JuniorsToolbox(QApplication):
             autoraise=True
         )
 
-    def __init_tabs(self):
+    def _init_tabs(self):
         areas = [Qt.LeftDockWidgetArea, Qt.RightDockWidgetArea]
         for i, tab in enumerate(TabWidgetManager.iter_tabs()):
             tab.setObjectName(tab.windowTitle())
@@ -273,9 +276,8 @@ class JuniorsToolbox(QApplication):
             tab.topLevelChanged.connect(
                 lambda _: self.set_central_status(self.is_docker_empty()))
             tab.closed.connect(self.closeDockerTab)
-            self.gui.addDockWidget(areas[len(self.__openTabs) % 2], tab)
+            self.gui.addDockWidget(areas[len(self._openTabs) % 2], tab)
             tab.setParent(self.gui)
-            # tab.setParent(self.gui)
 
         self.set_central_status(self.is_docker_empty())
 

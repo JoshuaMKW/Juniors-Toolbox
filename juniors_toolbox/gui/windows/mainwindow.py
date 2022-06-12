@@ -50,6 +50,7 @@ class MainWindow(QMainWindow):
 
         TabWidgetManager.init()
 
+        self.tabWidgetActions: dict[str, QAction] = {}
         self.reset_ui()
 
     @Slot(bool)
@@ -68,7 +69,6 @@ class MainWindow(QMainWindow):
         settings = ToolboxSettings.get_instance()
         settings.save()
         super().closeEvent(event)
-
 
     def reset_ui(self):
         self.setWindowIcon(QIcon(str(resource_path("gui/icons/program.png"))))
@@ -162,12 +162,14 @@ class MainWindow(QMainWindow):
 
         self.actionDarkTheme.toggled.connect(self.signal_theme)
 
-        self.tabWidgetActions: list[QAction] = []
         for tab in TabWidgetManager.iter_tabs():
             action = TabMenuAction(tab.windowTitle(), self)
+            action.setCheckable(True)
+            action.setChecked(False)
             action.clicked.connect(self.tabActionRequested.emit)
-            self.tabWidgetActions.append(action)
-        self.menuWindow.addActions(self.tabWidgetActions)
+            self.tabWidgetActions[tab.windowTitle()] = action
+
+        self.menuWindow.addActions(list(self.tabWidgetActions.values()))
         
         self.retranslateUi()
         QMetaObject.connectSlotsByName(self)
