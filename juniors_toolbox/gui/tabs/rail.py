@@ -3,9 +3,7 @@ from io import BytesIO
 from operator import index
 from pathlib import Path
 from tkinter.font import names
-from typing import Optional, Union
-
-from async_timeout import Any
+from typing import Optional, Union, Any
 from juniors_toolbox.gui.layouts.framelayout import FrameLayout
 from juniors_toolbox.gui.tabs.dataeditor import DataEditorWidget
 from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
@@ -1358,6 +1356,13 @@ class RailViewerWidget(A_DockingInterface):
         rail = self.railList.get_rail(selected.row())
         for i, node in enumerate(rail.iter_nodes()):
             self.nodeList.set_rail_node(i, node)
+
+    @Slot()
+    def __update_node_properties_name(self, item: RailNodeListWidgetItem):
+        from juniors_toolbox.gui.tabs import TabWidgetManager
+        propertiesTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
+        if propertiesTab is not None:
+            propertiesTab.setWindowTitle(f"Node {self.nodeList.row(item)} Properties")
 
     @Slot()
     def new_rail(self):

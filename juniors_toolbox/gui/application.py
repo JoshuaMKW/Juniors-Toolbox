@@ -4,7 +4,7 @@ from typing import Dict, Iterable, List, Optional, Tuple
 from PySide6.QtCore import QPoint, QSize, Slot, QModelIndex, QAbstractListModel, QAbstractItemModel
 from PySide6.QtGui import QResizeEvent, Qt, QFontDatabase
 
-from PySide6.QtWidgets import QApplication, QFileDialog, QLabel, QSizePolicy, QStyleFactory, QWidget
+from PySide6.QtWidgets import QApplication, QFileDialog, QLabel, QSizePolicy, QStyleFactory, QWidget, QListWidgetItem
 from juniors_toolbox import __version__
 from juniors_toolbox.gui.settings import ToolboxSettings
 from juniors_toolbox.gui.tabs import TabWidgetManager
@@ -254,7 +254,6 @@ class JuniorsToolbox(QApplication):
 
         return True
 
-    @Slot(QModelIndex, int, int)
     def __add_rails(self, parent: QModelIndex, first: int, last: int):
         scene = self.manager.get_scene()
         if scene is None:

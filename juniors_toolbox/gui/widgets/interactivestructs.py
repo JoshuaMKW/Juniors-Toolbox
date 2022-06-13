@@ -161,6 +161,14 @@ class InteractiveListWidget(QListWidget):
         """
         Returns the new item
         """
+        if len(items) == 0:
+            return []
+
+        selectionModel = self.selectionModel()
+        selectionModel.clearSelection()
+
+        currentItem = self.currentItem()
+
         newItems = []
         for item in items:
             newName = self._resolve_name(item.text())
@@ -170,8 +178,19 @@ class InteractiveListWidget(QListWidget):
             newItem.setText(newName)
             self.blockSignals(False)
 
-            self.insertItem(self.row(item) + 1, newItem)
+            newItemRow = self.row(item) + 1
+
+            self.insertItem(newItemRow, newItem)
             newItems.append(newItem)
+
+            self.blockSignals(True)
+            self.setCurrentRow(newItemRow, QItemSelectionModel.Select)
+            self.blockSignals(False)
+            self.itemCreated.emit(newItem, newItemRow)
+            
+        self.currentItemChanged.emit(newItems[0], currentItem)
+        self.currentRowChanged.emit(self.row(newItems[0]))
+
         return newItems
 
     def _resolve_name(self, name: str, filterItem: InteractiveListWidgetItem = None) -> str:

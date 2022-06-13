@@ -396,7 +396,7 @@ class NameRefHierarchyWidget(A_DockingInterface):
         self.treeWidget.itemClicked.connect(
             self._populate_properties_view
         )
-        self.treeWidget.itemClicked.connect(
+        self.treeWidget.currentItemChanged.connect(
             self.__populate_data_view
         )
 
