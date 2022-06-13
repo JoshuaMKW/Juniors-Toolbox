@@ -552,22 +552,7 @@ class NameRefHierarchyWidget(A_DockingInterface):
             )
         )
 
-        self.nameHashProperty = CommentProperty(
-            "Name Hash",
-            f"  = {hash(sceneObj)}"
-        )
-        self.keyHashProperty = CommentProperty(
-            "Key Hash",
-            f"  = {hash(sceneObj.key)}"
-        )
-
-        properties.extend(
-            [
-                self.nameHashProperty,
-                self.keyProperty,
-                self.keyHashProperty
-            ]
-        )
+        properties.append(self.keyProperty)
 
         propertiesMap: dict[QualifiedName, A_ValueProperty] = {}
         for member in sceneObj.get_members(includeArrays=False):
@@ -676,10 +661,6 @@ class NameRefHierarchyWidget(A_DockingInterface):
             return
 
         obj.key.set_ref(key)
-        self.keyHashProperty.set_value(
-            f"  = {hash(obj.key)}"
-        )
-
         propertiesTab.setWindowTitle(
             f"{obj.get_explicit_name()} Properties"
         )
