@@ -17,7 +17,6 @@ class TabWidgetManager():
         "Scene Hierarchy": NameRefHierarchyWidget,
         "Selected Properties": SelectedPropertiesWidget,
         "Rail List": RailViewerWidget,
-        "Rail Editor": None,
         "BMG Editor": BMGMessageEditorWidget,
         "PRM Editor": PrmEditorWidget,
         "Demo Editor": None,

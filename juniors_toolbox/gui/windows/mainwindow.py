@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (QMainWindow, QMenu, QMenuBar,
                                QTabWidget)
 from juniors_toolbox import __name__, __version__
 from juniors_toolbox.gui.settings import ToolboxSettings
+from juniors_toolbox.gui.tabs import TabWidgetManager
 from juniors_toolbox.utils import VariadicArgs, VariadicKwargs
 from juniors_toolbox.utils.filesystem import get_program_folder, resource_path
 
@@ -47,6 +48,9 @@ class MainWindow(QMainWindow):
         self.setAcceptDrops(True)
         self.setDockNestingEnabled(True)
 
+        TabWidgetManager.init()
+
+        self.tabWidgetActions: dict[str, QAction] = {}
         self.reset_ui()
 
     @Slot(bool)
@@ -63,7 +67,6 @@ class MainWindow(QMainWindow):
         settings = ToolboxSettings.get_instance()
         settings.save()
         super().closeEvent(event)
-
 
     def reset_ui(self):
         self.setWindowIcon(QIcon(str(resource_path("gui/icons/program.png"))))
@@ -96,26 +99,6 @@ class MainWindow(QMainWindow):
         self.actionDarkTheme = QAction(self)
         self.actionDarkTheme.setCheckable(True)
         self.actionDarkTheme.setObjectName(u"actionDarkTheme")
-        self.actionProjectViewer = TabMenuAction(self)
-        self.actionProjectViewer.setObjectName(u"actionProjectViewer")
-        self.actionObjectHierarchy = TabMenuAction(self)
-        self.actionObjectHierarchy.setObjectName(u"actionObjectHierarchy")
-        self.actionObjectProperties = TabMenuAction(self)
-        self.actionObjectProperties.setObjectName(u"actionObjectProperties")
-        self.actionRailList = TabMenuAction(self)
-        self.actionRailList.setObjectName(u"actionRailList")
-        self.actionRailEditor = TabMenuAction(self)
-        self.actionRailEditor.setObjectName(u"actionRailEditor")
-        self.actionBMGEditor = TabMenuAction(self)
-        self.actionBMGEditor.setObjectName(u"actionBMGEditor")
-        self.actionPRMEditor = TabMenuAction(self)
-        self.actionPRMEditor.setObjectName(u"actionPRMEditor")
-        self.actionDemoEditor = TabMenuAction(self)
-        self.actionDemoEditor.setObjectName(u"actionDemoEditor")
-        self.actionRawDataViewer = TabMenuAction(self)
-        self.actionRawDataViewer.setObjectName(u"actionRawDataViewer")
-        self.actionSceneRenderer = TabMenuAction(self)
-        self.actionSceneRenderer.setObjectName(u"actionSceneRenderer")
         self.actionCheckUpdate = QAction(self)
         self.actionCheckUpdate.setObjectName(u"actionCheckUpdate")
         self.actionTutorial = QAction(self)
@@ -175,21 +158,17 @@ class MainWindow(QMainWindow):
         self.menuHelp.addAction(self.actionAbout)
         self.menuWindow.addAction(self.actionDarkTheme)
         self.menuWindow.addSeparator()
-        self.menuWindow.addAction(self.actionProjectViewer)
-        self.menuWindow.addAction(self.actionObjectHierarchy)
-        self.menuWindow.addAction(self.actionObjectProperties)
-        self.menuWindow.addAction(self.actionRailList)
-        self.menuWindow.addAction(self.actionRailEditor)
-        self.menuWindow.addAction(self.actionBMGEditor)
-        self.menuWindow.addAction(self.actionPRMEditor)
-        self.menuWindow.addAction(self.actionDemoEditor)
-        self.menuWindow.addAction(self.actionRawDataViewer)
-        self.menuWindow.addAction(self.actionSceneRenderer)
 
         self.actionDarkTheme.toggled.connect(self.signal_theme)
-        for action in self.menuWindow.actions():
-            if isinstance(action, TabMenuAction):
-                action.clicked.connect(self.tabActionRequested.emit)
+
+        for tab in TabWidgetManager.iter_tabs():
+            action = TabMenuAction(tab.windowTitle(), self)
+            action.setCheckable(True)
+            action.setChecked(False)
+            action.clicked.connect(self.tabActionRequested.emit)
+            self.tabWidgetActions[tab.windowTitle()] = action
+
+        self.menuWindow.addActions(list(self.tabWidgetActions.values()))
         
         self.retranslateUi()
         QMetaObject.connectSlotsByName(self)
@@ -213,16 +192,6 @@ class MainWindow(QMainWindow):
         self.actionSaveAs.setText(QCoreApplication.translate("MainWindow", u"Save As...", None))
         self.actionClose.setText(QCoreApplication.translate("MainWindow", u"Close", None))
         self.actionDarkTheme.setText(QCoreApplication.translate("MainWindow", u"Dark Theme", None))
-        self.actionProjectViewer.setText(QCoreApplication.translate("MainWindow", u"Project Viewer", None))
-        self.actionObjectHierarchy.setText(QCoreApplication.translate("MainWindow", u"Scene Hierarchy", None))
-        self.actionObjectProperties.setText(QCoreApplication.translate("MainWindow", u"Selected Properties", None))
-        self.actionRailList.setText(QCoreApplication.translate("MainWindow", u"Rail List", None))
-        self.actionRailEditor.setText(QCoreApplication.translate("MainWindow", u"Rail Editor", None))
-        self.actionBMGEditor.setText(QCoreApplication.translate("MainWindow", u"BMG Editor", None))
-        self.actionPRMEditor.setText(QCoreApplication.translate("MainWindow", u"PRM Editor", None))
-        self.actionDemoEditor.setText(QCoreApplication.translate("MainWindow", u"Demo Editor", None))
-        self.actionRawDataViewer.setText(QCoreApplication.translate("MainWindow", u"Data Viewer", None))
-        self.actionSceneRenderer.setText(QCoreApplication.translate("MainWindow", u"Scene Renderer", None))
         self.actionCheckUpdate.setText(QCoreApplication.translate("MainWindow", u"Check Update", None))
         self.actionTutorial.setText(QCoreApplication.translate("MainWindow", u"Tutorial", None))
         self.actionReportBug.setText(QCoreApplication.translate("MainWindow", u"Report Bug", None))

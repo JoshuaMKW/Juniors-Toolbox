@@ -1,11 +1,14 @@
 import sys
+import webbrowser
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 from PySide6.QtCore import QPoint, QSize, Slot, QModelIndex, QAbstractListModel, QAbstractItemModel
 from PySide6.QtGui import QResizeEvent, Qt, QFontDatabase
+from PySide6.QtWebEngineWidgets import QWebEngineView
 
 from PySide6.QtWidgets import QApplication, QFileDialog, QLabel, QSizePolicy, QStyleFactory, QWidget, QListWidgetItem
 from juniors_toolbox import __version__
+from juniors_toolbox.gui.dialogs.issuedialog import GithubIssueDialog
 from juniors_toolbox.gui.settings import ToolboxSettings
 from juniors_toolbox.gui.tabs import TabWidgetManager
 from juniors_toolbox.gui.tabs.hierarchyviewer import NameRefHierarchyTreeWidgetItem, NameRefHierarchyWidget
@@ -45,21 +48,21 @@ class JuniorsToolbox(QApplication):
         if sys.platform in {"win32", "cygwin", "msys"}:
             import ctypes
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
-                self.get_window_title())
+                self.get_window_title()
+            )
 
         self.gui = MainWindow()
         self.manager = ToolboxManager()
         self.templates = ToolboxTemplates()
-        TabWidgetManager.init()
 
-        self.__openTabs: Dict[str, A_DockingInterface] = {}
-        self.__tabs: Dict[str, A_DockingInterface] = {}
+        self._openTabs: Dict[str, A_DockingInterface] = {}
+        self._tabs: Dict[str, A_DockingInterface] = {}
 
         self.gui.setWindowTitle(self.get_window_title())
         self.update_theme(MainWindow.Theme.LIGHT)
 
         # Set up tab spawning
-        self.gui.tabActionRequested.connect(self.openDockerTab)
+        self.gui.tabActionRequested.connect(self.updateDockerTab)
         self.gui.themeChanged.connect(self.update_theme)
 
         # Set up file dialogs
@@ -78,6 +81,9 @@ class JuniorsToolbox(QApplication):
         self.gui.actionSaveAs.triggered.connect(
             lambda _: self.save_scene()
         )  # throw away checked flag
+        self.gui.actionReportBug.triggered.connect(
+            lambda _: self.open_issue_page()
+        )
 
         # Set up theme toggle
 
@@ -85,9 +91,9 @@ class JuniorsToolbox(QApplication):
         for fontFile in fontFolder.iterdir():
             if not fontFile.is_file():
                 continue
-            id = QFontDatabase.addApplicationFont(str(fontFile))
+            QFontDatabase.addApplicationFont(str(fontFile))
 
-        self.__init_tabs()
+        self._init_tabs()
 
     # --- GETTER / SETTER --- #
 
@@ -116,7 +122,8 @@ class JuniorsToolbox(QApplication):
 
     @scenePath.setter
     def scenePath(self, path: Path):
-        projectViewer = TabWidgetManager.get_tab(ProjectViewerWidget) # type: ignore
+        projectViewer = TabWidgetManager.get_tab(
+            ProjectViewerWidget)  # type: ignore
         projectViewer.scenePath = path
         self.manager.load_scene(path)
         self.update_elements(self.scene)
@@ -212,11 +219,16 @@ class JuniorsToolbox(QApplication):
         return True
 
     @Slot(str)
-    def openDockerTab(self, name: str):
+    def updateDockerTab(self, name: str, checked: bool):
         tab = TabWidgetManager.get_tab_n(name)
         if tab is None:
             return
-        tab.show()
+
+        if checked:
+            tab.show()
+        else:
+            tab.hide()
+
         self.set_central_status(self.is_docker_empty())
 
     @Slot(str)
@@ -234,15 +246,24 @@ class JuniorsToolbox(QApplication):
         railTab.railList.model().rowsInserted.connect(self.__add_rails)
         railTab.railList.model().rowsAboutToBeRemoved.connect(self.__remove_rails)
 
-    def __init_tabs(self):
+    @Slot()
+    def open_issue_page(self):
+        webbrowser.open(
+            "https://github.com/JoshuaMKW/Juniors-Toolbox/issues/new?assignees=JoshuaMKW&labels=bug&template=bug_report.md&title=%5BBUG%5D+Short+Description",
+            new=0,
+            autoraise=True
+        )
+
+    def _init_tabs(self):
         areas = [Qt.LeftDockWidgetArea, Qt.RightDockWidgetArea]
         for i, tab in enumerate(TabWidgetManager.iter_tabs()):
             tab.setObjectName(tab.windowTitle())
             tab.setFloating(not self.is_docker_empty())
             tab.setAllowedAreas(Qt.AllDockWidgetAreas)
-            tab.topLevelChanged.connect(lambda _: self.set_central_status(self.is_docker_empty()))
+            tab.topLevelChanged.connect(
+                lambda _: self.set_central_status(self.is_docker_empty()))
             tab.closed.connect(self.closeDockerTab)
-            self.gui.addDockWidget(areas[len(self.__openTabs) % 2], tab)
+            self.gui.addDockWidget(areas[len(self._openTabs) % 2], tab)
             tab.setParent(self.gui)
 
         settings = ToolboxSettings.get_instance()
@@ -312,7 +333,7 @@ class JuniorsToolbox(QApplication):
     #     # deTab.setWidget(tab)
     #     deTab.setFloating(len(self.__openTabs) > 0)
     #     deTab.setAllowedAreas(Qt.AllDockWidgetAreas)
-            
+
     #     areas = [Qt.LeftDockWidgetArea, Qt.RightDockWidgetArea]
     #     self.gui.addDockWidget(areas[len(self.__openTabs) % 2], deTab)
 

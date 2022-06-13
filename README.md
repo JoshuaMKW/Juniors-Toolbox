@@ -2,6 +2,6 @@
 
 Scene editor for SMS stages, written with Python 3 and PySide6
 
-![image](https://user-images.githubusercontent.com/60854312/150532520-67c7130f-8657-4e77-ba37-57cb57965dc5.png)
+![image](https://user-images.githubusercontent.com/60854312/169640743-688010fe-86c1-477e-b706-5749858d3338.png)
 
-![image](https://user-images.githubusercontent.com/60854312/150532447-716a2a4a-ce11-4071-a3cd-cb26d8786277.png)
+![image](https://user-images.githubusercontent.com/60854312/169640746-ad073413-8797-41ae-9aee-0f19702438f9.png)
