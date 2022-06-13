@@ -1095,11 +1095,22 @@ class RailListView(InteractiveListView):
         return menu
     
     def _set_rail_spline(self, index: QModelIndex, isSpline: bool):
+        from juniors_toolbox.gui.tabs import TabWidgetManager
+        propertiesTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
+        if propertiesTab is None or not index.isValid():
+            return
+
         rail = self.get_rail(index.row())
         name = rail.name.lstrip("S_")
+        title = propertiesTab.windowTitle().lstrip("S_")
         if isSpline:
             name = f"S_{name}"
+            title = f"S_{title}"
         rail.name = name
+        propertiesTab.setWindowTitle(title)
+
+        self.update(index)
+        # self._populate_data_view(index)
     
     @Slot(list)
     def duplicate_indexes(self, indexes: list[QModelIndex | QPersistentModelIndex]) -> list[QModelIndex | QPersistentModelIndex]:
@@ -1216,7 +1227,8 @@ class RailListView(InteractiveListView):
             value=rail.name.startswith("S_")
         )
         isSplineProperty.valueChanged.connect(
-            lambda _, v: self._set_rail_spline(selected, v))
+            lambda _, v: self._set_rail_spline(selected, v)
+        )
 
         propertiesTab.populate(
             None,
