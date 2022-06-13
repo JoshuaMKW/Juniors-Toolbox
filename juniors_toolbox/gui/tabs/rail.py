@@ -1,26 +1,39 @@
+from email.policy import default
 from io import BytesIO
+from operator import index
 from pathlib import Path
 from tkinter.font import names
-from typing import Optional, Union, List
-from async_timeout import Any
-
+from typing import Optional, Union, Any
 from juniors_toolbox.gui.layouts.framelayout import FrameLayout
 from juniors_toolbox.gui.tabs.dataeditor import DataEditorWidget
 from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
-
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.gui.widgets.interactivestructs import (
-    InteractiveListWidget, InteractiveListWidgetItem)
+    InteractiveListView, InteractiveListWidget, InteractiveListWidgetItem)
 from juniors_toolbox.gui.widgets.listinterface import ListInterfaceWidget
-from juniors_toolbox.gui.widgets.property import A_ValueProperty, ArrayProperty, BoolProperty, CommentProperty, IntProperty, ShortProperty, Vector3Property
+from juniors_toolbox.gui.widgets.property import (A_ValueProperty,
+                                                  ArrayProperty, BoolProperty,
+                                                  CommentProperty, IntProperty,
+                                                  ShortProperty,
+                                                  Vector3Property)
 from juniors_toolbox.gui.widgets.spinboxdrag import SpinBoxDragInt
 from juniors_toolbox.objects.object import MapObject
-from juniors_toolbox.rail import Rail, RailKeyFrame, RalData
+from juniors_toolbox.rail import Rail, RailNode, RalData
 from juniors_toolbox.scene import SMSScene
-from PySide6.QtCore import Qt, Slot, QPoint, Signal, QDataStream, QModelIndex, QMimeData
-from PySide6.QtGui import QAction, QDragEnterEvent, QDragLeaveEvent, QDragMoveEvent, QDropEvent, QStandardItemModel, QStandardItem
-from PySide6.QtWidgets import QGridLayout, QListWidget, QSplitter, QWidget, QListWidgetItem, QFormLayout, QVBoxLayout, QMenu
 from juniors_toolbox.utils import A_Serializable, VariadicArgs, VariadicKwargs
+from PySide6.QtCore import (QAbstractListModel, QByteArray, QDataStream, QIODevice,
+                            QItemSelection, QItemSelectionModel, QMimeData,
+                            QModelIndex, QObject, QPersistentModelIndex,
+                            QPoint, QSize, Qt, Signal, Slot)
+from PySide6.QtGui import (QAction, QDragEnterEvent, QDragLeaveEvent,
+                           QDragMoveEvent, QDropEvent, QStandardItem,
+                           QStandardItemModel)
+from PySide6.QtTest import QAbstractItemModelTester
+from PySide6.QtWidgets import (QFormLayout, QGridLayout, QListView, QDialog, QLabel, QDialogButtonBox, QSizePolicy,
+                               QListWidget, QListWidgetItem, QMenu, QSplitter,
+                               QVBoxLayout, QWidget, QPushButton)
+
+from juniors_toolbox.utils.types import Quaternion, Vec3f
 
 
 class S16Vector3Property(A_ValueProperty):
@@ -39,7 +52,7 @@ class S16Vector3Property(A_ValueProperty):
         inputX = SpinBoxDragInt()
         inputY = SpinBoxDragInt()
         inputZ = SpinBoxDragInt()
-        self.__xyzInputs: List[SpinBoxDragInt] = [inputX, inputY, inputZ]
+        self.__xyzInputs: list[SpinBoxDragInt] = [inputX, inputY, inputZ]
         for i in range(3):
             axis = "XYZ"[i]
             spinBox = self.__xyzInputs[i]
@@ -98,128 +111,639 @@ class S16Vector3Property(A_ValueProperty):
         self.valueChanged.emit(self, self.get_value())
 
 
-class RailNodeListWidgetItem(QListWidgetItem):
-    def __init__(self, item: Union["RailNodeListWidgetItem", str], node: RailKeyFrame) -> None:
-        super().__init__(item)
-        self.setFlags(
-            Qt.ItemIsSelectable |
-            Qt.ItemIsDragEnabled |
-            Qt.ItemIsEnabled
-        )
-        self.node = node
+class TranslateRailDialog(QDialog):
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
 
-    def copy(self) -> "RailNodeListWidgetItem":
-        item = RailNodeListWidgetItem(self, self.node.copy())
-        return item
+        self.setWindowTitle("Translate Rail(s)...")
+        self.setFixedSize(500, 122)
+
+        self.mainLayout = QGridLayout()
+
+        self.label = QLabel("Translate By:")
+        font = self.label.font()
+        font.setPointSize(12)
+        self.label.setFont(font)
+        self.label.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Maximum)
+        self.label.setAlignment(Qt.AlignHCenter)
+        self.mainLayout.addWidget(self.label, 0, 0, 1, 1)
+
+        self.translateProperty = Vector3Property(
+            "Translate",
+            readOnly=False,
+            value=Vec3f.zero
+        )
+        self.translateProperty._xyzInputs[0].setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
+        self.translateProperty._xyzInputs[1].setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
+        self.translateProperty._xyzInputs[2].setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
+        self.mainLayout.addWidget(self.translateProperty, 1, 0, 1, 1)
+
+        self.buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.buttonBox.button(QDialogButtonBox.Ok).setMinimumSize(60, 30)
+        self.buttonBox.button(QDialogButtonBox.Cancel).setMinimumSize(60, 30)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+
+        self.mainLayout.addWidget(self.buttonBox, 2, 0, 1, 1)
+        
+        self.setLayout(self.mainLayout)
+
+
+class RotateRailDialog(QDialog):
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+
+        self.setWindowTitle("Rotate Rail(s)...")
+        self.setFixedSize(500, 122)
+        
+        self.mainLayout = QGridLayout()
+
+        self.label = QLabel("Rotate By:")
+        font = self.label.font()
+        font.setPointSize(12)
+        self.label.setFont(font)
+        self.label.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Maximum)
+        self.label.setAlignment(Qt.AlignHCenter)
+        self.mainLayout.addWidget(self.label, 0, 0, 1, 1)
+
+        self.rotateProperty = Vector3Property(
+            "Rotate",
+            readOnly=False,
+            value=Vec3f.zero
+        )
+        self.rotateProperty._xyzInputs[0].setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
+        self.rotateProperty._xyzInputs[1].setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
+        self.rotateProperty._xyzInputs[2].setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
+        self.mainLayout.addWidget(self.rotateProperty, 1, 0, 1, 2)
+
+        self.buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.buttonBox.button(QDialogButtonBox.Ok).setMinimumSize(60, 30)
+        self.buttonBox.button(QDialogButtonBox.Cancel).setMinimumSize(60, 30)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+        
+        self.mainLayout.addWidget(self.buttonBox, 2, 0, 1, 1)
+
+        self.setLayout(self.mainLayout)
+
+
+class ScaleRailDialog(QDialog):
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+
+        self.setWindowTitle("Scale Rail(s)...")
+        self.setFixedSize(500, 122)
+        
+        self.mainLayout = QGridLayout()
+
+        self.label = QLabel("Scale By:")
+        font = self.label.font()
+        font.setPointSize(12)
+        self.label.setFont(font)
+        self.label.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Maximum)
+        self.label.setAlignment(Qt.AlignHCenter)
+        self.mainLayout.addWidget(self.label, 0, 0, 1, 1)
+
+        self.scaleProperty = Vector3Property(
+            "Scale",
+            readOnly=False,
+            value=Vec3f.zero
+        )
+        self.scaleProperty._xyzInputs[0].setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
+        self.scaleProperty._xyzInputs[1].setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
+        self.scaleProperty._xyzInputs[2].setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
+        self.mainLayout.addWidget(self.scaleProperty, 1, 0, 1, 1)
+
+        self.buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.buttonBox.button(QDialogButtonBox.Ok).setMinimumSize(60, 30)
+        self.buttonBox.button(QDialogButtonBox.Cancel).setMinimumSize(60, 30)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+
+        self.mainLayout.addWidget(self.buttonBox, 2, 0, 1, 1)
+        
+        self.setLayout(self.mainLayout)
+
+
+class SubdivideRailDialog(QDialog):
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Subdivide Rail(s)...")
+        self.setFixedSize(300, 122)
+        
+        self.mainLayout = QGridLayout()
+
+        self.label = QLabel("Subdivide By:")
+        font = self.label.font()
+        font.setPointSize(12)
+        self.label.setFont(font)
+        self.label.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Maximum)
+        self.label.setAlignment(Qt.AlignHCenter)
+        self.mainLayout.addWidget(self.label, 0, 0, 1, 1)
+        
+        self.subdivideProperty = IntProperty(
+            "Subdivide",
+            readOnly=False,
+            value=1
+        )
+        self.subdivideProperty.set_maximum_value(10)
+        self.subdivideProperty.set_minimum_value(1)
+        self.subdivideProperty._input.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
+        self.mainLayout.addWidget(self.subdivideProperty, 1, 0, 1, 1)
+
+        self.buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.buttonBox.button(QDialogButtonBox.Ok).setMinimumSize(60, 30)
+        self.buttonBox.button(QDialogButtonBox.Cancel).setMinimumSize(60, 30)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+
+        self.mainLayout.addWidget(self.buttonBox, 2, 0, 1, 1)
+        
+        self.setLayout(self.mainLayout)
+
+
+class RailItem(QStandardItem):
+    _rail: Rail
+
+    def __init__(self, other: Optional[Rail] | Optional["RailItem"] = None):
+        if isinstance(other, RailItem):
+            super().__init__(other)
+            self._rail = other._rail.copy(deep=True)
+            return
+
+        super().__init__()
+
+        self._rail = Rail("((null))")
+        if other is None:
+            return
+        
+        self._rail = other
+
+    def isAutoTristate(self) -> bool:
+        return False
+
+    def isCheckable(self) -> bool:
+        return False
+
+    def isDragEnabled(self) -> bool:
+        return True
+
+    def isDropEnabled(self) -> bool:
+        return True
+
+    def isEditable(self) -> bool:
+        return True
+
+    def isSelectable(self) -> bool:
+        return True
+
+    def isUserTristate(self) -> bool:
+        return False
 
     def read(self, in_: QDataStream) -> None:
-        super().read(in_)
-        nodeLength = in_.readInt32()
-        rawData = b""
-        in_.readRawData(
-            rawData,
-            nodeLength
-        )
-        data = BytesIO(rawData)
-        self.node = RailKeyFrame.from_bytes(data)
+        rail = Rail(in_.readString())
+
+        nodeCount = in_.readInt32()
+        for i in range(nodeCount):
+            rawData = QByteArray()
+            in_ >> rawData
+            rail.add_node(
+                RailNode.from_bytes(
+                    BytesIO(rawData.data())
+                )
+            )
+
+        self.setData(rail)
 
     def write(self, out: QDataStream) -> None:
-        super().write(out)
-        nodeData = self.node.to_bytes()
-        out.writeInt32(
-            len(nodeData)
+        rail: Rail = self.data()
+        out.writeString(rail.name)
+        out.writeInt32(rail.get_node_count())
+        for node in rail.iter_nodes():
+            out << node.to_bytes()
+
+    def data(self, role: int = Qt.UserRole + 1) -> Any:
+        if role == 255:
+            return super().data(role)
+
+        kind = "Spline Rail" if self._rail.is_spline() else "Rail"
+            
+        if role == Qt.DisplayRole:
+            return self._rail.name
+
+        elif role == Qt.EditRole:
+            return self._rail.name
+
+        elif role == Qt.SizeHintRole:
+            return QSize(40, self.font().pointSize() * 2)
+
+        elif role == Qt.ToolTipRole:
+            return f"{kind} \"{self._rail.name}\"\n{self._rail.get_node_count()} Nodes"
+
+        elif role == Qt.WhatsThisRole:
+            return f"{kind} \"{self._rail.name}\"\n{self._rail.get_node_count()} Nodes"
+
+        elif role == Qt.StatusTipRole:
+            return f"{self._rail.get_node_count()} Nodes"
+
+        elif role == Qt.UserRole + 1:
+            return self._rail
+
+    def setData(self, value: Any, role: int = Qt.UserRole + 1) -> None:
+        rail = self._rail
+
+        if role == Qt.DisplayRole:
+            rail.name = value
+
+        elif role == Qt.EditRole:
+            rail.name = value
+
+        elif role == Qt.UserRole + 1:
+            self._rail = value
+
+    def clone(self) -> "RailItem":
+        return RailItem(self)
+
+
+class RailNodeItem(QStandardItem):
+    _node: RailNode
+
+    def __init__(self, other: Optional[RailNode] | Optional["RailNodeItem"] = None):
+        if isinstance(other, RailItem):
+            super().__init__(other)
+            self._node = other._node.copy(deep=True)
+            return
+
+        super().__init__()
+
+        self._node = RailNode()
+        if other is None:
+            return
+        
+        self._node = other
+
+    def isAutoTristate(self) -> bool:
+        return False
+
+    def isCheckable(self) -> bool:
+        return False
+
+    def isDragEnabled(self) -> bool:
+        return True
+
+    def isDropEnabled(self) -> bool:
+        return True
+
+    def isEditable(self) -> bool:
+        return False
+
+    def isSelectable(self) -> bool:
+        return True
+
+    def isUserTristate(self) -> bool:
+        return False
+
+    def read(self, in_: QDataStream) -> None:
+        data = QByteArray()
+        in_ >> data
+
+        node = RailNode.from_bytes(
+            BytesIO(data.data())
         )
-        out.writeRawData(
-            nodeData,
-            len(nodeData)
-        )
+        self.setData(node)
+
+    def write(self, out: QDataStream) -> None:
+        node: RailNode = self.data()
+
+        data = QByteArray(node.to_bytes())
+        out << data
+
+    def data(self, role: int = Qt.UserRole + 1) -> Any:
+        if role == 255:
+            return super().data(role)
+
+        connections = []
+        for x in range(self._node.connectionCount.get_value()):
+            connections.append(self._node.connections[x].get_value())
+
+        rail = self._node.get_rail()
+
+        railName = "Rail"
+        if rail:
+            railName = f"\"{rail.name}\""
+            
+        if role == Qt.DisplayRole:
+            return f"Node {self.row()} - {connections}"
+
+        elif role == Qt.SizeHintRole:
+            return QSize(40, self.font().pointSize() * 2)
+
+        elif role == Qt.ToolTipRole:
+            return f"{railName} Node {self.row()}\nConnections: {connections}"
+
+        elif role == Qt.WhatsThisRole:
+            return f"{railName} Node {self.row()}\nConnections: {connections}"
+
+        elif role == Qt.StatusTipRole:
+            return "Node Connected" if self._node.is_connected() else "Node Disconnected"
+
+        elif role == Qt.UserRole + 1:
+            return self._node
+
+    def setData(self, value: Any, role: int = Qt.UserRole + 1) -> None:
+        if role == Qt.UserRole + 1:
+            self._node = value
+
+    def clone(self) -> "RailNodeItem":
+        return RailNodeItem(self)
 
 
 class RailListModel(QStandardItemModel):
-    MimeType = "scene/rail-data"
+    def __init__(self, parent: Optional[QObject] = None) -> None:
+        super().__init__(parent)
+        self.setItemPrototype(RailItem())
 
-    def mimeData(self, indexes: List[int]) -> QMimeData:
-        mimeData = super().mimeData(indexes)
-        mimeData.setData(self.MimeType, b"")
+    def supportedDragActions(self) -> Qt.DropActions:
+        return Qt.CopyAction | Qt.MoveAction
+
+    def supportedDropActions(self) -> Qt.DropActions:
+        return Qt.CopyAction | Qt.MoveAction
+
+    def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.UserRole + 1) -> Any:
+        if section == 0:
+            return "Rails"
+        return None
+
+    def itemData(self, index: Union[QModelIndex, QPersistentModelIndex]) -> dict[int, Any]:
+        roles = {}
+        for i in range(Qt.UserRole + 2):
+            variant = self.data(index, i)
+            if variant:
+                roles[i] = variant
+        return roles
+
+    def mimeTypes(self) -> list[str]:
+        return ["application/x-raildatalist"]
+
+    def dropMimeData(self, data: QMimeData, action: Qt.DropAction, row: int, column: int, parent: Union[QModelIndex, QPersistentModelIndex]) -> bool:
+        mimeType = self.mimeTypes()[0]
+
+        encodedData = data.data(mimeType)
+        stream = QDataStream(
+            encodedData,
+            QIODevice.ReadOnly
+        )
+
+        itemCount = stream.readInt32()
+        if action & Qt.CopyAction:
+            for i in range(itemCount):
+                item = RailItem()
+                item.read(stream)
+                item.setData(
+                    self._resolve_name(item.data(Qt.DisplayRole)),
+                    Qt.DisplayRole
+                )
+                self.insertRow(row + i, item)
+        else:
+            oldItems: list[RailItem] = []
+            for i in range(itemCount):
+                item = RailItem()
+                item.read(stream)
+                name = item.data(Qt.DisplayRole)
+                oldItems.append(
+                    self.findItems(name)[0]
+                )
+                self.insertRow(row + i, item)
+            for item in oldItems:
+                self.removeRow(item.row())
+
+        return action == Qt.CopyAction
+
+    def mimeData(self, indexes: list[int]) -> QMimeData:
+        mimeType = self.mimeTypes()[0]
+        mimeData = QMimeData()
+
+        encodedData = QByteArray()
+        stream = QDataStream(
+            encodedData,
+            QIODevice.WriteOnly
+        )
+
+        stream.writeInt32(len(indexes))
+        for index in indexes:
+            item = self.itemFromIndex(index) # type: ignore
+            item.write(stream)
+
+        mimeData.setData(
+            mimeType,
+            encodedData
+        )
         return mimeData
+    
+    def _resolve_name(self, name: str, filterItem: Optional[QStandardItem] = None) -> str:
+        renameContext = 1
+        ogName = name
+
+        possibleNames = []
+        for i in range(self.rowCount()):
+            if renameContext > 100:
+                raise FileExistsError(
+                    "Name exists beyond 100 unique iterations!")
+            item = self.item(i)
+            if item == filterItem:
+                continue
+            itemText: str = item.data(Qt.DisplayRole)
+            if itemText.startswith(ogName):
+                possibleNames.append(itemText)
+
+        i = 0
+        while True:
+            if i >= len(possibleNames):
+                break
+            if renameContext > 100:
+                raise FileExistsError(
+                    "Name exists beyond 100 unique iterations!")
+            if possibleNames[i] == name:
+                name = f"{ogName}{renameContext}"
+                renameContext += 1
+                i = 0
+            else:
+                i += 1
+        return name
 
 
 class RailNodeListModel(QStandardItemModel):
-    MimeType = "scene/rail-node-data"
+    def __init__(self, parent: Optional[QObject] = None) -> None:
+        super().__init__(parent)
+        self.setItemPrototype(RailNodeItem())
 
-    def mimeData(self, indexes: List[int]) -> QMimeData:
-        mimeData = super().mimeData(indexes)
-        mimeData.setData(self.MimeType, b"")
+    def supportedDragActions(self) -> Qt.DropActions:
+        return Qt.CopyAction | Qt.MoveAction
+
+    def supportedDropActions(self) -> Qt.DropActions:
+        return Qt.CopyAction | Qt.MoveAction
+
+    def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.UserRole + 1) -> Any:
+        if section == 0:
+            return "Rail Nodes"
+        return None
+
+    def itemData(self, index: Union[QModelIndex, QPersistentModelIndex]) -> dict[int, Any]:
+        roles = {}
+        for i in range(Qt.UserRole + 2):
+            variant = self.data(index, i)
+            if variant:
+                roles[i] = variant
+        return roles
+
+    def mimeTypes(self) -> list[str]:
+        return ["application/x-railnodedatalist"]
+
+    def dropMimeData(self, data: QMimeData, action: Qt.DropAction, row: int, column: int, parent: Union[QModelIndex, QPersistentModelIndex]) -> bool:
+        mimeType = self.mimeTypes()[0]
+
+        encodedData = data.data(mimeType)
+        stream = QDataStream(
+            encodedData,
+            QIODevice.ReadOnly
+        )
+
+        itemCount = stream.readInt32()
+        if action & Qt.CopyAction:
+            for i in range(itemCount):
+                stream.readInt32() # skip rows
+                item = RailNodeItem()
+                item.read(stream)
+                self.insertRow(row + i, item)
+        else:
+            oldItems: list[RailItem] = []
+            newItems: dict[int, RailNodeItem] = {}
+            for i in range(itemCount):
+                oldItemRow = stream.readInt32()
+                item = RailNodeItem()
+                item.read(stream)
+                oldItems.append(
+                    self.item(oldItemRow)
+                )
+                newItems[row + i] = item
+            for row, item in newItems.items():
+                self.insertRow(row, item)
+            for item in oldItems:
+                self.removeRow(item.row())
+
+        self.layoutChanged.emit()
+
+        return action == Qt.CopyAction
+
+    def mimeData(self, indexes: list[int]) -> QMimeData:
+        mimeType = self.mimeTypes()[0]
+        mimeData = QMimeData()
+
+        encodedData = QByteArray()
+        stream = QDataStream(
+            encodedData,
+            QIODevice.WriteOnly
+        )
+
+        stream.writeInt32(len(indexes))
+        for index in indexes:
+            item = self.itemFromIndex(index) # type: ignore
+            stream.writeInt32(index.row()) # type: ignore
+            item.write(stream)
+
+        mimeData.setData(
+            mimeType,
+            encodedData
+        )
         return mimeData
 
 
-class RailNodeListWidget(InteractiveListWidget):
-    nodeCreated = Signal(RailNodeListWidgetItem)
-    nodeUpdated = Signal(RailNodeListWidgetItem)
+class RailNodeListWidget(InteractiveListView):
+    nodeCreated = Signal(RailNodeItem)
+    nodeUpdated = Signal(RailNodeItem)
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setModel(RailNodeListModel())
 
-        self.setAcceptDrops(False)
-        self.setDragDropMode(InteractiveListWidget.DragDropMode.DragDrop)
+        selectionModel = self.selectionModel()
+        selectionModel.currentChanged.connect(
+            self._populate_properties_view
+        )
+        selectionModel.currentChanged.connect(
+            self._populate_data_view
+        )
 
+    def model(self) -> RailNodeListModel:
+        return super().model()
+
+    def setModel(self, model: RailNodeListModel) -> None:
+        super().setModel(model)
+
+    def set_rail_node(self, row: int, node: RailNode) -> bool:
         model = self.model()
-        model.rowsMoved.connect(self._update_node_names)
-        model.rowsInserted.connect(self._update_dropped_items)
-        self.itemCreated.connect(self._update_node_names)
+        model.setItem(row, RailNodeItem(node))
+        return True
 
-        self._first = 0
-        self._last = 0
+    def get_rail_node(self, row: int) -> RailNode:
+        return self.model().item(row).data()
 
     def get_context_menu(self, point: QPoint) -> Optional[QMenu]:
         # Infos about the node selected.
-        item: Optional[RailNodeListWidgetItem] = self.itemAt(point)
-        if item is None:
+        index: Optional[InteractiveListWidgetItem] = self.indexAt(point)
+        if index is None:
             return None
 
         # We build the menu.
         menu = QMenu(self)
 
-        insertBefore = QAction("Insert Node Before...", self)
-        insertBefore.triggered.connect(
-            lambda clicked=None: self.create_node(self.row(item))
-        )
-        insertAfter = QAction("Insert Node After...", self) 
-        insertAfter.triggered.connect(
-            lambda clicked=None: self.create_node(self.row(item) + 1)
-        )
+        model = self.model()
+        selectedIndexes: list[QModelIndex] = self.selectedIndexes()
+        if len(selectedIndexes) == 0:
+            return None
+
+        start = selectedIndexes[0]
+
+        if len(selectedIndexes) == 1:
+            insertBefore = QAction("Insert Node Before...", self)
+            insertBefore.triggered.connect(
+                lambda clicked=None: self.create_node(start.row())
+            )
+            insertAfter = QAction("Insert Node After...", self)
+            insertAfter.triggered.connect(
+                lambda clicked=None: self.create_node(start.row() + 1)
+            )
+            menu.addAction(insertBefore)
+            menu.addAction(insertAfter)
+            menu.addSeparator()
 
         connectToNeighbors = QAction("Connect to Neighbors", self)
         connectToNeighbors.triggered.connect(
-            lambda clicked=None: self.connect_to_neighbors(self.selectedItems())
+            lambda clicked=None: self.connect_to_neighbors(selectedIndexes)
         )
         connectToPrev = QAction("Connect to Prev", self)
         connectToPrev.triggered.connect(
-            lambda clicked=None: self.connect_to_prev(self.selectedItems())
+            lambda clicked=None: self.connect_to_prev(selectedIndexes)
         )
         connectToNext = QAction("Connect to Next", self)
         connectToNext.triggered.connect(
-            lambda clicked=None: self.connect_to_next(self.selectedItems())
+            lambda clicked=None: self.connect_to_next(selectedIndexes)
         )
         connectToReferring = QAction("Connect to Referring Nodes", self)
         connectToReferring.triggered.connect(
-            lambda clicked=None: self.connect_to_referring(self.selectedItems())
+            lambda clicked=None: self.connect_to_referring(selectedIndexes)
         )
 
         duplicateAction = QAction("Duplicate", self)
         duplicateAction.triggered.connect(
-            lambda clicked=None: self.duplicate_items(self.selectedItems())
+            lambda clicked=None: self.duplicate_indexes(selectedIndexes)
         )
 
         deleteAction = QAction("Delete", self)
         deleteAction.triggered.connect(
-            lambda clicked=None: self.delete_items(self.selectedItems())
+            lambda clicked=None: self.delete_indexes(selectedIndexes)
         )
 
-        menu.addAction(insertBefore)
-        menu.addAction(insertAfter)
-        menu.addSeparator()
         menu.addAction(connectToNeighbors)
         menu.addAction(connectToPrev)
         menu.addAction(connectToNext)
@@ -231,303 +755,514 @@ class RailNodeListWidget(InteractiveListWidget):
 
         return menu
 
-    @Slot(RailNodeListWidgetItem)
-    def rename_item(self, item: RailNodeListWidgetItem) -> None:
+    @Slot(RailNodeItem)
+    def rename_item(self, item: RailNodeItem) -> None:
         pass
 
-    @Slot(RailNodeListWidgetItem)
-    def duplicate_items(self, items: list[RailNodeListWidgetItem]) -> None:
-        super().duplicate_items(items)
-
     @Slot(list)
-    def delete_items(self, items: list[InteractiveListWidgetItem]):
-        for item in items:
-            row = self.row(item)
-            self.itemDeleted.emit(item, row)
-            self.takeItem(row)
-        
-        for row in range(self.count()):
-            _item: RailNodeListWidgetItem = self.item(row)
-            _item.setText(self._get_node_name(row, _item.data(Qt.UserRole)))
-
-    @Slot(int)
-    def create_node(self, index: int) -> None:
-        node = RailKeyFrame()
-
-        item = QListWidgetItem()
-        item.setFlags(
-            Qt.ItemIsSelectable |
-            Qt.ItemIsDragEnabled |
-            Qt.ItemIsEnabled
-        )
-        item.setData(Qt.UserRole, node)
-
-        self.node = node
-        oldItem = self.currentItem()
-
-        self.blockSignals(True)
-        self.insertItem(index, item)
-        for row in range(self.count()):
-            _item: RailNodeListWidgetItem = self.item(row)
-            _item.setSelected(False)
-            _item.setText(self._get_node_name(row, _item.data(Qt.UserRole)))
-        self.blockSignals(False)
-
-        item.setSelected(True)
-
-        self.nodeCreated.emit(item)
-        self.currentItemChanged.emit(item, oldItem)
-
-    @Slot(list)
-    def connect_to_neighbors(self, items: list[RailNodeListWidgetItem]):
-        if len(items) == 0:
-            return
-
-        for item in items:
-            thisIndex = self.row(item)
-            thisNode: RailKeyFrame = item.data(Qt.UserRole)
-
-            if thisIndex == 0:
-                prevIndex = self.count() - 1
-            else:
-                prevIndex = thisIndex - 1
-
-            if thisIndex == self.count() - 1:
-                nextIndex = 0
-            else:
-                nextIndex = thisIndex + 1
-
-            prevItem: RailNodeListWidgetItem = self.item(prevIndex)
-            nextItem: RailNodeListWidgetItem = self.item(nextIndex)
-
-            prevNode: RailKeyFrame = prevItem.data(Qt.UserRole)
-            nextNode: RailKeyFrame = nextItem.data(Qt.UserRole)
-
-            thisNode.connectionCount.set_value(2)
-
-            preConnectionCount = prevNode.connectionCount.get_value()
-            if preConnectionCount < 1:
-                prevNode.connectionCount.set_value(1)
-                preConnectionCount = 1
-
-            if nextNode.connectionCount.get_value() < 1:
-                nextNode.connectionCount.set_value(1)
-
-            prevNode.connections[preConnectionCount - 1].set_value(thisIndex)
-            prevNode.set_period_from(preConnectionCount - 1, thisNode)
-            thisNode.connections[0].set_value(prevIndex)
-            thisNode.set_period_from(0, prevNode)
-            thisNode.connections[1].set_value(nextIndex)
-            thisNode.set_period_from(1, nextNode)
-            nextNode.connections[0].set_value(thisIndex)
-            nextNode.set_period_from(0, thisNode)
-
-            prevItem.setText(self._get_node_name(prevIndex, prevNode))
-            item.setText(self._get_node_name(thisIndex, thisNode))
-            nextItem.setText(self._get_node_name(nextIndex, nextNode))
-
-        self.nodeUpdated.emit(items[0])
-
-    @Slot(list)
-    def connect_to_prev(self, items: list[RailNodeListWidgetItem]):
-        if len(items) == 0:
-            return
+    def duplicate_indexes(self, indexes: list[QModelIndex | QPersistentModelIndex]) -> list[QModelIndex | QPersistentModelIndex]:
+        """
+        Returns the new item
+        """
+        if len(indexes) == 0:
+            return []
             
-        for item in items:
-            thisIndex = self.row(item)
-            thisNode: RailKeyFrame = item.data(Qt.UserRole)
+        model = self.model()
 
-            if thisIndex == 0:
-                prevIndex = self.count() - 1
-            else:
-                prevIndex = thisIndex - 1
+        newIndexes: list[QModelIndex | QPersistentModelIndex] = []
+        persistentIndexes = [QPersistentModelIndex(index) for index in indexes]
 
-            prevItem: RailNodeListWidgetItem = self.item(prevIndex)
-            prevNode: RailKeyFrame = prevItem.data(Qt.UserRole)
+        for index in persistentIndexes:
+            mimeData = model.mimeData([index])
 
-            thisNode.connectionCount.set_value(1)
-            preConnectionCount = prevNode.connectionCount.get_value()
-            if preConnectionCount < 1:
-                prevNode.connectionCount.set_value(1)
-                preConnectionCount = 1
+            model.dropMimeData(
+                mimeData,
+                Qt.CopyAction,
+                index.row() + 1,
+                0,
+                QModelIndex()
+            )
 
-            prevNode.connections[preConnectionCount - 1].set_value(thisIndex)
-            prevNode.set_period_from(preConnectionCount - 1, thisNode)
-            thisNode.connections[0].set_value(prevIndex)
-            thisNode.set_period_from(0, prevNode)
+            newIndex = model.index(
+                index.row() + 1,
+                0,
+                QModelIndex()
+            )
 
-            prevItem.setText(self._get_node_name(prevIndex, prevNode))
-            item.setText(self._get_node_name(thisIndex, thisNode))
+            node: RailNode = model.data(newIndex, Qt.UserRole + 1)
+            newNode = node.copy(deep=True)
 
-        self.nodeUpdated.emit(items[0])
+            model.setData(
+                newIndex,
+                newNode
+            )
 
-    @Slot(list)
-    def connect_to_next(self, items: list[RailNodeListWidgetItem]):
-        if len(items) == 0:
-            return
-            
-        for item in items:
-            thisIndex = self.row(item)
-            thisNode: RailKeyFrame = item.data(Qt.UserRole)
+            newIndexes.append(newIndex)
 
-            if thisIndex == self.count() - 1:
-                nextIndex = 0
-            else:
-                nextIndex = thisIndex + 1
-
-            nextItem: RailNodeListWidgetItem = self.item(nextIndex)
-            nextNode: RailKeyFrame = nextItem.data(Qt.UserRole)
-
-            thisNode.connectionCount.set_value(1)
-            if nextNode.connectionCount.get_value() < 1:
-                nextNode.connectionCount.set_value(1)
-
-            thisNode.connections[0].set_value(nextIndex)
-            thisNode.set_period_from(0, nextNode)
-            nextNode.connections[0].set_value(thisIndex)
-            nextNode.set_period_from(0, thisNode)
-
-            item.setText(self._get_node_name(thisIndex, thisNode))
-            nextItem.setText(self._get_node_name(nextIndex, nextNode))
-
-        self.nodeUpdated.emit(items[0])
+        return newIndexes
 
     @Slot(list)
-    def connect_to_referring(self, items: list[RailNodeListWidgetItem]):
-        if len(items) == 0:
-            return
-            
-        for item in items:
-            thisIndex = self.row(item)
-            thisNode: RailKeyFrame = item.data(Qt.UserRole)
+    def delete_indexes(self, indexes: list[InteractiveListWidgetItem]):
+        super().delete_indexes(indexes)
+        self._update_node_names()
 
-            existingConnections = []
-            for i in range(thisNode.connectionCount.get_value()):
-                existingConnections.append(thisNode.connections[i].get_value())
+    @Slot(list)
+    def connect_to_neighbors(self, indexes: list[QModelIndex]):
+        for index in indexes:
+            node = self.get_rail_node(index.row())
+            node.connect_to_neighbors()
+            self.update(index)
 
-            connectionIndex = thisNode.connectionCount.get_value()
-            for row in range(self.count()):
-                if connectionIndex > 7:
-                    break
+    @Slot(list)
+    def connect_to_prev(self, indexes: list[QModelIndex]):
+        for index in indexes:
+            node = self.get_rail_node(index.row())
+            node.connect_to_prev()
+            self.update(index)
 
-                if row == thisIndex or row in existingConnections:
-                    continue
+    @Slot(list)
+    def connect_to_next(self, indexes: list[QModelIndex]):
+        for index in indexes:
+            node = self.get_rail_node(index.row())
+            node.connect_to_next()
+            self.update(index)
 
-                otherItem: RailNodeListWidgetItem = self.item(row)
-                otherNode: RailKeyFrame = otherItem.data(Qt.UserRole)
-                for i in range(otherNode.connectionCount.get_value()):
-                    connection = otherNode.connections[i].get_value()
-                    if connection == thisIndex:
-                        thisNode.connections[connectionIndex].set_value(row)
-                        thisNode.set_period_from(connectionIndex, otherNode)
-                        thisNode.connectionCount.set_value(connectionIndex + 1)
-                        connectionIndex += 1
+    @Slot(list)
+    def connect_to_referring(self, indexes: list[QModelIndex]):
+        for index in indexes:
+            node = self.get_rail_node(index.row())
+            node.connect_to_referring()
+            self.update(index)
 
-            item.setText(self._get_node_name(thisIndex, thisNode))
-
-        self.nodeUpdated.emit(items[0])
-
-    def _get_node_name(self, index: int, node: RailKeyFrame):
+    def _get_node_name(self, index: int, node: RailNode):
         connections = []
         for x in range(node.connectionCount.get_value()):
             connections.append(node.connections[x].get_value())
         name = f"Node {index} - {connections}"
         return name
 
-    @Slot()
     def _update_node_names(self):
-        for row in range(self.count()):
-            item = self.item(row)
-            name = self._get_node_name(row, item.data(Qt.UserRole))
-            item.setText(name)
+        model = self.model()
+        for row in range(model.rowCount()):
+            index = model.index(row, 0)
+            model.setData(
+                index,
+                self._get_node_name(
+                    index,
+                    self.get_rail_node(row)
+                ),
+                Qt.DisplayRole
+            )
 
-    @Slot(QModelIndex, int, int)
-    def _update_dropped_items(self, parentIdx: QModelIndex, first: int, last: int):
-        self._first = first
-        self._last = last
+    def _set_position(self, index: QModelIndex, value: list):
+        node = self.get_rail_node(index.row())
+        node.posX.set_value(value[0])
+        node.posY.set_value(value[1])
+        node.posZ.set_value(value[2])
 
-    @Slot(Qt.DropActions)
-    def startDrag(self, actions: Qt.DropActions):
-        super().startDrag(actions)
+    def _update_connection_count(self, index: QModelIndex, count: int):
+        self.get_rail_node(index.row()).connectionCount.set_value(count)
+        self.update(index)
+        self._populate_data_view(index, QModelIndex())
 
-
-    @Slot(QDragEnterEvent)
-    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
-        mimedata = event.mimeData()
-        if not mimedata.hasFormat(RailNodeListModel.MimeType):
-            event.ignore()
+    def _update_connection(self, index: QModelIndex, slot: int, connection: int):
+        row = index.row()
+        node = self.get_rail_node(row)
+        node.connections[slot].set_value(connection)
+        node._set_period_from(slot, self.get_rail_node(connection))
+        self.update(index)
+        self._populate_data_view(index, QModelIndex())
+    
+    @Slot(QModelIndex, QModelIndex)
+    def _populate_properties_view(self, selected: QModelIndex, previous: QModelIndex) -> None:
+        from juniors_toolbox.gui.tabs import TabWidgetManager
+        propertiesTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
+        if propertiesTab is None or not selected.isValid():
             return
 
-        if event.source() == self:
-            event.setDropAction(Qt.MoveAction)
-        elif event.source() is None:
-            event.setDropAction(Qt.CopyAction)
-        else:
-            event.ignore()
+        railNode = self.get_rail_node(selected.row())
+
+        position = S16Vector3Property(
+            "Position",
+            readOnly=False,
+            value=[
+                railNode.posX.get_value(),
+                railNode.posY.get_value(),
+                railNode.posZ.get_value()
+            ]
+        )
+        position.valueChanged.connect(lambda _, v: self._set_position(selected, v))
+
+        flags = IntProperty(
+            "Flags",
+            readOnly=False,
+            value=railNode.flags.get_value(),
+            hexadecimal=True
+        )
+        flags.valueChanged.connect(
+            lambda _, v: railNode.flags.set_value(v))
+
+        valueList: list[A_ValueProperty] = []
+        for i in range(4):
+            value = ShortProperty(
+                f"Value {i}",
+                readOnly=False,
+                value=railNode.values[i].get_value(),
+                signed=True
+            )
+            valueList.append(value)
+        valueList[0].valueChanged.connect(
+            lambda _, v: railNode.values[0].set_value(v))
+        valueList[1].valueChanged.connect(
+            lambda _, v: railNode.values[1].set_value(v))
+        valueList[2].valueChanged.connect(
+            lambda _, v: railNode.values[2].set_value(v))
+        valueList[3].valueChanged.connect(
+            lambda _, v: railNode.values[3].set_value(v))
+
+        connectionCount = IntProperty(
+            "Connections",
+            readOnly=False,
+            value=railNode.connectionCount.get_value(),
+            signed=False
+        )
+        connectionCount.valueChanged.connect(
+            lambda _, v: self._update_connection_count(selected, v))
+
+        connections = ArrayProperty(
+            "Connections",
+            readOnly=False,
+            sizeRef=connectionCount
+        )
+
+        connectionsList: list[A_ValueProperty] = []
+        for i in range(8):
+            connection = ShortProperty(
+                f"Connection {i}",
+                readOnly=False,
+                value=railNode.connections[i].get_value(),
+                signed=False
+            )
+            connection.set_minimum_value(0)
+            connection.set_maximum_value(self.model().rowCount() - 1)
+            connectionsList.append(connection)
+            connections.add_property(connection)
+        connectionsList[0].valueChanged.connect(
+            lambda _, v: self._update_connection(selected, 0, v))
+        connectionsList[1].valueChanged.connect(
+            lambda _, v: self._update_connection(selected, 1, v))
+        connectionsList[2].valueChanged.connect(
+            lambda _, v: self._update_connection(selected, 2, v))
+        connectionsList[3].valueChanged.connect(
+            lambda _, v: self._update_connection(selected, 3, v))
+        connectionsList[4].valueChanged.connect(
+            lambda _, v: self._update_connection(selected, 4, v))
+        connectionsList[5].valueChanged.connect(
+            lambda _, v: self._update_connection(selected, 5, v))
+        connectionsList[6].valueChanged.connect(
+            lambda _, v: self._update_connection(selected, 6, v))
+        connectionsList[7].valueChanged.connect(
+            lambda _, v: self._update_connection(selected, 7, v))
+
+        connectionCount.set_maximum_value(8)
+        connectionCount.set_minimum_value(0)
+
+        propertiesTab.populate(
+            None,
+            title=f"Node {selected.row()} Properties",
+            properties=[
+                position,
+                flags,
+                valueList[0],
+                valueList[1],
+                valueList[2],
+                valueList[3],
+                connectionCount,
+                connections
+            ]
+        )
+
+    @Slot(QModelIndex, QModelIndex)
+    def _populate_data_view(self, selected: QModelIndex, previous: QModelIndex):
+        from juniors_toolbox.gui.tabs import TabWidgetManager
+        dataEditorTab = TabWidgetManager.get_tab(DataEditorWidget)
+        if dataEditorTab is None or not selected.isValid():
             return
+        obj = self.get_rail_node(selected.row())
+        dataEditorTab.populate(None, serializable=obj)
 
-        super().dragEnterEvent(event)
 
-    @Slot(QDragMoveEvent)
-    def dragMoveEvent(self, event: QDragMoveEvent) -> None:
-        mimedata = event.mimeData()
-        if not mimedata.hasFormat(RailNodeListModel.MimeType):
-            event.ignore()
-            return
-
-        if event.source() == self:
-            event.setDropAction(Qt.MoveAction)
-        elif event.source() is None:
-            event.setDropAction(Qt.CopyAction)
-        else:
-            event.ignore()
-            return
-
-        super().dragMoveEvent(event)
-
-    @Slot(QDropEvent)
-    def dropEvent(self, event: QDropEvent) -> None:
-        mimedata = event.mimeData()
-        if not mimedata.hasFormat(RailNodeListModel.MimeType):
-            event.ignore()
-            return
-
-        if event.source() == self:
-            event.setDropAction(Qt.MoveAction)
-        elif event.source() is None:
-            event.setDropAction(Qt.CopyAction)
-        else:
-            event.ignore()
-            return
-            
-        super().dropEvent(event)
-        self.clearSelection()
-        self.setCurrentItem(self.item(self._first))
-        for row in range(self._first, self._last + 1):
-            item = self.item(row)
-            item.setSelected(True)
-            self.itemCreated.emit(item, row)
-            self.nodeCreated.emit(item)
-
-class RailListWidget(InteractiveListWidget):
+class RailListView(InteractiveListView):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
-        self.setModel(RailListModel())
+        self._model = RailListModel()
 
-        self.setAcceptDrops(False)
-        self.setDragDropMode(InteractiveListWidget.DragDropMode.InternalMove)
-        # self.setDefaultDropAction(Qt.MoveAction)
+        self._modelTester = QAbstractItemModelTester(
+            self._model,
+            QAbstractItemModelTester.FailureReportingMode.Fatal,
+            self
+        )
+        self.setModel(self._model)
+        selectionModel = self.selectionModel()
+        selectionModel.currentChanged.connect(
+            self._populate_properties_view
+        )
+        selectionModel.currentChanged.connect(
+            self._populate_data_view
+        )
 
-    @Slot(QListWidgetItem)
-    def rename_item(self, item: QListWidgetItem) -> None:
-        name = super().rename_item(item)
-        item.data(Qt.UserRole).name = name
+    def model(self) -> RailListModel:
+        return super().model()
 
-    @Slot(QListWidgetItem)
-    def duplicate_items(self, items: List[QListWidgetItem]) -> None:
-        nitem = super().duplicate_items(items)
-        nitem.data(Qt.UserRole).name = nitem.text()
+    def setModel(self, model: RailListModel) -> None:
+        super().setModel(model)
 
+    def get_rail(self, row: int) -> Rail:
+        model = self.model()
+        item = model.item(row)
+        return item.data()
+
+    def set_rail(self, row: int, rail: Rail):
+        model = self.model()
+        model.setItem(row, RailItem(rail))
+
+    def get_context_menu(self, point: QPoint) -> Optional[QMenu]:
+        # Infos about the node selected.
+        index: Optional[InteractiveListWidgetItem] = self.indexAt(point)
+        if index is None:
+            return None
+
+        # We build the menu.
+        menu = QMenu(self)
+
+        model = self.model()
+        selectedIndexes: list[QModelIndex] = self.selectedIndexes()
+        if len(selectedIndexes) == 0:
+            return None
+
+        start = selectedIndexes[0]
+
+        actionSuffix = ""
+        if len(selectedIndexes) > 1:
+            actionSuffix = " Rails"
+
+        translateAction = QAction(f"Translate{actionSuffix}...", self)
+        translateAction.triggered.connect(
+            lambda clicked=None: self._translate_rails(selectedIndexes)
+        )
+        rotateAction = QAction(f"Rotate{actionSuffix}...", self)
+        rotateAction.triggered.connect(
+            lambda clicked=None: self._rotate_rails(selectedIndexes)
+        )
+        scaleAction = QAction(f"Scale{actionSuffix}...", self)
+        scaleAction.triggered.connect(
+            lambda clicked=None: self._scale_rails(selectedIndexes)
+        )
+
+        subdivideAction = QAction(f"Subdivide{actionSuffix}", self)
+        subdivideAction.triggered.connect(
+            lambda clicked=None: self._subdivide_rails(selectedIndexes)
+        )
+
+        duplicateAction = QAction("Duplicate", self)
+        duplicateAction.triggered.connect(
+            lambda clicked=None: self.duplicate_indexes(selectedIndexes)
+        )
+
+        renameAction = QAction("Rename", self)
+        renameAction.triggered.connect(
+            lambda clicked=None: self.edit(index)
+        )
+        deleteAction = QAction("Delete", self)
+        deleteAction.triggered.connect(
+            lambda clicked=None: self.delete_indexes(selectedIndexes)
+        )
+
+        menu.addAction(translateAction)
+        menu.addAction(rotateAction)
+        menu.addAction(scaleAction)
+        menu.addSeparator()
+        menu.addAction(subdivideAction)
+        menu.addSeparator()
+        menu.addAction(duplicateAction)
+        menu.addSeparator()
+        if len(selectedIndexes) > 1:
+            menu.addAction(renameAction)
+        menu.addAction(deleteAction)
+
+        return menu
+    
+    def _set_rail_spline(self, index: QModelIndex, isSpline: bool):
+        from juniors_toolbox.gui.tabs import TabWidgetManager
+        propertiesTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
+        if propertiesTab is None or not index.isValid():
+            return
+
+        rail = self.get_rail(index.row())
+        name = rail.name.lstrip("S_")
+        title = propertiesTab.windowTitle().lstrip("S_")
+        if isSpline:
+            name = f"S_{name}"
+            title = f"S_{title}"
+        rail.name = name
+        propertiesTab.setWindowTitle(title)
+
+        self.update(index)
+        # self._populate_data_view(index, QModelIndex())
+    
+    @Slot(list)
+    def duplicate_indexes(self, indexes: list[QModelIndex | QPersistentModelIndex]) -> list[QModelIndex | QPersistentModelIndex]:
+        """
+        Returns the new item
+        """
+        if len(indexes) == 0:
+            return []
+            
+        model = self.model()
+
+        newIndexes: list[QModelIndex | QPersistentModelIndex] = []
+        persistentIndexes = [QPersistentModelIndex(index) for index in indexes]
+
+        for index in persistentIndexes:
+            mimeData = model.mimeData([index])
+            newName = self._resolve_name(index.data(Qt.DisplayRole))
+
+            model.dropMimeData(
+                mimeData,
+                Qt.CopyAction,
+                index.row() + 1,
+                0,
+                QModelIndex()
+            )
+
+            newIndex = model.index(
+                index.row() + 1,
+                0,
+                QModelIndex()
+            )
+
+            rail: Rail = model.data(newIndex, Qt.UserRole + 1)
+            newRail = rail.copy(deep=True)
+            newRail.name = newName
+
+            model.setData(
+                newIndex,
+                newRail,
+                Qt.UserRole + 1
+            )
+
+            newIndexes.append(newIndex)
+            self.update(newIndex)
+
+        return newIndexes
+
+    @Slot(list)
+    def _translate_rails(self, indexes: list[QModelIndex]):
+        dialog = TranslateRailDialog(self)
+        if dialog.exec() != QDialog.Accepted:
+            return
+        
+        value = dialog.translateProperty.get_value()
+        for index in indexes:
+            rail = self.get_rail(index.row())
+            rail.translate(value)
+
+    @Slot(list)
+    def _rotate_rails(self, indexes: list[QModelIndex]):
+        dialog = RotateRailDialog(self)
+        if dialog.exec() != QDialog.Accepted:
+            return
+        
+        value = dialog.rotateProperty.get_value()
+        for index in indexes:
+            rail = self.get_rail(index.row())
+            rail.rotate(Quaternion.from_euler(value))
+
+    @Slot(list)
+    def _scale_rails(self, indexes: list[QModelIndex]):
+        dialog = ScaleRailDialog(self)
+        if dialog.exec() != QDialog.Accepted:
+            return
+        
+        value = dialog.scaleProperty.get_value()
+        for index in indexes:
+            rail = self.get_rail(index.row())
+            rail.scale(value)
+
+    @Slot(list)
+    def _subdivide_rails(self, indexes: list[QModelIndex]):
+        dialog = SubdivideRailDialog(self)
+        if dialog.exec() != QDialog.Accepted:
+            return
+        
+        value = dialog.subdivideProperty.get_value()
+        for index in indexes:
+            rail = self.get_rail(index.row())
+            rail.subdivide(value)
+    
+    @Slot(QModelIndex, QModelIndex)
+    def _populate_properties_view(self, selected: QModelIndex, previous: QModelIndex) -> None:
+        from juniors_toolbox.gui.tabs import TabWidgetManager
+        propertiesTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
+        if propertiesTab is None or not selected.isValid():
+            return
+
+        rail = self.get_rail(selected.row())
+
+        nodeCountProperty = CommentProperty(
+            "Node Count",
+            value=f"  = {rail.get_node_count()}"
+        )
+
+        totalSizeProperty = CommentProperty(
+            "Total Size",
+            value=f"  = 0x{rail.get_size():X}"
+        )
+
+        isSplineProperty = BoolProperty(
+            "Is Spline",
+            readOnly=False,
+            value=rail.name.startswith("S_")
+        )
+        isSplineProperty.valueChanged.connect(
+            lambda _, v: self._set_rail_spline(selected, v)
+        )
+
+        propertiesTab.populate(
+            None,
+            title=f"{rail.name} Properties",
+            properties=[
+                nodeCountProperty,
+                totalSizeProperty,
+                isSplineProperty
+            ]
+        )
+    
+    @Slot(QModelIndex, QModelIndex)
+    def _populate_data_view(self, selected: QModelIndex, previous: QModelIndex):
+        from juniors_toolbox.gui.tabs import TabWidgetManager
+        dataEditorTab = TabWidgetManager.get_tab(DataEditorWidget)
+        if dataEditorTab is None or not selected.isValid():
+            return
+        obj = self.get_rail(selected.row())
+        dataEditorTab.populate(None, serializable=obj)
+
+
+class RailInterfaceWidget(QWidget):
+    def __init__(self, parent: Optional[QWidget] = None, f: Qt.WindowFlags = 0) -> None:
+        super().__init__(parent, f)
+
+        self.translateButton = QPushButton("Translate")
+        self.scaleButton = QPushButton("Scale")
+        self.rotateButton = QPushButton("Rotate")
+        self.subdivideButton = QPushButton("Subdivide")
+
+        self.buttonLayout = QGridLayout()
+        self.buttonLayout.addWidget(self.translateButton, 0, 0, 2, 1)
+        self.buttonLayout.addWidget(self.scaleButton, 1, 0, 1, 1)
+        self.buttonLayout.addWidget(self.rotateButton, 1, 1, 1, 1)
+        self.buttonLayout.addWidget(self.subdivideButton, 2, 0, 2, 1)
+        
 
 class RailViewerWidget(A_DockingInterface):
     def __init__(self, title: str = "", parent: Optional[QWidget] = None) -> None:
@@ -544,12 +1279,9 @@ class RailViewerWidget(A_DockingInterface):
         railInterface.copyRequested.connect(self.copy_selected_rail)
         self.railInterface = railInterface
 
-        railList = RailListWidget()
+        railList = RailListView()
         railList.setMinimumWidth(100)
-        railList.currentItemChanged.connect(self.__populate_nodelist)
-        railList.currentItemChanged.connect(
-            self.__populate_rail_properties_view)
-        railList.currentItemChanged.connect(self.__populate_data_view)
+        railList.selectionModel().currentChanged.connect(self.__populate_nodelist)
         self.railList = railList
 
         self.railListLayout.addWidget(self.railInterface)
@@ -560,21 +1292,15 @@ class RailViewerWidget(A_DockingInterface):
         self.nodeListLayout = QVBoxLayout()
 
         nodeInterface = ListInterfaceWidget()
-        nodeInterface.addRequested.connect(self.new_node)
+        nodeInterface.addRequested.connect(lambda: self.new_node(self.nodeList.currentIndex()))
         nodeInterface.removeRequested.connect(
             self.remove_selected_node)
         nodeInterface.copyRequested.connect(self.copy_selected_node)
         self.nodeInterface = nodeInterface
 
         nodeList = RailNodeListWidget()
-        nodeList.currentItemChanged.connect(
-            self.__populate_node_properties_view)
-        nodeList.currentItemChanged.connect(self.__populate_data_view)
-        nodeList.itemCreated.connect(self.push_node_to_rail)
-        nodeList.itemDeleted.connect(self.remove_node_from_rail)
-        nodeList.nodeUpdated.connect(self.__populate_node_properties_view)
-        nodeList.nodeUpdated.connect(self.__populate_data_view)
-        nodeList.model().rowsMoved.connect(lambda: self.__update_node_properties_name(self.nodeList.currentItem()))
+        nodeList.model().layoutChanged.connect(self.connect_rows_to_rail)
+        nodeList.model().rowsRemoved.connect(self.remove_deleted_node)
         self.nodeList = nodeList
 
         self.nodeListLayout.addWidget(self.nodeInterface)
@@ -589,195 +1315,47 @@ class RailViewerWidget(A_DockingInterface):
 
         self.setWidget(splitter)
 
-        self._rail: Optional[Rail] = None
-        self._railItem: Optional[QListWidgetItem] = None
-        self._railNode: Optional[RailKeyFrame] = None
-        self._railNodeItem: Optional[RailNodeListWidgetItem] = None
-
     def populate(self, scene: Optional[SMSScene], *args: VariadicArgs, **kwargs: VariadicKwargs) -> None:
-        self.railList.blockSignals(True)
-        self.nodeList.blockSignals(True)
-        self.railList.clear()
-        self.nodeList.clear()
+        model = self.railList.model()
+        model.removeRows(0, model.rowCount())
+        model = self.nodeList.model()
+        model.removeRows(0, model.rowCount())
+
+        railSelectionModel = self.railList.selectionModel()
+        railModel = self.railList.model()
         if scene is not None:
-            for rail in scene.iter_rails():
-                item = QListWidgetItem(rail.name)
-                item.setData(Qt.UserRole, rail)
-                self.railList.addItem(item)
-            if self.railList.count() > 0:
-                self.railList.setCurrentRow(0)
-                citem = self.railList.currentItem()
-                if citem is not None:
-                    self.__populate_nodelist(citem)
-                self._railItem = self.railList.currentItem()
-                self._rail = self._railItem.data(Qt.UserRole)
-        self.railList.blockSignals(False)
-        self.nodeList.blockSignals(False)
+            for i, rail in enumerate(scene.iter_rails()):
+                self.railList.set_rail(i, rail)
+            if railModel.rowCount() > 0:
+                focusIndex = railModel.index(0, 0)
+                railSelectionModel.setCurrentIndex(
+                    focusIndex,
+                    QItemSelectionModel.ClearAndSelect
+                )
+                if railSelectionModel.hasSelection():
+                    self.__populate_nodelist(
+                        railSelectionModel.currentIndex(),
+                        QItemSelection()
+                    )
+                self._railIndex = focusIndex
+                self._rail = self.railList.get_rail(focusIndex.row())
 
-    def __populate_nodelist(self, item: QListWidgetItem) -> None:
-        self.nodeList.blockSignals(True)
-        self.nodeList.clear()
+        model.layoutChanged.emit()
 
-        rail: Rail = item.data(Qt.UserRole)
-        for i, node in enumerate(rail.iter_frames()):
-            item = QListWidgetItem(self.nodeList._get_node_name(i, node))
-            item.setFlags(
-                Qt.ItemIsSelectable |
-                Qt.ItemIsDragEnabled |
-                Qt.ItemIsEnabled
-            )
-            item.setData(Qt.UserRole, node)
-            self.nodeList.addItem(item)
-
-        self.nodeList.blockSignals(False)
-
-    @Slot(QListWidgetItem)
-    def __populate_rail_properties_view(self, item: QListWidgetItem) -> None:
-        from juniors_toolbox.gui.tabs import TabWidgetManager
-        propertiesTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
-        if propertiesTab is None or item is None:
+    def __populate_nodelist(self, selected: QModelIndex, deselected: QModelIndex) -> None:
+        if not selected.isValid():
             return
 
-        self._rail = item.data(Qt.UserRole)
-        self._railItem = item
+        model = self.nodeList.model()
+        selectionModel = self.nodeList.selectionModel()
 
-        nodeCountProperty = CommentProperty(
-            "Node Count",
-            value=f"  = {len(self._rail._frames)}"
-        )
+        model = self.nodeList.model()
+        if model.rowCount() > 0:
+            model.removeRows(0, model.rowCount())
 
-        totalSizeProperty = CommentProperty(
-            "Total Size",
-            value=f"  = 0x{self._rail.get_size():X}"
-        )
-
-        isSplineProperty = BoolProperty(
-            "Is Spline",
-            readOnly=False,
-            value=self._rail.name.startswith("S_")
-        )
-        isSplineProperty.valueChanged.connect(
-            lambda _, v: self.__set_rail_spline(v))
-
-        propertiesTab.populate(
-            None,
-            title=f"{self._rail.name} Properties",
-            properties=[
-                nodeCountProperty,
-                totalSizeProperty,
-                isSplineProperty
-            ]
-        )
-
-    @Slot(RailNodeListWidgetItem)
-    def __populate_node_properties_view(self, item: RailNodeListWidgetItem) -> None:
-        from juniors_toolbox.gui.tabs import TabWidgetManager
-        propertiesTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
-        if propertiesTab is None or item is None:
-            return
-
-        self._railNode: RailKeyFrame = item.data(Qt.UserRole)
-        self._railNodeItem = item
-
-        position = S16Vector3Property(
-            "Position",
-            readOnly=False,
-            value=[
-                self._railNode.posX.get_value(),
-                self._railNode.posY.get_value(),
-                self._railNode.posZ.get_value()
-            ]
-        )
-        position.valueChanged.connect(lambda _, v: self.__set_position(v))
-
-        flags = IntProperty(
-            "Flags",
-            readOnly=False,
-            value=self._railNode.flags.get_value(),
-            hexadecimal=True
-        )
-        flags.valueChanged.connect(
-            lambda _, v: self._railNode.flags.set_value(v))
-
-        valueList: list[A_ValueProperty] = []
-        for i in range(4):
-            value = ShortProperty(
-                f"Value {i}",
-                readOnly=False,
-                value=self._railNode.values[i].get_value(),
-                signed=True
-            )
-            valueList.append(value)
-        valueList[0].valueChanged.connect(
-            lambda _, v: self._railNode.values[0].set_value(v))
-        valueList[1].valueChanged.connect(
-            lambda _, v: self._railNode.values[1].set_value(v))
-        valueList[2].valueChanged.connect(
-            lambda _, v: self._railNode.values[2].set_value(v))
-        valueList[3].valueChanged.connect(
-            lambda _, v: self._railNode.values[3].set_value(v))
-
-        connectionCount = IntProperty(
-            "Connections",
-            readOnly=False,
-            value=self._railNode.connectionCount.get_value(),
-            signed=False
-        )
-        connectionCount.valueChanged.connect(
-            lambda _, v: self.__update_connection_count(item, v))
-
-        connections = ArrayProperty(
-            "Connections",
-            readOnly=False,
-            sizeRef=connectionCount
-        )
-
-        connectionsList: list[A_ValueProperty] = []
-        for i in range(8):
-            connection = ShortProperty(
-                f"Connection {i}",
-                readOnly=False,
-                value=self._railNode.connections[i].get_value(),
-                signed=False
-            )
-            connection.set_minimum_value(0)
-            connection.set_maximum_value(self.nodeList.count() - 1)
-            connectionsList.append(connection)
-            connections.add_property(connection)
-        connectionsList[0].valueChanged.connect(
-            lambda _, v: self.__update_connection(item, 0, v))
-        connectionsList[1].valueChanged.connect(
-            lambda _, v: self.__update_connection(item, 1, v))
-        connectionsList[2].valueChanged.connect(
-            lambda _, v: self.__update_connection(item, 2, v))
-        connectionsList[3].valueChanged.connect(
-            lambda _, v: self.__update_connection(item, 3, v))
-        connectionsList[4].valueChanged.connect(
-            lambda _, v: self.__update_connection(item, 4, v))
-        connectionsList[5].valueChanged.connect(
-            lambda _, v: self.__update_connection(item, 5, v))
-        connectionsList[6].valueChanged.connect(
-            lambda _, v: self.__update_connection(item, 6, v))
-        connectionsList[7].valueChanged.connect(
-            lambda _, v: self.__update_connection(item, 7, v))
-
-        connectionCount.set_maximum_value(8)
-        connectionCount.set_minimum_value(0)
-
-        propertiesTab.populate(
-            None,
-            title=f"Node {self.nodeList.row(item)} Properties",
-            properties=[
-                position,
-                flags,
-                valueList[0],
-                valueList[1],
-                valueList[2],
-                valueList[3],
-                connectionCount,
-                connections
-            ]
-        )
+        rail = self.railList.get_rail(selected.row())
+        for i, node in enumerate(rail.iter_nodes()):
+            self.nodeList.set_rail_node(i, node)
 
     @Slot()
     def __update_node_properties_name(self, item: RailNodeListWidgetItem):
@@ -788,96 +1366,73 @@ class RailViewerWidget(A_DockingInterface):
 
     @Slot()
     def new_rail(self):
-        name = self.railList._resolve_name("rail")
-        item = QListWidgetItem(name)
-        item.setData(Qt.UserRole, Rail(name))
+        model = self.railList.model()
+        row = model.rowCount()
+
         self.railList.blockSignals(True)
-        self.railList.addItem(item)
+        self.railList.set_rail(
+            row,
+            Rail(self.railList._resolve_name("rail"))
+        )
         self.railList.blockSignals(False)
-        self.railList.editItem(item, new=True)
+
+        self.railList.edit(model.index(row, 0))
 
     @Slot()
     def remove_selected_rail(self):
-        self.railList.takeItem(self.railList.currentRow())
+        model = self.railList.model()
+        selectionModel = self.railList.selectionModel()
+        model.removeRow(selectionModel.currentIndex().row())
 
     @Slot()
     def copy_selected_rail(self):
-        self.railList.duplicate_items([self.railList.currentItem()])
+        model = self.railList.model()
+        selectionModel = self.railList.selectionModel()
+
+        indexes: list[QModelIndex] = []
+        for row in selectionModel.selectedIndexes():
+            indexes.append(row)
+
+        self.railList.duplicate_indexes(indexes)
 
     @Slot()
-    def new_node(self, index: int):
-        self.nodeList.create_node(index)
-        if self._rail is None:
-            return
-        item = self.nodeList.item(index)
-        self.push_node_to_rail(item)
+    def new_node(self):
+        node = RailNode()
+        row = self.nodeList.model().rowCount()
+        self.nodeList.set_rail_node(row, node)
+        if self._rail:
+            self._rail.insert_node(row, node)
 
     @Slot()
     def remove_selected_node(self):
-        self.remove_node_from_rail(
-            self.nodeList.takeItem(self.nodeList.currentRow())
+        if not index.isValid():
+            return
+        self.remove_deleted_node(
+            self.nodeList.model().item(index.row())
         )
 
-    @Slot(RailNodeListWidgetItem)
-    def remove_node_from_rail(self, item: RailNodeListWidgetItem):
-        if self._rail is None:
+    @Slot(RailNodeItem)
+    def remove_deleted_node(self, item: RailNodeItem):
+        node: Optional[RailNode] = item.data()
+        if node is None:
             return
-        self._rail.remove_frame(item.data(Qt.UserRole))
+        rail = node.get_rail()
+        if rail is None:
+            return
+        rail.remove_node(node)
 
     @Slot()
     def copy_selected_node(self):
-        self.nodeList.duplicate_items([self.nodeList.currentItem()])
+        self.nodeList.duplicate_items(
+            [self.nodeList.currentItem()]
+        )
 
     @Slot()
-    def push_node_to_rail(self, item: RailNodeListWidgetItem):
-        if self._rail is None:
-            return
-        self._rail.insert_frame(self.nodeList.row(item), item.data(Qt.UserRole))
-
-    @Slot(InteractiveListWidgetItem)
-    def __populate_data_view(self, item: RailNodeListWidgetItem | QListWidgetItem):
-        from juniors_toolbox.gui.tabs import TabWidgetManager
-        dataEditorTab = TabWidgetManager.get_tab(DataEditorWidget)
-        if dataEditorTab is None or item is None:
-            return
-        obj: A_Serializable
-        if isinstance(item, RailNodeListWidgetItem):
-            obj = item.data(Qt.UserRole)
-        else:
-            obj = item.data(Qt.UserRole)
-        dataEditorTab.populate(None, serializable=obj)
-
-    def __update_connection_count(self, item: RailNodeListWidgetItem, count: int):
-        self._railNode.connectionCount.set_value(count)
-        item.setText(self.nodeList._get_node_name(
-            self.nodeList.indexFromItem(item).row(), item.data(Qt.UserRole)))
-        self.__populate_data_view(item)
-
-    def __update_connection(self, item: RailNodeListWidgetItem, index: int, connection: int):
-        frame = item.data(Qt.UserRole)
-        frame.connections[index].set_value(connection)
-        frame.set_period_from(index, self.nodeList.item(connection).node)
-        item.setText(self.nodeList._get_node_name(
-            self.nodeList.indexFromItem(item).row(), item.data(Qt.UserRole)))
-        self.__populate_data_view(item)
-
-    def __set_position(self, value: list):
-        self._railNode.posX.set_value(value[0])
-        self._railNode.posY.set_value(value[1])
-        self._railNode.posZ.set_value(value[2])
-
-    def __set_rail_spline(self, isSpline: bool):
-        if self._rail is None or self._railItem is None:
-            return
-
-        name = self._rail.name.lstrip("S_")
-        if isSpline:
-            name = f"S_{name}"
-        self._rail.name = name
-        self._railItem.setText(name)
-
-        from juniors_toolbox.gui.tabs import TabWidgetManager
-        propertiesTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
-        if propertiesTab is not None:
-            propertiesTab.setWindowTitle(f"{self._rail.name} Properties")
-
+    def connect_rows_to_rail(self):
+        rail = self.railList.get_rail(
+            self.railList.currentIndex().row()
+        )
+        rail._nodes = []
+        for i in range(self.nodeList.model().rowCount()):
+            node = self.nodeList.get_rail_node(i)
+            rail.insert_node(i, node)

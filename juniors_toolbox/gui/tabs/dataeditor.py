@@ -3,7 +3,7 @@ from enum import IntEnum
 from typing import BinaryIO, Optional
 import time
 
-from PySide6.QtCore import Qt, QThread, Signal, Slot, QMutex, QMutexLocker, QRunnable, QObject, QThreadPool
+from PySide6.QtCore import Qt, QThread, Signal, Slot, QMutex, QMutexLocker
 from PySide6.QtGui import QFont, QTextCharFormat, QTextCursor, QColor, QPalette, QTextFormat, QTextFrameFormat
 from PySide6.QtWidgets import QWidget, QPlainTextEdit, QGridLayout, QLabel, QTextEdit
 from juniors_toolbox.gui import RunnableSerializer, ThreadSerializer, WorkerSignals
@@ -170,28 +170,28 @@ class DataEditorWidget(A_DockingInterface):
         self.dataChanged.connect(self.generate_view)
 
         self._data = b""
-        self._mutex = QMutex()
-
-        self.serializeThread = QThread()
+        self._dataMutex = QMutex()
 
     def populate(self, scene: Optional[SMSScene], *args: VariadicArgs, **kwargs: VariadicKwargs) -> None:
         if "serializable" not in kwargs:
             return
 
         serializable: A_Serializable = kwargs["serializable"]
-        
-        self.serializeThread.quit()
-        while self.serializeThread.isRunning():
-            time.sleep(0.01)
-
-        self.serializer = ThreadSerializer(serializable)
-        self.serializer.moveToThread(self.serializeThread)
-        self.serializer.result.connect(self.set_data)
-        self.serializeThread.start()
+        # self.serializeThread = QThread()
+        # self.serializer = Serializer(serializable)
+        # self.serializer.moveToThread(self.serializeThread)
+        # self.serializeThread.started.connect(self.serializer.run)
+        # self.serializer.finished.connect(self.set_data)
+        # self.serializer.finished.connect(self.serializeThread.quit)
+        # self.serializer.finished.connect(self.serializer.deleteLater)
+        # self.serializeThread.finished.connect(self.serializeThread.deleteLater)
+        # self.serializeThread.start()
+        self.set_data(serializable.to_bytes())
 
     def set_data(self, data: bytes):
-        self._data = data
-        self.dataChanged.emit(data)
+        with QMutexLocker(self._dataMutex) as mutexLock:
+            self._data = data
+            self.dataChanged.emit(data)
 
     def get_data(self) -> bytes:
         return self._data

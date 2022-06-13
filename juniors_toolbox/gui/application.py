@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
-from PySide6.QtCore import QPoint, QSize, Slot
+from PySide6.QtCore import QPoint, QSize, Slot, QModelIndex, QAbstractListModel, QAbstractItemModel
 from PySide6.QtGui import QResizeEvent, Qt, QFontDatabase
 
 from PySide6.QtWidgets import QApplication, QFileDialog, QLabel, QSizePolicy, QStyleFactory, QWidget, QListWidgetItem
@@ -11,9 +11,11 @@ from juniors_toolbox.gui.tabs import TabWidgetManager
 from juniors_toolbox.gui.tabs.hierarchyviewer import NameRefHierarchyTreeWidgetItem, NameRefHierarchyWidget
 from juniors_toolbox.gui.tabs.projectviewer import ProjectViewerWidget
 from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
+from juniors_toolbox.gui.tabs.rail import RailViewerWidget
 from juniors_toolbox.gui.templates import ToolboxTemplates
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.gui.windows.mainwindow import MainWindow
+from juniors_toolbox.rail import Rail
 from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.utils import VariadicArgs, VariadicKwargs
 from juniors_toolbox.utils.filesystem import get_program_folder, resource_path
@@ -229,8 +231,8 @@ class JuniorsToolbox(QApplication):
 
     def __init_rails(self):
         railTab = TabWidgetManager.get_tab(RailViewerWidget)
-        railTab.railList.itemCreated.connect(self.__add_rail)
-        railTab.railList.itemDeleted.connect(self.__remove_rail)
+        railTab.railList.model().rowsInserted.connect(self.__add_rails)
+        railTab.railList.model().rowsAboutToBeRemoved.connect(self.__remove_rails)
 
     def __init_tabs(self):
         areas = [Qt.LeftDockWidgetArea, Qt.RightDockWidgetArea]
@@ -252,21 +254,32 @@ class JuniorsToolbox(QApplication):
 
         return True
 
-    @Slot(QListWidgetItem, int)
-    def __add_rail(self, item: QListWidgetItem, index: int):
+    def __add_rails(self, parent: QModelIndex, first: int, last: int):
         scene = self.manager.get_scene()
         if scene is None:
             return
 
-        scene.set_rail_by_index(index, item.data(Qt.UserRole))
+        railTab = TabWidgetManager.get_tab(RailViewerWidget)
+        if railTab is None:
+            return
 
-    @Slot(QListWidgetItem, int)
-    def __remove_rail(self, item: QListWidgetItem, index: int):
+        model = railTab.railList.model()
+        for i in range(first, last + 1):
+            scene.set_rail_by_index(i, Rail("UNk"))
+
+    @Slot(QModelIndex, int, int)
+    def __remove_rails(self, parent: QModelIndex, first: int, last: int):
         scene = self.manager.get_scene()
         if scene is None:
             return
 
-        scene.remove_rail(item.text())
+        railTab = TabWidgetManager.get_tab(RailViewerWidget)
+        if railTab is None:
+            return
+
+        model = railTab.railList.model()
+        for i in range(first, last + 1):
+            scene.remove_rail(model.item(i, 0).data(Qt.DisplayRole))
 
     @Slot(NameRefHierarchyTreeWidgetItem, int)
     def __add_nameref(self, item: NameRefHierarchyTreeWidgetItem, index: int):
