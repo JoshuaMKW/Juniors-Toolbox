@@ -2,21 +2,23 @@ import sys
 import webbrowser
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
-from PySide6.QtCore import QPoint, QSize, Slot, QUrl
+from PySide6.QtCore import QPoint, QSize, Slot, QModelIndex, QAbstractListModel, QAbstractItemModel
 from PySide6.QtGui import QResizeEvent, Qt, QFontDatabase
 from PySide6.QtWebEngineWidgets import QWebEngineView
 
-from PySide6.QtWidgets import QApplication, QFileDialog, QLabel, QSizePolicy, QStyleFactory, QWidget
+from PySide6.QtWidgets import QApplication, QFileDialog, QLabel, QSizePolicy, QStyleFactory, QWidget, QListWidgetItem
 from juniors_toolbox import __version__
 from juniors_toolbox.gui.dialogs.issuedialog import GithubIssueDialog
 from juniors_toolbox.gui.settings import ToolboxSettings
 from juniors_toolbox.gui.tabs import TabWidgetManager
-from juniors_toolbox.gui.tabs.hierarchyviewer import NameRefHierarchyWidget
+from juniors_toolbox.gui.tabs.hierarchyviewer import NameRefHierarchyTreeWidgetItem, NameRefHierarchyWidget
 from juniors_toolbox.gui.tabs.projectviewer import ProjectViewerWidget
 from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
+from juniors_toolbox.gui.tabs.rail import RailViewerWidget
 from juniors_toolbox.gui.templates import ToolboxTemplates
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.gui.windows.mainwindow import MainWindow
+from juniors_toolbox.rail import Rail
 from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.utils import VariadicArgs, VariadicKwargs
 from juniors_toolbox.utils.filesystem import get_program_folder, resource_path
@@ -58,7 +60,6 @@ class JuniorsToolbox(QApplication):
 
         self.gui.setWindowTitle(self.get_window_title())
         self.update_theme(MainWindow.Theme.LIGHT)
-        self.set_central_status(self.is_docker_empty())
 
         # Set up tab spawning
         self.gui.tabActionRequested.connect(self.updateDockerTab)
@@ -147,30 +148,6 @@ class JuniorsToolbox(QApplication):
         self.scenePath = scene
         return self.scene is not None
 
-    def load_program_config(self):
-        """
-        Load the program config for further use
-        """
-        if not self.get_config_path().exists():
-            self.theme = MainWindow.Theme.LIGHT
-            return
-
-        self.manager.load_settings(self.get_config_path())
-
-        settings = self.manager.get_settings()
-        isDarkTheme = settings.is_dark_theme()
-        isUpdating = settings.is_updates_enabled()
-
-        self.theme = ToolboxSettings.Themes(int(isDarkTheme))
-
-        self.construct_ui_from_config()
-
-    def construct_ui_from_config(self):
-        """
-        Restructures the UI according to a config
-        """
-        config = self.settings
-
     def update_theme(self, theme: "MainWindow.Theme"):
         """
         Update the UI theme to the specified theme
@@ -204,7 +181,7 @@ class JuniorsToolbox(QApplication):
         self.manager.reset_scene()
 
     def is_docker_empty(self) -> bool:
-        return all(not tab.isVisible() for tab in TabWidgetManager.iter_tabs())
+        return all(tab.isHidden() for tab in TabWidgetManager.iter_tabs())
 
     def set_central_status(self, empty: bool):
         if empty:
@@ -259,6 +236,16 @@ class JuniorsToolbox(QApplication):
         tab.hide()
         self.set_central_status(self.is_docker_empty())
 
+    def __init_objects(self):
+        nameRefTab = TabWidgetManager.get_tab(NameRefHierarchyWidget)
+        nameRefTab.treeWidget.itemCreated.connect(self.__add_nameref)
+        nameRefTab.treeWidget.itemDeleted.connect(self.__remove_nameref)
+
+    def __init_rails(self):
+        railTab = TabWidgetManager.get_tab(RailViewerWidget)
+        railTab.railList.model().rowsInserted.connect(self.__add_rails)
+        railTab.railList.model().rowsAboutToBeRemoved.connect(self.__remove_rails)
+
     @Slot()
     def open_issue_page(self):
         webbrowser.open(
@@ -279,11 +266,62 @@ class JuniorsToolbox(QApplication):
             self.gui.addDockWidget(areas[len(self._openTabs) % 2], tab)
             tab.setParent(self.gui)
 
+        settings = ToolboxSettings.get_instance()
+        settings.load()
         self.set_central_status(self.is_docker_empty())
-
-
+        
+        self.__init_objects()
+        self.__init_rails()
 
         return True
+
+    def __add_rails(self, parent: QModelIndex, first: int, last: int):
+        scene = self.manager.get_scene()
+        if scene is None:
+            return
+
+        railTab = TabWidgetManager.get_tab(RailViewerWidget)
+        if railTab is None:
+            return
+
+        model = railTab.railList.model()
+        for i in range(first, last + 1):
+            scene.set_rail_by_index(i, Rail("UNk"))
+
+    @Slot(QModelIndex, int, int)
+    def __remove_rails(self, parent: QModelIndex, first: int, last: int):
+        scene = self.manager.get_scene()
+        if scene is None:
+            return
+
+        railTab = TabWidgetManager.get_tab(RailViewerWidget)
+        if railTab is None:
+            return
+
+        model = railTab.railList.model()
+        for i in range(first, last + 1):
+            scene.remove_rail(model.item(i, 0).data(Qt.DisplayRole))
+
+    @Slot(NameRefHierarchyTreeWidgetItem, int)
+    def __add_nameref(self, item: NameRefHierarchyTreeWidgetItem, index: int):
+        scene = self.manager.get_scene()
+        if scene is None:
+            return
+
+        ...
+
+    @Slot(NameRefHierarchyTreeWidgetItem, int)
+    def __remove_nameref(self, item: NameRefHierarchyTreeWidgetItem, index: int):
+        scene = self.manager.get_scene()
+        if scene is None:
+            return
+
+        obj = item.object
+        parent = obj.get_parent()
+        if parent is None:
+            scene._objects.remove(obj)
+        else:
+            parent.remove_from_group(obj)
 
     # @Slot(str)
     # def openDockerTab(self, name: str):

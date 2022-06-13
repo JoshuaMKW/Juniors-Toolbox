@@ -122,7 +122,7 @@ class SpinBoxDragDouble(QDoubleSpinBox):
         lineEdit.dragOffsetChanged.connect(self.__update_value)
         lineEdit.setMouseTracking(False)
         lineEdit.setDragEnabled(True)
-        self.__lineEdit = lineEdit
+        self._lineEdit = lineEdit
         self.setLineEdit(lineEdit)
 
         self.__isFloat = isFloat
@@ -154,7 +154,7 @@ class SpinBoxDragDouble(QDoubleSpinBox):
                 1.7976931348623158e+308
             )
 
-        lineEdit = self.__lineEdit
+        lineEdit = self._lineEdit
         lineEdit._min = self.minimum()
         lineEdit._max = self.maximum()
 
@@ -194,7 +194,6 @@ class SpinBoxDragInt(QSpinBox):
 
         lineEdit = SpinBoxLineEdit(False, 0, 0)
         lineEdit.dragOffsetChanged.connect(self.__update_value)
-        self.__lineEdit = lineEdit
         self.setLineEdit(lineEdit)
 
         self.__signed = signed
@@ -249,11 +248,6 @@ class SpinBoxDragInt(QSpinBox):
                 self.setMinimum(0)
                 self.setMaximum(0x7FFFFFFFFFFFFFFF)
 
-
-        lineEdit = self.__lineEdit
-        lineEdit._min = self.minimum()
-        lineEdit._max = self.maximum()
-
     def __update_value(self, offset: float) -> None:
         offset = int(offset)
         _min = self.minimum()
@@ -270,3 +264,15 @@ class SpinBoxDragInt(QSpinBox):
 
     def __catch_and_name_text(self, value: int) -> None:
         self.valueChangedExplicit.emit(self, value)
+
+    
+class SpinBoxDragHex(SpinBoxDragInt):
+    def __init__(self, intSize: SpinBoxDragInt.IntSize = SpinBoxDragInt.IntSize.WORD, signed: bool = True, parent: Optional[QWidget] = None) -> None:
+        super().__init__(intSize, signed, parent)
+        self.setPrefix("0x")
+        self.setDisplayIntegerBase(16)
+
+    def textFromValue(self, val: int) -> str:
+        if val == 0:
+            return "0"
+        return super().textFromValue(val).upper().lstrip("0")

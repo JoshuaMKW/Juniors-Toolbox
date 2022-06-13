@@ -23,7 +23,7 @@ from juniors_toolbox.gui.widgets.explicitlineedit import ExplicitLineEdit
 from juniors_toolbox.gui.widgets.spinboxdrag import SpinBoxDragDouble, SpinBoxDragInt
 from juniors_toolbox.objects.object import MapObject
 from juniors_toolbox.objects.value import QualifiedName
-from juniors_toolbox.rail import RailKeyFrame
+from juniors_toolbox.rail import RailNode
 from juniors_toolbox.utils import VariadicArgs, VariadicKwargs
 from juniors_toolbox.utils.types import RGB32, RGB8, RGBA8, Transform, Vec3f
 from juniors_toolbox.scene import SMSScene

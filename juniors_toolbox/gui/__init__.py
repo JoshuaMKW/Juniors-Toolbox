@@ -1,52 +1,97 @@
 from __future__ import annotations
 
 from pathlib import Path
+import sys
+import time
+import traceback
 from typing import BinaryIO, Callable, Optional, Type
 from juniors_toolbox.gui.settings import ToolboxSettings
 from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.utils import A_Serializable
 from juniors_toolbox.utils.filesystem import resource_path
 
-from PySide6.QtCore import Signal, QObject, QRunnable, QSettings
+from PySide6.QtCore import Signal, Slot, QObject, QRunnable, QSettings, QThread
 
 
-class Runnable(QObject, QRunnable):
-    finished = Signal(object)
-    
-    def __init__(self, fn: Callable, *args, **kwargs) -> None:
+class WorkerSignals(QObject):
+    finished = Signal()
+    error = Signal(tuple)
+    result = Signal(object)
+    progress = Signal(int)
+
+
+class RunnableWorker(QRunnable):
+    def __init__(self, fn, *args, **kwargs):
         super().__init__()
         self.fn = fn
         self.args = args
         self.kwargs = kwargs
+        self.signals = WorkerSignals()
 
-    def run(self) -> None:
-        ret = self.fn(*self.args, **self.kwargs)
-        self.finished.emit(ret)
+    def run(self):
+        try:
+            result = self.fn(*self.args, **self.kwargs)
+        except:
+            traceback.print_exc()
+            exctype, value = sys.exc_info()[:2]
+            self.signals.error.emit((exctype, value, traceback.format_exc()))
+        else:
+            print("Emitting Result")
+            self.signals.result.emit(result)  # Return the result of the processing
+        finally:
+            self.signals.finished.emit()  # Done
 
 
-class Serializer(QObject, QRunnable):
-    finished = Signal(bytes)
+class ThreadWorker(QObject):
+    finished = Signal()
+    error = Signal(tuple)
+    result = Signal(object)
+    progress = Signal(int)
 
-    def __init__(self, serializable: A_Serializable, parent: Optional[QObject] = None) -> None:
-        super().__init__(parent)
-        self._serializable = serializable
-    
-    def run(self) -> None:
-        data = self._serializable.to_bytes()
-        self.finished.emit(data)
+    def __init__(self, fn, *args, **kwargs) -> None:
+        super().__init__()
+        self.fn = fn
+        self.args = args
+        self.kwargs = kwargs
+        
+    @Slot()
+    def process(self):
+        try:
+            result = self.fn(*self.args, **self.kwargs)
+        except:
+            traceback.print_exc()
+            exctype, value = sys.exc_info()[:2]
+            self.error.emit((exctype, value, traceback.format_exc()))
+        else:
+            self.result.emit(result)  # Return the result of the processing
+        finally:
+            self.finished.emit()  # Done
+
+    def moveToThread(self, thread: QThread) -> None:
+        super().moveToThread(thread)
+        thread.started.connect(self.process)
+        self.finished.connect(thread.quit)
+        self.finished.connect(self.deleteLater)
+
+
+class RunnableSerializer(RunnableWorker):
+    def __init__(self, serializable: A_Serializable) -> None:
+        super().__init__(serializable.to_bytes)
         
 
-class Deserializer(QObject, QRunnable):
-    finished = Signal(A_Serializable)
+class RunnableDeserializer(RunnableWorker):
+    def __init__(self, serializable: A_Serializable) -> None:
+        super().__init__(serializable.from_bytes)
 
-    def __init__(self, cls: Type[A_Serializable], data: BinaryIO) -> None:
-        super().__init__()
-        self._cls = cls
-        self._data = data
-    
-    def run(self) -> None:
-        obj = self._cls.from_bytes(self._data)
-        self.finished.emit(obj)
+        
+class ThreadSerializer(ThreadWorker):
+    def __init__(self, serializable: A_Serializable) -> None:
+        super().__init__(serializable.to_bytes)
+        
+
+class ThreadDeserializer(ThreadWorker):
+    def __init__(self, serializable: A_Serializable) -> None:
+        super().__init__(serializable.from_bytes)
 
 
 class ToolboxManager(QObject):
