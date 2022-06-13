@@ -563,8 +563,8 @@ class NameRefHierarchyWidget(A_DockingInterface):
 
         properties.extend(
             [
-                self.keyProperty,
                 self.nameHashProperty,
+                self.keyProperty,
                 self.keyHashProperty
             ]
         )
