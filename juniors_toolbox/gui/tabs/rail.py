@@ -1358,13 +1358,6 @@ class RailViewerWidget(A_DockingInterface):
             self.nodeList.set_rail_node(i, node)
 
     @Slot()
-    def __update_node_properties_name(self, item: RailNodeListWidgetItem):
-        from juniors_toolbox.gui.tabs import TabWidgetManager
-        propertiesTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
-        if propertiesTab is not None:
-            propertiesTab.setWindowTitle(f"Node {self.nodeList.row(item)} Properties")
-
-    @Slot()
     def new_rail(self):
         model = self.railList.model()
         row = model.rowCount()

@@ -3,7 +3,7 @@ from enum import IntEnum
 from typing import BinaryIO, Optional
 import time
 
-from PySide6.QtCore import Qt, QThread, Signal, Slot, QMutex, QMutexLocker
+from PySide6.QtCore import Qt, QThread, Signal, Slot, QMutex, QMutexLocker, QObject, QRunnable
 from PySide6.QtGui import QFont, QTextCharFormat, QTextCursor, QColor, QPalette, QTextFormat, QTextFrameFormat
 from PySide6.QtWidgets import QWidget, QPlainTextEdit, QGridLayout, QLabel, QTextEdit
 from juniors_toolbox.gui import RunnableSerializer, ThreadSerializer, WorkerSignals
