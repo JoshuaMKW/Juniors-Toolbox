@@ -248,7 +248,7 @@ class RailNode(A_Serializable, A_Clonable):
             if reparent is False:
                 return False
             self._rail = targetRail
-            self._rail.insert_node(node.get_index() + int(dstSlot > 0), self)
+            self._rail.insert_node(node.get_index() + 1, self)
             
         self._connect_slots(srcSlot, node, dstSlot)
         return True
@@ -347,8 +347,7 @@ class RailNode(A_Serializable, A_Clonable):
 
         self.connect(
             srcSlot=0,
-            node=prevNode,
-            dstSlot=preConnectionCount - 1
+            node=prevNode
         )
 
         return True
@@ -376,8 +375,7 @@ class RailNode(A_Serializable, A_Clonable):
 
         self.connect(
             srcSlot=0,
-            node=nextNode,
-            dstSlot=0
+            node=nextNode
         )
 
         return True

@@ -1272,7 +1272,6 @@ class RailViewerWidget(A_DockingInterface):
         railList = RailListView()
         railList.setMinimumWidth(100)
         railList.selectionModel().currentChanged.connect(self.__populate_nodelist)
-        railList.model().rowsRemoved.connect(self.remove_selected_rail)
         self.railList = railList
 
         self.railListLayout.addWidget(self.railInterface)
