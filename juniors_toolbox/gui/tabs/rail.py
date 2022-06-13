@@ -1110,7 +1110,7 @@ class RailListView(InteractiveListView):
         propertiesTab.setWindowTitle(title)
 
         self.update(index)
-        # self._populate_data_view(index)
+        # self._populate_data_view(index, QModelIndex())
     
     @Slot(list)
     def duplicate_indexes(self, indexes: list[QModelIndex | QPersistentModelIndex]) -> list[QModelIndex | QPersistentModelIndex]:
@@ -1351,18 +1351,13 @@ class RailViewerWidget(A_DockingInterface):
         model = self.nodeList.model()
         selectionModel = self.nodeList.selectionModel()
 
-        # self.nodeList.blockSignals(True)
         model = self.nodeList.model()
-        # model.blockSignals(True)
         if model.rowCount() > 0:
             model.removeRows(0, model.rowCount())
 
         rail = self.railList.get_rail(selected.row())
         for i, node in enumerate(rail.iter_nodes()):
             self.nodeList.set_rail_node(i, node)
-
-        # model.blockSignals(False)
-        # self.nodeList.blockSignals(False)
 
     @Slot()
     def new_rail(self):
