@@ -18,8 +18,8 @@ from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.gui.widgets.interactivestructs import (
     InteractiveTreeWidget, InteractiveTreeWidgetItem)
 from juniors_toolbox.gui.widgets.property import (A_ValueProperty,
-                                                  ArrayProperty, ByteProperty,
-                                                  PropertyFactory,
+                                                  ArrayProperty, ByteProperty, CommentProperty,
+                                                  PropertyFactory, StringProperty,
                                                   StructProperty)
 from juniors_toolbox.objects.object import A_SceneObject, GroupObject, MapObject
 from juniors_toolbox.objects.value import (A_Member, MemberEnum, QualifiedName,
@@ -540,13 +540,43 @@ class NameRefHierarchyWidget(A_DockingInterface):
         self.__selectedObjectSize = sceneObj.get_simple_data_size()
 
         properties: List[A_ValueProperty] = []
+
+        self.keyProperty = StringProperty(
+            "Key",
+            readOnly=False,
+            value=sceneObj.key.get_ref()
+        )
+        self.keyProperty.valueChanged.connect(
+            lambda _p, _v: self._update_object_key(
+                sceneObj, _v
+            )
+        )
+
+        self.nameHashProperty = CommentProperty(
+            "Name Hash",
+            f"  = {hash(sceneObj)}"
+        )
+        self.keyHashProperty = CommentProperty(
+            "Key Hash",
+            f"  = {hash(sceneObj.key)}"
+        )
+
+        properties.extend(
+            [
+                self.keyProperty,
+                self.nameHashProperty,
+                self.keyHashProperty
+            ]
+        )
+
         propertiesMap: dict[QualifiedName, A_ValueProperty] = {}
         for member in sceneObj.get_members(includeArrays=False):
             arrayRef: int | A_Member
             arrayProp: Optional[ArrayProperty] = None
             if isinstance(member._arraySize, A_Member):
-                arrayRef = propertiesMap[member._arraySize.get_qualified_name(
-                )]
+                arrayRef = propertiesMap[
+                    member._arraySize.get_qualified_name()
+                ]
                 arrayProp = ArrayProperty(
                     name=member.get_formatted_name(),
                     readOnly=False,
@@ -637,7 +667,23 @@ class NameRefHierarchyWidget(A_DockingInterface):
         if event.key() == Qt.Key_Y:
             self.undoStack.redo()
         elif event.key() == Qt.Key_Z:
-            self.undoStack.undo() 
+            self.undoStack.undo()
+
+    def _update_object_key(self, obj: A_SceneObject, key: str):
+        from juniors_toolbox.gui.tabs import TabWidgetManager
+        propertiesTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
+        if propertiesTab is None:
+            return
+
+        obj.key.set_ref(key)
+        self.keyHashProperty.set_value(
+            f"  = {hash(obj.key)}"
+        )
+
+        propertiesTab.setWindowTitle(
+            f"{obj.get_explicit_name()} Properties"
+        )
+
 
     def __set_array_instance(self, prop: ArrayProperty, size: int):
         # TODO: Somehow speed this up, or simply show a waiting dialog?
