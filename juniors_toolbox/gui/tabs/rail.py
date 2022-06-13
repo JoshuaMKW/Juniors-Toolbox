@@ -1398,10 +1398,12 @@ class RailViewerWidget(A_DockingInterface):
 
     @Slot()
     def remove_selected_node(self):
+        index = self.nodeList.currentIndex()
         if not index.isValid():
             return
+
         self.remove_deleted_node(
-            self.nodeList.model().item(index.row())
+            self.nodeList.model().item(index)
         )
 
     @Slot(RailNodeItem)
