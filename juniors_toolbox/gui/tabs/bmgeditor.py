@@ -162,6 +162,9 @@ class BMGMessageView(QObject, ABCWidget):
         ",": 6,
     }
 
+    startRequested = Signal()
+    stopRequested = Signal()
+
     def __init__(self, parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
         self._message = RichMessage()
@@ -203,18 +206,30 @@ class BMGMessageView(QObject, ABCWidget):
     @abstractmethod
     def get_message_for_page(self, page: int) -> RichMessage: ...
 
+    @abstractmethod
+    def get_message_backdrop(self) -> QImage: ...
+
     def set_current_frame(self, frame: int):
         self._frame = frame
 
     def get_current_frame(self) -> int:
         return self._frame
 
-    def _get_num_newlines(self, message: RichMessage) -> int:
+    def get_num_newlines(self, message: RichMessage) -> int:
         num = 0
         for cmp in message.components:
             if isinstance(cmp, str):
                 num += cmp.count("\n")
         return num
+
+    def get_text_width(self, painter: QPainter, text: str) -> int:
+        fontMetrics = painter.fontMetrics()
+        charWidth = 0
+        for char in text:
+            charWidth += fontMetrics.horizontalAdvanceChar(char) # type: ignore
+            if char in self.PaddingMap:
+                charWidth += self.PaddingMap[char]
+        return charWidth
 
 
 class BMGMessageViewNPC(BMGMessageView):
@@ -224,6 +239,8 @@ class BMGMessageViewNPC(BMGMessageView):
     Rotation = 17.0  # from SMS, clockwise
     FontSize = 15
     BgOpacity = 0.75
+
+    pageRequested = Signal(int)
 
     class PreviewState(IntEnum):
         IDLE = 0
@@ -268,18 +285,221 @@ class BMGMessageViewNPC(BMGMessageView):
                 components.append(component)
         return RichMessage(components)
 
+    def get_message_backdrop(self) -> QImage:
+        return QImage(
+            str(
+                resource_path("gui/images/message_back.png")
+            )
+        )
+
     def is_next_button_visible(self) -> bool:
-        numLines = self._get_num_newlines(self._message)
+        numLines = self.get_num_newlines(self._message)
         numPages = (numLines // self.get_lines_per_page()) + 1
         return self._curPage < numPages-1
 
     def is_end_button_visible(self) -> bool:
-        numLines = self._get_num_newlines(self._message)
+        numLines = self.get_num_newlines(self._message)
         numPages = (numLines // self.get_lines_per_page()) + 1
         return self._curPage == numPages-1
 
     def render_(self, painter: QPainter):
-        ...
+        numLines = self.get_num_newlines(self.message)
+        numPages = (numLines // self.get_lines_per_page()) + 1
+
+        if self._curPage >= numPages:
+            self._curPage = 0
+
+        message = self.get_message_for_page(self._curPage)
+        backDropImg = self.get_message_backdrop()
+
+        buttons = self._render_message(
+            painter, message
+        )
+        return buttons
+
+    def _render_message(self, painter: QPainter, message: RichMessage):
+        def next_line(painter: QPainter, lineImg: QImage):
+            painter.translate(0, 33)
+            painter.setOpacity(self.BgOpacity)
+            painter.drawImage(0, 0, lineImg)
+            painter.setOpacity(1.0)
+
+        painter.save()
+
+        backDrop = self.get_message_backdrop()
+
+        pathLerp = 0.0
+        path = QPainterPath(QPoint(24, 41))
+        path.cubicTo(
+            QPoint(backDrop.width() // 3, 16),
+            QPoint(backDrop.width() - (backDrop.width() // 3), 16),
+            QPoint(backDrop.width() - 16, 50)
+        )
+        plen = path.length()
+
+        if self.is_right_aligned():
+            painter.translate(100, -33)
+            rotation = self.Rotation
+        else:
+            painter.translate(0, 63)
+            rotation = -self.Rotation - 4
+        painter.rotate(rotation)
+
+        next_line(painter, backDrop)  # Render first line
+
+        lastChar = ""
+        queueLine = False
+        queueSize = 0
+        options = {}
+        for component in message.components:
+            if isinstance(component, bytes):
+                if component.startswith(b"\x1A\x06\xFF\x00\x00"):
+                    color = self.get_color(component[-1])
+                    painter.setPen(color)
+                elif component.startswith(b"\x1A\x06\x02\x00\x04"):
+                    if lastChar == "\n" and queueLine:
+                        for _ in range(queueSize):
+                            next_line(painter, backDrop)
+                        queueLine = False
+                        queueSize = 0
+                    fruitNum = str(self.get_fruit(component[-1]))
+                    for char in fruitNum:
+                        charWidth = self._render_char_on_path(
+                            painter, char, path, pathLerp)
+                        pathLerp += charWidth / plen
+                        lastChar = char
+                elif component.startswith(b"\x1A\x05\x02\x00"):
+                    if lastChar == "\n" and queueLine:
+                        for _ in range(queueSize):
+                            next_line(painter, backDrop)
+                        queueLine = False
+                        queueSize = 0
+                    text = self.get_record(component[-1])
+                    for char in text:
+                        charWidth = self._render_char_on_path(
+                            painter, char, path, pathLerp)
+                        pathLerp += charWidth / plen
+                        lastChar = char
+                elif component[2:4] == b"\x01\x00":
+                    string = decode_raw_string(component[5:])
+                    if component[4] not in options:
+                        options[component[4]] = string
+                continue
+
+            line = component.replace("\x00", "")
+            if line == "":
+                continue
+
+            lines = 1
+            for char in line:
+                if char == "\n" and lastChar != "\n":
+                    queueLine = True
+                    queueSize = 1
+                    pathLerp = 0.0
+                    lines += 1
+                    lastChar = char
+                    continue
+                if lastChar == "\n" and queueLine:
+                    if char == "\n":
+                        queueSize += 1
+                        continue
+                    for _ in range(queueSize):
+                        next_line(painter, backDrop)
+                    queueLine = False
+                    queueSize = 0
+
+                charWidth = self._render_char_on_path(
+                    painter, char, path, pathLerp)
+                pathLerp += charWidth / plen
+
+                lastChar = char
+
+        buttonImg = QImage(27, 27, QImage.Format_ARGB32)
+        buttonImg.fill(Qt.transparent)
+
+        buttonPainter = QPainter()
+        buttonPainter.begin(buttonImg)
+
+        # /- RENDER BUTTONS -/ #
+
+        buttons: list[ButtonCB] = []
+        targetPos = QPoint(backDrop.width() - 5, 39)
+
+        if self.is_next_button_visible():
+            self._render_next_button(buttonPainter)
+        else:
+            self._render_end_button(buttonPainter)
+        buttonPainter.end()
+
+        transform = QTransform()
+        transform.rotate(-70)
+        buttonImg = buttonImg.transformed(transform, Qt.SmoothTransformation)
+
+        painter.save()
+        painter.setOpacity(1.0)
+        painter.drawImage(targetPos, buttonImg)
+        painter.restore()
+
+        # /- CALCULATE PROGRESSION BUTTON -/ #
+
+        centerOfs = buttonImg.rect().width() // 2
+        transform = painter.combinedTransform()
+        buttonAbsPos = transform.map(
+            QPoint(
+                targetPos.x() + centerOfs,
+                targetPos.y() + centerOfs+1
+            )
+        )
+
+        buttons.append(
+            CircleButton(
+                buttonAbsPos,
+                30,
+                lambda: self.pageRequested.emit(
+                    self._curPage + 1
+                )
+            )
+        )
+
+        if len(options) == 0:
+            painter.restore()
+            return buttons
+
+        # /- CALCULATE OPTION BUTTONS -/ #
+
+        optionsImgSize = QSize(112, 76)
+        targetPos = QPoint(
+            (backDrop.width() // 2) - (optionsImgSize.width() // 2),
+            36
+        )
+
+        optionsImg = QImage(optionsImgSize, QImage.Format_ARGB32)
+        optionsImg.fill(Qt.transparent)
+
+        optionsPainter = QPainter()
+        optionsPainter.begin(optionsImg)
+        optionsPainter.setFont(painter.font())
+        optionsPainter.setPen(Qt.white)
+        buttonRects = self._render_options_button(optionsPainter, options)
+        optionsPainter.end()
+
+        painter.save()
+        painter.setOpacity(1.0)
+        painter.drawImage(targetPos, optionsImg)
+        painter.restore()
+
+        for buttonRect in buttonRects:
+            buttonRect.translate(targetPos)
+            rect = transform.mapRect(buttonRect)
+            button = RectangleButton(
+                rect,
+                lambda: self.pageRequested.emit(0)
+            )
+            button.set_rotation(rotation)
+            buttons.append(button)
+
+        painter.restore()
+        return buttons
     
     def _render_next_button(self, painter: QPainter):
         nextImg = QImage(
@@ -310,14 +530,114 @@ class BMGMessageViewNPC(BMGMessageView):
         painter.drawImage(5, 5, returnImg)
         painter.restore()
 
+    def _render_options_button(self, painter: QPainter, options: Dict[int, str]) -> List[QRect]:
+        buttonPositions = []
+        backImg = QImage(
+            str(resource_path("gui/images/message_option_back.png"))
+        )
+        painter.save()
+        painter.setOpacity(self.BgOpacity)
+        painter.drawImage(0, 0, backImg)
+        painter.setOpacity(1.0)
+        yPos = 34
+        for index, option in options.items():
+            if index > 1:
+                continue
+            optionPos = QPoint(
+                39, yPos + (index * 25)
+            )
+            painter.save()
+            painter.translate(optionPos)
+            buttonSize = self._render_text(painter, option)
+            buttonSize.setHeight(int(buttonSize.height() * 0.5))
+            buttonPos = QPoint(
+                optionPos.x(),
+                optionPos.y() - buttonSize.height()
+            )
+            buttonPositions.append(
+                QRect(buttonPos, buttonSize)
+            )
+            painter.restore()
+        painter.restore()
+        return buttonPositions
 
+    def _render_text(self, painter: QPainter, text: str, path: Optional[QPainterPath] = None, newLineHBuffer: int = 0) -> QSize:
+        text = text.replace("\x00", "")
+        if text == "":
+            return QSize(0, 0)
+
+        pathLerp = 0.0
+        fontMetrics = painter.fontMetrics()
+        textWidths = []
+        lineWidth = 0
+        charWidth = 0
+        textHeight = fontMetrics.height()
+        painter.save()
+        for char in text:
+            if char == "\n":
+                textWidths.append(lineWidth)
+                lineWidth = 0
+                height = fontMetrics.height() + newLineHBuffer
+                textHeight += height
+                painter.translate(0, height)
+            if path:
+                plen = path.length()
+                self._render_char_on_path(
+                    painter,
+                    char,
+                    path,
+                    pathLerp
+                )
+                pathLerp += charWidth / plen
+                lineWidth += charWidth
+            else:
+                charWidth = fontMetrics.horizontalAdvanceChar(char)
+                if char in self.PaddingMap:
+                    charWidth += self.PaddingMap[char]
+                painter.drawText(0, 0, char)
+                painter.translate(charWidth, 0)
+                lineWidth += charWidth
+        painter.restore()
+        textWidths.append(lineWidth)
+        return QSize(max(textWidths), textHeight)
+
+    def _render_char_on_path(self, painter: QPainter, char: str, path: QPainterPath, lerp: float) -> int:
+        if lerp > 1.0:
+            return 0
+
+        fontMetrics = painter.fontMetrics()
+
+        point = path.pointAtPercent(lerp)
+        angle = path.angleAtPercent(lerp)
+
+        charWidth = fontMetrics.horizontalAdvanceChar(char) # type: ignore
+        if char in self.PaddingMap:
+            charWidth += self.PaddingMap[char]
+
+        painter.save()
+        # Move the virtual origin to the point on the curve
+        painter.translate(point)
+        # Rotate to match the angle of the curve
+        # Clockwise is positive so we negate the angle from above
+        painter.rotate(-angle)
+        # Draw a line width above the origin to move the text above the line
+        # and let Qt do the transformations
+        painter.drawText(QPoint(0, 0), char)
+        painter.restore()
+
+        return charWidth
 
 
 class BMGMessageViewBillboard(BMGMessageViewNPC):
     def get_lines_per_page(self) -> int:
         return 6
 
-    
+    def get_message_backdrop(self) -> QImage:
+        return QImage(
+            str(
+                resource_path("gui/images/message_board.png")
+            )
+        )
 
 
 class BMGMessageViewDEBS(BMGMessageView):
@@ -553,209 +873,6 @@ class BMGMessagePreviewWidget(QWidget):
 
         painter.restore()
 
-    def __render_any(self, painter: QPainter) -> List[ButtonCB]:
-        numLines = self.__get_num_newlines(self.message)
-        numPages = (numLines // self.linesPerPage) + 1
-
-        if self.__curPage >= numPages:
-            self.__curPage = 0
-
-        message = self.__get_message_for_page(self.__curPage)
-        backDropImg = self.backDropImage
-
-        if self.__boxState == BMGMessagePreviewWidget.BoxState.NPC:
-            buttons = self.__render_message(
-                painter,
-                message,
-                backDropImg
-            )
-        else:
-            buttons = self.__render_billboard(
-                painter,
-                message,
-                backDropImg
-            )
-        return buttons
-
-    def __render_message(self, painter: QPainter, message: RichMessage, backDrop: QImage) -> List[ButtonCB]:
-        def next_line(painter: QPainter, lineImg: QImage):
-            painter.translate(0, 33)
-            painter.setOpacity(self.BgOpacity)
-            painter.drawImage(0, 0, lineImg)
-            painter.setOpacity(1.0)
-
-        painter.save()
-
-        pathLerp = 0.0
-        path = QPainterPath(QPoint(24, 41))
-        path.cubicTo(
-            QPoint(backDrop.width() // 3, 16),
-            QPoint(backDrop.width() - (backDrop.width() // 3), 16),
-            QPoint(backDrop.width() - 16, 50)
-        )
-        plen = path.length()
-
-        if self.is_right_aligned():
-            painter.translate(100, -33)
-            rotation = BMGMessagePreviewWidget.Rotation
-        else:
-            painter.translate(0, 63)
-            rotation = -BMGMessagePreviewWidget.Rotation - 4
-        painter.rotate(rotation)
-
-        next_line(painter, backDrop)  # Render first line
-
-        lastChar = ""
-        queueLine = False
-        queueSize = 0
-        options = {}
-        for component in message.components:
-            if isinstance(component, bytes):
-                if component.startswith(b"\x1A\x06\xFF\x00\x00"):
-                    color = self.get_color(component[-1])
-                    painter.setPen(color)
-                elif component.startswith(b"\x1A\x06\x02\x00\x04"):
-                    if lastChar == "\n" and queueLine:
-                        for _ in range(queueSize):
-                            next_line(painter, backDrop)
-                        queueLine = False
-                        queueSize = 0
-                    fruitNum = str(self.get_fruit(component[-1]))
-                    for char in fruitNum:
-                        charWidth = self.__render_char_on_path(
-                            painter, char, path, pathLerp)
-                        pathLerp += charWidth / plen
-                        lastChar = char
-                elif component.startswith(b"\x1A\x05\x02\x00"):
-                    if lastChar == "\n" and queueLine:
-                        for _ in range(queueSize):
-                            next_line(painter, backDrop)
-                        queueLine = False
-                        queueSize = 0
-                    text = self.get_record(component[-1])
-                    for char in text:
-                        charWidth = self.__render_char_on_path(
-                            painter, char, path, pathLerp)
-                        pathLerp += charWidth / plen
-                        lastChar = char
-                elif component[2:4] == b"\x01\x00":
-                    string = decode_raw_string(component[5:])
-                    if component[4] not in options:
-                        options[component[4]] = string
-                continue
-
-            line = component.replace("\x00", "")
-            if line == "":
-                continue
-
-            lines = 1
-            for char in line:
-                if char == "\n" and lastChar != "\n":
-                    queueLine = True
-                    queueSize = 1
-                    pathLerp = 0.0
-                    lines += 1
-                    lastChar = char
-                    continue
-                if lastChar == "\n" and queueLine:
-                    if char == "\n":
-                        queueSize += 1
-                        continue
-                    for _ in range(queueSize):
-                        next_line(painter, backDrop)
-                    queueLine = False
-                    queueSize = 0
-
-                charWidth = self.__render_char_on_path(
-                    painter, char, path, pathLerp)
-                pathLerp += charWidth / plen
-
-                lastChar = char
-
-        buttonImg = QImage(27, 27, QImage.Format_ARGB32)
-        buttonImg.fill(Qt.transparent)
-
-        buttonPainter = QPainter()
-        buttonPainter.begin(buttonImg)
-
-        # /- RENDER BUTTONS -/ #
-
-        buttons: list[ButtonCB] = []
-        targetPos = QPoint(backDrop.width() - 5, 39)
-
-        if self.is_next_button_visible():
-            self.__render_next_button(buttonPainter)
-        else:
-            self.__render_end_button(buttonPainter)
-        buttonPainter.end()
-
-        transform = QTransform()
-        transform.rotate(-70)
-        buttonImg = buttonImg.transformed(transform, Qt.SmoothTransformation)
-
-        painter.save()
-        painter.setOpacity(1.0)
-        painter.drawImage(targetPos, buttonImg)
-        painter.restore()
-
-        # /- CALCULATE PROGRESSION BUTTON -/ #
-
-        centerOfs = buttonImg.rect().width() // 2
-        transform = painter.combinedTransform()
-        buttonAbsPos = transform.map(
-            QPoint(
-                targetPos.x() + centerOfs,
-                targetPos.y() + centerOfs+1
-            )
-        )
-
-        buttons.append(
-            BMGMessagePreviewWidget.CircleButton(
-                buttonAbsPos,
-                30,
-                self.nextPage
-            )
-        )
-
-        if len(options) == 0:
-            painter.restore()
-            return buttons
-
-        # /- CALCULATE OPTION BUTTONS -/ #
-
-        optionsImgSize = QSize(112, 76)
-        targetPos = QPoint(
-            (backDrop.width() // 2) - (optionsImgSize.width() // 2),
-            36
-        )
-
-        optionsImg = QImage(optionsImgSize, QImage.Format_ARGB32)
-        optionsImg.fill(Qt.transparent)
-
-        optionsPainter = QPainter()
-        optionsPainter.begin(optionsImg)
-        optionsPainter.setFont(painter.font())
-        optionsPainter.setPen(Qt.white)
-        buttonRects = self.__render_options_button(optionsPainter, options)
-        optionsPainter.end()
-
-        painter.save()
-        painter.setOpacity(1.0)
-        painter.drawImage(targetPos, optionsImg)
-        painter.restore()
-
-        for buttonRect in buttonRects:
-            buttonRect.translate(targetPos)
-            rect = transform.mapRect(buttonRect)
-            button = BMGMessagePreviewWidget.RectangleButton(
-                rect, self.stop
-            )
-            button.set_rotation(rotation)
-            buttons.append(button)
-
-        painter.restore()
-        return buttons
-
     def __render_billboard(self, painter: QPainter, message: RichMessage, backDrop: QImage) -> List[ButtonCB]:
         painter.save()
 
@@ -810,141 +927,6 @@ class BMGMessagePreviewWidget(QWidget):
                 self.nextPage
             )
         ]
-
-    def __render_next_button(self, painter: QPainter):
-        nextImg = QImage(
-            str(resource_path("gui/images/message_button_back.png"))
-        )
-        arrowImg = QImage(
-            str(resource_path("gui/images/message_cursor.png"))
-        )
-        painter.save()
-        painter.setOpacity(self.BgOpacity)
-        painter.drawImage(0, 0, nextImg)
-        painter.setOpacity(1.0)
-        painter.drawImage(5, 7, arrowImg)
-        painter.restore()
-
-    def __render_end_button(self, painter: QPainter):
-        nextImg = QImage(
-            str(resource_path("gui/images/message_button_back.png"))
-        )
-
-        returnImg = QImage(
-            str(resource_path("gui/images/message_return.png"))
-        )
-        painter.save()
-        painter.setOpacity(self.BgOpacity)
-        painter.drawImage(0, 0, nextImg)
-        painter.setOpacity(1.0)
-        painter.drawImage(5, 5, returnImg)
-        painter.restore()
-
-    def __render_options_button(self, painter: QPainter, options: Dict[int, str]) -> List[QRect]:
-        buttonPositions = []
-        backImg = QImage(
-            str(resource_path("gui/images/message_option_back.png"))
-        )
-        painter.save()
-        painter.setOpacity(self.BgOpacity)
-        painter.drawImage(0, 0, backImg)
-        painter.setOpacity(1.0)
-        yPos = 34
-        for index, option in options.items():
-            if index > 1:
-                continue
-            optionPos = QPoint(
-                39, yPos + (index * 25)
-            )
-            painter.save()
-            painter.translate(optionPos)
-            buttonSize = self.__render_text(painter, option)
-            buttonSize.setHeight(int(buttonSize.height() * 0.5))
-            buttonPos = QPoint(
-                optionPos.x(),
-                optionPos.y() - buttonSize.height()
-            )
-            buttonPositions.append(
-                QRect(buttonPos, buttonSize)
-            )
-            painter.restore()
-        painter.restore()
-        return buttonPositions
-
-    def __render_text(self, painter: QPainter, text: str, path: Optional[QPainterPath] = None, newLineHBuffer: int = 0) -> QSize:
-        text = text.replace("\x00", "")
-        if text == "":
-            return QSize(0, 0)
-
-        pathLerp = 0.0
-        fontMetrics = painter.fontMetrics()
-        textWidths = []
-        lineWidth = 0
-        charWidth = 0
-        textHeight = fontMetrics.height()
-        painter.save()
-        for char in text:
-            if char == "\n":
-                textWidths.append(lineWidth)
-                lineWidth = 0
-                height = fontMetrics.height() + newLineHBuffer
-                textHeight += height
-                painter.translate(0, height)
-            if path:
-                plen = path.length()
-                self.__render_char_on_path(
-                    painter,
-                    char,
-                    path,
-                    pathLerp
-                )
-                pathLerp += charWidth / plen
-                lineWidth += charWidth
-            else:
-                charWidth = fontMetrics.horizontalAdvanceChar(char)
-                if char in self.PaddingMap:
-                    charWidth += self.PaddingMap[char]
-                painter.drawText(0, 0, char)
-                painter.translate(charWidth, 0)
-                lineWidth += charWidth
-        painter.restore()
-        textWidths.append(lineWidth)
-        return QSize(max(textWidths), textHeight)
-
-    def __get_text_width(self, painter: QPainter, text: str) -> int:
-        fontMetrics = painter.fontMetrics()
-        charWidth = 0
-        for char in text:
-            charWidth += fontMetrics.horizontalAdvanceChar(char) # type: ignore
-            if char in self.PaddingMap:
-                charWidth += self.PaddingMap[char]
-        return charWidth
-
-    def __render_char_on_path(self, painter: QPainter, char: str, path: QPainterPath, lerp: float) -> int:
-        if lerp > 1.0:
-            return 0
-
-        fontMetrics = painter.fontMetrics()
-
-        point = path.pointAtPercent(lerp)
-        angle = path.angleAtPercent(lerp)
-
-        charWidth = fontMetrics.horizontalAdvanceChar(char) # type: ignore
-        if char in self.PaddingMap:
-            charWidth += self.PaddingMap[char]
-
-        painter.save()
-        # Move the virtual origin to the point on the curve
-        painter.translate(point)
-        # Rotate to match the angle of the curve
-        # Clockwise is positive so we negate the angle from above
-        painter.rotate(-angle)
-        # Draw a line width above the origin to move the text above the line
-        # and let Qt do the transformations
-        painter.drawText(QPoint(0, 0), char)
-        painter.restore()
-
-        return charWidth
 
     def paintEvent(self, event: QPaintEvent):
         painter = QPainter()
