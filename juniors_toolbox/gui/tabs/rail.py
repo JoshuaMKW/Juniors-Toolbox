@@ -1333,10 +1333,8 @@ class RailViewerWidget(A_DockingInterface):
         self.setWidget(splitter)
 
     def populate(self, scene: Optional[SMSScene], *args: VariadicArgs, **kwargs: VariadicKwargs) -> None:
-        model = self.railList.model()
-        model.removeRows(0, model.rowCount())
-        model = self.nodeList.model()
-        model.removeRows(0, model.rowCount())
+        self.railList.clear()
+        self.nodeList.clear()
 
         railSelectionModel = self.railList.selectionModel()
         railModel = self.railList.model()
@@ -1356,8 +1354,6 @@ class RailViewerWidget(A_DockingInterface):
                     )
                 self._railIndex = focusIndex
                 self._rail = self.railList.get_rail(focusIndex.row())
-
-        model.layoutChanged.emit()
 
     def __populate_nodelist(self, selected: QModelIndex, deselected: QModelIndex) -> None:
         if not selected.isValid():
