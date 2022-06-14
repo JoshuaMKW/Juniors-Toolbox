@@ -169,6 +169,13 @@ class DataEditorWidget(A_DockingInterface):
         self._sync_selections()
         self.dataChanged.connect(self.generate_view)
 
+        self._sync_scrolls()
+        self._sync_selections()
+
+        self.rowSpacing = 32  # How many bytes before a double space.
+        self.rowLength = 16  # How many bytes in a row.
+        self.packetWidth = 4  # How many bytes in a packet
+
         self._data = b""
         self._dataMutex = QMutex()
 
