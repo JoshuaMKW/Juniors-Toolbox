@@ -5,13 +5,13 @@ from os import write
 from typing import Any, BinaryIO, Iterable, List, Optional, Tuple, Union
 
 from aenum import extend_enum
-from juniors_toolbox.utils import A_Serializable, VariadicArgs, VariadicKwargs
+from juniors_toolbox.utils import A_Clonable, A_Serializable, VariadicArgs, VariadicKwargs
 
 from juniors_toolbox.utils.iohelper import align_int, decode_raw_string, get_likely_encoding, read_string, read_ubyte, read_uint16, read_uint32, write_string, write_ubyte, write_uint16, write_uint32
 
 
 @dataclass
-class RichMessage(A_Serializable):
+class RichMessage(A_Serializable, A_Clonable):
     components: list = field(default_factory=lambda: [])
     encoding: Optional[str] = None
 
@@ -185,6 +185,13 @@ class RichMessage(A_Serializable):
             else:
                 data += cmp
         return data + b"\x00"
+
+    def copy(self, *, deep: bool = False) -> "RichMessage":
+        cpy = RichMessage(
+            self.components.copy(),
+            self.encoding
+        )
+        return cpy
 
     def get_rich_text(self) -> str:
         string = ""
@@ -363,18 +370,29 @@ class SoundID(IntEnum):
         return cls._member_map_[name]
 
 
-class BMG(A_Serializable):
+class BMG(A_Serializable, A_Clonable):
     """
     Class representing the Nintendo Binary Message Format
     """
     @dataclass
-    class MessageEntry:
+    class MessageEntry(A_Clonable):
         name: str
-        message: RichMessage
-        soundID: SoundID
-        startFrame: int
-        endFrame: int
+        message: RichMessage = RichMessage()
+        soundID: SoundID = SoundID.NOTHING
+        startFrame: int = 0
+        endFrame: int = 0
         _unkflags: bytes = b""
+
+        def copy(self, *, deep: bool = False) -> "BMG.MessageEntry":
+            cpy = BMG.MessageEntry(
+                self.name,
+                self.message.copy(deep=deep),
+                self.soundID,
+                self.startFrame,
+                self.endFrame,
+                self._unkflags
+            )
+            return cpy
 
         def __str__(self) -> str:
             return f"{self.name} :: {self.message.get_string()}"
@@ -384,8 +402,8 @@ class BMG(A_Serializable):
     def __init__(self, isStr1Present: bool = True, flagSize: int = 12):
         self.flagSize = flagSize
 
-        self.__messages: List[BMG.MessageEntry] = []
-        self.__isStr1 = isStr1Present
+        self._messages: List[BMG.MessageEntry] = []
+        self._isStr1 = isStr1Present
 
     @staticmethod
     def is_str1_present_f(f: BytesIO) -> bool:
@@ -505,13 +523,13 @@ class BMG(A_Serializable):
         write_uint32(dat1, dat1Size)
         write_uint32(str1, str1Size)
 
-        write_uint16(inf1, len(self.__messages))
+        write_uint16(inf1, len(self._messages))
         write_uint16(inf1, self.flagSize)
         write_uint32(inf1, 0x00000100)  # unknown value
         dat1.seek(1, 1)  # idk weird offset thing
         str1.seek(1, 1)  # same here
 
-        for msg in self.__messages:
+        for msg in self._messages:
             # INF1
             if self.flagSize == 12:
                 write_uint32(inf1, dat1.tell() - 8)
@@ -546,6 +564,18 @@ class BMG(A_Serializable):
 
         return header.getvalue() + data
 
+    def copy(self, *, deep: bool = False) -> A_Clonable:
+        cpy = BMG()
+        cpy.flagSize = self.flagSize
+        cpy._isStr1 = self._isStr1
+
+        for msg in self._messages:
+            cpy._messages.append(
+                msg.copy(deep=deep)
+            )
+
+        return cpy
+
     def get_data_size(self) -> int:
         if self.is_str1_present():
             return 0x20 + self.get_inf1_size() + self.get_dat1_size() + self.get_str1_size()
@@ -553,13 +583,13 @@ class BMG(A_Serializable):
             return 0x20 + self.get_inf1_size() + self.get_dat1_size()
 
     def get_inf1_size(self) -> int:
-        return align_int(0x10 + (len(self.__messages) * self.flagSize), 32)
+        return align_int(0x10 + (len(self._messages) * self.flagSize), 32)
 
     def get_dat1_size(self) -> int:
         return align_int(
             0x9 + sum(
                 [msg.message.get_raw_size()
-                 for msg in self.__messages]
+                 for msg in self._messages]
             ), 32
         )
 
@@ -567,34 +597,35 @@ class BMG(A_Serializable):
         return align_int(
             0x9 + sum(
                 [len(msg.name.encode())+1
-                 for msg in self.__messages]
-            ), 32
+                 for msg in self._messages]
+            ),
+            32
         )
 
     def set_str1_present(self, isStr1: bool):
-        self.__isStr1 = isStr1
+        self._isStr1 = isStr1
 
     def is_str1_present(self) -> bool:
-        return self.__isStr1 and self.flagSize == 12
+        return self._isStr1 and self.flagSize == 12
 
     def add_message(self, message: MessageEntry):
-        self.__messages.append(message)
+        self._messages.append(message)
 
     def remove_message(self, message: MessageEntry):
-        self.__messages.remove(message)
+        self._messages.remove(message)
 
     def get_message(self, _id: Union[str, int]):
         if isinstance(_id, int):
-            if _id >= len(self.__messages):
+            if _id >= len(self._messages):
                 return None
-            return self.__messages[_id]
-        for msg in self.__messages:
+            return self._messages[_id]
+        for msg in self._messages:
             if _id == msg.name:
                 return msg
 
     def iter_messages(self) -> Iterable[MessageEntry]:
-        for msg in self.__messages:
+        for msg in self._messages:
             yield msg
 
     def __len__(self) -> int:
-        return len(self.__messages)
+        return len(self._messages)

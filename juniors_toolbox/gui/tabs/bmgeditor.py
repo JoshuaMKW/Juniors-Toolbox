@@ -1,23 +1,26 @@
+from io import BytesIO
 import time
 from abc import ABC, abstractmethod
 from enum import Enum, IntEnum
 from pathlib import Path
 from typing import Any, BinaryIO, Callable, Dict, List, Optional, Union
-from juniors_toolbox.gui import ToolboxManager
 
+from juniors_toolbox.gui import ToolboxManager
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.gui.widgets.interactivestructs import (
-    InteractiveListWidget, InteractiveListWidgetItem)
+    InteractiveListView, InteractiveListWidget, InteractiveListWidgetItem)
 from juniors_toolbox.gui.widgets.listinterface import ListInterfaceWidget
 from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.utils import VariadicArgs, VariadicKwargs
 from juniors_toolbox.utils.bmg import BMG, RichMessage, SoundID
 from juniors_toolbox.utils.filesystem import resource_path
 from juniors_toolbox.utils.iohelper import decode_raw_string
-from PySide6.QtCore import QPoint, QRect, QSize, Qt, Signal, Slot
+from PySide6.QtCore import (QModelIndex, QPersistentModelIndex, QPoint, QRect, QObject, QDataStream, QByteArray,
+                            QSize, Qt, Signal, Slot, QIODevice, QMimeData)
 from PySide6.QtGui import (QAction, QColor, QFont, QImage, QIntValidator,
                            QMouseEvent, QPainter, QPainterPath, QPaintEvent,
-                           QPolygon, QTextCursor, QTransform)
+                           QPolygon, QStandardItem, QStandardItemModel, QTextCursor,
+                           QTransform)
 from PySide6.QtWidgets import (QCheckBox, QComboBox, QFileDialog, QFormLayout,
                                QFrame, QHBoxLayout, QLineEdit, QMenu, QMenuBar,
                                QPlainTextEdit, QPushButton, QSizePolicy,
@@ -884,37 +887,246 @@ class BMGMessagePreviewWidget(QWidget):
                 self.update()
 
 
-class BMGMessageListItem(InteractiveListWidgetItem):
-    def __init__(self, item: Union["BMGMessageListItem", str], message: BMG.MessageEntry):
-        super().__init__(item)
-        self.message = message
+class BMGMessageItem(QStandardItem):
+    _message: BMG.MessageEntry
 
-    def copy(self) -> "BMGMessageListItem":
-        message = BMG.MessageEntry(
-            self.message.name,
-            self.message.message,
-            self.message.soundID,
-            self.message.startFrame,
-            self.message.endFrame
+    def __init__(self, other: Optional[BMG.MessageEntry] | Optional["BMGMessageItem"] = None):
+        if isinstance(other, BMGMessageItem):
+            super().__init__(other)
+            self._message = other._message.copy(deep=True)
+            return
+
+        super().__init__()
+
+        self._message = BMG.MessageEntry("((null))")
+        if other is None:
+            return
+        
+        self._message = other
+
+    def isAutoTristate(self) -> bool:
+        return False
+
+    def isCheckable(self) -> bool:
+        return False
+
+    def isDragEnabled(self) -> bool:
+        return True
+
+    def isDropEnabled(self) -> bool:
+        return True
+
+    def isEditable(self) -> bool:
+        return True
+
+    def isSelectable(self) -> bool:
+        return True
+
+    def isUserTristate(self) -> bool:
+        return False
+
+    def read(self, in_: QDataStream) -> None:
+        name = in_.readString()
+
+        rdata = QByteArray()
+        in_ >> rdata
+
+        richMessage = RichMessage.from_bytes(
+            BytesIO(rdata)
         )
-        item = BMGMessageListItem(self, message)
-        return item
+        if richMessage is None:
+            raise ValueError("Invalid Rich Message")
+
+        soundID = SoundID(in_.readUInt32())
+        startFrame = in_.readInt32()
+        endFrame = in_.readInt32()
+
+        flagsData = QByteArray()
+        in_ >> flagsData
+
+        unkFlags = flagsData.data()
+
+        message = BMG.MessageEntry(
+            name,
+            richMessage,
+            soundID,
+            startFrame,
+            endFrame,
+            unkFlags
+        )
+        self.setData(message)
+
+    def write(self, out: QDataStream) -> None:
+        message: BMG.MessageEntry = self.data()
+
+        out.writeString(message.name)
+        out << message.message.to_bytes()
+        out.writeUInt32(message.soundID.value)
+        out.writeInt32(message.startFrame)
+        out.writeInt32(message.endFrame)
+        out << message._unkflags
+
+    def data(self, role: int = Qt.UserRole + 1) -> Any:
+        if role == Qt.DisplayRole:
+            return self._message.name
+            
+        if role == Qt.EditRole:
+            return self._message.name
+
+        elif role == Qt.SizeHintRole:
+            return QSize(40, self.font().pointSize() * 2)
+
+        elif role == Qt.UserRole + 1:
+            return self._message
+
+    def setData(self, value: Any, role: int = Qt.UserRole + 1) -> None:
+        if role == Qt.DisplayRole:
+            self._message.name = value
+
+        if role == Qt.EditRole:
+            self._message.name = value
+
+        elif role == Qt.UserRole + 1:
+            self._message = value
+
+    def clone(self) -> "BMGMessageItem":
+        return BMGMessageItem(self)
 
 
-class BMGMessageListWidget(InteractiveListWidget):
+class BMGMessageListModel(QStandardItemModel):
+    def __init__(self, parent: Optional[QObject] = None) -> None:
+        super().__init__(parent)
+        self.setItemPrototype(BMGMessageItem())
+
+    def supportedDragActions(self) -> Qt.DropActions:
+        return Qt.CopyAction | Qt.MoveAction
+
+    def supportedDropActions(self) -> Qt.DropActions:
+        return Qt.CopyAction | Qt.MoveAction
+
+    def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.UserRole + 1) -> Any:
+        if section == 0:
+            return "Messages"
+        return None
+
+    def itemData(self, index: Union[QModelIndex, QPersistentModelIndex]) -> dict[int, Any]:
+        roles = {}
+        for i in range(Qt.UserRole + 2):
+            variant = self.data(index, i)
+            if variant:
+                roles[i] = variant
+        return roles
+
+    def mimeTypes(self) -> list[str]:
+        return ["application/x-bmgmessagelist"]
+
+    def dropMimeData(self, data: QMimeData, action: Qt.DropAction, row: int, column: int, parent: Union[QModelIndex, QPersistentModelIndex]) -> bool:
+        mimeType = self.mimeTypes()[0]
+
+        encodedData = data.data(mimeType)
+        stream = QDataStream(
+            encodedData,
+            QIODevice.ReadOnly
+        )
+
+        itemCount = stream.readInt32()
+        if action & Qt.CopyAction:
+            for i in range(itemCount):
+                item = BMGMessageItem()
+                item.read(stream)
+                item.setData(
+                    self._resolve_name(item.data(Qt.DisplayRole)),
+                    Qt.DisplayRole
+                )
+                self.insertRow(row + i, item)
+        else:
+            oldItems: list[BMGMessageItem] = []
+            for i in range(itemCount):
+                item = BMGMessageItem()
+                item.read(stream)
+                name = item.data(Qt.DisplayRole)
+                oldItems.append(
+                    self.findItems(name)[0]
+                )
+                self.insertRow(row + i, item)
+            for item in oldItems:
+                self.removeRow(item.row())
+
+        return action == Qt.CopyAction
+
+    def mimeData(self, indexes: list[int]) -> QMimeData:
+        mimeType = self.mimeTypes()[0]
+        mimeData = QMimeData()
+
+        encodedData = QByteArray()
+        stream = QDataStream(
+            encodedData,
+            QIODevice.WriteOnly
+        )
+
+        stream.writeInt32(len(indexes))
+        for index in indexes:
+            item = self.itemFromIndex(index) # type: ignore
+            item.write(stream)
+
+        mimeData.setData(
+            mimeType,
+            encodedData
+        )
+        return mimeData
+    
+    def _resolve_name(self, name: str, filterItem: Optional[QStandardItem] = None) -> str:
+        renameContext = 1
+        ogName = name
+
+        possibleNames = []
+        for i in range(self.rowCount()):
+            if renameContext > 100:
+                raise FileExistsError(
+                    "Name exists beyond 100 unique iterations!")
+            item = self.item(i)
+            if item == filterItem:
+                continue
+            itemText: str = item.data(Qt.DisplayRole)
+            if itemText.startswith(ogName):
+                possibleNames.append(itemText)
+
+        i = 0
+        while True:
+            if i >= len(possibleNames):
+                break
+            if renameContext > 100:
+                raise FileExistsError(
+                    "Name exists beyond 100 unique iterations!")
+            if possibleNames[i] == name:
+                name = f"{ogName}{renameContext}"
+                renameContext += 1
+                i = 0
+            else:
+                i += 1
+        return name
+
+
+class BMGMessageListView(InteractiveListView):
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
+        self.setModel(BMGMessageListModel())
         self.setMinimumSize(150, 100)
 
-    @Slot(BMGMessageListItem)
-    def rename_item(self, item: BMGMessageListItem):
-        name = super().rename_item(item)
-        item.message.name = name
+    def model(self) -> BMGMessageListModel:
+        return super().model()
 
-    @Slot(BMGMessageListItem)
-    def duplicate_items(self, item: BMGMessageListItem):
-        nitem = super().duplicate_items(item)
-        nitem.message.name = nitem.text()
+    def setModel(self, model: BMGMessageListModel) -> None:
+        super().setModel(model)
+
+    def get_message(self, row: int) -> BMG.MessageEntry:
+        model = self.model()
+        item = model.item(row)
+        return item.data()
+
+    def set_message(self, row: int, rail: BMG.MessageEntry):
+        model = self.model()
+        model.setItem(row, BMGMessageItem(rail))
 
 
 class BMGMessageInterfaceWidget(QWidget):
@@ -1337,8 +1549,8 @@ class BMGMessageEditorWidget(A_DockingInterface):
         self.mainLayout = QVBoxLayout()
         self.mainLayout.setContentsMargins(10, 0, 10, 10)
 
-        messageListBox = BMGMessageListWidget()
-        messageListBox.currentItemChanged.connect(self.show_message)
+        messageListBox = BMGMessageListView()
+        messageListBox.clicked.connect(self.show_message)
         self.messageListBox = messageListBox
 
         messageListInterface = ListInterfaceWidget()
@@ -1447,7 +1659,9 @@ class BMGMessageEditorWidget(A_DockingInterface):
             return
 
         self.messageListBox.clear()
+        self.messageTextEdit.blockSignals(True)
         self.messageTextEdit.clear()
+        self.messageTextEdit.blockSignals(False)
 
         self.menuBar.set_region_pal(data.is_str1_present())
         self.menuBar.set_packet_size(data.flagSize)
@@ -1455,11 +1669,13 @@ class BMGMessageEditorWidget(A_DockingInterface):
         for i, message in enumerate(data.iter_messages()):
             if message.name == "":
                 message.name = f"message_unk_{i}"
-            listItem = BMGMessageListItem(message.name, message)
-            self.messageListBox.addItem(listItem)
+            self.messageListBox.set_message(i, message)
 
-        if self.messageListBox.count() > 0:
-            self.messageListBox.setCurrentRow(0)
+        model = self.messageListBox.model()
+        if model.rowCount() > 0:
+            self.messageListBox.setCurrentIndex(
+                model.index(0, 0)
+            )
 
         self.messageListWidget.setEnabled(True)
 
@@ -1530,15 +1746,18 @@ class BMGMessageEditorWidget(A_DockingInterface):
             self.__cachedOpenPath = path
 
         bmg = BMG(self.menuBar.is_region_pal(), self.menuBar.get_packet_size())
-        for row in range(self.messageListBox.count()):
-            item: BMGMessageListItem = self.messageListBox.item(row)
-            bmg.add_message(item.message)
+
+        model = self.messageListBox.model()
+        for row in range(model.rowCount()):
+            item: BMGMessageItem = model.item(row)
+            bmg.add_message(item.data())
 
         with path.open("wb") as f:
             f.write(bmg.to_bytes())
 
-    @Slot(BMGMessageListItem)
-    def show_message(self, item: BMGMessageListItem):
+    @Slot(QModelIndex)
+    def show_message(self, index: QModelIndex):
+        item = self.messageListBox.model().item(index.row())
         if item is None or item.text() == "":
             self.messageTextEdit.clear()
             self.messageTextEdit.setDisabled(True)
@@ -1552,7 +1771,7 @@ class BMGMessageEditorWidget(A_DockingInterface):
             self.messagePreview.message = RichMessage()
             return
 
-        message = item.message
+        message: BMG.MessageEntry = item.data()
         self.messageTextEdit.setPlainText(
             message.message.get_rich_text().replace("\x00", ""))
         self.messageInterface.blockSignals(True)
@@ -1570,45 +1789,52 @@ class BMGMessageEditorWidget(A_DockingInterface):
 
     @Slot()
     def new_message(self):
+        model = self.messageListBox.model()
+        row = model.rowCount()
+
         name = self.messageListBox._resolve_name("message")
-        item = BMGMessageListItem(
-            name,
-            BMG.MessageEntry(
-                name,
-                RichMessage(),
-                SoundID.NOTHING,
-                0,
-                0
-            )
-        )
+        message = BMG.MessageEntry(name)
+
         self.messageListBox.blockSignals(True)
-        self.messageListBox.addItem(item)
+        self.messageListBox.set_message(message)
         self.messageListBox.blockSignals(False)
-        self.messageListBox.editItem(item, new=True)
+        self.messageListBox.edit(model.index(row, 0))
 
     @Slot()
     def remove_selected_message(self):
-        self.messageListBox.takeItem(self.messageListBox.currentRow())
+        model = self.messageListBox.model()
+        model.removeRow(
+            self.messageListBox.currentIndex().row()
+        )
 
     @Slot()
     def copy_selected_message(self):
-        self.messageListBox.duplicate_items(self.messageListBox.currentItem())
+        self.messageListBox.duplicate_items(
+            [
+                self.messageListBox.model().item(
+                    self.messageListBox.currentIndex()
+                )
+            ]
+        )
 
     @Slot()
     def update_message_text(self):
-        item: BMGMessageListItem = self.messageListBox.currentItem()
-        if item is None:
-            return
-        item.message.message = RichMessage.from_rich_string(
+        message = self.messageListBox.get_message(
+            self.messageListBox.currentIndex().row()
+        )
+
+        message.message = RichMessage.from_rich_string(
             self.messageTextEdit.toPlainText())
-        self.messagePreview.message = item.message.message
+
+        self.messagePreview.message = message.message
         self.messagePreview.update()
 
     @Slot(str, int, int)
     def update_message_attributes(self, soundName: str, startFrame: int, endFrame: int):
-        item: BMGMessageListItem = self.messageListBox.currentItem()
+        message = self.messageListBox.get_message(
+            self.messageListBox.currentIndex().row()
+        )
 
-        message = item.message
         message.soundID = SoundID.name_to_sound_id(soundName)
         message.startFrame = startFrame
         message.endFrame = endFrame
