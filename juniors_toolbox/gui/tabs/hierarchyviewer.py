@@ -11,8 +11,6 @@ from types import LambdaType
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 from juniors_toolbox.gui import ToolboxManager
-from juniors_toolbox.gui.tabs.dataeditor import DataEditorWidget
-from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
 from juniors_toolbox.gui.templates import ToolboxTemplates
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.gui.widgets.interactivestructs import (
@@ -396,7 +394,7 @@ class NameRefHierarchyWidget(A_DockingInterface):
         self.treeWidget.itemClicked.connect(
             self._populate_properties_view
         )
-        self.treeWidget.currentItemChanged.connect(
+        self.treeWidget.itemClicked.connect(
             self.__populate_data_view
         )
 
@@ -455,6 +453,8 @@ class NameRefHierarchyWidget(A_DockingInterface):
     @Slot(NameRefHierarchyTreeWidgetItem)
     def _populate_properties_view(self, item: NameRefHierarchyTreeWidgetItem) -> None:
         from juniors_toolbox.gui.tabs import TabWidgetManager
+        from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
+
         propertiesTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
         if propertiesTab is None or item is None:
             return
@@ -602,21 +602,29 @@ class NameRefHierarchyWidget(A_DockingInterface):
         manager = ToolboxManager.get_instance()
         propertiesTab.populate(
             scene,
-            properties=properties,
-            title=f"{sceneObj.get_explicit_name()} Properties"
+            title=f"{sceneObj.get_explicit_name()} Properties",
+            properties=properties
         )
 
     @Slot(NameRefHierarchyTreeWidgetItem)
     def __populate_data_view(self, item: NameRefHierarchyTreeWidgetItem):
         from juniors_toolbox.gui.tabs import TabWidgetManager
+        from juniors_toolbox.gui.tabs.dataeditor import DataEditorWidget
+
         dataEditorTab = TabWidgetManager.get_tab(DataEditorWidget)
         if dataEditorTab is None or item is None:
             return
+
         if item.parent() is None:
             obj = item.child(0).object
         else:
             obj = item.object
-        dataEditorTab.populate(None, serializable=obj)
+
+        dataEditorTab.populate(
+            None,
+            title=f"{obj.get_explicit_name()} Data",
+            serializable=obj
+        )
 
     def startDrag(self, supportedActions: Qt.DropActions):
         self.draggedItem = self.treeWidget.currentItem()
@@ -656,14 +664,23 @@ class NameRefHierarchyWidget(A_DockingInterface):
 
     def _update_object_key(self, obj: A_SceneObject, key: str):
         from juniors_toolbox.gui.tabs import TabWidgetManager
-        propertiesTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
-        if propertiesTab is None:
-            return
+        from juniors_toolbox.gui.tabs.dataeditor import DataEditorWidget
+        from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
 
         obj.key.set_ref(key)
-        propertiesTab.setWindowTitle(
-            f"{obj.get_explicit_name()} Properties"
-        )
+        objExplicitName = obj.get_explicit_name()
+        
+        propertiesTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
+        if propertiesTab is not None:
+            propertiesTab.setTitleText(
+                f"{objExplicitName} Properties"
+            )
+
+        dataEditorTab = TabWidgetManager.get_tab(DataEditorWidget)
+        if dataEditorTab is not None:
+            dataEditorTab.setTitleText(
+                f"{objExplicitName} Properties"
+            )
 
 
     def __set_array_instance(self, prop: ArrayProperty, size: int):
@@ -745,6 +762,8 @@ class NameRefHierarchyWidget(A_DockingInterface):
     @Slot(A_Member)
     def __update_data_view(self):
         from juniors_toolbox.gui.tabs import TabWidgetManager
+        from juniors_toolbox.gui.tabs.dataeditor import DataEditorWidget
+
         dataEditorTab = TabWidgetManager.get_tab(DataEditorWidget)
         if dataEditorTab is None or self.__selectedObject is None:
             return
@@ -757,3 +776,6 @@ class NameRefHierarchyWidget(A_DockingInterface):
         data = objData + data[objOldLength:]
 
         dataEditorTab.set_data(data)
+        dataEditorTab.setTitleText(
+            f"{self.__selectedObject.get_explicit_name()} Properties"
+        )

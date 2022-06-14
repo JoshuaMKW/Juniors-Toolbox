@@ -4,8 +4,8 @@ from typing import Optional
 from typing_extensions import Unpack
 
 from PySide6.QtCore import Signal, Slot, QSize
-from PySide6.QtGui import QCloseEvent, QHideEvent, QResizeEvent
-from PySide6.QtWidgets import QDockWidget, QWidget
+from PySide6.QtGui import QCloseEvent, QHideEvent, QResizeEvent, QPaintEvent
+from PySide6.QtWidgets import QDockWidget, QWidget, QStyle, QStylePainter, QStyleOptionFrame, QStyleOptionDockWidget
 
 from juniors_toolbox.gui.widgets import ABCWidget
 from juniors_toolbox.scene import SMSScene
@@ -19,12 +19,30 @@ class A_DockingInterface(QDockWidget, ABCWidget):
 
     def __init__(self, title: str = "", parent: Optional[QWidget] = None) -> None:
         super().__init__(title, parent)
+        self._titleText: Optional[str] = None
 
     @abstractmethod
     def populate(self, scene: Optional[SMSScene], *args: VariadicArgs, **kwargs: VariadicKwargs) -> None: ...
+    
+    def titleText(self):
+        if self._titleText is None:
+            return self.windowTitle()
+        return self._titleText
 
-    @abstractmethod
-    def __del__(self) -> None: ...
+    def setTitleText(self, text):
+        self._titleText = text
+        self.repaint()
+
+    def paintEvent(self, event: QPaintEvent):
+        painter = QStylePainter(self)
+        if self.isFloating():
+            options = QStyleOptionFrame()
+            options.initFrom(self)
+            painter.drawPrimitive(QStyle.PE_FrameDockWidget, options)
+        options = QStyleOptionDockWidget()
+        self.initStyleOption(options)
+        options.title = self.titleText()
+        painter.drawControl(QStyle.CE_DockWidgetTitle, options)
 
     @Slot(QCloseEvent)
     def closeEvent(self, event: QCloseEvent) -> None:

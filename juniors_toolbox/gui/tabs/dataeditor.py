@@ -183,7 +183,13 @@ class DataEditorWidget(A_DockingInterface):
         if "serializable" not in kwargs:
             return
 
+        title: str = kwargs.get("title", "Data Viewer")
+        strict: bool = kwargs.get("strict", False)
         serializable: A_Serializable = kwargs["serializable"]
+
+        if title == self.titleText() and strict:
+            return
+            
         # self.serializeThread = QThread()
         # self.serializer = Serializer(serializable)
         # self.serializer.moveToThread(self.serializeThread)
@@ -193,7 +199,10 @@ class DataEditorWidget(A_DockingInterface):
         # self.serializer.finished.connect(self.serializer.deleteLater)
         # self.serializeThread.finished.connect(self.serializeThread.deleteLater)
         # self.serializeThread.start()
+
         self.set_data(serializable.to_bytes())
+        self.setTitleText(title)
+
 
     def set_data(self, data: bytes):
         with QMutexLocker(self._dataMutex) as mutexLock:

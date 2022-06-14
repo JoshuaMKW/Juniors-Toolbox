@@ -5,8 +5,6 @@ from pathlib import Path
 from tkinter.font import names
 from typing import Optional, Union, Any
 from juniors_toolbox.gui.layouts.framelayout import FrameLayout
-from juniors_toolbox.gui.tabs.dataeditor import DataEditorWidget
-from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.gui.widgets.interactivestructs import (
     InteractiveListView, InteractiveListWidget, InteractiveListWidgetItem)
@@ -666,11 +664,10 @@ class RailNodeListWidget(InteractiveListView):
         super().__init__(parent)
         self.setModel(RailNodeListModel())
 
-        selectionModel = self.selectionModel()
-        selectionModel.currentChanged.connect(
+        self.clicked.connect(
             self._populate_properties_view
         )
-        selectionModel.currentChanged.connect(
+        self.clicked.connect(
             self._populate_data_view
         )
 
@@ -873,9 +870,11 @@ class RailNodeListWidget(InteractiveListView):
         self.update(index)
         self._populate_data_view(index, QModelIndex())
     
-    @Slot(QModelIndex, QModelIndex)
-    def _populate_properties_view(self, selected: QModelIndex, previous: QModelIndex) -> None:
+    @Slot(QModelIndex)
+    def _populate_properties_view(self, selected: QModelIndex) -> None:
         from juniors_toolbox.gui.tabs import TabWidgetManager
+        from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
+
         propertiesTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
         if propertiesTab is None or not selected.isValid():
             return
@@ -982,14 +981,21 @@ class RailNodeListWidget(InteractiveListView):
             ]
         )
 
-    @Slot(QModelIndex, QModelIndex)
-    def _populate_data_view(self, selected: QModelIndex, previous: QModelIndex):
+    @Slot(QModelIndex)
+    def _populate_data_view(self, selected: QModelIndex):
         from juniors_toolbox.gui.tabs import TabWidgetManager
+        from juniors_toolbox.gui.tabs.dataeditor import DataEditorWidget
+
         dataEditorTab = TabWidgetManager.get_tab(DataEditorWidget)
         if dataEditorTab is None or not selected.isValid():
             return
-        obj = self.get_rail_node(selected.row())
-        dataEditorTab.populate(None, serializable=obj)
+
+        node = self.get_rail_node(selected.row())
+        dataEditorTab.populate(
+            None,
+            title=f"Node {selected.row()} Data",
+            serializable=node
+        )
 
 
 class RailListView(InteractiveListView):
@@ -1003,11 +1009,10 @@ class RailListView(InteractiveListView):
             self
         )
         self.setModel(self._model)
-        selectionModel = self.selectionModel()
-        selectionModel.currentChanged.connect(
+        self.clicked.connect(
             self._populate_properties_view
         )
-        selectionModel.currentChanged.connect(
+        self.clicked.connect(
             self._populate_data_view
         )
 
@@ -1094,6 +1099,8 @@ class RailListView(InteractiveListView):
     
     def _set_rail_spline(self, index: QModelIndex, isSpline: bool):
         from juniors_toolbox.gui.tabs import TabWidgetManager
+        from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
+        
         propertiesTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
         if propertiesTab is None or not index.isValid():
             return
@@ -1108,7 +1115,7 @@ class RailListView(InteractiveListView):
         propertiesTab.setWindowTitle(title)
 
         self.update(index)
-        # self._populate_data_view(index, QModelIndex())
+        # self._populate_data_view(index())
     
     @Slot(list)
     def duplicate_indexes(self, indexes: list[QModelIndex | QPersistentModelIndex]) -> list[QModelIndex | QPersistentModelIndex]:
@@ -1200,9 +1207,11 @@ class RailListView(InteractiveListView):
             rail = self.get_rail(index.row())
             rail.subdivide(value)
     
-    @Slot(QModelIndex, QModelIndex)
-    def _populate_properties_view(self, selected: QModelIndex, previous: QModelIndex) -> None:
+    @Slot(QModelIndex)
+    def _populate_properties_view(self, selected: QModelIndex) -> None:
         from juniors_toolbox.gui.tabs import TabWidgetManager
+        from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
+
         propertiesTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
         if propertiesTab is None or not selected.isValid():
             return
@@ -1238,14 +1247,22 @@ class RailListView(InteractiveListView):
             ]
         )
     
-    @Slot(QModelIndex, QModelIndex)
-    def _populate_data_view(self, selected: QModelIndex, previous: QModelIndex):
+    @Slot(QModelIndex)
+    def _populate_data_view(self, selected: QModelIndex):
         from juniors_toolbox.gui.tabs import TabWidgetManager
+        from juniors_toolbox.gui.tabs.dataeditor import DataEditorWidget
+
         dataEditorTab = TabWidgetManager.get_tab(DataEditorWidget)
         if dataEditorTab is None or not selected.isValid():
             return
+
         obj = self.get_rail(selected.row())
-        dataEditorTab.populate(None, serializable=obj)
+
+        dataEditorTab.populate(
+            None,
+            title=f"{selected.data(Qt.UserRole + 1).name} Data",
+            serializable=obj
+        )
 
 
 class RailInterfaceWidget(QWidget):
