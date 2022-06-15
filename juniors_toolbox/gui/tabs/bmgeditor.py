@@ -726,7 +726,8 @@ class BMGMessageViewDEBS(BMGMessageView):
 
 
 class BMGMessageViewStage(BMGMessageView):
-    ...
+    def render_(self, painter: QPainter, message: RichMessage, currentPage: int) -> List[ButtonCB]:
+        return []
 
 
 class BMGMessagePreviewWidget(QWidget):
@@ -740,7 +741,7 @@ class BMGMessagePreviewWidget(QWidget):
         PIANTA = "shades_pianta"
         TANOOKI = "tanooki"
         NOKI = "old_noki"
-        STAGE = "stage_select"
+        # STAGE = "stage_select"
 
     def __init__(self, message: RichMessage = None, parent: Optional[QWidget] = None):
         super().__init__(parent)
@@ -794,6 +795,12 @@ class BMGMessagePreviewWidget(QWidget):
     def get_background(self) -> QImage:
         if self._background is None:
             return QImage()
+        if self.is_stage_name():
+            return QImage(
+                str(
+                    resource_path("gui/backgrounds/") / "bmg_preview_stage_select.png"
+                )
+            )
         return QImage(str(self._background))
 
     def set_background(self, bg: BackGround):
@@ -822,10 +829,10 @@ class BMGMessagePreviewWidget(QWidget):
         return self._boxState == BMGMessagePreviewWidget.BoxState.STAGENAME
 
     def is_right_aligned(self) -> bool:
-        return self._is_right_bound
+        return self.npcRenderer.is_right_aligned()
 
     def set_right_aligned(self, raligned: bool):
-        self._is_right_bound = raligned
+        self.npcRenderer.set_right_aligned(raligned)
 
     def set_page(self, page: int):
         renderer = self.renderers[self._boxState]
@@ -929,13 +936,17 @@ class BMGMessagePreviewWidget(QWidget):
 
         msgPainter.end()
 
-        if self.is_billboard():
-            messageImgOfs = QPoint(470, 30)
-        else:
-            if self._is_right_bound:
+        if self.is_npc():
+            if self.is_right_aligned():
                 messageImgOfs = QPoint(635, 5)
             else:
                 messageImgOfs = QPoint(210, 53)
+        elif self.is_billboard():
+            messageImgOfs = QPoint(470, 30)
+        elif self.is_debs():
+            messageImgOfs = QPoint(210, 800)
+        elif self.is_stage_name():
+            messageImgOfs = QPoint(100, 600)
 
         mainPainter = QPainter()
         mainPainter.begin(backgroundImg)
@@ -1513,6 +1524,8 @@ class BMGMessageMenuBar(QMenuBar):
     closeRequested = Signal()
     saveRequested = Signal(bool)
 
+    packetSizeUpdated = Signal(int)
+
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.setNativeMenuBar(False)
@@ -1638,6 +1651,7 @@ class BMGMessageMenuBar(QMenuBar):
         self._sizeAction4.blockSignals(False)
         self._sizeAction8.blockSignals(False)
         self._sizeAction12.blockSignals(False)
+        self.packetSizeUpdated.emit(size)
 
     def get_packet_size(self) -> int:
         if self._sizeAction4.isChecked():
@@ -1720,6 +1734,7 @@ class BMGMessageEditorWidget(A_DockingInterface):
 
         messageWidget = QWidget()
         self.messagePreview = BMGMessagePreviewWidget()
+        self._prevPreviewState = BMGMessagePreviewWidget.BoxState.NPC
 
         messageSplitter = QSplitter()
         messageSplitter.setChildrenCollapsible(False)
@@ -1753,6 +1768,7 @@ class BMGMessageEditorWidget(A_DockingInterface):
         menuBar.saveRequested.connect(
             lambda saveAs: self.save_bmg(saveAs=saveAs))
         self.menuBar = menuBar
+        menuBar.packetSizeUpdated.connect(self.update_is_stagename)
 
         self.mainLayout.addWidget(self.menuBar)
         self.mainLayout.addWidget(self.splitter)
@@ -1950,11 +1966,22 @@ class BMGMessageEditorWidget(A_DockingInterface):
         message.startFrame = startFrame
         message.endFrame = endFrame
 
+    @Slot(int)
+    def update_is_stagename(self, packetSize: int):
+        if packetSize == 4:
+            self._prevPreviewState = self.messagePreview.boxState
+            self.messagePreview.boxState = BMGMessagePreviewWidget.BoxState.STAGENAME
+        else:
+            self.messagePreview.boxState = self._prevPreviewState
+
     @Slot(bool)
     def set_billboard(self, toggled: bool):
-        self.messagePreview.boxState = (
-            BMGMessagePreviewWidget.BoxState.BILLBOARD if toggled else BMGMessagePreviewWidget.BoxState.NPC
-        )
+        if self.messagePreview.is_stage_name():
+            self._prevPreviewState = BMGMessagePreviewWidget.BoxState.BILLBOARD if toggled else BMGMessagePreviewWidget.BoxState.NPC
+        else:
+            self.messagePreview.boxState = (
+                BMGMessagePreviewWidget.BoxState.BILLBOARD if toggled else BMGMessagePreviewWidget.BoxState.NPC
+            )
         self.messagePreview.update()
 
     @Slot(str)
