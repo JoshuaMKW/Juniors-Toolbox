@@ -1294,7 +1294,6 @@ class BMGMessageFilterModel(QSortFilterProxyModel):
         message: BMG.MessageEntry = item.data(Qt.UserRole + 1)
 
         regexp = self.filterRegularExpression()
-        pattern = regexp.pattern()
         regexpMatch = regexp.match(message.message.get_rich_text())
         return regexpMatch.hasMatch()
 
