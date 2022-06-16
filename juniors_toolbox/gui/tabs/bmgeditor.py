@@ -235,7 +235,7 @@ class BMGMessageView(QObject, ABCWidget):
                 charWidth += self.PaddingMap[char]
         return charWidth
 
-    def _render_text(self, painter: QPainter, text: str, path: Optional[QPainterPath] = None, newLineHBuffer: int = 0) -> QSize:
+    def _render_text(self, painter: QPainter, text: str, _x: int = 0, _y: int = 0, path: Optional[QPainterPath] = None, newLineHBuffer: int = 0) -> QSize:
         text = text.replace("\x00", "")
         if text == "":
             return QSize(0, 0)
@@ -268,7 +268,7 @@ class BMGMessageView(QObject, ABCWidget):
                 charWidth = fontMetrics.horizontalAdvanceChar(char)
                 if char in self.PaddingMap:
                     charWidth += self.PaddingMap[char]
-                painter.drawText(0, 0, char)
+                painter.drawText(_x, _y, char)
                 painter.translate(charWidth, 0)
                 lineWidth += charWidth
         painter.restore()
@@ -505,7 +505,6 @@ class BMGMessageViewNPC(BMGMessageView):
         buttonImg = QImage(27, 27, QImage.Format_ARGB32)
         buttonImg.fill(Qt.transparent)
 
-
         # /- RENDER BUTTONS -/ #
         buttonPainter = QPainter()
         buttonPainter.begin(buttonImg)
@@ -730,17 +729,44 @@ class BMGMessageViewBillboard(BMGMessageViewNPC):
 
 class BMGMessageViewDEBS(BMGMessageView):
     def render_(self, painter: QPainter, message: RichMessage, currentPage: int) -> List[ButtonCB]:
-        debsRect = QRectF(0, 0, 500, 80)
-        debsShadowRect = debsRect.translated(10, 10)
-
-        painter.scale(0.935, 0.89)
+        font = QFont("FOT-PopHappiness Std EB")
+        font.setPointSize(self.FontSize)
+        painter.setFont(font)
+        painter.setPen(Qt.white)
 
         debsBackDrop = QImage(
             resource_path(
                 "gui/images/debs_alert_backdrop.png"
             )
         )
+
+        painter.scale(0.935, 0.89)
         painter.drawImage(0, 0, debsBackDrop)
+
+        textImage = QImage(debsBackDrop.width() - 68,
+                           debsBackDrop.height(), QImage.Format_ARGB32)
+        textImage.fill(Qt.transparent)
+
+        textPainter = QPainter()
+        textPainter.begin(textImage)
+
+        font = QFont("FOT-PopHappiness Std EB")
+        font.setPointSize(41)
+        painter.setFont(font)
+        textPainter.setFont(painter.font())
+        textPainter.setPen(Qt.black)
+        textPainter.translate(6, 85)
+        self._render_text(textPainter, message.get_string(), _x=-currentPage)
+
+        textPainter.setPen(Qt.white)
+        textPainter.translate(-6, -5)
+        textPainter.scale(1, 1.1)
+        self._render_text(textPainter, message.get_string(), _x=-currentPage)
+
+
+        textPainter.end()
+
+        painter.drawImage(QPoint(24, 0), textImage)
 
         # font = QFont("FOT-PopHappiness Std EB")
         # font.setPointSize(self.FontSize)
