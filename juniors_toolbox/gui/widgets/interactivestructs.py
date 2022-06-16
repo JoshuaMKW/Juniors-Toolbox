@@ -633,12 +633,6 @@ class InteractiveListView(QListView):
         self.setDefaultDropAction(Qt.MoveAction)
         self.setDragDropOverwriteMode(False)
 
-    def model(self) -> QStandardItemModel:
-        return super().model()
-
-    def setModel(self, model: QStandardItemModel) -> None:
-        super().setModel(model)
-
     def get_context_menu(self, point: QPoint) -> Optional[QMenu]:
         # Infos about the node selected.
         index: Optional[QStandardItem] = self.indexAt(point)
