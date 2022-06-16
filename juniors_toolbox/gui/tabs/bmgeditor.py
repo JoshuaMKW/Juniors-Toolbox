@@ -13,7 +13,7 @@ from juniors_toolbox.gui.widgets.interactivestructs import (
     InteractiveListView, InteractiveListWidget, InteractiveListWidgetItem)
 from juniors_toolbox.gui.widgets.listinterface import ListInterfaceWidget
 from juniors_toolbox.scene import SMSScene
-from juniors_toolbox.utils import VariadicArgs, VariadicKwargs
+from juniors_toolbox.utils import VariadicArgs, VariadicKwargs, clamp
 from juniors_toolbox.utils.bmg import BMG, RichMessage, SoundID
 from juniors_toolbox.utils.filesystem import resource_path
 from juniors_toolbox.utils.iohelper import decode_raw_string
@@ -207,6 +207,12 @@ class BMGMessageView(QObject, ABCWidget):
     def get_end_page(self, message: RichMessage) -> int: ...
 
     @abstractmethod
+    def get_init_page(self, message: RichMessage) -> int: ...
+
+    @abstractmethod
+    def get_start_page(self, message: RichMessage) -> int: ...
+
+    @abstractmethod
     def get_message_for_page(self, message: RichMessage,
                              page: int) -> RichMessage: ...
 
@@ -335,6 +341,12 @@ class BMGMessageViewNPC(BMGMessageView):
     def get_end_page(self, message: RichMessage) -> int:
         numLines = self.get_num_newlines(message)
         return numLines // self.get_lines_per_page()
+
+    def get_init_page(self, message: RichMessage) -> int:
+        return self.get_start_page(message)
+
+    def get_start_page(self, message: RichMessage) -> int:
+        return 0
 
     def get_message_for_page(self, message: RichMessage, page: int) -> RichMessage:
         components = []
@@ -734,7 +746,13 @@ class BMGMessageViewDEBS(BMGMessageView):
         self._debsRect = QRect()
 
     def get_end_page(self, message: RichMessage) -> int:
-        return int((len(message.get_string()) * 29.4) + 200)
+        return int((len(message.get_string()) * 29.4) + 1400)
+
+    def get_init_page(self, message: RichMessage) -> int:
+        return 0
+
+    def get_start_page(self, message: RichMessage) -> int:
+        return -1200
 
     def render_(self, painter: QPainter, message: RichMessage, currentPage: int) -> List[ButtonCB]:
         font = QFont("FOT-PopHappiness Std EB")
@@ -791,6 +809,18 @@ class BMGMessageViewDEBS(BMGMessageView):
 
 
 class BMGMessageViewStage(BMGMessageView):
+    def get_end_page(self, message: RichMessage) -> int:
+        return 0
+
+    def get_init_page(self, message: RichMessage) -> int:
+        return self.get_start_page(message)
+
+    def get_start_page(self, message: RichMessage) -> int:
+        return 0
+
+    def get_message_for_page(self, message: RichMessage, page: int) -> RichMessage:
+        return message
+
     def render_(self, painter: QPainter, message: RichMessage, currentPage: int) -> List[ButtonCB]:
         painter.translate(1920 / 2, 66)
 
@@ -875,6 +905,9 @@ class BMGMessagePreviewWidget(QWidget):
     @boxState.setter
     def boxState(self, state: BoxState):
         self._boxState = state
+
+        renderer = self.renderers[state]
+        self._curPage = renderer.get_init_page(self._message)
 
     def get_background(self) -> QImage:
         if self._background is None:
@@ -1104,10 +1137,11 @@ class BMGMessagePreviewWidget(QWidget):
             self._curPage += movement
 
             endPage = self.debsRenderer.get_end_page(self._message)
+            startPage = self.debsRenderer.get_start_page(self._message)
             if self._curPage > endPage:
-                self._curPage -= endPage + 1200
-            elif self._curPage < -1200:
-                self._curPage = self._curPage + endPage + 1200
+                self._curPage = startPage + (self._curPage - endPage)
+            elif self._curPage < startPage:
+                self._curPage = endPage - (self._curPage - startPage)
 
             self._lastXPos = ePos.x()
             self.update()
