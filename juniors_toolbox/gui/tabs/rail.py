@@ -1292,8 +1292,8 @@ class RailViewerWidget(A_DockingInterface):
         railInterface = ListInterfaceWidget()
         railInterface.addRequested.connect(self.new_rail)
         railInterface.removeRequested.connect(
-            self.remove_selected_rail)
-        railInterface.copyRequested.connect(self.copy_selected_rail)
+            self.remove_selected_rails)
+        railInterface.copyRequested.connect(self.copy_selected_rails)
         self.railInterface = railInterface
 
         railList = RailListView()
@@ -1311,8 +1311,8 @@ class RailViewerWidget(A_DockingInterface):
         nodeInterface = ListInterfaceWidget()
         nodeInterface.addRequested.connect(lambda: self.new_node(self.nodeList.currentIndex()))
         nodeInterface.removeRequested.connect(
-            self.remove_selected_node)
-        nodeInterface.copyRequested.connect(self.copy_selected_node)
+            self.remove_selected_nodes)
+        nodeInterface.copyRequested.connect(self.copy_selected_nodes)
         self.nodeInterface = nodeInterface
 
         nodeList = RailNodeListWidget()
@@ -1360,9 +1360,6 @@ class RailViewerWidget(A_DockingInterface):
             return
 
         model = self.nodeList.model()
-        selectionModel = self.nodeList.selectionModel()
-
-        model = self.nodeList.model()
         if model.rowCount() > 0:
             model.removeRows(0, model.rowCount())
 
@@ -1385,21 +1382,17 @@ class RailViewerWidget(A_DockingInterface):
         self.railList.edit(model.index(row, 0))
 
     @Slot()
-    def remove_selected_rail(self):
+    def remove_selected_rails(self):
         model = self.railList.model()
-        selectionModel = self.railList.selectionModel()
-        model.removeRow(selectionModel.currentIndex().row())
+        selectedIndexes = self.railList.selectedIndexes()
+        for index in selectedIndexes:
+            model.removeRow(index.row())
 
     @Slot()
-    def copy_selected_rail(self):
-        model = self.railList.model()
-        selectionModel = self.railList.selectionModel()
-
-        indexes: list[QModelIndex] = []
-        for row in selectionModel.selectedIndexes():
-            indexes.append(row)
-
-        self.railList.duplicate_indexes(indexes)
+    def copy_selected_rails(self):
+        self.railList.duplicate_indexes(
+            self.railList.selectedIndexes()
+        )
 
     @Slot()
     def new_node(self):
@@ -1410,14 +1403,11 @@ class RailViewerWidget(A_DockingInterface):
             self._rail.insert_node(row, node)
 
     @Slot()
-    def remove_selected_node(self):
-        index = self.nodeList.currentIndex()
-        if not index.isValid():
-            return
-
-        self.remove_deleted_node(
-            self.nodeList.model().item(index)
-        )
+    def remove_selected_nodes(self):
+        for index in self.nodeList.selectedIndexes():
+            self.remove_deleted_node(
+                self.nodeList.model().item(index)
+            )
 
     @Slot(RailNodeItem)
     def remove_deleted_node(self, item: RailNodeItem):
@@ -1430,16 +1420,19 @@ class RailViewerWidget(A_DockingInterface):
         rail.remove_node(node)
 
     @Slot()
-    def copy_selected_node(self):
-        self.nodeList.duplicate_items(
-            [self.nodeList.currentItem()]
+    def copy_selected_nodes(self):
+        self.nodeList.duplicate_indexes(
+            self.nodeList.selectedIndexes()
         )
 
     @Slot()
     def connect_rows_to_rail(self):
-        rail = self.railList.get_rail(
-            self.railList.currentIndex().row()
-        )
+        currentIndex = self.railList.currentIndex()
+        if not currentIndex.isValid():
+            return
+
+        rail = self.railList.get_rail(currentIndex.row())
+
         rail._nodes = []
         for i in range(self.nodeList.model().rowCount()):
             node = self.nodeList.get_rail_node(i)

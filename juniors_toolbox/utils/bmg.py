@@ -83,7 +83,7 @@ class RichMessage(A_Serializable, A_Clonable):
                 rawmsg = message[:-1].encode()
 
                 option = int(command[8:]).to_bytes(1, "big", signed=False)
-                length = (len(message) + 5).to_bytes(1, "big", signed=False)
+                length = (len(rawmsg) + 5).to_bytes(1, "big", signed=False)
                 return b"\x1A" + length + b"\x01\x00" + option + rawmsg
 
             if rich.startswith("{raw:"):

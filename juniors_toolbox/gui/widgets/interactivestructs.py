@@ -645,7 +645,7 @@ class InteractiveListView(QListView):
 
         duplicateAction = QAction("Duplicate", self)
         duplicateAction.triggered.connect(
-            lambda clicked=None: self.duplicate_items(selectedIndexes)
+            lambda clicked=None: self.duplicate_indexes(selectedIndexes)
         )
         
         renameAction = QAction("Rename", self)
@@ -698,7 +698,7 @@ class InteractiveListView(QListView):
         return newName
 
     @Slot(list)
-    def duplicate_items(self, indexes: list[QModelIndex | QPersistentModelIndex]) -> list[QStandardItem]:
+    def duplicate_indexes(self, indexes: list[QModelIndex | QPersistentModelIndex]) -> list[QModelIndex]:
         """
         Returns the new item
         """
@@ -707,12 +707,8 @@ class InteractiveListView(QListView):
             
         model = self.model()
 
-        items = [model.item(index.row()) for index in indexes]
-        newItems: list[QStandardItem] = []
-
-        for item in items:
-            index = item.index()
-
+        newIndexes: list[QModelIndex] = []
+        for index in indexes:
             mimeData = model.mimeData([index])
 
             model.dropMimeData(
@@ -723,15 +719,15 @@ class InteractiveListView(QListView):
                 QModelIndex()
             )
 
-            newItem = model.item(
+            newIndex = model.index(
                 index.row() + 1,
                 0
             )
 
-            newItems.append(newItem)
-            self.update(newItem.index())
+            newIndexes.append(newIndex)
+            self.update(newIndex)
 
-        return newItems
+        return newIndexes
 
     @Slot(list)
     def delete_indexes(self, indexes: List[AnyModelIndex]):

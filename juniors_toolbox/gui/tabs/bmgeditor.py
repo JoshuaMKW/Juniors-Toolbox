@@ -2083,17 +2083,11 @@ class BMGMessageEditorWidget(A_DockingInterface):
 
     @Slot()
     def copy_selected_message(self):
-        currentIndex = self.messageListBox.currentIndex()
-        if not currentIndex.isValid():
+        selectedIndexes = self.messageListBox.selectedIndexes()
+        if len(selectedIndexes) == 0:
             return
 
-        self.messageListBox.duplicate_items(
-            [
-                self.messageListModel.item(
-                    currentIndex.row()
-                )
-            ]
-        )
+        self.messageListBox.duplicate_indexes(selectedIndexes)
 
     @Slot()
     def update_message_text(self):
