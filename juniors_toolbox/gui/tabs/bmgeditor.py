@@ -16,15 +16,15 @@ from juniors_toolbox.utils import VariadicArgs, VariadicKwargs
 from juniors_toolbox.utils.bmg import BMG, RichMessage, SoundID
 from juniors_toolbox.utils.filesystem import resource_path
 from juniors_toolbox.utils.iohelper import decode_raw_string
-from PySide6.QtCore import (QByteArray, QDataStream, QIODevice, QMimeData, QRegularExpression,
+from PySide6.QtCore import (QByteArray, QDataStream, QIODevice, QMimeData, QRegularExpression, QRectF, QRect,
                             QModelIndex, QObject, QPersistentModelIndex,
                             QPoint, QRect, QSize, QSortFilterProxyModel, Qt,
                             Signal, Slot)
-from PySide6.QtGui import (QAction, QColor, QFont, QImage, QIntValidator,
+from PySide6.QtGui import (QAction, QColor, QFont, QImage, QIntValidator, QPen, QBrush, QImage,
                            QMouseEvent, QPainter, QPainterPath, QPaintEvent,
                            QPolygon, QStandardItem, QStandardItemModel,
                            QTextCursor, QTransform)
-from PySide6.QtWidgets import (QCheckBox, QComboBox, QFileDialog, QFormLayout,
+from PySide6.QtWidgets import (QCheckBox, QComboBox, QFileDialog, QFormLayout, QGraphicsDropShadowEffect,
                                QFrame, QHBoxLayout, QLineEdit, QMenu, QMenuBar,
                                QPlainTextEdit, QPushButton, QSizePolicy,
                                QSplitter, QVBoxLayout, QWidget)
@@ -730,28 +730,32 @@ class BMGMessageViewBillboard(BMGMessageViewNPC):
 
 class BMGMessageViewDEBS(BMGMessageView):
     def render_(self, painter: QPainter, message: RichMessage, currentPage: int) -> List[ButtonCB]:
-        debsRect = QRect(0, 0, 500, 80)
+        debsRect = QRectF(0, 0, 500, 80)
         debsShadowRect = debsRect.translated(10, 10)
 
-        painter.setBackground()
-        painter.drawRoundedRect(
-            debsShadowRect, 5, 5
+        painter.scale(0.935, 0.89)
+
+        debsBackDrop = QImage(
+            resource_path(
+                "gui/images/debs_alert_backdrop.png"
+            )
         )
+        painter.drawImage(0, 0, debsBackDrop)
 
-        font = QFont("FOT-PopHappiness Std EB")
-        font.setPointSize(self.FontSize)
-        painter.setFont(font)
-        painter.setPen(Qt.white)
-        painter.scale(2.6, 3.0)
+        # font = QFont("FOT-PopHappiness Std EB")
+        # font.setPointSize(self.FontSize)
+        # painter.setFont(font)
+        # painter.setPen(Qt.white)
+        # painter.scale(2.6, 3.0)
 
-        lines = message.get_string().split("\n")
-        for line in lines:
-            line = line.replace("\x00", "")
-            painter.save()
-            lineWidth = self.get_text_width(painter, line)
-            painter.translate(-(lineWidth / 2), 0)
-            self._render_text(painter, line)
-            painter.restore()
+        # lines = message.get_string().split("\n")
+        # for line in lines:
+        #     line = line.replace("\x00", "")
+        #     painter.save()
+        #     lineWidth = self.get_text_width(painter, line)
+        #     painter.translate(-(lineWidth / 2), 0)
+        #     self._render_text(painter, line)
+        #     painter.restore()
 
         return []
 
@@ -994,7 +998,7 @@ class BMGMessagePreviewWidget(QWidget):
         elif self.is_billboard():
             messageImgOfs = QPoint(470, 30)
         elif self.is_debs():
-            messageImgOfs = QPoint(210, 800)
+            messageImgOfs = QPoint(300, 860)
         elif self.is_stage_name():
             messageImgOfs = QPoint(0, 760)
 
