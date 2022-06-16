@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from enum import Enum, IntEnum
 from io import BytesIO
 from pathlib import Path
+from tkinter import Button
 from typing import Any, BinaryIO, Callable, Dict, List, Optional, Union
 
 from juniors_toolbox.gui import ToolboxManager
@@ -728,6 +729,13 @@ class BMGMessageViewBillboard(BMGMessageViewNPC):
 
 
 class BMGMessageViewDEBS(BMGMessageView):
+    def __init__(self, parent: Optional[QObject] = None) -> None:
+        super().__init__(parent)
+        self._debsRect = QRect()
+
+    def get_end_page(self, message: RichMessage) -> int:
+        return int((len(message.get_string()) * 29.4) + 200)
+
     def render_(self, painter: QPainter, message: RichMessage, currentPage: int) -> List[ButtonCB]:
         font = QFont("FOT-PopHappiness Std EB")
         font.setPointSize(self.FontSize)
@@ -743,7 +751,7 @@ class BMGMessageViewDEBS(BMGMessageView):
         painter.scale(0.935, 0.89)
         painter.drawImage(0, 0, debsBackDrop)
 
-        textImage = QImage(debsBackDrop.width() - 68,
+        textImage = QImage(debsBackDrop.width() - 66,
                            debsBackDrop.height(), QImage.Format_ARGB32)
         textImage.fill(Qt.transparent)
 
@@ -763,27 +771,23 @@ class BMGMessageViewDEBS(BMGMessageView):
         textPainter.scale(1, 1.1)
         self._render_text(textPainter, message.get_string(), _x=-currentPage)
 
-
         textPainter.end()
 
-        painter.drawImage(QPoint(24, 0), textImage)
+        painter.drawImage(QPoint(22, 0), textImage)
 
-        # font = QFont("FOT-PopHappiness Std EB")
-        # font.setPointSize(self.FontSize)
-        # painter.setFont(font)
-        # painter.setPen(Qt.white)
-        # painter.scale(2.6, 3.0)
+        transform = painter.combinedTransform()
+        debsRect = transform.mapRect(
+            QRect(5, 2, debsBackDrop.width() - 30, debsBackDrop.height() - 22)
+        )
 
-        # lines = message.get_string().split("\n")
-        # for line in lines:
-        #     line = line.replace("\x00", "")
-        #     painter.save()
-        #     lineWidth = self.get_text_width(painter, line)
-        #     painter.translate(-(lineWidth / 2), 0)
-        #     self._render_text(painter, line)
-        #     painter.restore()
+        buttons: List[ButtonCB] = [
+            RectangleButton(
+                debsRect,
+                lambda: None
+            )
+        ]
 
-        return []
+        return buttons
 
 
 class BMGMessageViewStage(BMGMessageView):
@@ -836,6 +840,8 @@ class BMGMessagePreviewWidget(QWidget):
         self._boxState = BMGMessagePreviewWidget.BoxState.NPC
         self._buttons: List[ButtonCB] = []
         self._is_right_bound = True
+        self._lastXPos = 0
+        self._buttonPressed = False
 
         self.npcRenderer = BMGMessageViewNPC()
         self.npcRenderer.pageRequested.connect(self.set_page)
@@ -1080,14 +1086,32 @@ class BMGMessagePreviewWidget(QWidget):
         painter.end()
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
+        self._buttonPressed = False
         if event.button() == Qt.MouseButton.LeftButton:
             ePos = event.pos()
+            self._lastXPos = ePos.x()
             for button in self._buttons:
                 if button.contains(ePos):
-                    button.exec()
+                    self._buttonPressed = True
+                    if not self.is_debs():
+                        button.exec()
             else:
                 self.update()
 
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        ePos = event.pos()
+        if self.is_debs() and self._buttonPressed:
+            movement = self._lastXPos - ePos.x()
+            self._curPage += movement
+
+            endPage = self.debsRenderer.get_end_page(self._message)
+            if self._curPage > endPage:
+                self._curPage -= endPage + 1200
+            elif self._curPage < -1200:
+                self._curPage = self._curPage + endPage + 1200
+
+            self._lastXPos = ePos.x()
+            self.update()
 
 class BMGMessageItem(QStandardItem):
     _message: BMG.MessageEntry
