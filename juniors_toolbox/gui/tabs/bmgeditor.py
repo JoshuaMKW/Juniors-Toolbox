@@ -1806,8 +1806,8 @@ class BMGMessageEditorWidget(A_DockingInterface):
         messageListInterface = ListInterfaceWidget()
         messageListInterface.addRequested.connect(self.new_message)
         messageListInterface.removeRequested.connect(
-            self.remove_selected_message)
-        messageListInterface.copyRequested.connect(self.copy_selected_message)
+            self.remove_selected_messages)
+        messageListInterface.copyRequested.connect(self.copy_selected_messages)
         self.messageListInterface = messageListInterface
 
         messageTextEdit = BMGMessageTextBox()
@@ -2071,22 +2071,16 @@ class BMGMessageEditorWidget(A_DockingInterface):
         # self.messageListBox.edit(model.index(row, 0))
 
     @Slot()
-    def remove_selected_message(self):
-        currentIndex = self.messageListBox.currentIndex()
-        if not currentIndex.isValid():
-            return
-        
+    def remove_selected_messages(self):
         model = self.messageListModel
-        model.removeRow(
-            currentIndex.row()
-        )
+        for index in self.messageListBox.selectedIndexes():
+            model.removeRow(
+                index.row()
+            )
 
     @Slot()
-    def copy_selected_message(self):
+    def copy_selected_messages(self):
         selectedIndexes = self.messageListBox.selectedIndexes()
-        if len(selectedIndexes) == 0:
-            return
-
         self.messageListBox.duplicate_indexes(selectedIndexes)
 
     @Slot()
