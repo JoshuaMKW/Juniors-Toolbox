@@ -752,7 +752,7 @@ class BMGMessageViewDEBS(BMGMessageView):
         painter.drawImage(0, 0, debsBackDrop)
 
         textImage = QImage(debsBackDrop.width() - 66,
-                           debsBackDrop.height(), QImage.Format_ARGB32)
+                           debsBackDrop.height() - 20, QImage.Format_ARGB32)
         textImage.fill(Qt.transparent)
 
         textPainter = QPainter()
@@ -2072,16 +2072,15 @@ class BMGMessageEditorWidget(A_DockingInterface):
 
     @Slot()
     def remove_selected_messages(self):
-        model = self.messageListModel
-        for index in self.messageListBox.selectedIndexes():
-            model.removeRow(
-                index.row()
-            )
+        self.messageListBox.delete_indexes(
+            self.messageListBox.selectedIndexes()
+        )
 
     @Slot()
     def copy_selected_messages(self):
-        selectedIndexes = self.messageListBox.selectedIndexes()
-        self.messageListBox.duplicate_indexes(selectedIndexes)
+        self.messageListBox.duplicate_indexes(
+            self.messageListBox.selectedIndexes()
+        )
 
     @Slot()
     def update_message_text(self):
@@ -2093,7 +2092,8 @@ class BMGMessageEditorWidget(A_DockingInterface):
         message = self.get_message(currentIndex)
 
         message.message = RichMessage.from_rich_string(
-            self.messageTextEdit.toPlainText())
+            self.messageTextEdit.toPlainText()
+        )
 
         self.messagePreview.message = message.message
         self.messagePreview.update()
