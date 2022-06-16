@@ -2072,38 +2072,40 @@ class BMGMessageEditorWidget(A_DockingInterface):
 
     @Slot()
     def remove_selected_message(self):
+        currentIndex = self.messageListBox.currentIndex()
+        if not currentIndex.isValid():
+            return
+        
         model = self.messageListModel
         model.removeRow(
-            self.messageListBox.currentIndex().row()
+            currentIndex.row()
         )
 
     @Slot()
     def copy_selected_message(self):
+        currentIndex = self.messageListBox.currentIndex()
+        if not currentIndex.isValid():
+            return
+
         self.messageListBox.duplicate_items(
             [
                 self.messageListModel.item(
-                    self.messageListBox.currentIndex()
+                    currentIndex.row()
                 )
             ]
         )
 
     @Slot()
     def update_message_text(self):
-        index = self.messageListBox.currentIndex()
-        if not index.isValid():
+        currentIndex = self.messageListBox.currentIndex()
+        if not currentIndex.isValid():
             self.messagePreview.update()
             return
 
-        message = self.get_message(index)
+        message = self.get_message(currentIndex)
 
         message.message = RichMessage.from_rich_string(
             self.messageTextEdit.toPlainText())
-
-        # self.messageListModel.dataChanged.emit(
-        #     index,
-        #     index,
-        #     [Qt.UserRole + 1]
-        # )
 
         self.messagePreview.message = message.message
         self.messagePreview.update()
