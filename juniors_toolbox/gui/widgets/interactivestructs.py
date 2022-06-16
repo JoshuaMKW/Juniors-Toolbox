@@ -707,6 +707,7 @@ class InteractiveListView(QListView):
             
         model = self.model()
 
+        indexes = [QPersistentModelIndex(index) for index in indexes]
         newIndexes: list[QModelIndex] = []
         for index in indexes:
             mimeData = model.mimeData([index])
@@ -732,10 +733,8 @@ class InteractiveListView(QListView):
     @Slot(list)
     def delete_indexes(self, indexes: List[AnyModelIndex]):
         model = self.model()
-        persistentIndexes: List[QPersistentModelIndex] = []
-        for index in indexes:
-            persistentIndexes.append(QPersistentModelIndex(index))
-        for pindex in persistentIndexes:
+        indexes = [QPersistentModelIndex(index) for index in indexes]
+        for pindex in indexes:
             model.removeRow(pindex.row())
 
     def _resolve_name(self, name: str, filterItem: AnyModelIndex = None) -> str:
