@@ -1945,7 +1945,7 @@ class BMGMessageEditorWidget(A_DockingInterface):
 
     @Slot()
     def new_bmg(self):
-        self.populate(BMG(self.menuBar.is_region_pal(), 12))
+        self.populate(None, BMG(self.menuBar.is_region_pal(), 12))
         self.messageListWidget.setEnabled(True)
 
     @Slot(Path)
