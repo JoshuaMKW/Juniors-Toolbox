@@ -839,7 +839,6 @@ class BMGMessagePreviewWidget(QWidget):
         self._curPage = 0
         self._boxState = BMGMessagePreviewWidget.BoxState.NPC
         self._buttons: List[ButtonCB] = []
-        self._is_right_bound = True
         self._lastXPos = 0
         self._buttonPressed = False
 
@@ -1101,7 +1100,7 @@ class BMGMessagePreviewWidget(QWidget):
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
         ePos = event.pos()
         if self.is_debs() and self._buttonPressed:
-            movement = self._lastXPos - ePos.x()
+            movement = (self._lastXPos - ePos.x()) * 2
             self._curPage += movement
 
             endPage = self.debsRenderer.get_end_page(self._message)
