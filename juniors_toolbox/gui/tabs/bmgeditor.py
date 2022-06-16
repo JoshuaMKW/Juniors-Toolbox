@@ -1,11 +1,13 @@
-from io import BytesIO
 import time
 from abc import ABC, abstractmethod
 from enum import Enum, IntEnum
+from io import BytesIO
 from pathlib import Path
+from tkinter import Button
 from typing import Any, BinaryIO, Callable, Dict, List, Optional, Union
 
 from juniors_toolbox.gui import ToolboxManager
+from juniors_toolbox.gui.widgets import ABCWidget
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.gui.widgets.interactivestructs import (
     InteractiveListView, InteractiveListWidget, InteractiveListWidgetItem)
@@ -15,25 +17,146 @@ from juniors_toolbox.utils import VariadicArgs, VariadicKwargs
 from juniors_toolbox.utils.bmg import BMG, RichMessage, SoundID
 from juniors_toolbox.utils.filesystem import resource_path
 from juniors_toolbox.utils.iohelper import decode_raw_string
-from PySide6.QtCore import (QModelIndex, QPersistentModelIndex, QPoint, QRect, QObject, QDataStream, QByteArray,
-                            QSize, Qt, Signal, Slot, QIODevice, QMimeData)
-from PySide6.QtGui import (QAction, QColor, QFont, QImage, QIntValidator,
+from PySide6.QtCore import (QByteArray, QDataStream, QIODevice, QMimeData, QRegularExpression, QRectF, QRect,
+                            QModelIndex, QObject, QPersistentModelIndex,
+                            QPoint, QRect, QSize, QSortFilterProxyModel, Qt,
+                            Signal, Slot)
+from PySide6.QtGui import (QAction, QColor, QFont, QImage, QIntValidator, QPen, QBrush, QImage,
                            QMouseEvent, QPainter, QPainterPath, QPaintEvent,
-                           QPolygon, QStandardItem, QStandardItemModel, QTextCursor,
-                           QTransform)
-from PySide6.QtWidgets import (QCheckBox, QComboBox, QFileDialog, QFormLayout,
+                           QPolygon, QStandardItem, QStandardItemModel,
+                           QTextCursor, QTransform)
+from PySide6.QtWidgets import (QCheckBox, QComboBox, QFileDialog, QFormLayout, QGraphicsDropShadowEffect,
                                QFrame, QHBoxLayout, QLineEdit, QMenu, QMenuBar,
                                QPlainTextEdit, QPushButton, QSizePolicy,
                                QSplitter, QVBoxLayout, QWidget)
 
 
-class BMGMessagePreviewWidget(QWidget):
-    TextSpacingScale = 0.00382544309832  # from SMS
-    BoxAppearSpeed = 0.04  # from SMS - 0 to 1 range
-    TextWaitInverseScale = 1.0  # from SMS
-    Rotation = 17.0  # from SMS, clockwise
+class ButtonCB(ABC):
+    def __init__(self, position: QPoint, cb: Callable[[], None]):
+        self._position = position
+        self._rotation = 0.0
+        self._scale = 1.0
+        self._cb = cb
+
+    def position(self) -> QPoint:
+        return self._position
+
+    def set_position(self, position: QPoint):
+        self._position = position
+
+    def rotation(self) -> float:
+        return self._rotation
+
+    def set_rotation(self, rotation: float):
+        self._rotation = rotation
+
+    @abstractmethod
+    def render_(self, painter: QPainter): ...
+
+    @abstractmethod
+    def contains(self, point: QPoint) -> bool: ...
+
+    def translate(self, x: int, y: int):
+        self._position.setX(
+            self._position.x() + x
+        )
+        self._position.setY(
+            self._position.y() + y
+        )
+
+    def rotate(self, degrees: float):
+        self._rotation += degrees
+
+    def scale(self, scale: float):
+        self._scale *= scale
+
+    def exec(self):
+        self._cb()
+
+
+class CircleButton(ButtonCB):
+    def __init__(self, position: QPoint, radius: int, cb: Callable[[], None]):
+        super().__init__(position, cb)
+        self._radius = radius
+
+    def render_(self, painter: QPainter):
+        painter.save()
+        radius = self._radius * self._scale
+        painter.drawEllipse(self._position, radius, radius)
+        painter.drawPoint(self._position)
+        painter.restore()
+
+    def contains(self, point: QPoint) -> bool:
+        diff = point - self._position
+        radius = self._radius * self._scale
+        return QPoint.dotProduct(diff, diff) < radius * radius
+
+
+class RectangleButton(ButtonCB):
+    def __init__(self, rect: QRect, cb: Callable[[], None]):
+        super().__init__(rect.topLeft(), cb)
+        self._size = rect.size()
+
+    def render_(self, painter: QPainter):
+        rect = QRect(self._position, self._size*self._scale)
+        center = rect.center()
+        transform = QTransform()
+        transform.translate(center.x(), center.y())
+        transform.rotate(self._rotation)
+        transform.translate(-center.x(), -center.y())
+        poly = transform.mapToPolygon(rect)
+
+        painter.save()
+        painter.drawPolyline(poly)
+        painter.drawPoint(center)
+        painter.restore()
+
+    def contains(self, point: QPoint) -> bool:
+        rect = QRect(self._position, self._size*self._scale)
+        center = rect.center()
+        transform = QTransform()
+        transform.translate(center.x(), center.y())
+        transform.rotate(self._rotation)
+        transform.translate(-center.x(), -center.y())
+        poly = transform.mapToPolygon(rect)
+        return poly.containsPoint(point, Qt.WindingFill)
+
+
+class PolygonButton(ButtonCB):
+    def __init__(self, polygon: QPolygon, cb: Callable[[], None]):
+        super().__init__(QPoint(0, 0), cb)
+        self._polygon = polygon
+
+    def translate(self, x: int, y: int):
+        self._polygon.translate(x, y)
+
+    def render_(self, painter: QPainter):
+        center = self._polygon.boundingRect().center()
+        transform = QTransform()
+        transform.translate(center.x(), center.y())
+        transform.scale(self._scale, self._scale)
+        transform.rotate(self._rotation)
+        transform.translate(-center.x(), -center.y())
+        poly = transform.map(self._polygon)
+
+        painter.save()
+        painter.drawPolyline(poly)
+        painter.drawPoint(center)
+        painter.restore()
+
+    def contains(self, point: QPoint) -> bool:
+        center = self._polygon.boundingRect().center()
+        transform = QTransform()
+        transform.translate(center.x(), center.y())
+        transform.scale(self._scale, self._scale)
+        transform.rotate(self._rotation)
+        transform.translate(-center.x(), -center.y())
+        poly = transform.map(self._polygon)
+        return poly.containsPoint(point, Qt.WindingFill)
+
+
+class BMGMessageView(QObject, ABCWidget):
     FontSize = 15
-    BgOpacity = 0.75
     PaddingMap = {
         " ": 4,
         "c": 2,
@@ -43,219 +166,11 @@ class BMGMessagePreviewWidget(QWidget):
         ",": 6,
     }
 
-    class PreviewState(IntEnum):
-        IDLE = 0
-        SCROLLING = 4
-        WAITING = 5
-        CLOSE = 6
-        NEXTMSG = 7
+    startRequested = Signal()
+    stopRequested = Signal()
 
-    class BoxState(IntEnum):
-        NPC = 0
-        BILLBOARD = 1
-
-    class BackGround(str, Enum):
-        PIANTA = "shades_pianta"
-        TANOOKI = "tanooki"
-        NOKI = "old_noki"
-
-    class ButtonCB(ABC):
-        def __init__(self, position: QPoint, cb: Callable[[], None]):
-            self._position = position
-            self._rotation = 0.0
-            self._scale = 1.0
-            self.__cb = cb
-
-        def position(self) -> QPoint:
-            return self._position
-
-        def set_position(self, position: QPoint):
-            self._position = position
-
-        def rotation(self) -> float:
-            return self._rotation
-
-        def set_rotation(self, rotation: float):
-            self._rotation = rotation
-
-        @abstractmethod
-        def render_(self, painter: QPainter): ...
-
-        @abstractmethod
-        def contains(self, point: QPoint) -> bool: ...
-
-        def translate(self, x: int, y: int):
-            self._position.setX(
-                self._position.x() + x
-            )
-            self._position.setY(
-                self._position.y() + y
-            )
-
-        def rotate(self, degrees: float):
-            self._rotation += degrees
-
-        def scale(self, scale: float):
-            self._scale *= scale
-
-        def exec(self):
-            self.__cb()
-
-    class CircleButton(ButtonCB):
-        def __init__(self, position: QPoint, radius: int, cb: Callable[[], None]):
-            super().__init__(position, cb)
-            self.__radius = radius
-
-        def render_(self, painter: QPainter):
-            painter.save()
-            radius = self.__radius * self._scale
-            painter.drawEllipse(self._position, radius, radius)
-            painter.drawPoint(self._position)
-            painter.restore()
-
-        def contains(self, point: QPoint) -> bool:
-            diff = point - self._position
-            radius = self.__radius * self._scale
-            return QPoint.dotProduct(diff, diff) < radius * radius
-
-    class RectangleButton(ButtonCB):
-        def __init__(self, rect: QRect, cb: Callable[[], None]):
-            super().__init__(rect.topLeft(), cb)
-            self.__size = rect.size()
-
-        def render_(self, painter: QPainter):
-            rect = QRect(self._position, self.__size*self._scale)
-            center = rect.center()
-            transform = QTransform()
-            transform.translate(center.x(), center.y())
-            transform.rotate(self._rotation)
-            transform.translate(-center.x(), -center.y())
-            poly = transform.mapToPolygon(rect)
-
-            painter.save()
-            painter.drawPolyline(poly)
-            painter.drawPoint(center)
-            painter.restore()
-
-        def contains(self, point: QPoint) -> bool:
-            rect = QRect(self._position, self.__size*self._scale)
-            center = rect.center()
-            transform = QTransform()
-            transform.translate(center.x(), center.y())
-            transform.rotate(self._rotation)
-            transform.translate(-center.x(), -center.y())
-            poly = transform.mapToPolygon(rect)
-            return poly.containsPoint(point, Qt.WindingFill)
-
-    class PolygonButton(ButtonCB):
-        def __init__(self, polygon: QPolygon, cb: Callable[[], None]):
-            super().__init__(QPoint(0, 0), cb)
-            self._polygon = polygon
-
-        def translate(self, x: int, y: int):
-            self._polygon.translate(x, y)
-
-        def render_(self, painter: QPainter):
-            center = self._polygon.boundingRect().center()
-            transform = QTransform()
-            transform.translate(center.x(), center.y())
-            transform.scale(self._scale, self._scale)
-            transform.rotate(self._rotation)
-            transform.translate(-center.x(), -center.y())
-            poly = transform.map(self._polygon)
-
-            painter.save()
-            painter.drawPolyline(poly)
-            painter.drawPoint(center)
-            painter.restore()
-
-        def contains(self, point: QPoint) -> bool:
-            center = self._polygon.boundingRect().center()
-            transform = QTransform()
-            transform.translate(center.x(), center.y())
-            transform.scale(self._scale, self._scale)
-            transform.rotate(self._rotation)
-            transform.translate(-center.x(), -center.y())
-            poly = transform.map(self._polygon)
-            return poly.containsPoint(point, Qt.WindingFill)
-
-    def __init__(self, message: RichMessage = None, parent: Optional[QWidget] = None):
+    def __init__(self, parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
-        self.setMinimumSize(200, 113)
-        if message is None:
-            message = RichMessage()
-        self.__message = message
-        self.__background: Optional[Path] = None
-        self.__playing = False
-        self.__curFrame = -1
-        self.__endFrame = -1
-        self.__curPage = 0
-        self.__renderTimer = 0.0
-        self.__boxState = BMGMessagePreviewWidget.BoxState.NPC
-        self.__buttons: List[BMGMessagePreviewWidget.ButtonCB] = []
-        self.__is_right_bound = True
-
-        self.set_background(
-            BMGMessagePreviewWidget.BackGround.PIANTA
-        )
-
-    @property
-    def message(self) -> RichMessage:
-        return self.__message
-
-    @message.setter
-    def message(self, message: RichMessage):
-        self.__message = message
-
-    @property
-    def boxState(self) -> BoxState:
-        return self.__boxState
-
-    @boxState.setter
-    def boxState(self, state: BoxState):
-        self.__boxState = state
-
-    @property
-    def linesPerPage(self) -> int:
-        return 3 if self.__boxState == BMGMessagePreviewWidget.BoxState.NPC else 6
-
-    @property
-    def backDropImage(self) -> QImage:
-        if self.__boxState == BMGMessagePreviewWidget.BoxState.NPC:
-            return QImage(str(resource_path("gui/images/message_back.png")))
-        else:
-            return QImage(str(resource_path("gui/images/message_board.png")))
-
-    def get_background(self) -> QImage:
-        if self.__background is None:
-            return QImage()
-        return QImage(str(self.__background))
-
-    def set_background(self, bg: BackGround):
-        bgFolder = resource_path("gui/backgrounds/")
-        for file in bgFolder.iterdir():
-            if not file.name.startswith("bmg_preview_"):
-                continue
-            if not file.is_file():
-                continue
-            if file.stem.removeprefix("bmg_preview_") == bg.value:
-                self.__background = file.resolve()
-
-    def is_playing(self) -> bool:
-        return self.__playing and self.__curFrame > -1
-
-    def is_next_button_visible(self) -> bool:
-        numLines = self.__get_num_newlines(self.message)
-        numPages = (numLines // self.linesPerPage) + 1
-        return self.__curPage < numPages-1
-
-    def is_end_button_visible(self) -> bool:
-        numLines = self.__get_num_newlines(self.message)
-        numPages = (numLines // self.linesPerPage) + 1
-        return self.__curPage == numPages-1
-
-    def is_billboard(self) -> bool:
-        return self.__boxState == BMGMessagePreviewWidget.BoxState.BILLBOARD
 
     @staticmethod
     def get_color(index: int) -> QColor:
@@ -284,37 +199,761 @@ class BMGMessagePreviewWidget(QWidget):
             "00:40:00",
         ][index]
 
+    @abstractmethod
+    def render_(self, painter: QPainter, message: RichMessage,
+                currentPage: int) -> List[ButtonCB]: ...
+
+    @abstractmethod
+    def get_end_page(self, message: RichMessage) -> int: ...
+
+    @abstractmethod
+    def get_message_for_page(self, message: RichMessage,
+                             page: int) -> RichMessage: ...
+
+    @abstractmethod
+    def get_message_backdrop(self) -> QImage: ...
+
+    def set_current_frame(self, frame: int):
+        self._frame = frame
+
+    def get_current_frame(self) -> int:
+        return self._frame
+
+    def get_num_newlines(self, message: RichMessage) -> int:
+        num = 0
+        for cmp in message.components:
+            if isinstance(cmp, str):
+                num += cmp.count("\n")
+        return num
+
+    def get_text_width(self, painter: QPainter, text: str) -> int:
+        fontMetrics = painter.fontMetrics()
+        charWidth = 0
+        for char in text:
+            # type: ignore
+            charWidth += fontMetrics.horizontalAdvanceChar(char)
+            if char in self.PaddingMap:
+                charWidth += self.PaddingMap[char]
+        return charWidth
+
+    def _render_text(self, painter: QPainter, text: str, _x: int = 0, _y: int = 0, path: Optional[QPainterPath] = None, newLineHBuffer: int = 0) -> QSize:
+        text = text.replace("\x00", "")
+        if text == "":
+            return QSize(0, 0)
+
+        pathLerp = 0.0
+        fontMetrics = painter.fontMetrics()
+        textWidths = []
+        lineWidth = 0
+        charWidth = 0
+        textHeight = fontMetrics.height()
+        painter.save()
+        for char in text:
+            if char == "\n":
+                textWidths.append(lineWidth)
+                lineWidth = 0
+                height = fontMetrics.height() + newLineHBuffer
+                textHeight += height
+                painter.translate(0, height)
+            if path:
+                plen = path.length()
+                self._render_char_on_path(
+                    painter,
+                    char,
+                    path,
+                    pathLerp
+                )
+                pathLerp += charWidth / plen
+                lineWidth += charWidth
+            else:
+                charWidth = fontMetrics.horizontalAdvanceChar(char)
+                if char in self.PaddingMap:
+                    charWidth += self.PaddingMap[char]
+                painter.drawText(_x, _y, char)
+                painter.translate(charWidth, 0)
+                lineWidth += charWidth
+        painter.restore()
+        textWidths.append(lineWidth)
+        return QSize(max(textWidths), textHeight)
+
+    def _render_char_on_path(self, painter: QPainter, char: str, path: QPainterPath, lerp: float) -> int:
+        if lerp > 1.0:
+            return 0
+
+        fontMetrics = painter.fontMetrics()
+
+        point = path.pointAtPercent(lerp)
+        angle = path.angleAtPercent(lerp)
+
+        charWidth = fontMetrics.horizontalAdvanceChar(char)  # type: ignore
+        if char in self.PaddingMap:
+            charWidth += self.PaddingMap[char]
+
+        painter.save()
+        # Move the virtual origin to the point on the curve
+        painter.translate(point)
+        # Rotate to match the angle of the curve
+        # Clockwise is positive so we negate the angle from above
+        painter.rotate(-angle)
+        # Draw a line width above the origin to move the text above the line
+        # and let Qt do the transformations
+        painter.drawText(QPoint(0, 0), char)
+        painter.restore()
+
+        return charWidth
+
+
+class BMGMessageViewNPC(BMGMessageView):
+    TextSpacingScale = 0.00382544309832  # from SMS
+    BoxAppearSpeed = 0.04  # from SMS - 0 to 1 range
+    TextWaitInverseScale = 1.0  # from SMS
+    Rotation = 17.0  # from SMS, clockwise
+    BgOpacity = 0.75
+
+    pageRequested = Signal(int)
+
+    class PreviewState(IntEnum):
+        IDLE = 0
+        SCROLLING = 4
+        WAITING = 5
+        CLOSE = 6
+        NEXTMSG = 7
+
+    def __init__(self, parent: Optional[QObject] = None) -> None:
+        super().__init__(parent)
+        self._rightAligned = True
+
     def is_right_aligned(self) -> bool:
-        return self.__is_right_bound
+        return self._rightAligned
+
+    def set_right_aligned(self, ra: bool):
+        self._rightAligned = ra
+
+    def get_lines_per_page(self) -> int:
+        return 3
+
+    def get_end_page(self, message: RichMessage) -> int:
+        numLines = self.get_num_newlines(message)
+        return numLines // self.get_lines_per_page()
+
+    def get_message_for_page(self, message: RichMessage, page: int) -> RichMessage:
+        components = []
+
+        linesPerPage = self.get_lines_per_page()
+        startIndex = linesPerPage * page
+
+        newlines = 0
+        for component in message.components:
+            if isinstance(component, str):
+                cmpNewLines = 0
+                substr = ""
+                for char in component:
+                    index = (newlines + cmpNewLines) - startIndex
+
+                    if char == "\n":
+                        cmpNewLines += 1
+
+                    if index < 0:
+                        continue
+
+                    substr += char
+                    if (linesPerPage + startIndex) - (newlines + cmpNewLines) <= 0:
+                        components.append(substr)
+                        return RichMessage(components)
+                if substr != "":
+                    components.append(substr)
+                newlines += cmpNewLines
+            else:
+                if newlines - startIndex < 0:
+                    continue
+                components.append(component)
+        return RichMessage(components)
+
+    def get_message_backdrop(self) -> QImage:
+        return QImage(
+            str(
+                resource_path("gui/images/message_back.png")
+            )
+        )
+
+    def is_next_button_visible(self, message: RichMessage, currentPage: int) -> bool:
+        numLines = self.get_num_newlines(message)
+        numPages = (numLines // self.get_lines_per_page()) + 1
+        return currentPage < numPages-1
+
+    def is_end_button_visible(self, message: RichMessage, currentPage: int) -> bool:
+        numLines = self.get_num_newlines(message)
+        numPages = (numLines // self.get_lines_per_page()) + 1
+        return currentPage == numPages-1
+
+    def render_(self, painter: QPainter, message: RichMessage, currentPage: int) -> List[ButtonCB]:
+        font = QFont("FOT-PopHappiness Std EB")
+        font.setPointSize(self.FontSize)
+        painter.setFont(font)
+        painter.setPen(Qt.white)
+        painter.scale(2.28, 2.27)
+
+        numLines = self.get_num_newlines(message)
+        numPages = self.get_end_page(message) + 1
+
+        if currentPage >= numPages:
+            currentPage = 0
+
+        message = self.get_message_for_page(message, currentPage)
+
+        buttons = self._render_message(
+            painter, message, currentPage
+        )
+        return buttons
+
+    def _render_message(self, painter: QPainter, message: RichMessage, currentPage: int) -> list[ButtonCB]:
+        def next_line(painter: QPainter, lineImg: QImage):
+            painter.translate(0, 33)
+            painter.setOpacity(self.BgOpacity)
+            painter.drawImage(0, 0, lineImg)
+            painter.setOpacity(1.0)
+
+        painter.save()
+
+        backDrop = self.get_message_backdrop()
+
+        pathLerp = 0.0
+        path = QPainterPath(QPoint(24, 41))
+        path.cubicTo(
+            QPoint(backDrop.width() // 3, 16),
+            QPoint(backDrop.width() - (backDrop.width() // 3), 16),
+            QPoint(backDrop.width() - 16, 50)
+        )
+        plen = path.length()
+
+        if self.is_right_aligned():
+            painter.translate(100, -33)
+            rotation = self.Rotation
+        else:
+            painter.translate(0, 63)
+            rotation = -self.Rotation - 4
+        painter.rotate(rotation)
+
+        next_line(painter, backDrop)  # Render first line
+
+        lastChar = ""
+        queueLine = False
+        queueSize = 0
+        options = {}
+        for component in message.components:
+            if isinstance(component, bytes):
+                if component.startswith(b"\x1A\x06\xFF\x00\x00"):
+                    color = self.get_color(component[-1])
+                    painter.setPen(color)
+                elif component.startswith(b"\x1A\x06\x02\x00\x04"):
+                    if lastChar == "\n" and queueLine:
+                        for _ in range(queueSize):
+                            next_line(painter, backDrop)
+                        queueLine = False
+                        queueSize = 0
+                    fruitNum = str(self.get_fruit(component[-1]))
+                    for char in fruitNum:
+                        charWidth = self._render_char_on_path(
+                            painter, char, path, pathLerp)
+                        pathLerp += charWidth / plen
+                        lastChar = char
+                elif component.startswith(b"\x1A\x05\x02\x00"):
+                    if lastChar == "\n" and queueLine:
+                        for _ in range(queueSize):
+                            next_line(painter, backDrop)
+                        queueLine = False
+                        queueSize = 0
+                    text = self.get_record(component[-1])
+                    for char in text:
+                        charWidth = self._render_char_on_path(
+                            painter, char, path, pathLerp)
+                        pathLerp += charWidth / plen
+                        lastChar = char
+                elif component[2:4] == b"\x01\x00":
+                    string = decode_raw_string(component[5:])
+                    if component[4] not in options:
+                        options[component[4]] = string
+                continue
+
+            line = component.replace("\x00", "")
+            if line == "":
+                continue
+
+            lines = 1
+            for char in line:
+                if char == "\n" and lastChar != "\n":
+                    queueLine = True
+                    queueSize = 1
+                    pathLerp = 0.0
+                    lines += 1
+                    lastChar = char
+                    continue
+                if lastChar == "\n" and queueLine:
+                    if char == "\n":
+                        queueSize += 1
+                        continue
+                    for _ in range(queueSize):
+                        next_line(painter, backDrop)
+                    queueLine = False
+                    queueSize = 0
+
+                charWidth = self._render_char_on_path(
+                    painter, char, path, pathLerp)
+                pathLerp += charWidth / plen
+
+                lastChar = char
+
+        buttonImg = QImage(27, 27, QImage.Format_ARGB32)
+        buttonImg.fill(Qt.transparent)
+
+        # /- RENDER BUTTONS -/ #
+        buttonPainter = QPainter()
+        buttonPainter.begin(buttonImg)
+
+        buttons: list[ButtonCB] = []
+        targetPos = QPoint(backDrop.width() - 5, 39)
+
+        if self.is_next_button_visible(message, currentPage):
+            self._render_next_button(buttonPainter)
+        else:
+            self._render_end_button(buttonPainter)
+
+        buttonPainter.end()
+
+        transform = QTransform()
+        transform.rotate(-70)
+        buttonImg = buttonImg.transformed(transform, Qt.SmoothTransformation)
+
+        painter.save()
+        painter.setOpacity(1.0)
+        painter.drawImage(targetPos, buttonImg)
+        painter.restore()
+
+        # /- CALCULATE PROGRESSION BUTTON -/ #
+
+        centerOfs = buttonImg.rect().width() // 2
+        transform = painter.combinedTransform()
+        buttonAbsPos = transform.map(
+            QPoint(
+                targetPos.x() + centerOfs,
+                targetPos.y() + centerOfs+1
+            )
+        )
+
+        buttons.append(
+            CircleButton(
+                buttonAbsPos,
+                30,
+                lambda: self.pageRequested.emit(
+                    currentPage + 1
+                )
+            )
+        )
+
+        if len(options) == 0:
+            painter.restore()
+            return buttons
+
+        # /- CALCULATE OPTION BUTTONS -/ #
+
+        optionsImgSize = QSize(112, 76)
+        targetPos = QPoint(
+            (backDrop.width() // 2) - (optionsImgSize.width() // 2),
+            36
+        )
+
+        optionsImg = QImage(optionsImgSize, QImage.Format_ARGB32)
+        optionsImg.fill(Qt.transparent)
+
+        optionsPainter = QPainter()
+        optionsPainter.begin(optionsImg)
+        optionsPainter.setFont(painter.font())
+        optionsPainter.setPen(Qt.white)
+        buttonRects = self._render_options_button(optionsPainter, options)
+        optionsPainter.end()
+
+        painter.save()
+        painter.setOpacity(1.0)
+        painter.drawImage(targetPos, optionsImg)
+        painter.restore()
+
+        for buttonRect in buttonRects:
+            buttonRect.translate(targetPos)
+            rect = transform.mapRect(buttonRect)
+            button = RectangleButton(
+                rect,
+                lambda: self.pageRequested.emit(0)
+            )
+            button.set_rotation(rotation)
+            buttons.append(button)
+
+        painter.restore()
+        return buttons
+
+    def _render_next_button(self, painter: QPainter):
+        nextImg = QImage(
+            str(resource_path("gui/images/message_button_back.png"))
+        )
+        arrowImg = QImage(
+            str(resource_path("gui/images/message_cursor.png"))
+        )
+        painter.save()
+        painter.setOpacity(self.BgOpacity)
+        painter.drawImage(0, 0, nextImg)
+        painter.setOpacity(1.0)
+        painter.drawImage(5, 7, arrowImg)
+        painter.restore()
+
+    def _render_end_button(self, painter: QPainter):
+        nextImg = QImage(
+            str(resource_path("gui/images/message_button_back.png"))
+        )
+
+        returnImg = QImage(
+            str(resource_path("gui/images/message_return.png"))
+        )
+        painter.save()
+        painter.setOpacity(self.BgOpacity)
+        painter.drawImage(0, 0, nextImg)
+        painter.setOpacity(1.0)
+        painter.drawImage(5, 5, returnImg)
+        painter.restore()
+
+    def _render_options_button(self, painter: QPainter, options: Dict[int, str]) -> List[QRect]:
+        buttonPositions = []
+        backImg = QImage(
+            str(resource_path("gui/images/message_option_back.png"))
+        )
+        painter.save()
+        painter.setOpacity(self.BgOpacity)
+        painter.drawImage(0, 0, backImg)
+        painter.setOpacity(1.0)
+        yPos = 34
+        for index, option in options.items():
+            if index > 1:
+                continue
+            optionPos = QPoint(
+                39, yPos + (index * 25)
+            )
+            painter.save()
+            painter.translate(optionPos)
+            buttonSize = self._render_text(painter, option)
+            buttonSize.setHeight(int(buttonSize.height() * 0.5))
+            buttonPos = QPoint(
+                optionPos.x(),
+                optionPos.y() - buttonSize.height()
+            )
+            buttonPositions.append(
+                QRect(buttonPos, buttonSize)
+            )
+            painter.restore()
+        painter.restore()
+        return buttonPositions
+
+
+class BMGMessageViewBillboard(BMGMessageViewNPC):
+    def get_lines_per_page(self) -> int:
+        return 6
+
+    def get_message_backdrop(self) -> QImage:
+        return QImage(
+            str(
+                resource_path("gui/images/message_board.png")
+            )
+        )
+
+    def _render_message(self, painter: QPainter, message: RichMessage, currentPage: int) -> List[ButtonCB]:
+        font = QFont("FOT-PopHappiness Std EB")
+        font.setPointSize(self.FontSize)
+        painter.setFont(font)
+        painter.setPen(Qt.white)
+
+        backDrop = self.get_message_backdrop()
+
+        painter.save()
+
+        painter.rotate(-10)
+        painter.setOpacity(self.BgOpacity)
+        painter.translate(0, 100)
+        painter.drawImage(0, 0, backDrop)
+        painter.setOpacity(1.0)
+
+        painter.save()
+        painter.translate(0, 20)
+
+        lines = message.get_string().split("\n")
+        for line in lines:
+            line = line.replace("\x00", "")
+            painter.translate(0, 32)
+            painter.save()
+            lineWidth = self.get_text_width(painter, line)
+            painter.translate((backDrop.width() - lineWidth) / 2, 0)
+            self._render_text(painter, line)
+            painter.restore()
+        painter.restore()
+
+        buttonImg = QImage(27, 27, QImage.Format_ARGB32)
+        buttonImg.fill(Qt.transparent)
+
+        buttonPainter = QPainter()
+        buttonPainter.begin(buttonImg)
+
+        if self.is_next_button_visible(message, currentPage):
+            self._render_next_button(buttonPainter)
+        else:
+            self._render_end_button(buttonPainter)
+
+        buttonPainter.end()
+
+        targetPos = QPoint(int(backDrop.width() / 2.15), backDrop.height() + 5)
+        painter.drawImage(targetPos, buttonImg)
+
+        transform = painter.combinedTransform()
+        painter.restore()
+
+        buttonAbsPos = transform.map(
+            QPoint(
+                targetPos.x() + 13,
+                targetPos.y() + 13
+            )
+        )
+        return [
+            CircleButton(
+                buttonAbsPos,
+                30,
+                lambda: self.pageRequested.emit(
+                    currentPage + 1
+                )
+            )
+        ]
+
+
+class BMGMessageViewDEBS(BMGMessageView):
+    def __init__(self, parent: Optional[QObject] = None) -> None:
+        super().__init__(parent)
+        self._debsRect = QRect()
+
+    def get_end_page(self, message: RichMessage) -> int:
+        return int((len(message.get_string()) * 29.4) + 200)
+
+    def render_(self, painter: QPainter, message: RichMessage, currentPage: int) -> List[ButtonCB]:
+        font = QFont("FOT-PopHappiness Std EB")
+        font.setPointSize(self.FontSize)
+        painter.setFont(font)
+        painter.setPen(Qt.white)
+
+        debsBackDrop = QImage(
+            resource_path(
+                "gui/images/debs_alert_backdrop.png"
+            )
+        )
+
+        painter.scale(0.935, 0.89)
+        painter.drawImage(0, 0, debsBackDrop)
+
+        textImage = QImage(debsBackDrop.width() - 66,
+                           debsBackDrop.height(), QImage.Format_ARGB32)
+        textImage.fill(Qt.transparent)
+
+        textPainter = QPainter()
+        textPainter.begin(textImage)
+
+        font = QFont("FOT-PopHappiness Std EB")
+        font.setPointSize(41)
+        painter.setFont(font)
+        textPainter.setFont(painter.font())
+        textPainter.setPen(Qt.black)
+        textPainter.translate(6, 85)
+        self._render_text(textPainter, message.get_string(), _x=-currentPage)
+
+        textPainter.setPen(Qt.white)
+        textPainter.translate(-6, -5)
+        textPainter.scale(1, 1.1)
+        self._render_text(textPainter, message.get_string(), _x=-currentPage)
+
+        textPainter.end()
+
+        painter.drawImage(QPoint(22, 0), textImage)
+
+        transform = painter.combinedTransform()
+        debsRect = transform.mapRect(
+            QRect(5, 2, debsBackDrop.width() - 30, debsBackDrop.height() - 22)
+        )
+
+        buttons: List[ButtonCB] = [
+            RectangleButton(
+                debsRect,
+                lambda: None
+            )
+        ]
+
+        return buttons
+
+
+class BMGMessageViewStage(BMGMessageView):
+    def render_(self, painter: QPainter, message: RichMessage, currentPage: int) -> List[ButtonCB]:
+        painter.translate(1920 / 2, 66)
+
+        font = QFont("FOT-PopHappiness Std EB")
+        font.setPointSize(self.FontSize)
+        painter.setFont(font)
+        painter.setPen(Qt.white)
+        painter.scale(2.6, 3.0)
+
+        lines = message.get_string().split("\n")
+        if len(lines) == 0:
+            return []
+
+        lineWidth = self.get_text_width(painter, lines[0])
+        painter.translate(-(lineWidth / 2), 0)
+
+        for line in lines:
+            self._render_text(painter, line.replace("\x00", ""))
+
+        return []
+
+
+class BMGMessagePreviewWidget(QWidget):
+    class BoxState(IntEnum):
+        NPC = 0
+        BILLBOARD = 1
+        DEBS = 2
+        STAGENAME = 3
+
+    class BackGround(str, Enum):
+        PIANTA = "shades_pianta"
+        TANOOKI = "tanooki"
+        NOKI = "old_noki"
+        # STAGE = "stage_select"
+
+    def __init__(self, message: RichMessage = None, parent: Optional[QWidget] = None):
+        super().__init__(parent)
+        self.setMinimumSize(200, 113)
+        if message is None:
+            message = RichMessage()
+        self._message = message
+        self._background: Optional[Path] = None
+        self._playing = False
+        self._curFrame = -1
+        self._endFrame = -1
+        self._curPage = 0
+        self._boxState = BMGMessagePreviewWidget.BoxState.NPC
+        self._buttons: List[ButtonCB] = []
+        self._lastXPos = 0
+        self._buttonPressed = False
+
+        self.npcRenderer = BMGMessageViewNPC()
+        self.npcRenderer.pageRequested.connect(self.set_page)
+        self.billboardRenderer = BMGMessageViewBillboard()
+        self.billboardRenderer.pageRequested.connect(self.set_page)
+        self.debsRenderer = BMGMessageViewDEBS()
+        self.stagenameRenderer = BMGMessageViewStage()
+
+        self.renderers: dict[BMGMessagePreviewWidget.BoxState, BMGMessageView] = {
+            BMGMessagePreviewWidget.BoxState.NPC: self.npcRenderer,
+            BMGMessagePreviewWidget.BoxState.BILLBOARD: self.billboardRenderer,
+            BMGMessagePreviewWidget.BoxState.DEBS: self.debsRenderer,
+            BMGMessagePreviewWidget.BoxState.STAGENAME: self.stagenameRenderer,
+        }
+
+        self.set_background(
+            BMGMessagePreviewWidget.BackGround.PIANTA
+        )
+
+    @property
+    def message(self) -> RichMessage:
+        return self._message
+
+    @message.setter
+    def message(self, message: RichMessage):
+        self._message = message
+
+    @property
+    def boxState(self) -> BoxState:
+        return self._boxState
+
+    @boxState.setter
+    def boxState(self, state: BoxState):
+        self._boxState = state
+
+    def get_background(self) -> QImage:
+        if self._background is None:
+            return QImage()
+        if self.is_stage_name():
+            return QImage(
+                str(
+                    resource_path("gui/backgrounds/") /
+                    "bmg_preview_stage_select.png"
+                )
+            )
+        return QImage(str(self._background))
+
+    def set_background(self, bg: BackGround):
+        bgFolder = resource_path("gui/backgrounds/")
+        for file in bgFolder.iterdir():
+            if not file.name.startswith("bmg_preview_"):
+                continue
+            if not file.is_file():
+                continue
+            if file.stem.removeprefix("bmg_preview_") == bg.value:
+                self._background = file.resolve()
+
+    def is_anim_playing(self) -> bool:
+        return self._playing and self._curFrame > -1
+
+    def is_npc(self) -> bool:
+        return self._boxState == BMGMessagePreviewWidget.BoxState.NPC
+
+    def is_billboard(self) -> bool:
+        return self._boxState == BMGMessagePreviewWidget.BoxState.BILLBOARD
+
+    def is_debs(self) -> bool:
+        return self._boxState == BMGMessagePreviewWidget.BoxState.DEBS
+
+    def is_stage_name(self) -> bool:
+        return self._boxState == BMGMessagePreviewWidget.BoxState.STAGENAME
+
+    def is_right_aligned(self) -> bool:
+        return self.npcRenderer.is_right_aligned()
 
     def set_right_aligned(self, raligned: bool):
-        self.__is_right_bound = raligned
+        self.npcRenderer.set_right_aligned(raligned)
+
+    def set_page(self, page: int):
+        renderer = self.renderers[self._boxState]
+        endPage = renderer.get_end_page(self._message)
+
+        self._curPage = page
+        if page > endPage:
+            self._curPage = 0
+        elif page < 0:
+            self._curPage = 0
 
     def nextPage(self):
-        self.__curPage += 1
+        self._curPage += 1
 
     def prevPage(self):
-        self.__curPage -= 1
+        self._curPage -= 1
 
     def play(self):
-        self.__playing = True
-        if self.__curFrame == -1:
-            self.__curFrame = 0
+        self._playing = True
+        if self._curFrame == -1:
+            self._curFrame = 0
 
     def pause(self):
-        self.__playing = False
+        self._playing = False
 
     def stop(self):
-        self.__playing = False
-        self.__curFrame = -1
-        self.__curPage = 0
+        self._playing = False
+        self._curFrame = -1
+        self._curPage = 0
 
     def reset(self):
         self.stop()
 
     def initPainter(self, painter: QPainter):
         super().initPainter(painter)
-        self.__renderTimer = time.perf_counter()
+        self._renderTimer = time.perf_counter()
 
     def render_(self, painter: QPainter):
         def fit_image_to(widget: QWidget, img: QImage) -> QImage:
@@ -361,14 +1000,14 @@ class BMGMessagePreviewWidget(QWidget):
             else:
                 size = len(cmp)
 
-            if _len < self.__curFrame < _len + size:
+            if _len < self._curFrame < _len + size:
                 curComponent = cmp
                 break
 
         if curComponent is None:
-            self.__curFrame = -1
+            self._curFrame = -1
 
-        self.__buttons.clear()
+        self._buttons.clear()
 
         msgImage = QImage(1920, 1080, QImage.Format_ARGB32)
         msgImage.fill(Qt.transparent)
@@ -376,22 +1015,23 @@ class BMGMessagePreviewWidget(QWidget):
         msgPainter = QPainter()
         msgPainter.begin(msgImage)
 
-        font = QFont("FOT-PopHappiness Std EB")
-        font.setPointSize(self.FontSize)
-        msgPainter.setFont(font)
-        msgPainter.setPen(Qt.white)
-        msgPainter.scale(2.28, 2.27)
+        buttons = self.renderers[self._boxState].render_(
+            msgPainter, self.message, self._curPage
+        )
 
-        buttons = self.__render_any(msgPainter)
         msgPainter.end()
 
-        if self.is_billboard():
-            messageImgOfs = QPoint(470, 30)
-        else:
-            if self.__is_right_bound:
+        if self.is_npc():
+            if self.is_right_aligned():
                 messageImgOfs = QPoint(635, 5)
             else:
                 messageImgOfs = QPoint(210, 53)
+        elif self.is_billboard():
+            messageImgOfs = QPoint(470, 30)
+        elif self.is_debs():
+            messageImgOfs = QPoint(300, 860)
+        elif self.is_stage_name():
+            messageImgOfs = QPoint(0, 760)
 
         mainPainter = QPainter()
         mainPainter.begin(backgroundImg)
@@ -428,464 +1068,49 @@ class BMGMessagePreviewWidget(QWidget):
             button.translate(imgOfs.x(), imgOfs.y())
             button.scale(factor)
 
-            self.__buttons.append(button)
+            self._buttons.append(button)
 
         painter.restore()
-
-    def __render_any(self, painter: QPainter) -> List[ButtonCB]:
-        numLines = self.__get_num_newlines(self.message)
-        numPages = (numLines // self.linesPerPage) + 1
-
-        if self.__curPage >= numPages:
-            self.__curPage = 0
-
-        message = self.__get_message_for_page(self.__curPage)
-        backDropImg = self.backDropImage
-
-        if self.__boxState == BMGMessagePreviewWidget.BoxState.NPC:
-            buttons = self.__render_message(
-                painter,
-                message,
-                backDropImg
-            )
-        else:
-            buttons = self.__render_billboard(
-                painter,
-                message,
-                backDropImg
-            )
-        return buttons
-
-    def __render_message(self, painter: QPainter, message: RichMessage, backDrop: QImage) -> List[ButtonCB]:
-        def next_line(painter: QPainter, lineImg: QImage):
-            painter.translate(0, 33)
-            painter.setOpacity(self.BgOpacity)
-            painter.drawImage(0, 0, lineImg)
-            painter.setOpacity(1.0)
-
-        painter.save()
-
-        pathLerp = 0.0
-        path = QPainterPath(QPoint(24, 41))
-        path.cubicTo(
-            QPoint(backDrop.width() // 3, 16),
-            QPoint(backDrop.width() - (backDrop.width() // 3), 16),
-            QPoint(backDrop.width() - 16, 50)
-        )
-        plen = path.length()
-
-        if self.is_right_aligned():
-            painter.translate(100, -33)
-            rotation = BMGMessagePreviewWidget.Rotation
-        else:
-            painter.translate(0, 63)
-            rotation = -BMGMessagePreviewWidget.Rotation - 4
-        painter.rotate(rotation)
-
-        next_line(painter, backDrop)  # Render first line
-
-        lastChar = ""
-        queueLine = False
-        queueSize = 0
-        options = {}
-        for component in message.components:
-            if isinstance(component, bytes):
-                if component.startswith(b"\x1A\x06\xFF\x00\x00"):
-                    color = self.get_color(component[-1])
-                    painter.setPen(color)
-                elif component.startswith(b"\x1A\x06\x02\x00\x04"):
-                    if lastChar == "\n" and queueLine:
-                        for _ in range(queueSize):
-                            next_line(painter, backDrop)
-                        queueLine = False
-                        queueSize = 0
-                    fruitNum = str(self.get_fruit(component[-1]))
-                    for char in fruitNum:
-                        charWidth = self.__render_char_on_path(
-                            painter, char, path, pathLerp)
-                        pathLerp += charWidth / plen
-                        lastChar = char
-                elif component.startswith(b"\x1A\x05\x02\x00"):
-                    if lastChar == "\n" and queueLine:
-                        for _ in range(queueSize):
-                            next_line(painter, backDrop)
-                        queueLine = False
-                        queueSize = 0
-                    text = self.get_record(component[-1])
-                    for char in text:
-                        charWidth = self.__render_char_on_path(
-                            painter, char, path, pathLerp)
-                        pathLerp += charWidth / plen
-                        lastChar = char
-                elif component[2:4] == b"\x01\x00":
-                    string = decode_raw_string(component[5:])
-                    if component[4] not in options:
-                        options[component[4]] = string
-                continue
-
-            line = component.replace("\x00", "")
-            if line == "":
-                continue
-
-            lines = 1
-            for char in line:
-                if char == "\n" and lastChar != "\n":
-                    queueLine = True
-                    queueSize = 1
-                    pathLerp = 0.0
-                    lines += 1
-                    lastChar = char
-                    continue
-                if lastChar == "\n" and queueLine:
-                    if char == "\n":
-                        queueSize += 1
-                        continue
-                    for _ in range(queueSize):
-                        next_line(painter, backDrop)
-                    queueLine = False
-                    queueSize = 0
-
-                charWidth = self.__render_char_on_path(
-                    painter, char, path, pathLerp)
-                pathLerp += charWidth / plen
-
-                lastChar = char
-
-        buttonImg = QImage(27, 27, QImage.Format_ARGB32)
-        buttonImg.fill(Qt.transparent)
-
-        buttonPainter = QPainter()
-        buttonPainter.begin(buttonImg)
-
-        # /- RENDER BUTTONS -/ #
-
-        buttons: list[BMGMessagePreviewWidget.ButtonCB] = []
-        targetPos = QPoint(backDrop.width() - 5, 39)
-
-        if self.is_next_button_visible():
-            self.__render_next_button(buttonPainter)
-        else:
-            self.__render_end_button(buttonPainter)
-        buttonPainter.end()
-
-        transform = QTransform()
-        transform.rotate(-70)
-        buttonImg = buttonImg.transformed(transform, Qt.SmoothTransformation)
-
-        painter.save()
-        painter.setOpacity(1.0)
-        painter.drawImage(targetPos, buttonImg)
-        painter.restore()
-
-        # /- CALCULATE PROGRESSION BUTTON -/ #
-
-        centerOfs = buttonImg.rect().width() // 2
-        transform = painter.combinedTransform()
-        buttonAbsPos = transform.map(
-            QPoint(
-                targetPos.x() + centerOfs,
-                targetPos.y() + centerOfs+1
-            )
-        )
-
-        buttons.append(
-            BMGMessagePreviewWidget.CircleButton(
-                buttonAbsPos,
-                30,
-                self.nextPage
-            )
-        )
-
-        if len(options) == 0:
-            painter.restore()
-            return buttons
-
-        # /- CALCULATE OPTION BUTTONS -/ #
-
-        optionsImgSize = QSize(112, 76)
-        targetPos = QPoint(
-            (backDrop.width() // 2) - (optionsImgSize.width() // 2),
-            36
-        )
-
-        optionsImg = QImage(optionsImgSize, QImage.Format_ARGB32)
-        optionsImg.fill(Qt.transparent)
-
-        optionsPainter = QPainter()
-        optionsPainter.begin(optionsImg)
-        optionsPainter.setFont(painter.font())
-        optionsPainter.setPen(Qt.white)
-        buttonRects = self.__render_options_button(optionsPainter, options)
-        optionsPainter.end()
-
-        painter.save()
-        painter.setOpacity(1.0)
-        painter.drawImage(targetPos, optionsImg)
-        painter.restore()
-
-        for buttonRect in buttonRects:
-            buttonRect.translate(targetPos)
-            rect = transform.mapRect(buttonRect)
-            button = BMGMessagePreviewWidget.RectangleButton(
-                rect, self.stop
-            )
-            button.set_rotation(rotation)
-            buttons.append(button)
-
-        painter.restore()
-        return buttons
-
-    def __render_billboard(self, painter: QPainter, message: RichMessage, backDrop: QImage) -> List[ButtonCB]:
-        painter.save()
-
-        painter.rotate(-10)
-        painter.setOpacity(self.BgOpacity)
-        painter.translate(0, 100)
-        painter.drawImage(0, 0, backDrop)
-        painter.setOpacity(1.0)
-
-        painter.save()
-        painter.translate(0, 20)
-
-        lines = message.get_string().split("\n")
-        for line in lines:
-            line = line.replace("\x00", "")
-            painter.translate(0, 32)
-            painter.save()
-            lineWidth = self.__get_text_width(painter, line)
-            painter.translate((backDrop.width() - lineWidth) / 2, 0)
-            self.__render_text(painter, line)
-            painter.restore()
-        painter.restore()
-
-        buttonImg = QImage(27, 27, QImage.Format_ARGB32)
-        buttonImg.fill(Qt.transparent)
-
-        buttonPainter = QPainter()
-        buttonPainter.begin(buttonImg)
-
-        if self.is_next_button_visible():
-            self.__render_next_button(buttonPainter)
-        else:
-            self.__render_end_button(buttonPainter)
-        buttonPainter.end()
-
-        targetPos = QPoint(int(backDrop.width() / 2.15), backDrop.height() + 5)
-        painter.drawImage(targetPos, buttonImg)
-
-        transform = painter.combinedTransform()
-        painter.restore()
-
-        buttonAbsPos = transform.map(
-            QPoint(
-                targetPos.x() + 13,
-                targetPos.y() + 13
-            )
-        )
-        return [
-            BMGMessagePreviewWidget.CircleButton(
-                buttonAbsPos,
-                30,
-                self.nextPage
-            )
-        ]
-
-    def __render_next_button(self, painter: QPainter):
-        nextImg = QImage(
-            str(resource_path("gui/images/message_button_back.png"))
-        )
-        arrowImg = QImage(
-            str(resource_path("gui/images/message_cursor.png"))
-        )
-        painter.save()
-        painter.setOpacity(self.BgOpacity)
-        painter.drawImage(0, 0, nextImg)
-        painter.setOpacity(1.0)
-        painter.drawImage(5, 7, arrowImg)
-        painter.restore()
-
-    def __render_end_button(self, painter: QPainter):
-        nextImg = QImage(
-            str(resource_path("gui/images/message_button_back.png"))
-        )
-
-        returnImg = QImage(
-            str(resource_path("gui/images/message_return.png"))
-        )
-        painter.save()
-        painter.setOpacity(self.BgOpacity)
-        painter.drawImage(0, 0, nextImg)
-        painter.setOpacity(1.0)
-        painter.drawImage(5, 5, returnImg)
-        painter.restore()
-
-    def __render_options_button(self, painter: QPainter, options: Dict[int, str]) -> List[QRect]:
-        buttonPositions = []
-        backImg = QImage(
-            str(resource_path("gui/images/message_option_back.png"))
-        )
-        painter.save()
-        painter.setOpacity(self.BgOpacity)
-        painter.drawImage(0, 0, backImg)
-        painter.setOpacity(1.0)
-        yPos = 34
-        for index, option in options.items():
-            if index > 1:
-                continue
-            optionPos = QPoint(
-                39, yPos + (index * 25)
-            )
-            painter.save()
-            painter.translate(optionPos)
-            buttonSize = self.__render_text(painter, option)
-            buttonSize.setHeight(int(buttonSize.height() * 0.5))
-            buttonPos = QPoint(
-                optionPos.x(),
-                optionPos.y() - buttonSize.height()
-            )
-            buttonPositions.append(
-                QRect(buttonPos, buttonSize)
-            )
-            painter.restore()
-        painter.restore()
-        return buttonPositions
-
-    def __render_text(self, painter: QPainter, text: str, path: Optional[QPainterPath] = None, newLineHBuffer: int = 0) -> QSize:
-        text = text.replace("\x00", "")
-        if text == "":
-            return QSize(0, 0)
-
-        pathLerp = 0.0
-        fontMetrics = painter.fontMetrics()
-        textWidths = []
-        lineWidth = 0
-        charWidth = 0
-        textHeight = fontMetrics.height()
-        painter.save()
-        for char in text:
-            if char == "\n":
-                textWidths.append(lineWidth)
-                lineWidth = 0
-                height = fontMetrics.height() + newLineHBuffer
-                textHeight += height
-                painter.translate(0, height)
-            if path:
-                plen = path.length()
-                self.__render_char_on_path(
-                    painter,
-                    char,
-                    path,
-                    pathLerp
-                )
-                pathLerp += charWidth / plen
-                lineWidth += charWidth
-            else:
-                charWidth = fontMetrics.horizontalAdvanceChar(char)
-                if char in self.PaddingMap:
-                    charWidth += self.PaddingMap[char]
-                painter.drawText(0, 0, char)
-                painter.translate(charWidth, 0)
-                lineWidth += charWidth
-        painter.restore()
-        textWidths.append(lineWidth)
-        return QSize(max(textWidths), textHeight)
-
-    def __get_text_width(self, painter: QPainter, text: str) -> int:
-        fontMetrics = painter.fontMetrics()
-        charWidth = 0
-        for char in text:
-            charWidth += fontMetrics.horizontalAdvanceChar(char) # type: ignore
-            if char in self.PaddingMap:
-                charWidth += self.PaddingMap[char]
-        return charWidth
-
-    def __render_char_on_path(self, painter: QPainter, char: str, path: QPainterPath, lerp: float) -> int:
-        if lerp > 1.0:
-            return 0
-
-        fontMetrics = painter.fontMetrics()
-
-        point = path.pointAtPercent(lerp)
-        angle = path.angleAtPercent(lerp)
-
-        charWidth = fontMetrics.horizontalAdvanceChar(char) # type: ignore
-        if char in self.PaddingMap:
-            charWidth += self.PaddingMap[char]
-
-        painter.save()
-        # Move the virtual origin to the point on the curve
-        painter.translate(point)
-        # Rotate to match the angle of the curve
-        # Clockwise is positive so we negate the angle from above
-        painter.rotate(-angle)
-        # Draw a line width above the origin to move the text above the line
-        # and let Qt do the transformations
-        painter.drawText(QPoint(0, 0), char)
-        painter.restore()
-
-        return charWidth
-
-    def __get_num_newlines(self, message: RichMessage) -> int:
-        num = 0
-        for cmp in message.components:
-            if isinstance(cmp, str):
-                num += cmp.count("\n")
-        return num
-
-    def __get_message_for_page(self, page: int) -> RichMessage:
-        components = []
-
-        linesPerPage = self.linesPerPage
-        startIndex = linesPerPage * page
-
-        newlines = 0
-        for cmp in self.message.components:
-            if isinstance(cmp, str):
-                cmpNewLines = 0
-                substr = ""
-                for char in cmp:
-                    index = (newlines + cmpNewLines) - startIndex
-
-                    if char == "\n":
-                        cmpNewLines += 1
-
-                    if index < 0:
-                        continue
-
-                    substr += char
-                    if (linesPerPage + startIndex) - (newlines + cmpNewLines) <= 0:
-                        components.append(substr)
-                        return RichMessage(components)
-                if substr != "":
-                    components.append(substr)
-                newlines += cmpNewLines
-            else:
-                if newlines - startIndex < 0:
-                    continue
-                components.append(cmp)
-        return RichMessage(components)
 
     def paintEvent(self, event: QPaintEvent):
         painter = QPainter()
         painter.begin(self)
 
         self.render_(painter)
-        if self.__playing:
-            self.__curFrame += 1
-            if self.__curFrame > self.__endFrame:
+        if self._playing:
+            self._curFrame += 1
+            if self._curFrame > self._endFrame:
                 self.stop()
 
         painter.end()
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
+        self._buttonPressed = False
         if event.button() == Qt.MouseButton.LeftButton:
             ePos = event.pos()
-            for button in self.__buttons:
+            self._lastXPos = ePos.x()
+            for button in self._buttons:
                 if button.contains(ePos):
-                    button.exec()
+                    self._buttonPressed = True
+                    if not self.is_debs():
+                        button.exec()
             else:
                 self.update()
 
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        ePos = event.pos()
+        if self.is_debs() and self._buttonPressed:
+            movement = (self._lastXPos - ePos.x()) * 2
+            self._curPage += movement
+
+            endPage = self.debsRenderer.get_end_page(self._message)
+            if self._curPage > endPage:
+                self._curPage -= endPage + 1200
+            elif self._curPage < -1200:
+                self._curPage = self._curPage + endPage + 1200
+
+            self._lastXPos = ePos.x()
+            self.update()
 
 class BMGMessageItem(QStandardItem):
     _message: BMG.MessageEntry
@@ -901,7 +1126,7 @@ class BMGMessageItem(QStandardItem):
         self._message = BMG.MessageEntry("((null))")
         if other is None:
             return
-        
+
         self._message = other
 
     def isAutoTristate(self) -> bool:
@@ -969,7 +1194,7 @@ class BMGMessageItem(QStandardItem):
     def data(self, role: int = Qt.UserRole + 1) -> Any:
         if role == Qt.DisplayRole:
             return self._message.name
-            
+
         if role == Qt.EditRole:
             return self._message.name
 
@@ -1066,7 +1291,7 @@ class BMGMessageListModel(QStandardItemModel):
 
         stream.writeInt32(len(indexes))
         for index in indexes:
-            item = self.itemFromIndex(index) # type: ignore
+            item = self.itemFromIndex(index)  # type: ignore
             item.write(stream)
 
         mimeData.setData(
@@ -1074,7 +1299,7 @@ class BMGMessageListModel(QStandardItemModel):
             encodedData
         )
         return mimeData
-    
+
     def _resolve_name(self, name: str, filterItem: Optional[QStandardItem] = None) -> str:
         renameContext = 1
         ogName = name
@@ -1107,26 +1332,29 @@ class BMGMessageListModel(QStandardItemModel):
         return name
 
 
+class BMGMessageFilterModel(QSortFilterProxyModel):
+    def lessThan(self, source_left: Union[QModelIndex, QPersistentModelIndex], source_right: Union[QModelIndex, QPersistentModelIndex]) -> bool:
+        messageLeft: BMG.MessageEntry = source_left.data(Qt.UserRole + 1)
+        messageRight: BMG.MessageEntry = source_right.data(Qt.UserRole + 1)
+
+        return messageLeft.name < messageRight.name
+
+    def filterAcceptsRow(self, source_row: int, source_parent: Union[QModelIndex, QPersistentModelIndex]) -> bool:
+        model: BMGMessageListModel = self.sourceModel()
+        item = model.item(source_row)
+        if item is None:
+            return False
+        message: BMG.MessageEntry = item.data(Qt.UserRole + 1)
+
+        regexp = self.filterRegularExpression()
+        regexpMatch = regexp.match(message.message.get_rich_text())
+        return regexpMatch.hasMatch()
+
+
 class BMGMessageListView(InteractiveListView):
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
-        self.setModel(BMGMessageListModel())
         self.setMinimumSize(150, 100)
-
-    def model(self) -> BMGMessageListModel:
-        return super().model()
-
-    def setModel(self, model: BMGMessageListModel) -> None:
-        super().setModel(model)
-
-    def get_message(self, row: int) -> BMG.MessageEntry:
-        model = self.model()
-        item = model.item(row)
-        return item.data()
-
-    def set_message(self, row: int, rail: BMG.MessageEntry):
-        model = self.model()
-        model.setItem(row, BMGMessageItem(rail))
 
 
 class BMGMessageInterfaceWidget(QWidget):
@@ -1146,30 +1374,30 @@ class BMGMessageInterfaceWidget(QWidget):
         for sound in SoundID._member_names_:
             soundIdComboBox.addItem(sound)
         soundIdComboBox.setCurrentIndex(0)
-        soundIdComboBox.currentIndexChanged.connect(self.__push_update_request)
-        self.__soundIdComboBox = soundIdComboBox
+        soundIdComboBox.currentIndexChanged.connect(self._push_update_request)
+        self._soundIdComboBox = soundIdComboBox
 
-        soundIdLayout.addRow("Sound ID:", self.__soundIdComboBox)
+        soundIdLayout.addRow("Sound ID:", self._soundIdComboBox)
 
         startFrameLayout = QFormLayout()
 
         startFrameLineEdit = QLineEdit()
         startFrameLineEdit.setText("0")
         startFrameLineEdit.setValidator(QIntValidator(0, 65535))
-        startFrameLineEdit.textChanged.connect(self.__push_update_request)
-        self.__startFrameLineEdit = startFrameLineEdit
+        startFrameLineEdit.textChanged.connect(self._push_update_request)
+        self._startFrameLineEdit = startFrameLineEdit
 
-        startFrameLayout.addRow("Start Frame:", self.__startFrameLineEdit)
+        startFrameLayout.addRow("Start Frame:", self._startFrameLineEdit)
 
         endFrameLayout = QFormLayout()
 
         endFrameLineEdit = QLineEdit()
         endFrameLineEdit.setText("0")
         endFrameLineEdit.setValidator(QIntValidator(0, 65535))
-        endFrameLineEdit.textChanged.connect(self.__push_update_request)
-        self.__endFrameLineEdit = endFrameLineEdit
+        endFrameLineEdit.textChanged.connect(self._push_update_request)
+        self._endFrameLineEdit = endFrameLineEdit
 
-        endFrameLayout.addRow("End Frame: ", self.__endFrameLineEdit)
+        endFrameLayout.addRow("End Frame: ", self._endFrameLineEdit)
 
         layout.addLayout(soundIdLayout)
         layout.addLayout(startFrameLayout)
@@ -1180,43 +1408,43 @@ class BMGMessageInterfaceWidget(QWidget):
     def set_values(self, soundID: SoundID, startFrame: int, endFrame: int):
         startFrame = min(startFrame, 65535)
         endFrame = min(endFrame, 65535)
-        index = self.__soundIdComboBox.findText(
+        index = self._soundIdComboBox.findText(
             soundID.name, Qt.MatchFixedString
         )
         index = max(0, index)
-        self.__soundIdComboBox.setCurrentIndex(index)
-        self.__startFrameLineEdit.setText(str(startFrame))
-        self.__endFrameLineEdit.setText(str(endFrame))
+        self._soundIdComboBox.setCurrentIndex(index)
+        self._startFrameLineEdit.setText(str(startFrame))
+        self._endFrameLineEdit.setText(str(endFrame))
 
     def blockSignals(self, b: bool) -> bool:
         blocked = super().blockSignals(b)
-        blocked |= self.__soundIdComboBox.blockSignals(b)
-        blocked |= self.__startFrameLineEdit.blockSignals(b)
-        blocked |= self.__endFrameLineEdit.blockSignals(b)
+        blocked |= self._soundIdComboBox.blockSignals(b)
+        blocked |= self._startFrameLineEdit.blockSignals(b)
+        blocked |= self._endFrameLineEdit.blockSignals(b)
         return blocked
 
     @Slot()
-    def __push_update_request(self):
-        soundName = self.__soundIdComboBox.currentText()
+    def _push_update_request(self):
+        soundName = self._soundIdComboBox.currentText()
 
-        text = self.__startFrameLineEdit.text()
+        text = self._startFrameLineEdit.text()
         if text == "":
             startFrame = 0
         else:
-            startFrame = min(int(self.__startFrameLineEdit.text()), 65535)
+            startFrame = min(int(self._startFrameLineEdit.text()), 65535)
 
-        text = self.__endFrameLineEdit.text()
+        text = self._endFrameLineEdit.text()
         if text == "":
             endFrame = 0
         else:
-            endFrame = min(int(self.__endFrameLineEdit.text()), 65535)
+            endFrame = min(int(self._endFrameLineEdit.text()), 65535)
 
         self.attributeUpdateRequested.emit(soundName, startFrame, endFrame)
 
 
-class BMGMessagePreviewBGSelectWidget(QWidget):
+class BMGMessagePreviewStateWidget(QWidget):
     bgUpdateRequested = Signal(str)
-    boxChangeRequested = Signal(bool)
+    boxChangeRequested = Signal(int)
 
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
@@ -1235,13 +1463,20 @@ class BMGMessagePreviewBGSelectWidget(QWidget):
         )
         self.comboBox = comboBox
 
-        billboard = QCheckBox("Is Billboard")
-        billboard.setCheckable(True)
-        billboard.stateChanged.connect(self.boxChangeRequested.emit)
-        self.billboard = billboard
+        stateComboBox = QComboBox()
+        stateComboBox.addItems(
+            [
+                "NPC",
+                "Board",
+                "DEBS"
+            ]
+        )
+        stateComboBox.currentIndexChanged.connect(self.boxChangeRequested.emit)
+
+        self.stateComboBox = stateComboBox
 
         layout.addRow("Background", comboBox)
-        layout.addRow(billboard)
+        layout.addRow(stateComboBox)
 
         self.setLayout(layout)
 
@@ -1252,9 +1487,9 @@ class BMGMessageTextBox(QPlainTextEdit):
 
         def __init__(self, *args: VariadicArgs, **kwargs: VariadicKwargs):
             super().__init__(*args, **kwargs)
-            self.triggered.connect(self.__click)
+            self.triggered.connect(self._click)
 
-        def __click(self):
+        def _click(self):
             subname = self.text()
             parent: QMenu = self.parent()
             if parent:
@@ -1266,9 +1501,9 @@ class BMGMessageTextBox(QPlainTextEdit):
 
         def __init__(self, *args: VariadicArgs, **kwargs: VariadicKwargs):
             super().__init__(*args, **kwargs)
-            self.triggered.connect(self.__click)
+            self.triggered.connect(self._click)
 
-        def __click(self):
+        def _click(self):
             self.clicked.emit("{speed:0}")
 
     class OptionCmdAction(QAction):
@@ -1276,9 +1511,9 @@ class BMGMessageTextBox(QPlainTextEdit):
 
         def __init__(self, *args: VariadicArgs, **kwargs: VariadicKwargs):
             super().__init__(*args, **kwargs)
-            self.triggered.connect(self.__click)
+            self.triggered.connect(self._click)
 
-        def __click(self):
+        def _click(self):
             self.clicked.emit("{option:0:}")
 
     class RawCmdAction(QAction):
@@ -1286,9 +1521,9 @@ class BMGMessageTextBox(QPlainTextEdit):
 
         def __init__(self, *args: VariadicArgs, **kwargs: VariadicKwargs):
             super().__init__(*args, **kwargs)
-            self.triggered.connect(self.__click)
+            self.triggered.connect(self._click)
 
-        def __click(self):
+        def _click(self):
             self.clicked.emit("{raw:0x}")
 
     def __init__(self, *args: VariadicArgs, **kwargs: VariadicKwargs):
@@ -1402,6 +1637,8 @@ class BMGMessageMenuBar(QMenuBar):
     closeRequested = Signal()
     saveRequested = Signal(bool)
 
+    packetSizeUpdated = Signal(int)
+
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.setNativeMenuBar(False)
@@ -1459,8 +1696,8 @@ class BMGMessageMenuBar(QMenuBar):
         palAction.toggled.connect(
             lambda toggled: usaAction.setChecked(not toggled)
         )
-        self.__usaAction = usaAction
-        self.__palAction = palAction
+        self._usaAction = usaAction
+        self._palAction = palAction
 
         kindMenu.addAction(usaAction)
         kindMenu.addAction(palAction)
@@ -1489,9 +1726,9 @@ class BMGMessageMenuBar(QMenuBar):
         sizeAction12.toggled.connect(
             lambda toggled: self.set_packet_size(12)
         )
-        self.__sizeAction4 = sizeAction4
-        self.__sizeAction8 = sizeAction8
-        self.__sizeAction12 = sizeAction12
+        self._sizeAction4 = sizeAction4
+        self._sizeAction8 = sizeAction8
+        self._sizeAction12 = sizeAction12
 
         sizeMenu.addAction(sizeAction4)
         sizeMenu.addAction(sizeAction8)
@@ -1502,38 +1739,39 @@ class BMGMessageMenuBar(QMenuBar):
         self.addMenu(sizeMenu)
 
     def is_region_pal(self) -> bool:
-        return self.__palAction.isChecked() and not self.__usaAction.isChecked()
+        return self._palAction.isChecked() and not self._usaAction.isChecked()
 
     def set_region_pal(self, isPal: bool):
-        self.__palAction.setChecked(isPal)
-        self.__usaAction.setChecked(not isPal)
+        self._palAction.setChecked(isPal)
+        self._usaAction.setChecked(not isPal)
 
     def set_packet_size(self, size: int):
-        self.__sizeAction4.blockSignals(True)
-        self.__sizeAction8.blockSignals(True)
-        self.__sizeAction12.blockSignals(True)
+        self._sizeAction4.blockSignals(True)
+        self._sizeAction8.blockSignals(True)
+        self._sizeAction12.blockSignals(True)
         if size == 4:
-            self.__sizeAction4.setChecked(True)
-            self.__sizeAction8.setChecked(False)
-            self.__sizeAction12.setChecked(False)
+            self._sizeAction4.setChecked(True)
+            self._sizeAction8.setChecked(False)
+            self._sizeAction12.setChecked(False)
         elif size == 8:
-            self.__sizeAction4.setChecked(False)
-            self.__sizeAction8.setChecked(True)
-            self.__sizeAction12.setChecked(False)
+            self._sizeAction4.setChecked(False)
+            self._sizeAction8.setChecked(True)
+            self._sizeAction12.setChecked(False)
         elif size == 12:
-            self.__sizeAction4.setChecked(False)
-            self.__sizeAction8.setChecked(False)
-            self.__sizeAction12.setChecked(True)
-        self.__sizeAction4.blockSignals(False)
-        self.__sizeAction8.blockSignals(False)
-        self.__sizeAction12.blockSignals(False)
+            self._sizeAction4.setChecked(False)
+            self._sizeAction8.setChecked(False)
+            self._sizeAction12.setChecked(True)
+        self._sizeAction4.blockSignals(False)
+        self._sizeAction8.blockSignals(False)
+        self._sizeAction12.blockSignals(False)
+        self.packetSizeUpdated.emit(size)
 
     def get_packet_size(self) -> int:
-        if self.__sizeAction4.isChecked():
+        if self._sizeAction4.isChecked():
             return 4
-        if self.__sizeAction8.isChecked():
+        if self._sizeAction8.isChecked():
             return 8
-        if self.__sizeAction12.isChecked():
+        if self._sizeAction12.isChecked():
             return 12
         return 12
 
@@ -1549,15 +1787,27 @@ class BMGMessageEditorWidget(A_DockingInterface):
         self.mainLayout = QVBoxLayout()
         self.mainLayout.setContentsMargins(10, 0, 10, 10)
 
+        messageListFilter = QLineEdit()
+        messageListFilter.setPlaceholderText(" *Search for text here*")
+        messageListFilter.textChanged.connect(self.set_message_filter)
+        self.messageListFilter = messageListFilter
+
+        self.messageListModel = BMGMessageListModel()
+
+        messageFilterModel = BMGMessageFilterModel()
+        messageFilterModel.setSourceModel(self.messageListModel)
+        self.messageFilterModel = messageFilterModel
+
         messageListBox = BMGMessageListView()
-        messageListBox.clicked.connect(self.show_message)
+        messageListBox.setModel(messageFilterModel)
+        messageListBox.selectionModel().currentChanged.connect(self.show_message)
         self.messageListBox = messageListBox
 
         messageListInterface = ListInterfaceWidget()
         messageListInterface.addRequested.connect(self.new_message)
         messageListInterface.removeRequested.connect(
-            self.remove_selected_message)
-        messageListInterface.copyRequested.connect(self.copy_selected_message)
+            self.remove_selected_messages)
+        messageListInterface.copyRequested.connect(self.copy_selected_messages)
         self.messageListInterface = messageListInterface
 
         messageTextEdit = BMGMessageTextBox()
@@ -1573,12 +1823,12 @@ class BMGMessageEditorWidget(A_DockingInterface):
         )
         self.messageInterface = messageInterface
 
-        messagePreviewInterface = BMGMessagePreviewBGSelectWidget()
+        messagePreviewInterface = BMGMessagePreviewStateWidget()
         messagePreviewInterface.bgUpdateRequested.connect(
             self.set_background
         )
         messagePreviewInterface.boxChangeRequested.connect(
-            self.set_billboard
+            self.set_state
         )
         self.messagePreviewInterface = messagePreviewInterface
 
@@ -1599,6 +1849,7 @@ class BMGMessageEditorWidget(A_DockingInterface):
 
         messageListLayout = QVBoxLayout()
         messageListLayout.addWidget(messageListInterface)
+        messageListLayout.addWidget(messageListFilter)
         messageListLayout.addWidget(messageListBox)
         messageListLayout.setContentsMargins(0, 0, 0, 0)
 
@@ -1609,6 +1860,7 @@ class BMGMessageEditorWidget(A_DockingInterface):
 
         messageWidget = QWidget()
         self.messagePreview = BMGMessagePreviewWidget()
+        self._prevPreviewState = BMGMessagePreviewWidget.BoxState.NPC
 
         messageSplitter = QSplitter()
         messageSplitter.setChildrenCollapsible(False)
@@ -1640,8 +1892,9 @@ class BMGMessageEditorWidget(A_DockingInterface):
         menuBar.openRequested.connect(self.open_bmg)
         menuBar.closeRequested.connect(self.close_bmg)
         menuBar.saveRequested.connect(
-            lambda saveAs: self.save_bmg(saveAs=saveAs))
+            lambda saveAs: self._save_bmg_as(saveAs=saveAs))
         self.menuBar = menuBar
+        menuBar.packetSizeUpdated.connect(self.update_is_stagename)
 
         self.mainLayout.addWidget(self.menuBar)
         self.mainLayout.addWidget(self.splitter)
@@ -1651,7 +1904,7 @@ class BMGMessageEditorWidget(A_DockingInterface):
 
         self.messages: List[BMG.MessageEntry] = []
 
-        self.__cachedOpenPath: Optional[Path] = None
+        self._cachedOpenPath: Optional[Path] = None
 
     def populate(self, scene: Optional[SMSScene], *args: VariadicArgs, **kwargs: VariadicKwargs):
         data: BinaryIO = args[0]
@@ -1669,9 +1922,9 @@ class BMGMessageEditorWidget(A_DockingInterface):
         for i, message in enumerate(data.iter_messages()):
             if message.name == "":
                 message.name = f"message_unk_{i}"
-            self.messageListBox.set_message(i, message)
+            self.set_message(i, message)
 
-        model = self.messageListBox.model()
+        model = self.messageListModel
         if model.rowCount() > 0:
             self.messageListBox.setCurrentIndex(
                 model.index(0, 0)
@@ -1679,9 +1932,20 @@ class BMGMessageEditorWidget(A_DockingInterface):
 
         self.messageListWidget.setEnabled(True)
 
+    def get_message(self, index: QModelIndex) -> Optional[BMG.MessageEntry]:
+        item: Optional[BMGMessageItem] = self.messageListModel.item(
+            self.messageFilterModel.mapToSource(index).row()
+        )
+        if item is None:
+            return None
+        return item.data(Qt.UserRole + 1)
+
+    def set_message(self, row: int, message: BMG.MessageEntry):
+        self.messageListModel.setItem(row, BMGMessageItem(message))
+
     @Slot()
     def new_bmg(self):
-        self.populate(BMG(self.menuBar.is_region_pal(), 12))
+        self.populate(None, BMG(self.menuBar.is_region_pal(), 12))
         self.messageListWidget.setEnabled(True)
 
     @Slot(Path)
@@ -1691,7 +1955,7 @@ class BMGMessageEditorWidget(A_DockingInterface):
                 parent=self,
                 caption="Open BMG...",
                 directory=str(
-                    self.__cachedOpenPath.parent if self.__cachedOpenPath else Path.home()
+                    self._cachedOpenPath.parent if self._cachedOpenPath else Path.home()
                 ),
                 filter="Binary Messages (*.bmg);;All files (*)"
             )
@@ -1703,7 +1967,7 @@ class BMGMessageEditorWidget(A_DockingInterface):
                 return False
 
             path = Path(dialog.selectedFiles()[0]).resolve()
-            self.__cachedOpenPath = path
+            self._cachedOpenPath = path
 
         with path.open("rb") as f:
             bmg = BMG.from_bytes(f)
@@ -1724,13 +1988,13 @@ class BMGMessageEditorWidget(A_DockingInterface):
         self.messageInterface.setEnabled(False)
         self.messageListWidget.setEnabled(False)
 
-    @Slot(Path, bool)
+    @Slot(Path)
     def save_bmg(self, path: Optional[Path] = None):
         dialog = QFileDialog(
             parent=self,
             caption="Save BMG...",
             directory=str(
-                self.__cachedOpenPath.parent if self.__cachedOpenPath else Path.home()
+                self._cachedOpenPath.parent if self._cachedOpenPath else Path.home()
             ),
             filter="Binary Messages (*.bmg);;All files (*)"
         )
@@ -1743,11 +2007,11 @@ class BMGMessageEditorWidget(A_DockingInterface):
                 return False
 
             path = Path(dialog.selectedFiles()[0]).resolve()
-            self.__cachedOpenPath = path
+            self._cachedOpenPath = path
 
         bmg = BMG(self.menuBar.is_region_pal(), self.menuBar.get_packet_size())
 
-        model = self.messageListBox.model()
+        model = self.messageListModel
         for row in range(model.rowCount()):
             item: BMGMessageItem = model.item(row)
             bmg.add_message(item.data())
@@ -1755,10 +2019,17 @@ class BMGMessageEditorWidget(A_DockingInterface):
         with path.open("wb") as f:
             f.write(bmg.to_bytes())
 
-    @Slot(QModelIndex)
-    def show_message(self, index: QModelIndex):
-        item = self.messageListBox.model().item(index.row())
-        if item is None or item.text() == "":
+    @Slot(bool)
+    def _save_bmg_as(self, saveAs: bool):
+        if saveAs:
+            self.save_bmg()
+        else:
+            self.save_bmg(self._cachedOpenPath)
+
+    @Slot(QModelIndex, QModelIndex)
+    def show_message(self, index: QModelIndex, previous: QModelIndex):
+        message = self.get_message(index)
+        if message is None or message.name == "":
             self.messageTextEdit.clear()
             self.messageTextEdit.setDisabled(True)
             self.messageInterface.blockSignals(True)
@@ -1771,7 +2042,6 @@ class BMGMessageEditorWidget(A_DockingInterface):
             self.messagePreview.message = RichMessage()
             return
 
-        message: BMG.MessageEntry = item.data()
         self.messageTextEdit.setPlainText(
             message.message.get_rich_text().replace("\x00", ""))
         self.messageInterface.blockSignals(True)
@@ -1789,39 +2059,38 @@ class BMGMessageEditorWidget(A_DockingInterface):
 
     @Slot()
     def new_message(self):
-        model = self.messageListBox.model()
+        model = self.messageListModel
         row = model.rowCount()
 
         name = self.messageListBox._resolve_name("message")
         message = BMG.MessageEntry(name)
 
         self.messageListBox.blockSignals(True)
-        self.messageListBox.set_message(message)
+        self.set_message(row, message)
         self.messageListBox.blockSignals(False)
-        self.messageListBox.edit(model.index(row, 0))
+        # self.messageListBox.edit(model.index(row, 0))
 
     @Slot()
-    def remove_selected_message(self):
-        model = self.messageListBox.model()
-        model.removeRow(
-            self.messageListBox.currentIndex().row()
-        )
+    def remove_selected_messages(self):
+        model = self.messageListModel
+        for index in self.messageListBox.selectedIndexes():
+            model.removeRow(
+                index.row()
+            )
 
     @Slot()
-    def copy_selected_message(self):
-        self.messageListBox.duplicate_items(
-            [
-                self.messageListBox.model().item(
-                    self.messageListBox.currentIndex()
-                )
-            ]
-        )
+    def copy_selected_messages(self):
+        selectedIndexes = self.messageListBox.selectedIndexes()
+        self.messageListBox.duplicate_indexes(selectedIndexes)
 
     @Slot()
     def update_message_text(self):
-        message = self.messageListBox.get_message(
-            self.messageListBox.currentIndex().row()
-        )
+        currentIndex = self.messageListBox.currentIndex()
+        if not currentIndex.isValid():
+            self.messagePreview.update()
+            return
+
+        message = self.get_message(currentIndex)
 
         message.message = RichMessage.from_rich_string(
             self.messageTextEdit.toPlainText())
@@ -1831,19 +2100,40 @@ class BMGMessageEditorWidget(A_DockingInterface):
 
     @Slot(str, int, int)
     def update_message_attributes(self, soundName: str, startFrame: int, endFrame: int):
-        message = self.messageListBox.get_message(
-            self.messageListBox.currentIndex().row()
+        message = self.get_message(
+            self.messageListBox.currentIndex()
         )
+        if message is None:
+            return
 
         message.soundID = SoundID.name_to_sound_id(soundName)
         message.startFrame = startFrame
         message.endFrame = endFrame
 
-    @Slot(bool)
-    def set_billboard(self, toggled: bool):
-        self.messagePreview.boxState = (
-            BMGMessagePreviewWidget.BoxState.BILLBOARD if toggled else BMGMessagePreviewWidget.BoxState.NPC
+    @Slot(int)
+    def update_is_stagename(self, packetSize: int):
+        if packetSize == 4:
+            self._prevPreviewState = self.messagePreview.boxState
+            self.messagePreview.boxState = BMGMessagePreviewWidget.BoxState.STAGENAME
+        else:
+            self.messagePreview.boxState = self._prevPreviewState
+
+    @Slot()
+    def set_message_filter(self):
+        self.messageFilterModel.setFilterRegularExpression(
+            QRegularExpression(
+                QRegularExpression.escape(self.messageListFilter.text()),
+                QRegularExpression.CaseInsensitiveOption
+            )
         )
+
+    @Slot(int)
+    def set_state(self, index: int):
+        if self.messagePreview.is_stage_name():
+            self._prevPreviewState = BMGMessagePreviewWidget.BoxState(index)
+        else:
+            self.messagePreview.boxState = BMGMessagePreviewWidget.BoxState(
+                index)
         self.messagePreview.update()
 
     @Slot(str)
