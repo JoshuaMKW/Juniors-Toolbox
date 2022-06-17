@@ -12,6 +12,7 @@ from juniors_toolbox.gui.widgets.colorbutton import A_ColorButton
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.gui.widgets.explicitlineedit import ExplicitLineEdit
 from juniors_toolbox.gui.widgets.interactivestructs import InteractiveListView
+from juniors_toolbox.gui.widgets.listinterface import ListInterfaceWidget
 from juniors_toolbox.objects.object import MapObject
 from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.utils import VariadicArgs, VariadicKwargs
@@ -252,7 +253,7 @@ class PrmLocalListModel(QFileSystemModel):
 
 
 class PrmEntryListWidget(InteractiveListView):
-    def __init__(self, title: str = "", parent: Optional[QWidget] = None):
+    def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.setMinimumSize(150, 100)
 
@@ -267,7 +268,7 @@ class PrmEntryListWidget(InteractiveListView):
         nitem.entry.key = NameRef(nitem.text())
 
 
-class PrmLocalTreeView(QTreeView):
+class PrmLocalTreeWidget(QTreeView):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setMinimumSize(150, 100)
@@ -278,55 +279,6 @@ class PrmLocalTreeView(QTreeView):
         self.setDragDropMode(QTreeView.DragDrop)
         self.setEditTriggers(QTreeView.DoubleClicked)
         self.setSelectionBehavior(QTreeView.ExtendedSelection)
-
-
-class PrmEditorMenuBar(QMenuBar):
-    newRequested = Signal()
-    openRequested = Signal()
-    closeRequested = Signal()
-    saveRequested = Signal(bool)
-
-    def __init__(self, parent: Optional[QWidget] = None):
-        super().__init__(parent)
-        self.setNativeMenuBar(False)
-        self.setFixedHeight(28)
-
-        fileMenu = QMenu(self)
-        fileMenu.setTitle("File")
-
-        newAction = QAction(self)
-        newAction.setText("New")
-        newAction.triggered.connect(lambda toggled: self.newRequested.emit())
-
-        openAction = QAction(self)
-        openAction.setText("Open...")
-        openAction.triggered.connect(lambda toggled: self.openRequested.emit())
-
-        saveAction = QAction(self)
-        saveAction.setText("Save")
-        saveAction.triggered.connect(
-            lambda toggled: self.saveRequested.emit(False))
-
-        saveAsAction = QAction(self)
-        saveAsAction.setText("Save As...")
-        saveAsAction.triggered.connect(
-            lambda toggled: self.saveRequested.emit(True))
-
-        closeAction = QAction(self)
-        closeAction.setText("Close")
-        closeAction.triggered.connect(
-            lambda toggled: self.closeRequested.emit())
-
-        fileMenu.addAction(newAction)
-        fileMenu.addAction(openAction)
-        fileMenu.addAction(openLocalAction)
-        fileMenu.addSeparator()
-        fileMenu.addAction(saveAction)
-        fileMenu.addAction(saveAsAction)
-        fileMenu.addSeparator()
-        fileMenu.addAction(closeAction)
-
-        self.addMenu(fileMenu)
 
 
 class PrmEditorWidget(A_DockingInterface):
@@ -343,14 +295,14 @@ class PrmEditorWidget(A_DockingInterface):
         self.vBoxLayout.setContentsMargins(10, 0, 10, 10)
 
         prmEntryListBox = PrmEntryListWidget()
-        prmEntryListBox.currentItemChanged.connect(self.show_message)
+        prmEntryListBox.currentItemChanged.connect(self.show_entry)
         self.prmEntryListBox = prmEntryListBox
 
-        prmEntryListInterface = PrmEntryListInterfaceWidget()
-        prmEntryListInterface.addRequested.connect(self.new_message)
+        prmEntryListInterface = ListInterfaceWidget()
+        prmEntryListInterface.addRequested.connect(self.new_entry)
         prmEntryListInterface.removeRequested.connect(
-            self.remove_selected_message)
-        prmEntryListInterface.copyRequested.connect(self.copy_selected_message)
+            self.remove_selected_entries)
+        prmEntryListInterface.copyRequested.connect(self.duplicate_selected_entries)
         self.prmEntryListInterface = prmEntryListInterface
 
         prmEntryListLayout = QVBoxLayout()
@@ -363,7 +315,7 @@ class PrmEditorWidget(A_DockingInterface):
         prmEntryListWidget.setEnabled(False)
         self.prmEntryListWidget = prmEntryListWidget
 
-        prmEntryEditor = PrmPropertyEditorWidget()
+        prmEntryEditor = PrmEntryListWidget()
         prmEntryEditor.entryUpdateRequested.connect(
             self.update_entry
         )
@@ -375,15 +327,6 @@ class PrmEditorWidget(A_DockingInterface):
         splitter.addWidget(prmEntryEditor)
         self.splitter = splitter
 
-        menuBar = PrmEditorMenuBar(self)
-        menuBar.newRequested.connect(self.new_prm)
-        menuBar.openRequested.connect(self.open_prm)
-        menuBar.closeRequested.connect(self.close_prm)
-        menuBar.saveRequested.connect(
-            lambda saveAs: self.save_bmg(saveAs=saveAs))
-        self.menuBar = menuBar
-
-        self.vBoxLayout.addWidget(self.menuBar)
         self.vBoxLayout.addWidget(self.splitter)
 
         self.scrollArea.setLayout(self.vBoxLayout)
@@ -479,7 +422,7 @@ class PrmEditorWidget(A_DockingInterface):
             f.write(prm.to_bytes())
 
     @Slot(PrmEntryItem)
-    def show_message(self, item: PrmEntryItem):
+    def show_entry(self, item: PrmEntryItem):
         if item is None or item.text() == "":
             self.prmEntryEditor.setEnabled(False)
             return
@@ -488,7 +431,7 @@ class PrmEditorWidget(A_DockingInterface):
         self.prmEntryEditor.setEnabled(True)
 
     @Slot()
-    def new_message(self):
+    def new_entry(self):
         name = self.prmEntryListBox._resolve_name("message")
         item = PrmEntryItem(
             name,
@@ -500,11 +443,11 @@ class PrmEditorWidget(A_DockingInterface):
         self.prmEntryListBox.editItem(item, new=True)
 
     @Slot()
-    def remove_selected_message(self):
+    def remove_selected_entries(self):
         self.prmEntryListBox.takeItem(self.prmEntryListBox.currentRow())
 
     @Slot()
-    def copy_selected_message(self):
+    def duplicate_selected_entries(self):
         self.prmEntryListBox.duplicate_item(self.prmEntryListBox.currentItem())
 
     @Slot()

@@ -71,3 +71,6 @@ class A_Clonable(ABC):
     """
     @abstractmethod
     def copy(self, *, deep: bool = False) -> A_Clonable: ...
+    
+
+class A_Archive
