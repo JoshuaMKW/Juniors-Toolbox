@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 import os
 import subprocess
 import tempfile
@@ -12,7 +13,7 @@ from typing import BinaryIO, Optional
 from aenum import IntFlag
 
 import oead
-from juniors_toolbox.utils import A_Serializable, VariadicArgs, VariadicKwargs
+from juniors_toolbox.utils import A_Serializable, ReadableBuffer, VariadicArgs, VariadicKwargs
 from juniors_toolbox.utils.iohelper import (read_string, read_ubyte,
                                            read_uint16, read_uint32,
                                            write_string, write_ubyte,
@@ -35,18 +36,45 @@ class ResourceAttribute(IntFlag):
     YAZ0_COMPRESSED = 0x80  # Uses YAZ0 compression
 
 
-class A_ResourceHandle(A_Serializable):
-    def __init__(self, name: str, parent: Optional["A_ResourceHandle"] = None, children: Optional[list["A_ResourceHandle"]] = None):
+class A_ResourceHandle():
+
+    @dataclass
+    class _DataInformation:
+        data: BytesIO
+        offsets: dict["A_ResourceHandle", int]
+        mramSize: int
+        aramSize: int
+        dvdSize: int
+
+    @dataclass
+    class _LoadSortedHandles:
+        mram: list["A_ResourceHandle"]
+        aram: list["A_ResourceHandle"]
+        dvd: list["A_ResourceHandle"]
+
+    def __init__(
+        self,
+        name: str,
+        parent: Optional["A_ResourceHandle"] = None,
+        attributes: ResourceAttribute = ResourceAttribute.PRELOAD_TO_MRAM
+    ):
         self._archive: Optional["ResourceArchive"] = None
         self._name = name
 
         self._parent = parent
         if parent is not None:
             self._archive = parent._archive
-            
-        if children is None:
-            children = []
-        self._children = children
+
+        self._attributes = attributes
+
+    def is_flagged(self, attribute: ResourceAttribute | int) -> bool:
+        return (self._attributes & attribute) != 0
+
+    def set_flag(self, attribute: ResourceAttribute, active: bool) -> None:
+        if active:
+            self._attributes |= attribute
+        else:
+            self._attributes &= attribute
 
     def get_name(self) -> str:
         return self._name
@@ -79,23 +107,13 @@ class A_ResourceHandle(A_Serializable):
 
         self._name = stem + self._name[extIndex:]
 
-    def get_path(self) -> Path:
-        path = Path(self.get_name())
+    def get_path(self) -> PurePath:
+        path = PurePath(self.get_name())
         parent = self.get_parent()
         while parent is not None:
             path = parent.get_name() / path
             parent = parent.get_parent()
         return path
-
-    def get_abs_path(self) -> Path:
-        path = Path(self.get_name())
-        parent = self.get_parent()
-        while parent is not None:
-            path = parent.get_name() / path
-            parent = parent.get_parent()
-        if self._archive is None:
-            return path
-        return self._archive.get_abs_path() / path
 
     def get_archive(self) -> Optional["ResourceArchive"]:
         return self._archive
@@ -107,7 +125,7 @@ class A_ResourceHandle(A_Serializable):
         self._parent = handle
 
     @abstractmethod
-    def is_folder(self) -> bool: ...
+    def is_directory(self) -> bool: ...
 
     @abstractmethod
     def is_file(self) -> bool: ...
@@ -116,47 +134,450 @@ class A_ResourceHandle(A_Serializable):
     def get_size(self) -> int: ...
 
     @abstractmethod
-    def get_data(self) -> BytesIO: ...
+    def get_data(self) -> bytes: ...
 
     @abstractmethod
-    def get_children(self) -> list["A_ResourceHandle"]: ...
+    def get_raw_data(self) -> bytes: ...
 
     @abstractmethod
-    def new_file(self, name: str, initialData: bytes | BinaryIO = b"") -> "A_ResourceHandle": ...
+    def get_handles(self, *, flatten: bool = False) -> list["A_ResourceHandle"]: ...
 
     @abstractmethod
-    def new_directory(self, name: str) -> "A_ResourceHandle": ...
+    def get_handle(self, path: PurePath) -> Optional["A_ResourceHandle"]: ...
 
     @abstractmethod
-    def export_to(self, folderPath: Path, preserveVirtualPath: bool = False) -> bool: ...
+    def exists(self, path: PurePath) -> bool: ...
+
+    @abstractmethod
+    def new_file(
+        self,
+        name: str,
+        initialData: bytes | bytearray = b"",
+        attributes: ResourceAttribute = ResourceAttribute.FILE | ResourceAttribute.PRELOAD_TO_MRAM
+    ) -> Optional["A_ResourceHandle"]: ...
+
+    @abstractmethod
+    def new_directory(
+        self,
+        name: str,
+        attributes: ResourceAttribute = ResourceAttribute.DIRECTORY | ResourceAttribute.PRELOAD_TO_MRAM
+    ) -> Optional["A_ResourceHandle"]: ...
+
+    @abstractmethod
+    def export_to(self, folderPath: Path) -> bool: ...
 
     @abstractmethod
     @classmethod
-    def import_from(self, path: Path) -> "A_ResourceHandle": ...
+    def import_from(self, path: Path) -> Optional["A_ResourceHandle"]: ...
+
+    @abstractmethod
+    def read(self, __size: int, /) -> bytes: ...
+
+    @abstractmethod
+    def write(self, __buffer: ReadableBuffer, /) -> int: ...
+
+    @abstractmethod
+    def seek(self, __offset: int, __whence: int = os.SEEK_CUR) -> int: ...
+
+    def _get_files_by_load_type(self) -> _LoadSortedHandles:
+        mramHandles = []
+        aramHandles = []
+        dvdHandles = []
+        for handle in self.get_handles():
+            if handle.is_directory():
+                info = handle._get_files_by_load_type()
+                mramHandles.extend(info.mram)
+                aramHandles.extend(info.aram)
+                dvdHandles.extend(info.dvd)
+            else:
+                if handle.is_flagged(ResourceAttribute.PRELOAD_TO_MRAM):
+                    mramHandles.append(handle)
+                elif handle.is_flagged(ResourceAttribute.PRELOAD_TO_ARAM):
+                    mramHandles.append(handle)
+                elif handle.is_flagged(ResourceAttribute.LOAD_FROM_DVD):
+                    mramHandles.append(handle)
+                else:
+                    raise ValueError(f"Resource handle {handle.get_name()} isn't set to load")
+        return A_ResourceHandle._LoadSortedHandles(
+            mramHandles,
+            aramHandles,
+            dvdHandles
+        )
+
+    def _get_data_info(self, offset: int) -> _DataInformation:
+        mramData = b""
+        aramData = b""
+        dvdData = b""
+
+        offsetMap: dict["A_ResourceHandle", int] = {}
+
+        startOffset = offset
+        sortedHandles = self._get_files_by_load_type()
+        for handle in sortedHandles.mram:
+            offsetMap[handle] = offset
+            data = handle.get_data()
+            mramData += data
+            offset += len(data)
+
+        mramSize = offset - startOffset
+
+        startOffset = offset
+        for handle in sortedHandles.aram:
+            offsetMap[handle] = offset
+            data = handle.get_data()
+            aramData += data
+            offset += len(data)
+
+        aramSize = offset - startOffset
+
+        startOffset = offset
+        for handle in sortedHandles.dvd:
+            offsetMap[handle] = offset
+            data = handle.get_data()
+            dvdData += data
+            offset += len(data)
+
+        dvdSize = offset - startOffset
+
+        return A_ResourceHandle._DataInformation(
+            data=BytesIO(mramData + aramData + dvdData),
+            offsets=offsetMap,
+            mramSize=mramSize,
+            aramSize=aramSize,
+            dvdSize=dvdSize
+        )
 
 
-class ResourceArchive(A_Serializable):
-    def __init__(self, attributes: ResourceAttribute) -> None:
-        self._attributes = attributes
+class ResourceDirectory(A_ResourceHandle):
+    def __init__(
+        self,
+        name: str,
+        parent: Optional["A_ResourceHandle"] = None,
+        children: Optional[list["A_ResourceHandle"]] = None, 
+        attributes: ResourceAttribute = ResourceAttribute.DIRECTORY | ResourceAttribute.PRELOAD_TO_MRAM
+    ):
+        super().__init__(name, parent, attributes)
+        
+        if children is None:
+            children = []
+        self._children = children
+
+    def is_directory(self) -> bool:
+        return True
+
+    def is_file(self) -> bool:
+        return False
+
+    def get_size(self) -> int:
+        return 0
+
+    def get_data(self) -> bytes:
+        return b""
+
+    def get_raw_data(self) -> bytes:
+        return b""
+
+    def get_handles(self, *, flatten: bool = False) -> list["A_ResourceHandle"]:
+        if not flatten:
+            return self._children
+
+        def _get_r_handles(thisHandle: "A_ResourceHandle", handles: list) -> None:
+            for handle in thisHandle.get_handles():
+                if handle.is_directory():
+                    _get_r_handles(handle, handles)
+                elif handle.is_file():
+                    handles.append(handle)
+                else:
+                    raise ValueError(f"Handle \"{handle.get_name}\" is not a file nor directory")
+        
+        handles: list[A_ResourceHandle] = []
+        _get_r_handles(self, handles)
+
+        return handles
+
+    def get_handle(self, path: PurePath) -> Optional["A_ResourceHandle"]:
+        curDir, *subParts = path.parts
+        curDir = str(curDir)
+        for handle in self.get_handles():
+            if handle.get_name() == curDir:
+                if len(subParts) == 0:
+                    return handle
+                return handle.get_handle(
+                    PurePath(*subParts)
+                )
+        return None
+
+    def exists(self, path: PurePath) -> bool:
+        return self.get_handle(path) is not None
+
+    def new_file(
+        self,
+        name: str,
+        initialData: bytes | bytearray = b"",
+        attributes: ResourceAttribute = ResourceAttribute.FILE | ResourceAttribute.PRELOAD_TO_MRAM
+    ) -> Optional["A_ResourceHandle"]:
+        if self.exists(PurePath(name)):
+            return None
+
+        newFile = ResourceFile(
+            name,
+            initialData,
+            self,
+            attributes
+        )
+
+        self._children.append(newFile)
+        return newFile
+
+    def new_directory(
+        self,
+        name: str,
+        attributes: ResourceAttribute = ResourceAttribute.DIRECTORY | ResourceAttribute.PRELOAD_TO_MRAM
+    ) -> Optional["A_ResourceHandle"]:
+        if self.exists(PurePath(name)):
+            return None
+
+        newDir = ResourceDirectory(
+            name,
+            self,
+            attributes=attributes
+        )
+
+        self._children.append(newDir)
+        return newDir
+
+    def export_to(self, folderPath: Path) -> bool:
+        if not folderPath.is_dir():
+            return False
+
+        thisDir = folderPath / self.get_name()
+        thisDir.mkdir(exist_ok=True)
+
+        successful = True
+        for handle in self.get_handles():
+            successful &= handle.export_to(thisDir)
+
+        return successful
+
+    @classmethod
+    def import_from(self, path: Path) -> Optional["A_ResourceHandle"]:
+        if not path.is_dir():
+            return None
+
+        thisResource = ResourceDirectory(path.name)
+
+        for p in path.iterdir():
+            resource: A_ResourceHandle | None
+            if p.is_dir():
+                resource = ResourceDirectory.import_from(p)
+            elif p.is_file():
+                resource = ResourceFile.import_from(p)
+
+            if resource is None:
+                continue
+
+            thisResource._children.append(resource)
+
+        return thisResource
+
+    def read(self, __size: int, /) -> bytes:
+        raise RuntimeError("Resource directories don't have read support")
+
+    def write(self, __buffer: ReadableBuffer, /) -> int:
+        raise RuntimeError("Resource directories don't have write support")
+
+    def seek(self, __offset: int, __whence: int = os.SEEK_CUR) -> int:
+        return 0
+
+
+class ResourceFile(A_ResourceHandle):
+    def __init__(
+        self,
+        name: str,
+        initialData: bytes | bytearray = b"",
+        parent: Optional["A_ResourceHandle"] = None,
+        attributes: ResourceAttribute = ResourceAttribute.FILE | ResourceAttribute.PRELOAD_TO_MRAM
+    ):
+        super().__init__(name, parent, attributes)
+
+        self._data = BytesIO(initialData)
+        self._curPos = 0
+
+    def is_directory(self) -> bool:
+        return True
+
+    def is_file(self) -> bool:
+        return False
+
+    def get_size(self) -> int:
+        return 0
+
+    def get_data(self) -> bytes:
+        data = self.get_raw_data()
+
+        fill = 32 - (len(data) % 32)
+        if fill == 32:
+            return data
+
+        return data + b"\x00" * fill
+
+    def get_raw_data(self) -> bytes:
+        return self._data.getvalue()
+
+    def get_handles(self, *, flatten: bool = False) -> list["A_ResourceHandle"]:
+        return []
+
+    def get_handle(self, path: PurePath) -> Optional["A_ResourceHandle"]:
+        return None
+
+    def exists(self, path: PurePath) -> bool:
+        return self.get_handle(path) is not None
+
+    def new_file(
+        self,
+        name: str,
+        initialData: bytes | bytearray = b"",
+        attributes: ResourceAttribute = ResourceAttribute.FILE | ResourceAttribute.PRELOAD_TO_MRAM
+    ) -> Optional["A_ResourceHandle"]:
+        return None
+
+    def new_directory(
+        self,
+        name: str,
+        attributes: ResourceAttribute = ResourceAttribute.DIRECTORY | ResourceAttribute.PRELOAD_TO_MRAM
+    ) -> Optional["A_ResourceHandle"]:
+        return None
+
+    def export_to(self, folderPath: Path) -> bool:
+        if not folderPath.is_dir():
+            return False
+
+        thisFile = folderPath / self.get_name()
+        thisFile.write_bytes(
+            self.get_data()
+        )
+
+        return True
+
+    @classmethod
+    def import_from(self, path: Path) -> Optional["A_ResourceHandle"]:
+        if not path.is_file():
+            return None
+
+        return ResourceFile(
+            path.name,
+            path.read_bytes()
+        )
+
+    def read(self, __size: int, /) -> bytes:
+        return self._data.read(__size)
+
+    def write(self, __buffer: ReadableBuffer, /) -> int:
+        return self._data.write(__buffer)
+
+    def seek(self, __offset: int, __whence: int = os.SEEK_CUR) -> int:
+        return self._data.seek(__offset, __whence)
+
+
+class ResourceArchive(ResourceDirectory):
+    @dataclass
+    class RARCFileEntry:
+        fileID: int
+        flags: ResourceAttribute
+        name: str
+        offset: int
+        size: int
+        nameHash: int
+
+    def __init__(
+        self,
+        rootName: str,
+        parent: Optional["A_ResourceHandle"] = None,
+        children: Optional[list["A_ResourceHandle"]] = None
+    ):
+        super().__init__(rootName, parent, children)
+        
+        if children is None:
+            children = []
+        self._children = children
 
     @classmethod
     def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **kwargs: VariadicKwargs) -> Optional[A_Serializable]:
-        return super().from_bytes(data, *args, **kwargs)
+        ...
 
     def to_bytes(self) -> bytes:
-        return super().to_bytes()
+        stream = BytesIO()
 
-    def is_flagged(self, attribute: ResourceAttribute) -> bool:
-        return (self._attributes & attribute) != 0
+        dataInfo = self._get_data_info(0)
+        fileID = 0
+        nextFolderID = 1
+        
 
-    def set_flag(self, attribute: ResourceAttribute, active: bool) -> None:
-        if active:
-            self._attributes |= attribute
-        else:
-            self._attributes &= attribute
+        
 
-    def exists(self, path: Path) -> bool:
+    def is_directory(self) -> bool:
+        return True
+
+    def is_file(self) -> bool:
         return False
+
+    def get_size(self) -> int:
+        return 0
+
+    def get_handles(self) -> list["A_ResourceHandle"]:
+        return self._children
+
+    def get_handle(self, path: PurePath) -> Optional["A_ResourceHandle"]:
+        curDir, *subParts = path.parts
+        curDir = str(curDir)
+        for handle in self.get_handles():
+            if handle.get_name() == curDir:
+                if len(subParts) == 0:
+                    return handle
+                return handle.get_handle(
+                    PurePath(*subParts)
+                )
+        return None
+
+    def exists(self, path: PurePath) -> bool:
+        return self.get_handle(path) is not None
+
+    def new_file(
+        self,
+        name: str,
+        initialData: bytes | BinaryIO = b"",
+        attributes: ResourceAttribute = ResourceAttribute.FILE | ResourceAttribute.PRELOAD_TO_MRAM
+    ) -> Optional["A_ResourceHandle"]:
+        return None
+
+    def new_directory(
+        self,
+        name: str,
+        attributes: ResourceAttribute = ResourceAttribute.DIRECTORY | ResourceAttribute.PRELOAD_TO_MRAM
+    ) -> Optional["A_ResourceHandle"]:
+        return None
+
+    def export_to(self, folderPath: Path) -> bool:
+        if not folderPath.is_dir():
+            return False
+
+        thisFile = folderPath / self.get_name()
+        thisFile.write_bytes(
+            self.to_bytes()
+        )
+
+        return True
+
+    @classmethod
+    def import_from(self, path: Path) -> Optional["A_ResourceHandle"]:
+        if not path.is_file():
+            return None
+
+        return ResourceFile(
+            path.name,
+            path.read_bytes()
+        )
+
 
 class CompressionSetting():
     def __init__(self, yaz0_fast=False, wszst=False, compression_level="9"):
