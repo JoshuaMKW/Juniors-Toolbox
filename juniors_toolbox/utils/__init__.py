@@ -39,7 +39,7 @@ SupportsRichComparison: TypeAlias = SupportsDunderLT | SupportsDunderGT
 SupportsRichComparisonT = TypeVar("SupportsRichComparisonT", bound=SupportsRichComparison)  # noqa: Y001
 
 ReadOnlyBuffer: TypeAlias = bytes  # stable
-WriteableBuffer: TypeAlias = bytearray | memoryview | array.array[Any] | mmap.mmap | ctypes._CData  # stable
+WriteableBuffer: TypeAlias = bytearray | memoryview | mmap.mmap  # stable
 ReadableBuffer: TypeAlias = ReadOnlyBuffer | WriteableBuffer  # stable
 
 VariadicArgs = Any

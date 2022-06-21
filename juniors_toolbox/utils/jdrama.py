@@ -1,8 +1,8 @@
 from io import BytesIO
 from typing import BinaryIO, Optional
-from juniors_toolbox.utils import A_Clonable, A_Serializable, VariadicArgs, VariadicKwargs
+from __init__ import A_Clonable, A_Serializable, VariadicArgs, VariadicKwargs
 
-from juniors_toolbox.utils.iohelper import read_string, read_uint16, read_uint32, write_string, write_uint16
+from iohelper import read_string, read_uint16, read_uint32, write_string, write_uint16
 
 
 class NameRefCorruptedError(Exception):

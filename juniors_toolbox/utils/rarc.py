@@ -11,11 +11,18 @@ from pathlib import Path, PurePath
 from struct import pack, unpack
 from typing import BinaryIO, Optional
 from aenum import IntFlag
+from numpy import append
 
 import oead
-from juniors_toolbox.utils import A_Serializable, ReadableBuffer, VariadicArgs, VariadicKwargs
-from juniors_toolbox.utils.iohelper import (read_string, read_ubyte,
-                                           read_uint16, read_uint32,
+# from juniors_toolbox.utils import A_Serializable, ReadableBuffer, VariadicArgs, VariadicKwargs, jdrama
+# from juniors_toolbox.utils.iohelper import (read_bool, read_sint16, read_sint32, read_string, read_ubyte,
+#                                            read_uint16, read_uint32, write_bool, write_sint16, write_sint32,
+#                                            write_string, write_ubyte,
+#                                            write_uint16, write_uint32)
+from __init__ import A_Serializable, ReadableBuffer, VariadicArgs, VariadicKwargs
+import jdrama
+from iohelper import (read_bool, read_sint16, read_sint32, read_string, read_ubyte,
+                                           read_uint16, read_uint32, write_bool, write_sint16, write_sint32,
                                            write_string, write_ubyte,
                                            write_uint16, write_uint32)
 
@@ -55,7 +62,7 @@ class A_ResourceHandle():
     def __init__(
         self,
         name: str,
-        parent: Optional["A_ResourceHandle"] = None,
+        parent: Optional["ResourceDirectory"] = None,
         attributes: ResourceAttribute = ResourceAttribute.PRELOAD_TO_MRAM
     ):
         self._archive: Optional["ResourceArchive"] = None
@@ -69,6 +76,9 @@ class A_ResourceHandle():
 
     def is_flagged(self, attribute: ResourceAttribute | int) -> bool:
         return (self._attributes & attribute) != 0
+
+    def get_flags(self) -> ResourceAttribute:
+        return self._attributes
 
     def set_flag(self, attribute: ResourceAttribute, active: bool) -> None:
         if active:
@@ -118,17 +128,29 @@ class A_ResourceHandle():
     def get_archive(self) -> Optional["ResourceArchive"]:
         return self._archive
 
-    def get_parent(self) -> Optional["A_ResourceHandle"]:
+    def get_parent(self) -> Optional["ResourceDirectory"]:
         return self._parent
 
-    def set_parent(self, handle: "A_ResourceHandle"):
-        self._parent = handle
+    def set_parent(self, handle: "ResourceDirectory"):
+        handle.add_handle(self)
 
     @abstractmethod
     def is_directory(self) -> bool: ...
 
     @abstractmethod
     def is_file(self) -> bool: ...
+
+    @abstractmethod
+    def sync_ids(self) -> bool: ...
+
+    @abstractmethod
+    def get_magic(self) -> str: ...
+
+    @abstractmethod
+    def get_id(self) -> int: ...
+
+    @abstractmethod
+    def set_id(self, __id: int, /) -> None: ...
 
     @abstractmethod
     def get_size(self) -> int: ...
@@ -143,10 +165,19 @@ class A_ResourceHandle():
     def get_handles(self, *, flatten: bool = False) -> list["A_ResourceHandle"]: ...
 
     @abstractmethod
-    def get_handle(self, path: PurePath) -> Optional["A_ResourceHandle"]: ...
+    def get_handle(self, __path: PurePath | str, /) -> Optional["A_ResourceHandle"]: ...
 
     @abstractmethod
-    def exists(self, path: PurePath) -> bool: ...
+    def path_exists(self, __path: PurePath | str, /) -> bool: ...
+
+    @abstractmethod
+    def add_handle(self, __handle: "A_ResourceHandle", /) -> bool: ...
+
+    @abstractmethod
+    def remove_handle(self, __handle: "A_ResourceHandle", /) -> bool: ...
+
+    @abstractmethod
+    def remove_path(self, __path: PurePath | str, /) -> bool: ...
 
     @abstractmethod
     def new_file(
@@ -166,8 +197,8 @@ class A_ResourceHandle():
     @abstractmethod
     def export_to(self, folderPath: Path) -> bool: ...
 
-    @abstractmethod
     @classmethod
+    @abstractmethod
     def import_from(self, path: Path) -> Optional["A_ResourceHandle"]: ...
 
     @abstractmethod
@@ -247,12 +278,129 @@ class A_ResourceHandle():
             dvdSize=dvdSize
         )
 
+        
+class ResourceFile(A_ResourceHandle):
+    def __init__(
+        self,
+        name: str,
+        initialData: bytes | bytearray = b"",
+        parent: Optional["ResourceDirectory"] = None,
+        attributes: ResourceAttribute = ResourceAttribute.FILE | ResourceAttribute.PRELOAD_TO_MRAM
+    ):
+        super().__init__(name, parent, attributes)
+
+        self._data = BytesIO(initialData)
+        self._id = -1
+
+    def is_directory(self) -> bool:
+        return False
+
+    def is_file(self) -> bool:
+        return True
+
+    def get_magic(self) -> str:
+        name = self.get_name()
+        return name.upper().ljust(4)
+
+    def sync_ids(self) -> bool:
+        archive = self.get_archive()
+        if archive is None:
+            return False
+        return archive.sync_ids()
+
+    def get_id(self) -> int:
+        return self._id
+
+    def set_id(self, __id: int, /) -> None:
+        # parent = self.get_parent()
+        # if parent and parent.sync_ids():
+        #     return
+        self._id = __id
+
+    def get_size(self) -> int:
+        return 0
+
+    def get_data(self) -> bytes:
+        data = self.get_raw_data()
+
+        fill = 32 - (len(data) % 32)
+        if fill == 32:
+            return data
+
+        return data + b"\x00" * fill
+
+    def get_raw_data(self) -> bytes:
+        return self._data.getvalue()
+
+    def get_handles(self, *, flatten: bool = False) -> list["A_ResourceHandle"]:
+        return []
+
+    def get_handle(self, __path: PurePath | str, /) -> Optional["A_ResourceHandle"]:
+        return None
+
+    def path_exists(self, path: PurePath | str) -> bool:
+        return self.get_handle(path) is not None
+
+    def add_handle(self, __handle: "A_ResourceHandle", /) -> bool:
+        return False
+
+    def remove_handle(self, __handle: "A_ResourceHandle", /) -> bool:
+        return False
+
+    def remove_path(self, __path: PurePath | str, /) -> bool:
+        return False
+
+    def new_file(
+        self,
+        name: str,
+        initialData: bytes | bytearray = b"",
+        attributes: ResourceAttribute = ResourceAttribute.FILE | ResourceAttribute.PRELOAD_TO_MRAM
+    ) -> Optional["A_ResourceHandle"]:
+        return None
+
+    def new_directory(
+        self,
+        name: str,
+        attributes: ResourceAttribute = ResourceAttribute.DIRECTORY | ResourceAttribute.PRELOAD_TO_MRAM
+    ) -> Optional["A_ResourceHandle"]:
+        return None
+
+    def export_to(self, folderPath: Path) -> bool:
+        if not folderPath.is_dir():
+            return False
+
+        thisFile = folderPath / self.get_name()
+        thisFile.write_bytes(
+            self.get_data()
+        )
+
+        return True
+
+    @classmethod
+    def import_from(self, path: Path) -> Optional["A_ResourceHandle"]:
+        if not path.is_file():
+            return None
+
+        return ResourceFile(
+            path.name,
+            path.read_bytes()
+        )
+
+    def read(self, __size: int, /) -> bytes:
+        return self._data.read(__size)
+
+    def write(self, __buffer: ReadableBuffer, /) -> int:
+        return self._data.write(__buffer)
+
+    def seek(self, __offset: int, __whence: int = os.SEEK_CUR) -> int:
+        return self._data.seek(__offset, __whence)
+
 
 class ResourceDirectory(A_ResourceHandle):
     def __init__(
         self,
         name: str,
-        parent: Optional["A_ResourceHandle"] = None,
+        parent: Optional["ResourceDirectory"] = None,
         children: Optional[list["A_ResourceHandle"]] = None, 
         attributes: ResourceAttribute = ResourceAttribute.DIRECTORY | ResourceAttribute.PRELOAD_TO_MRAM
     ):
@@ -267,6 +415,22 @@ class ResourceDirectory(A_ResourceHandle):
 
     def is_file(self) -> bool:
         return False
+
+    def sync_ids(self) -> bool:
+        archive = self.get_archive()
+        if archive is None:
+            return False
+        return archive.sync_ids()
+
+    def get_magic(self) -> str:
+        name = self.get_name()
+        return name.upper().ljust(4)
+
+    def get_id(self) -> int:
+        return -1
+
+    def set_id(self, __id: int, /) -> None:
+        pass
 
     def get_size(self) -> int:
         return 0
@@ -295,8 +459,10 @@ class ResourceDirectory(A_ResourceHandle):
 
         return handles
 
-    def get_handle(self, path: PurePath) -> Optional["A_ResourceHandle"]:
-        curDir, *subParts = path.parts
+    def get_handle(self, __path: PurePath | str, /) -> Optional["A_ResourceHandle"]:
+        if isinstance(__path, str):
+            __path = PurePath(__path)
+        curDir, *subParts = __path.parts
         curDir = str(curDir)
         for handle in self.get_handles():
             if handle.get_name() == curDir:
@@ -307,8 +473,31 @@ class ResourceDirectory(A_ResourceHandle):
                 )
         return None
 
-    def exists(self, path: PurePath) -> bool:
-        return self.get_handle(path) is not None
+    def path_exists(self, __path: PurePath | str, /) -> bool:
+        return self.get_handle(__path) is not None
+
+    def add_handle(self, __handle: "A_ResourceHandle", /) -> bool:
+        if __handle in self._children:
+            return False
+
+        self._children.append(__handle)
+        __handle._parent = self
+        return True
+
+    def remove_handle(self, __handle: "A_ResourceHandle", /) -> bool:
+        if __handle not in self._children:
+            return False
+
+        self._children.remove(__handle)
+        return True
+
+    def remove_path(self, __path: PurePath | str, /) -> bool:
+        handle = self.get_handle(__path)
+        if handle is None:
+            return False
+
+        self._children.remove(handle)
+        return True
 
     def new_file(
         self,
@@ -316,7 +505,7 @@ class ResourceDirectory(A_ResourceHandle):
         initialData: bytes | bytearray = b"",
         attributes: ResourceAttribute = ResourceAttribute.FILE | ResourceAttribute.PRELOAD_TO_MRAM
     ) -> Optional["A_ResourceHandle"]:
-        if self.exists(PurePath(name)):
+        if self.path_exists(PurePath(name)):
             return None
 
         newFile = ResourceFile(
@@ -334,7 +523,7 @@ class ResourceDirectory(A_ResourceHandle):
         name: str,
         attributes: ResourceAttribute = ResourceAttribute.DIRECTORY | ResourceAttribute.PRELOAD_TO_MRAM
     ) -> Optional["A_ResourceHandle"]:
-        if self.exists(PurePath(name)):
+        if self.path_exists(PurePath(name)):
             return None
 
         newDir = ResourceDirectory(
@@ -390,156 +579,257 @@ class ResourceDirectory(A_ResourceHandle):
         return 0
 
 
-class ResourceFile(A_ResourceHandle):
-    def __init__(
-        self,
-        name: str,
-        initialData: bytes | bytearray = b"",
-        parent: Optional["A_ResourceHandle"] = None,
-        attributes: ResourceAttribute = ResourceAttribute.FILE | ResourceAttribute.PRELOAD_TO_MRAM
-    ):
-        super().__init__(name, parent, attributes)
-
-        self._data = BytesIO(initialData)
-        self._curPos = 0
-
-    def is_directory(self) -> bool:
-        return True
-
-    def is_file(self) -> bool:
-        return False
-
-    def get_size(self) -> int:
-        return 0
-
-    def get_data(self) -> bytes:
-        data = self.get_raw_data()
-
-        fill = 32 - (len(data) % 32)
-        if fill == 32:
-            return data
-
-        return data + b"\x00" * fill
-
-    def get_raw_data(self) -> bytes:
-        return self._data.getvalue()
-
-    def get_handles(self, *, flatten: bool = False) -> list["A_ResourceHandle"]:
-        return []
-
-    def get_handle(self, path: PurePath) -> Optional["A_ResourceHandle"]:
-        return None
-
-    def exists(self, path: PurePath) -> bool:
-        return self.get_handle(path) is not None
-
-    def new_file(
-        self,
-        name: str,
-        initialData: bytes | bytearray = b"",
-        attributes: ResourceAttribute = ResourceAttribute.FILE | ResourceAttribute.PRELOAD_TO_MRAM
-    ) -> Optional["A_ResourceHandle"]:
-        return None
-
-    def new_directory(
-        self,
-        name: str,
-        attributes: ResourceAttribute = ResourceAttribute.DIRECTORY | ResourceAttribute.PRELOAD_TO_MRAM
-    ) -> Optional["A_ResourceHandle"]:
-        return None
-
-    def export_to(self, folderPath: Path) -> bool:
-        if not folderPath.is_dir():
-            return False
-
-        thisFile = folderPath / self.get_name()
-        thisFile.write_bytes(
-            self.get_data()
-        )
-
-        return True
-
-    @classmethod
-    def import_from(self, path: Path) -> Optional["A_ResourceHandle"]:
-        if not path.is_file():
-            return None
-
-        return ResourceFile(
-            path.name,
-            path.read_bytes()
-        )
-
-    def read(self, __size: int, /) -> bytes:
-        return self._data.read(__size)
-
-    def write(self, __buffer: ReadableBuffer, /) -> int:
-        return self._data.write(__buffer)
-
-    def seek(self, __offset: int, __whence: int = os.SEEK_CUR) -> int:
-        return self._data.seek(__offset, __whence)
-
-
-class ResourceArchive(ResourceDirectory):
+class ResourceArchive(ResourceDirectory, A_Serializable):
     @dataclass
-    class RARCFileEntry:
+    class FileEntry:
         fileID: int
-        flags: ResourceAttribute
+        flags: int
         name: str
         offset: int
         size: int
         nameHash: int
 
+    @dataclass
+    class DirectoryEntry:
+        magic: str
+        name: str
+        nameOffset: int
+        nameHash: int
+        fileCount: int
+        firstFileOffset: int
+
+    @dataclass
+    class _StringTableData:
+        strings: bytes
+        offsets: dict[str, int]
+
     def __init__(
         self,
         rootName: str,
-        parent: Optional["A_ResourceHandle"] = None,
-        children: Optional[list["A_ResourceHandle"]] = None
+        children: Optional[list["A_ResourceHandle"]] = None,
+        syncIDs: bool = True
     ):
-        super().__init__(rootName, parent, children)
+        super().__init__(rootName, None, children)
         
         if children is None:
             children = []
         self._children = children
+        self._syncIDs = syncIDs
 
     @classmethod
-    def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **kwargs: VariadicKwargs) -> Optional[A_Serializable]:
-        ...
+    def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **kwargs: VariadicKwargs) -> Optional["ResourceArchive"]:
+        assert data.read(4) == b"RARC", "Invalid identifier. Expected \"RARC\""
+
+        archive = ResourceArchive("Root")
+
+        # Header
+        rarcSize = read_uint32(data)
+        dataHeaderOffset = read_uint32(data)
+        dataOffset = read_uint32(data) + 0x20
+        dataLength = read_uint32(data)
+        mramSize = read_uint32(data)
+        aramSize = read_uint32(data)
+        data.seek(4, 1)
+
+        # Data Header
+        directoryCount = read_uint32(data)
+        directoryTableOffset = read_uint32(data) + 0x20
+        fileEntryCount = read_uint32(data)
+        fileEntryTableOffset = read_uint32(data) + 0x20
+        stringTableSize = read_uint32(data)
+        stringTableOffset = read_uint32(data) + 0x20
+        nextFreeFileID = read_uint16(data)
+        syncIDs = read_bool(data)
+
+        archive._syncIDs = syncIDs
+
+        # Directory Nodes
+        data.seek(directoryTableOffset, 0)
+
+        flatDirectoryList: list[ResourceArchive.DirectoryEntry] = []
+        for _ in range(directoryCount):
+            magic = read_string(data, maxlen=3)
+            nameOffset = read_uint32(data)
+            nameHash = read_uint16(data)
+            fileCount = read_uint16(data)
+            firstFileOffset = read_uint32(data)
+
+            _oldPos = data.tell()
+            data.seek(stringTableOffset + nameOffset, 0)
+            name = read_string(data)
+            data.seek(_oldPos, 0)
+
+            flatDirectoryList.append(
+                ResourceArchive.DirectoryEntry(
+                    magic,
+                    name,
+                    nameOffset,
+                    nameHash,
+                    fileCount,
+                    firstFileOffset
+                )
+            )
+
+        # File Nodes
+        data.seek(fileEntryTableOffset, 0)
+
+        flatFileList: list[ResourceArchive.FileEntry] = []
+        for _ in range(fileEntryCount):
+            entryID = read_sint16(data)
+            nameHash = read_sint16(data)
+            type_ = read_sint16(data)
+
+            nameOffset = read_uint16(data)
+            offset = read_sint32(data)
+            size = read_sint32(data)
+
+            data.seek(4, 1)
+
+            _oldPos = data.tell()
+            data.seek(stringTableOffset + nameOffset, 0)
+            name = read_string(data)
+            data.seek(_oldPos, 0)
+
+            flatFileList.append(
+                ResourceArchive.FileEntry(
+                    entryID,
+                    type_,
+                    name,
+                    offset,
+                    size,
+                    nameHash
+                )
+            )
+
+        # Directory Construction
+        directories: list[ResourceDirectory] = []
+
+        dirToFileEntry: dict[ResourceDirectory, list[ResourceArchive.FileEntry]] = {}
+        for i, dirEntry in enumerate(flatDirectoryList):
+            directory: ResourceDirectory
+            if i == 0:
+                directory = archive
+                directory.set_name(dirEntry.name)
+            else:
+                directory = ResourceDirectory(dirEntry.name)
+            fileEntries = dirToFileEntry.setdefault(directory, [])
+            for handleEntry in flatFileList[dirEntry.firstFileOffset:dirEntry.fileCount + dirEntry.firstFileOffset]:
+                if handleEntry.flags == 0x200:
+                    fileEntries.append(handleEntry)
+                else:
+                    data.seek(dataOffset + handleEntry.offset, 0)
+                    directory.add_handle(
+                        ResourceFile(
+                            handleEntry.name,
+                            initialData=data.read(handleEntry.size),
+                            attributes=ResourceAttribute(handleEntry.flags >> 8)
+                        )
+                    )
+            directories.append(directory)
+
+        for directory in directories:
+            for subdir in dirToFileEntry[directory]:
+                refDir = directories[subdir.offset]
+                if (subdir.name == "."):  # This Dir
+                    # if (subdir.offset == 0):  # Root folder
+                    #     archive.set_name(refDir.get_name())
+                    continue
+                if (subdir.name == ".."):
+                    if (subdir.offset == -1 or subdir.offset > len(directories)):
+                        continue
+                    directory.set_parent(refDir)
+                    continue
+                if not refDir.get_name() == subdir.name:
+                    refDir.set_name(subdir.name)
+
+        return archive
 
     def to_bytes(self) -> bytes:
         stream = BytesIO()
 
         dataInfo = self._get_data_info(0)
-        fileID = 0
-        nextFolderID = 1
         
+        flatFileList = self._get_file_entry_list(dataInfo)
+        flatDirectoryList = self._get_flat_directory_list()
 
+        stringTableData = self._get_string_table_data(flatFileList)
+
+        # File Writing
+        stream.write(b"RARC")
+        stream.write(b"\xDD\xDD\xDD\xDD\x00\x00\x00\x20\xDD\xDD\xDD\xDD\xEE\xEE\xEE\xEE")
+        write_uint32(stream, dataInfo.mramSize)
+        write_uint32(stream, dataInfo.aramSize)
+        write_uint32(stream, dataInfo.dvdSize)
+
+        # Data Header
+        write_uint32(stream, len(flatDirectoryList))
+        stream.write(b"\xDD\xDD\xDD\xDD")
+        write_uint32(stream, len(flatFileList))
+        stream.write(b"\xDD\xDD\xDD\xDD")
+        stream.write(b"\xEE\xEE\xEE\xEE")
+        stream.write(b"\xEE\xEE\xEE\xEE")
+        write_uint16(stream, len(flatFileList))
+        write_bool(stream, self.sync_ids())
         
+        # Padding
+        stream.write(b"\x00\x00\x00\x00\x00")
 
-    def is_directory(self) -> bool:
-        return True
+        # Directory Nodes
+        directoryEntryOffset = stream.tell()
 
-    def is_file(self) -> bool:
-        return False
+        for directory in flatDirectoryList:
+            stream.write(directory.magic.encode())
+            write_uint32(stream, stringTableData.offsets[directory.name])
+            write_uint16(stream, directory.nameHash)
+            write_uint16(stream, directory.fileCount)
+            write_uint32(stream, directory.firstFileOffset)
 
-    def get_size(self) -> int:
-        return 0
+        # Padding
+        write_pad32(stream)
 
-    def get_handles(self) -> list["A_ResourceHandle"]:
-        return self._children
+        # File Entries
+        fileEntryOffset = stream.tell()
+        for entry in flatFileList:
+            write_sint16(stream, entry.fileID)
+            write_uint16(stream, entry.nameHash)
+            write_uint16(stream, entry.flags)
+            write_uint16(stream, stringTableData.offsets[entry.name])
+            write_uint32(stream, entry.offset)
+            write_uint32(stream, entry.size)
+            stream.write(b"\x00\x00\x00\x00")
 
-    def get_handle(self, path: PurePath) -> Optional["A_ResourceHandle"]:
-        curDir, *subParts = path.parts
-        curDir = str(curDir)
-        for handle in self.get_handles():
-            if handle.get_name() == curDir:
-                if len(subParts) == 0:
-                    return handle
-                return handle.get_handle(
-                    PurePath(*subParts)
-                )
-        return None
+        # Padding
+        write_pad32(stream)
 
-    def exists(self, path: PurePath) -> bool:
+        # String Table
+        stringTableOffset = stream.tell()
+        stream.write(stringTableData.strings)
+
+        # Padding
+        write_pad32(stream)
+
+        # File Table
+        fileTableOffset = stream.tell()
+        stream.write(dataInfo.data.getvalue())
+
+        # Header
+        rarcSize = len(stream.getvalue())
+
+        stream.seek(0x4, 0)
+        write_uint32(stream, rarcSize)
+        stream.seek(0x4, 1)
+        write_uint32(stream, fileTableOffset - 0x20)
+        write_uint32(stream, rarcSize - fileTableOffset)
+        stream.seek(0x10, 1)
+        write_uint32(stream, directoryEntryOffset - 0x20)
+        stream.seek(0x4, 1)
+        write_uint32(stream, fileEntryOffset - 0x20)
+        write_uint32(stream, fileTableOffset - stringTableOffset)
+        write_uint32(stream, stringTableOffset - 0x20)
+
+        return stream.getvalue()
+
+    def path_exists(self, path: PurePath | str) -> bool:
         return self.get_handle(path) is not None
 
     def new_file(
@@ -578,157 +868,160 @@ class ResourceArchive(ResourceDirectory):
             path.read_bytes()
         )
 
+    def sync_ids(self) -> bool:
+        return self._syncIDs
 
-class CompressionSetting():
-    def __init__(self, yaz0_fast=False, wszst=False, compression_level="9"):
-        self.yaz0_fast = yaz0_fast
-        self.wszst = wszst
-        self.compression_level = compression_level
+    def get_magic(self) -> str:
+        return "ROOT"
 
-    def run_wszst(self, file):
-        if not self.wszst:
-            raise RuntimeError("Wszst is not used")
-        handle, abspath = tempfile.mkstemp()
-        os.close(handle)
-        filedata = file.getvalue()
-        with open(abspath, "wb") as f:
-            print("writing to", abspath)
-            f.write(filedata)
-            f.close()
+    def get_next_free_id(self) -> int:
+        allIDs: list[int] = []
+        for handle in self.get_handles(flatten=True):
+            if handle.is_directory():
+                continue
+            allIDs.append(handle.get_id())
 
-        outpath = abspath+".yaz0_tmp"
-        args = ["wszst", "COMPRESS", abspath, "--dest",
-                outpath, "--compr", self.compression_level]
-        try:
-            subprocess.run(args, check=True)
-        except Exception as err:
-            print("Encountered error, cleaning up...")
-            os.remove(abspath)
-            raise
+        if len(allIDs) == 0:
+            return 0
 
-        with open(outpath, "rb") as f:
-            compressed_data = f.read()
+        allIDs.sort()
+        for i in range(allIDs[0] + 1, allIDs[-1]):
+            if i not in allIDs:
+                return i
+        return len(allIDs)
 
-        os.remove(abspath)
-        os.remove(outpath)
+    def _get_file_entry_list(self, dataInfo: "ResourceArchive._DataInformation") -> list["ResourceArchive.FileEntry"]:
+        globalID = 0
+        nextFolderID = 1
 
-        if len(filedata) >= len(compressed_data):
-            return compressed_data
-        else:
-            print("Compressed data bigger than original, using uncompressed data")
-            return filedata
+        def _process_dir(dir: A_ResourceHandle, currentFolderID: int, backwardsFolderID: int) -> list["ResourceArchive.FileEntry"]:
+            nonlocal globalID
+            nonlocal nextFolderID
+
+            fileList: list[ResourceArchive.FileEntry] = []
+            directories: dict[int, A_ResourceHandle] = {}
+
+            for handle in dir.get_handles():
+                if handle.is_file():
+                    fileList.append(
+                        ResourceArchive.FileEntry(
+                            fileID=globalID if dir.sync_ids() else handle.get_id(),
+                            flags=handle._attributes << 8,
+                            name=handle.get_name(),
+                            offset=dataInfo.offsets[handle],
+                            size=len(handle.get_data()),
+                            nameHash=jdrama.get_key_code(handle.get_name())
+                        )
+                    )
+                else:
+                    directories[len(fileList)] = handle
+                    fileList.append(
+                        ResourceArchive.FileEntry(
+                            fileID=-1,
+                            flags=0x200,
+                            name=handle.get_name(),
+                            offset=nextFolderID,
+                            size=0x10,
+                            nameHash=jdrama.get_key_code(handle.get_name())
+                        )
+                    )
+                    nextFolderID += 1
+                globalID += 1
+            
+            fileList.append(
+                ResourceArchive.FileEntry(
+                    fileID=-1,
+                    flags=0x200,
+                    name=".",
+                    offset=currentFolderID,
+                    size=0x10,
+                    nameHash=jdrama.get_key_code(".")
+                )
+            )
+            fileList.append(
+                ResourceArchive.FileEntry(
+                    fileID=-1,
+                    flags=0x200,
+                    name="..",
+                    offset=backwardsFolderID,
+                    size=0x10,
+                    nameHash=jdrama.get_key_code("..")
+                )
+            )
+            for size, directory in directories.items():
+                fileList.extend(
+                    _process_dir(directory, fileList[size].offset, currentFolderID)
+                )
+            return fileList
+
+        return _process_dir(self, 0, -1)
 
 
-class FileListing():
-    def __init__(
-        self,
-        isFile: bool,
-        isCompressed: bool = False,
-        isPreloadToMRAM: bool = False,
-        isPreloadToARAM: bool = False,
-        isLoadFromDVD: bool = True,
-        isYAZ0Compressed: bool = True
-    ):
-        flags = 0b01 if isFile else 0b10
-        flags |= int(isCompressed) << 2
-        flags |= int(isPreloadToMRAM) << 4
-        flags |= int(isPreloadToARAM) << 5
-        flags |= int(isLoadFromDVD) << 6
-        flags |= int(isYAZ0Compressed) << 7
-        self._flags = flags
+    def _get_flat_directory_list(self) -> list["ResourceArchive.DirectoryEntry"]:
+        firstFileOffset = 0
 
-    @classmethod
-    def from_flags(cls, flags):
-        if flags & 0x40:
-            print("Unknown flag 0x40 set")
-        if flags & 0x8:
-            print("Unknown flag 0x8 set")
+        def _process_dir(dir: A_ResourceHandle) -> list["ResourceArchive.DirectoryEntry"]:
+            nonlocal firstFileOffset
 
-        return cls(flags & ResourceAttribute.FILE != 0,
-                   flags & ResourceAttribute.DIRECTORY != 0,
-                   flags & ResourceAttribute.COMPRESSED != 0,
-                   flags & ResourceAttribute.PRELOAD_TO_MRAM != 0,
-                   flags & ResourceAttribute.PRELOAD_TO_ARAM != 0,
-                   flags & ResourceAttribute.LOAD_FROM_DVD != 0,
-                   flags & ResourceAttribute.YAZ0_COMPRESSED != 0)
+            dirList: list[ResourceArchive.DirectoryEntry] = []
+            tmpList: list[ResourceArchive.DirectoryEntry] = []
 
-    def isFile(self) -> bool:
-        return bool(self._flags & ResourceAttribute.FILE)
+            firstFileOffset += len(dir.get_handles()) + 2
+            for handle in self.get_handles():
+                if handle.is_directory():
+                    dirList.append(
+                        ResourceArchive.DirectoryEntry(
+                            magic=handle.get_magic(),
+                            name=handle.get_name(),
+                            nameOffset=-1,
+                            nameHash=jdrama.get_key_code(handle.get_name()),
+                            fileCount=len(handle.get_handles()),
+                            firstFileOffset=firstFileOffset
+                        )
+                    )
+                    tmpList.extend(
+                        _process_dir(handle)
+                    )
+            dirList.extend(tmpList)
+            return dirList
+            
+        return _process_dir(self)
+        
+    def _get_string_table_data(self, fileList: list["ResourceArchive.FileEntry"]) -> _StringTableData:
+        offsets: dict[str, int] = {}
+        stringBuf = BytesIO()
 
-    def isDir(self) -> bool:
-        return bool(self._flags & ResourceAttribute.DIRECTORY)
+        rootName = self.get_name()
+        offsets[rootName] = 0
+        write_string(stringBuf, rootName)
 
-    def isCompressed(self) -> bool:
-        return bool(self._flags & ResourceAttribute.COMPRESSED)
+        offsets["."] = stringBuf.tell()
+        write_string(stringBuf, ".")
 
-    def isPreloadToMRAM(self) -> bool:
-        return bool(self._flags & ResourceAttribute.PRELOAD_TO_MRAM)
+        offsets[".."] = stringBuf.tell()
+        write_string(stringBuf, "..")
 
-    def isPreloadToARAM(self) -> bool:
-        return bool(self._flags & ResourceAttribute.PRELOAD_TO_ARAM)
+        for entry in fileList:
+            if entry.name not in offsets:
+                offsets[entry.name] = stringBuf.tell()
+                write_string(stringBuf, entry.name)
 
-    def isLoadFromDVD(self) -> bool:
-        return bool(self._flags & ResourceAttribute.LOAD_FROM_DVD)
-
-    def isYAZ0(self) -> bool:
-        return bool(self._flags & ResourceAttribute.YAZ0_COMPRESSED)
-
-    def get_flags(self) -> int:
-        return self._flags
-
-    def to_string(self) -> str:
-        result = []
-        if self.isFile():
-            result.append("FILE")
-        elif self.isDir():
-            result.append("DIR")
-        else:
-            raise ValueError("Archive is neither a file nor directory?")
-
-        if self.isCompressed():
-            result.append("YAZ0" if self.isYAZ0() else "YAY0")
-
-        if self.isPreloadToMRAM():
-            result.append("MRAM")
-        elif self.isPreloadToARAM():
-            result.append("ARAM")
-        elif self.isLoadFromDVD():
-            result.append("DVD")
-
-        return "[" + "|".join(result) + "]"
-
-    @classmethod
-    def from_string(cls, string: str):
-        settings = {
-            "FILE": False,
-            "DIR": False,
-            "COMPRESSED": False,
-            "MRAM": False,
-            "ARAM": False,
-            "DVD": False,
-            "YAZ0": False
-        }
-
-        result = string[1:-1].split("|")
-        for setting in result:
-            settings[setting] = True
-
-        if not any((settings["FILE"], settings["DIR"])):
-            raise ValueError("Archive is neither a file nor directory?")
-
-        return cls(
-            settings["FILE"],
-            settings["COMPRESSED"],
-            settings["MRAM"],
-            settings["ARAM"],
-            settings["DVD"],
-            settings["YAZ0"]
+        return ResourceArchive._StringTableData(
+            stringBuf.getvalue(),
+            offsets
         )
 
-    @classmethod
-    def default(cls):
-        # Default is a uncompressed Data File
-        return cls(True, False, False, True, False, True)
 
-    def __str__(self):
-        return str(self.__dict__)
+if __name__ == "__main__":
+    with open("k.arc", "rb") as f:
+        archive = ResourceArchive.from_bytes(f)
+
+    def _Re(handle: A_ResourceHandle, depth: int):
+        print(" "*depth + handle.get_name())
+        if handle.is_directory():
+            for h in handle.get_handles():
+                _Re(h, depth+2)
+            
+
+    if archive:
+        _Re(archive, 0)
