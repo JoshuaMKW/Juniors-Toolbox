@@ -195,7 +195,7 @@ class A_ResourceHandle():
     ) -> Optional["A_ResourceHandle"]: ...
 
     @abstractmethod
-    def export_to(self, folderPath: Path) -> bool: ...
+    def export_to(self, folderPath: Path | str) -> bool: ...
 
     @classmethod
     @abstractmethod
@@ -365,7 +365,10 @@ class ResourceFile(A_ResourceHandle):
     ) -> Optional["A_ResourceHandle"]:
         return None
 
-    def export_to(self, folderPath: Path) -> bool:
+    def export_to(self, folderPath: Path | str) -> bool:
+        if isinstance(folderPath, str):
+            folderPath = Path(folderPath)
+
         if not folderPath.is_dir():
             return False
 
@@ -535,7 +538,10 @@ class ResourceDirectory(A_ResourceHandle):
         self._children.append(newDir)
         return newDir
 
-    def export_to(self, folderPath: Path) -> bool:
+    def export_to(self, folderPath: Path | str) -> bool:
+        if isinstance(folderPath, str):
+            folderPath = Path(folderPath)
+
         if not folderPath.is_dir():
             return False
 
@@ -847,26 +853,26 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
     ) -> Optional["A_ResourceHandle"]:
         return None
 
-    def export_to(self, folderPath: Path) -> bool:
-        if not folderPath.is_dir():
-            return False
-
-        thisFile = folderPath / self.get_name()
-        thisFile.write_bytes(
-            self.to_bytes()
-        )
-
-        return True
-
     @classmethod
     def import_from(self, path: Path) -> Optional["A_ResourceHandle"]:
-        if not path.is_file():
+        if not path.is_dir():
             return None
 
-        return ResourceFile(
-            path.name,
-            path.read_bytes()
-        )
+        thisResource = ResourceArchive(path.name)
+
+        for p in path.iterdir():
+            resource: A_ResourceHandle | None
+            if p.is_dir():
+                resource = ResourceDirectory.import_from(p)
+            elif p.is_file():
+                resource = ResourceFile.import_from(p)
+
+            if resource is None:
+                continue
+
+            thisResource._children.append(resource)
+
+        return thisResource
 
     def sync_ids(self) -> bool:
         return self._syncIDs
@@ -967,7 +973,7 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
             tmpList: list[ResourceArchive.DirectoryEntry] = []
 
             firstFileOffset += len(dir.get_handles()) + 2
-            for handle in self.get_handles():
+            for handle in dir.get_handles():
                 if handle.is_directory():
                     dirList.append(
                         ResourceArchive.DirectoryEntry(
@@ -1025,3 +1031,4 @@ if __name__ == "__main__":
 
     if archive:
         _Re(archive, 0)
+        archive.export_to("Z_Export")
