@@ -41,14 +41,6 @@ class ResourceAttribute(IntFlag):
 class A_ResourceHandle():
 
     @dataclass
-    class _DataInformation:
-        data: BytesIO
-        offsets: dict["A_ResourceHandle", int]
-        mramSize: int
-        aramSize: int
-        dvdSize: int
-
-    @dataclass
     class _LoadSortedHandles:
         mram: list["A_ResourceHandle"]
         aram: list["A_ResourceHandle"]
@@ -232,49 +224,6 @@ class A_ResourceHandle():
             mramHandles,
             aramHandles,
             dvdHandles
-        )
-
-    def _get_data_info(self, offset: int) -> _DataInformation:
-        mramData = b""
-        aramData = b""
-        dvdData = b""
-
-        offsetMap: dict["A_ResourceHandle", int] = {}
-
-        startOffset = offset
-        sortedHandles = self._get_files_by_load_type()
-        for handle in sortedHandles.mram:
-            offsetMap[handle] = offset
-            data = handle.get_data()
-            mramData += data
-            offset += len(data)
-
-        mramSize = offset - startOffset
-
-        startOffset = offset
-        for handle in sortedHandles.aram:
-            offsetMap[handle] = offset
-            data = handle.get_data()
-            aramData += data
-            offset += len(data)
-
-        aramSize = offset - startOffset
-
-        startOffset = offset
-        for handle in sortedHandles.dvd:
-            offsetMap[handle] = offset
-            data = handle.get_data()
-            dvdData += data
-            offset += len(data)
-
-        dvdSize = offset - startOffset
-
-        return A_ResourceHandle._DataInformation(
-            data=BytesIO(mramData + aramData + dvdData),
-            offsets=offsetMap,
-            mramSize=mramSize,
-            aramSize=aramSize,
-            dvdSize=dvdSize
         )
 
 
@@ -611,6 +560,14 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
         firstFileOffset: int
 
     @dataclass
+    class _DataInformation:
+        data: BytesIO
+        offsets: dict[A_ResourceHandle, int]
+        mramSize: int
+        aramSize: int
+        dvdSize: int
+
+    @dataclass
     class _StringTableData:
         strings: bytes
         offsets: dict[str, int]
@@ -907,6 +864,49 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
             if i not in allIDs:
                 return i
         return len(allIDs)
+
+    def _get_data_info(self, offset: int) -> _DataInformation:
+        mramData = b""
+        aramData = b""
+        dvdData = b""
+
+        offsetMap: dict["A_ResourceHandle", int] = {}
+
+        startOffset = offset
+        sortedHandles = self._get_files_by_load_type()
+        for handle in sortedHandles.mram:
+            offsetMap[handle] = offset
+            data = handle.get_data()
+            mramData += data
+            offset += len(data)
+
+        mramSize = offset - startOffset
+
+        startOffset = offset
+        for handle in sortedHandles.aram:
+            offsetMap[handle] = offset
+            data = handle.get_data()
+            aramData += data
+            offset += len(data)
+
+        aramSize = offset - startOffset
+
+        startOffset = offset
+        for handle in sortedHandles.dvd:
+            offsetMap[handle] = offset
+            data = handle.get_data()
+            dvdData += data
+            offset += len(data)
+
+        dvdSize = offset - startOffset
+
+        return A_ResourceHandle._DataInformation(
+            data=BytesIO(mramData + aramData + dvdData),
+            offsets=offsetMap,
+            mramSize=mramSize,
+            aramSize=aramSize,
+            dvdSize=dvdSize
+        )
 
     def _get_file_entry_list(self, dataInfo: "ResourceArchive._DataInformation") -> list["ResourceArchive.FileEntry"]:
         globalID = 0
