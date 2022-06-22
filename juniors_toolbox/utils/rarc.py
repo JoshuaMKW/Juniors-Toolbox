@@ -1,36 +1,31 @@
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
 import os
 import subprocess
 import tempfile
 import time
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from enum import IntEnum
 from io import BytesIO
 from itertools import chain
 from pathlib import Path, PurePath
 from struct import pack, unpack
 from typing import BinaryIO, Optional
-from aenum import IntFlag
-from numpy import append
 
-import oead
-# from juniors_toolbox.utils import A_Serializable, ReadableBuffer, VariadicArgs, VariadicKwargs, jdrama
-# from juniors_toolbox.utils.iohelper import (read_bool, read_sint16, read_sint32, read_string, read_ubyte,
-#                                            read_uint16, read_uint32, write_bool, write_sint16, write_sint32,
-#                                            write_string, write_ubyte,
-#                                            write_uint16, write_uint32)
-from __init__ import A_Serializable, ReadableBuffer, VariadicArgs, VariadicKwargs
-import jdrama
-from iohelper import (read_bool, read_sint16, read_sint32, read_string, read_ubyte,
-                                           read_uint16, read_uint32, write_bool, write_sint16, write_sint32,
-                                           write_string, write_ubyte,
-                                           write_uint16, write_uint32)
+from enum import IntFlag
+from juniors_toolbox.utils import (A_Serializable, ReadableBuffer,
+                                   VariadicArgs, VariadicKwargs, jdrama)
+from juniors_toolbox.utils.iohelper import (read_bool, read_sint16,
+                                            read_sint32, read_string,
+                                            read_uint16, read_uint32,
+                                            write_bool, write_sint16,
+                                            write_sint32, write_string,
+                                            write_uint16, write_uint32)
+from numpy import append
 
 
 def write_pad32(f: BinaryIO):
     next_aligned_pos = (f.tell() + 0x1F) & ~0x1F
     f.write(b"\x00"*(next_aligned_pos - f.tell()))
-
 
 
 class ResourceAttribute(IntFlag):
@@ -162,10 +157,12 @@ class A_ResourceHandle():
     def get_raw_data(self) -> bytes: ...
 
     @abstractmethod
-    def get_handles(self, *, flatten: bool = False) -> list["A_ResourceHandle"]: ...
+    def get_handles(
+        self, *, flatten: bool = False) -> list["A_ResourceHandle"]: ...
 
     @abstractmethod
-    def get_handle(self, __path: PurePath | str, /) -> Optional["A_ResourceHandle"]: ...
+    def get_handle(self, __path: PurePath | str, /
+                   ) -> Optional["A_ResourceHandle"]: ...
 
     @abstractmethod
     def path_exists(self, __path: PurePath | str, /) -> bool: ...
@@ -199,7 +196,8 @@ class A_ResourceHandle():
 
     @classmethod
     @abstractmethod
-    def import_from(self, path: Path) -> Optional["A_ResourceHandle"]: ...
+    def import_from(self, path: Path |
+                    str) -> Optional["A_ResourceHandle"]: ...
 
     @abstractmethod
     def read(self, __size: int, /) -> bytes: ...
@@ -228,7 +226,8 @@ class A_ResourceHandle():
                 elif handle.is_flagged(ResourceAttribute.LOAD_FROM_DVD):
                     mramHandles.append(handle)
                 else:
-                    raise ValueError(f"Resource handle {handle.get_name()} isn't set to load")
+                    raise ValueError(
+                        f"Resource handle {handle.get_name()} isn't set to load")
         return A_ResourceHandle._LoadSortedHandles(
             mramHandles,
             aramHandles,
@@ -278,7 +277,7 @@ class A_ResourceHandle():
             dvdSize=dvdSize
         )
 
-        
+
 class ResourceFile(A_ResourceHandle):
     def __init__(
         self,
@@ -380,7 +379,10 @@ class ResourceFile(A_ResourceHandle):
         return True
 
     @classmethod
-    def import_from(self, path: Path) -> Optional["A_ResourceHandle"]:
+    def import_from(self, path: Path | str) -> Optional["A_ResourceHandle"]:
+        if isinstance(path, str):
+            path = Path(path)
+
         if not path.is_file():
             return None
 
@@ -404,11 +406,11 @@ class ResourceDirectory(A_ResourceHandle):
         self,
         name: str,
         parent: Optional["ResourceDirectory"] = None,
-        children: Optional[list["A_ResourceHandle"]] = None, 
+        children: Optional[list["A_ResourceHandle"]] = None,
         attributes: ResourceAttribute = ResourceAttribute.DIRECTORY | ResourceAttribute.PRELOAD_TO_MRAM
     ):
         super().__init__(name, parent, attributes)
-        
+
         if children is None:
             children = []
         self._children = children
@@ -455,8 +457,9 @@ class ResourceDirectory(A_ResourceHandle):
                 elif handle.is_file():
                     handles.append(handle)
                 else:
-                    raise ValueError(f"Handle \"{handle.get_name}\" is not a file nor directory")
-        
+                    raise ValueError(
+                        f"Handle \"{handle.get_name}\" is not a file nor directory")
+
         handles: list[A_ResourceHandle] = []
         _get_r_handles(self, handles)
 
@@ -555,7 +558,10 @@ class ResourceDirectory(A_ResourceHandle):
         return successful
 
     @classmethod
-    def import_from(self, path: Path) -> Optional["A_ResourceHandle"]:
+    def import_from(self, path: Path | str) -> Optional["A_ResourceHandle"]:
+        if isinstance(path, str):
+            path = Path(path)
+
         if not path.is_dir():
             return None
 
@@ -616,7 +622,7 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
         syncIDs: bool = True
     ):
         super().__init__(rootName, None, children)
-        
+
         if children is None:
             children = []
         self._children = children
@@ -710,7 +716,8 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
         # Directory Construction
         directories: list[ResourceDirectory] = []
 
-        dirToFileEntry: dict[ResourceDirectory, list[ResourceArchive.FileEntry]] = {}
+        dirToFileEntry: dict[ResourceDirectory,
+                             list[ResourceArchive.FileEntry]] = {}
         for i, dirEntry in enumerate(flatDirectoryList):
             directory: ResourceDirectory
             if i == 0:
@@ -728,7 +735,8 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
                         ResourceFile(
                             handleEntry.name,
                             initialData=data.read(handleEntry.size),
-                            attributes=ResourceAttribute(handleEntry.flags >> 8)
+                            attributes=ResourceAttribute(
+                                handleEntry.flags >> 8)
                         )
                     )
             directories.append(directory)
@@ -754,7 +762,7 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
         stream = BytesIO()
 
         dataInfo = self._get_data_info(0)
-        
+
         flatFileList = self._get_file_entry_list(dataInfo)
         flatDirectoryList = self._get_flat_directory_list()
 
@@ -762,7 +770,8 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
 
         # File Writing
         stream.write(b"RARC")
-        stream.write(b"\xDD\xDD\xDD\xDD\x00\x00\x00\x20\xDD\xDD\xDD\xDD\xEE\xEE\xEE\xEE")
+        stream.write(
+            b"\xDD\xDD\xDD\xDD\x00\x00\x00\x20\xDD\xDD\xDD\xDD\xEE\xEE\xEE\xEE")
         write_uint32(stream, dataInfo.mramSize)
         write_uint32(stream, dataInfo.aramSize)
         write_uint32(stream, dataInfo.dvdSize)
@@ -776,7 +785,7 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
         stream.write(b"\xEE\xEE\xEE\xEE")
         write_uint16(stream, len(flatFileList))
         write_bool(stream, self.sync_ids())
-        
+
         # Padding
         stream.write(b"\x00\x00\x00\x00\x00")
 
@@ -800,8 +809,8 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
             write_uint16(stream, entry.nameHash)
             write_uint16(stream, entry.flags)
             write_uint16(stream, stringTableData.offsets[entry.name])
-            write_uint32(stream, entry.offset)
-            write_uint32(stream, entry.size)
+            write_sint32(stream, entry.offset)
+            write_sint32(stream, entry.size)
             stream.write(b"\x00\x00\x00\x00")
 
         # Padding
@@ -854,7 +863,10 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
         return None
 
     @classmethod
-    def import_from(self, path: Path) -> Optional["A_ResourceHandle"]:
+    def import_from(self, path: Path | str) -> Optional["A_ResourceHandle"]:
+        if isinstance(path, str):
+            path = Path(path)
+
         if not path.is_dir():
             return None
 
@@ -933,7 +945,7 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
                     )
                     nextFolderID += 1
                 globalID += 1
-            
+
             fileList.append(
                 ResourceArchive.FileEntry(
                     fileID=-1,
@@ -956,12 +968,12 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
             )
             for size, directory in directories.items():
                 fileList.extend(
-                    _process_dir(directory, fileList[size].offset, currentFolderID)
+                    _process_dir(
+                        directory, fileList[size].offset, currentFolderID)
                 )
             return fileList
 
         return _process_dir(self, 0, -1)
-
 
     def _get_flat_directory_list(self) -> list["ResourceArchive.DirectoryEntry"]:
         firstFileOffset = 0
@@ -990,9 +1002,9 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
                     )
             dirList.extend(tmpList)
             return dirList
-            
+
         return _process_dir(self)
-        
+
     def _get_string_table_data(self, fileList: list["ResourceArchive.FileEntry"]) -> _StringTableData:
         offsets: dict[str, int] = {}
         stringBuf = BytesIO()
@@ -1016,19 +1028,3 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
             stringBuf.getvalue(),
             offsets
         )
-
-
-if __name__ == "__main__":
-    with open("k.arc", "rb") as f:
-        archive = ResourceArchive.from_bytes(f)
-
-    def _Re(handle: A_ResourceHandle, depth: int):
-        print(" "*depth + handle.get_name())
-        if handle.is_directory():
-            for h in handle.get_handles():
-                _Re(h, depth+2)
-            
-
-    if archive:
-        _Re(archive, 0)
-        archive.export_to("Z_Export")
