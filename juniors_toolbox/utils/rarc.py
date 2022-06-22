@@ -900,7 +900,7 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
 
         dvdSize = offset - startOffset
 
-        return A_ResourceHandle._DataInformation(
+        return ResourceArchive._DataInformation(
             data=BytesIO(mramData + aramData + dvdData),
             offsets=offsetMap,
             mramSize=mramSize,
