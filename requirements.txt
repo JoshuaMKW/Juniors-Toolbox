@@ -1,4 +1,3 @@
-aenum
 chardet
 discordsdk
 nodeeditor

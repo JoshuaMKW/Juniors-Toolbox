@@ -4,10 +4,14 @@ from io import BytesIO
 from os import write
 from typing import Any, BinaryIO, Iterable, List, Optional, Tuple, Union
 
-from aenum import extend_enum
-from juniors_toolbox.utils import A_Clonable, A_Serializable, VariadicArgs, VariadicKwargs
-
-from juniors_toolbox.utils.iohelper import align_int, decode_raw_string, get_likely_encoding, read_string, read_ubyte, read_uint16, read_uint32, write_string, write_ubyte, write_uint16, write_uint32
+from juniors_toolbox.utils import (A_Clonable, A_Serializable, VariadicArgs,
+                                   VariadicKwargs)
+from juniors_toolbox.utils.iohelper import (align_int, decode_raw_string,
+                                            get_likely_encoding, read_string,
+                                            read_ubyte, read_uint16,
+                                            read_uint32, write_string,
+                                            write_ubyte, write_uint16,
+                                            write_uint32)
 
 
 @dataclass
