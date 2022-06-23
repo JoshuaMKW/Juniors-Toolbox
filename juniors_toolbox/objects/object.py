@@ -1,10 +1,9 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from io import BytesIO
 import json
 from pathlib import Path
 from typing import Any, BinaryIO, Callable, Dict, Iterable, List, Optional, TextIO, Tuple, Union
-from attr import field
 
 from numpy import array
 from requests import JSONDecodeError
