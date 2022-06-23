@@ -8,4 +8,5 @@ pillow
 PySide6
 PyOpenGL
 pyrr
+requests
 watchdog

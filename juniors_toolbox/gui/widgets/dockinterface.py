@@ -1,7 +1,6 @@
 from abc import abstractmethod
 from pathlib import Path
 from typing import Optional
-from typing_extensions import Unpack
 
 from PySide6.QtCore import Signal, Slot, QSize
 from PySide6.QtGui import QCloseEvent, QHideEvent, QResizeEvent, QPaintEvent
