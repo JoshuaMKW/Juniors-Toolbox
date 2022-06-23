@@ -226,6 +226,12 @@ class A_ResourceHandle():
             dvdHandles
         )
 
+    @abstractmethod
+    def __eq__(self, __o: object) -> bool: ...
+
+    @abstractmethod
+    def __ne__(self, __o: object) -> bool: ...
+
 
 class ResourceFile(A_ResourceHandle):
     def __init__(
@@ -348,6 +354,18 @@ class ResourceFile(A_ResourceHandle):
 
     def seek(self, __offset: int, __whence: int = os.SEEK_CUR) -> int:
         return self._data.seek(__offset, __whence)
+
+    def __eq__(self, __o: object) -> bool:
+        if not isinstance(__o, ResourceFile):
+            return False
+
+        return self.get_name() == __o.get_name() and self.get_data() == __o.get_data()
+
+    def __ne__(self, __o: object) -> bool:
+        if not isinstance(__o, ResourceFile):
+            return False
+
+        return self.get_name() != __o.get_name() or self.get_data() != __o.get_data()
 
 
 class ResourceDirectory(A_ResourceHandle):
@@ -538,6 +556,24 @@ class ResourceDirectory(A_ResourceHandle):
 
     def seek(self, __offset: int, __whence: int = os.SEEK_CUR) -> int:
         return 0
+
+    def __eq__(self, __o: object) -> bool:
+        if not isinstance(__o, ResourceDirectory):
+            return False
+
+        if self.get_archive() != __o.get_archive():
+            return False
+
+        return self.get_path() == __o.get_path()
+
+    def __ne__(self, __o: object) -> bool:
+        if not isinstance(__o, ResourceDirectory):
+            return True
+
+        if self.get_archive() != __o.get_archive():
+            return True
+
+        return self.get_path() != __o.get_path()
 
 
 class ResourceArchive(ResourceDirectory, A_Serializable):
@@ -1028,3 +1064,21 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
             stringBuf.getvalue(),
             offsets
         )
+
+    def __eq__(self, __o: object) -> bool:
+        if not isinstance(__o, ResourceArchive):
+            return False
+
+        if self.get_name() != __o.get_name():
+            return False
+
+        return self.get_handles() == __o.get_handles()
+
+    def __ne__(self, __o: object) -> bool:
+        if not isinstance(__o, ResourceArchive):
+            return True
+
+        if self.get_name() != __o.get_name():
+            return True
+
+        return self.get_handles() != __o.get_handles()
