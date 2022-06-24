@@ -576,6 +576,12 @@ class JSystemFSModel(QAbstractItemModel):
         parentInfo.children.remove(thisInfo)
         return True
 
+    def flags(self, index: QModelIndex | QPersistentModelIndex) -> Qt.ItemFlags:
+        itemFlags = Qt.ItemIsDragEnabled | Qt.ItemIsEnabled | Qt.ItemIsEditable
+        if self.is_dir(index):
+            itemFlags |= Qt.ItemIsDragEnabled
+        return itemFlags
+
     def data(self, index: QModelIndex | QPersistentModelIndex, role: int = Qt.DisplayRole) -> Any:
         if not index.isValid():
             return -1
@@ -622,20 +628,25 @@ class JSystemFSModel(QAbstractItemModel):
         handleInfo: JSystemFSModel._HandleInfo = index.internalPointer()
         path = handleInfo.path
 
+        changed = False
         if role == Qt.DisplayRole:
             newPath = path.parent / value
-            return self.rename(index, newPath)
+            changed = self.rename(index, newPath)
 
         if role == Qt.EditRole:
             newPath = path.parent / value
-            return self.rename(index, newPath)
+            changed = self.rename(index, newPath)
 
         if role == self.FileNameRole:
             newPath = path.parent / (value.split(".")[0] + "." + path.suffix)
-            return self.rename(index, newPath)
+            changed = self.rename(index, newPath)
 
         if role == self.FilePathRole:
-            return self.rename(index, value)
+            changed = self.rename(index, value)
+
+        if changed:
+            self.dataChanged.emit(index, index, [role])
+            return True
 
         return False
 
