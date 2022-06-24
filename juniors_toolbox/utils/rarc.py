@@ -49,7 +49,7 @@ class A_ResourceHandle():
     def __init__(
         self,
         name: str,
-        parent: Optional["ResourceDirectory"] = None,
+        parent: Optional["A_ResourceHandle"] = None,
         attributes: ResourceAttribute = ResourceAttribute.PRELOAD_TO_MRAM
     ):
         self._archive: Optional["ResourceArchive"] = None
@@ -115,10 +115,19 @@ class A_ResourceHandle():
     def get_archive(self) -> Optional["ResourceArchive"]:
         return self._archive
 
-    def get_parent(self) -> Optional["ResourceDirectory"]:
+    def get_parent(self) -> Optional["A_ResourceHandle"]:
         return self._parent
 
-    def set_parent(self, handle: "ResourceDirectory"):
+    def set_parent(self, handle: "A_ResourceHandle" | None):
+        if handle == self._parent:
+            return
+
+        if self._parent:
+            self._parent.remove_handle(self)
+
+        if handle is None:
+            return
+            
         handle.add_handle(self)
 
     @abstractmethod
@@ -190,6 +199,9 @@ class A_ResourceHandle():
     @abstractmethod
     def import_from(self, path: Path |
                     str) -> Optional["A_ResourceHandle"]: ...
+
+    @abstractmethod
+    def rename(self, __path: PurePath | str, /) -> bool: ...
 
     @abstractmethod
     def read(self, __size: int, /) -> bytes: ...
@@ -346,6 +358,26 @@ class ResourceFile(A_ResourceHandle):
             path.read_bytes()
         )
 
+    def rename(self, __path: PurePath | str, /) -> bool:
+        if isinstance(__path, str):
+            __path = PurePath(__path)
+
+        if __path.parent == self.get_path().parent:
+            self.set_name(__path.name)
+            return True
+
+        archive = self.get_archive()
+        if archive is None:
+            return False
+
+        newParent = archive.get_handle(__path.parent)
+        if newParent is None:
+            return False
+
+        self.set_parent(newParent)
+        self.set_name(__path.name)
+        return True
+
     def read(self, __size: int, /) -> bytes:
         return self._data.read(__size)
 
@@ -372,8 +404,8 @@ class ResourceDirectory(A_ResourceHandle):
     def __init__(
         self,
         name: str,
-        parent: Optional["ResourceDirectory"] = None,
-        children: Optional[list["A_ResourceHandle"]] = None,
+        parent: Optional[A_ResourceHandle] = None,
+        children: Optional[list[A_ResourceHandle]] = None,
         attributes: ResourceAttribute = ResourceAttribute.DIRECTORY | ResourceAttribute.PRELOAD_TO_MRAM
     ):
         super().__init__(name, parent, attributes)
@@ -462,6 +494,7 @@ class ResourceDirectory(A_ResourceHandle):
             return False
 
         self._children.remove(__handle)
+        __handle._parent = None
         return True
 
     def remove_path(self, __path: PurePath | str, /) -> bool:
@@ -469,7 +502,7 @@ class ResourceDirectory(A_ResourceHandle):
         if handle is None:
             return False
 
-        self._children.remove(handle)
+        self.remove_handle(handle)
         return True
 
     def new_file(
@@ -488,7 +521,7 @@ class ResourceDirectory(A_ResourceHandle):
             attributes
         )
 
-        self._children.append(newFile)
+        self.add_handle(newFile)
         return newFile
 
     def new_directory(
@@ -505,7 +538,7 @@ class ResourceDirectory(A_ResourceHandle):
             attributes=attributes
         )
 
-        self._children.append(newDir)
+        self.add_handle(newDir)
         return newDir
 
     def export_to(self, folderPath: Path | str) -> bool:
@@ -547,6 +580,26 @@ class ResourceDirectory(A_ResourceHandle):
             thisResource._children.append(resource)
 
         return thisResource
+
+    def rename(self, __path: PurePath | str, /) -> bool:
+        if isinstance(__path, str):
+            __path = PurePath(__path)
+
+        if __path.parent == self.get_path().parent:
+            self.set_name(__path.name)
+            return True
+
+        archive = self.get_archive()
+        if archive is None:
+            return False
+
+        newParent = archive.get_handle(__path.parent)
+        if newParent is None:
+            return False
+
+        self.set_parent(newParent)
+        self.set_name(__path.name)
+        return True
 
     def read(self, __size: int, /) -> bytes:
         raise RuntimeError("Resource directories don't have read support")
@@ -738,8 +791,6 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
             for subdir in dirToFileEntry[directory]:
                 refDir = directories[subdir.offset]
                 if (subdir.name == "."):  # This Dir
-                    # if (subdir.offset == 0):  # Root folder
-                    #     archive.set_name(refDir.get_name())
                     continue
                 if (subdir.name == ".."):
                     if (subdir.offset == -1 or subdir.offset > len(directories)):
@@ -878,6 +929,14 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
             thisResource._children.append(resource)
 
         return thisResource
+
+    def rename(self, __path: PurePath | str, /) -> bool:
+        if isinstance(__path, str):
+            __path = PurePath(__path)
+        if len(__path.parts) > 1:
+            return False
+        self.set_name(__path.name)
+        return True
 
     def sync_ids(self) -> bool:
         return self._syncIDs
