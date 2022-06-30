@@ -517,7 +517,7 @@ class RailListModel(QStandardItemModel):
 
         return action == Qt.CopyAction
 
-    def mimeData(self, indexes: list[int]) -> QMimeData:
+    def mimeData(self, indexes: list[QModelIndex | QPersistentModelIndex]) -> QMimeData:
         mimeType = self.mimeTypes()[0]
         mimeData = QMimeData()
 
@@ -633,7 +633,7 @@ class RailNodeListModel(QStandardItemModel):
 
         return action == Qt.CopyAction
 
-    def mimeData(self, indexes: list[int]) -> QMimeData:
+    def mimeData(self, indexes: list[QModelIndex | QPersistentModelIndex]) -> QMimeData:
         mimeType = self.mimeTypes()[0]
         mimeData = QMimeData()
 
@@ -910,13 +910,13 @@ class RailNodeListWidget(InteractiveListView):
                 signed=True
             )
             valueList.append(value)
-        valueList[0].valueChanged.connect(
+        valuelist[0].valueChanged.connect(
             lambda _, v: railNode.values[0].set_value(v))
-        valueList[1].valueChanged.connect(
+        valuelist[1].valueChanged.connect(
             lambda _, v: railNode.values[1].set_value(v))
-        valueList[2].valueChanged.connect(
+        valuelist[2].valueChanged.connect(
             lambda _, v: railNode.values[2].set_value(v))
-        valueList[3].valueChanged.connect(
+        valuelist[3].valueChanged.connect(
             lambda _, v: railNode.values[3].set_value(v))
 
         connectionCount = IntProperty(
@@ -946,21 +946,21 @@ class RailNodeListWidget(InteractiveListView):
             connection.set_maximum_value(self.model().rowCount() - 1)
             connectionsList.append(connection)
             connections.add_property(connection)
-        connectionsList[0].valueChanged.connect(
+        connectionslist[0].valueChanged.connect(
             lambda _, v: self._update_connection(selected, 0, v))
-        connectionsList[1].valueChanged.connect(
+        connectionslist[1].valueChanged.connect(
             lambda _, v: self._update_connection(selected, 1, v))
-        connectionsList[2].valueChanged.connect(
+        connectionslist[2].valueChanged.connect(
             lambda _, v: self._update_connection(selected, 2, v))
-        connectionsList[3].valueChanged.connect(
+        connectionslist[3].valueChanged.connect(
             lambda _, v: self._update_connection(selected, 3, v))
-        connectionsList[4].valueChanged.connect(
+        connectionslist[4].valueChanged.connect(
             lambda _, v: self._update_connection(selected, 4, v))
-        connectionsList[5].valueChanged.connect(
+        connectionslist[5].valueChanged.connect(
             lambda _, v: self._update_connection(selected, 5, v))
-        connectionsList[6].valueChanged.connect(
+        connectionslist[6].valueChanged.connect(
             lambda _, v: self._update_connection(selected, 6, v))
-        connectionsList[7].valueChanged.connect(
+        connectionslist[7].valueChanged.connect(
             lambda _, v: self._update_connection(selected, 7, v))
 
         connectionCount.set_maximum_value(8)
@@ -972,10 +972,10 @@ class RailNodeListWidget(InteractiveListView):
             properties=[
                 position,
                 flags,
-                valueList[0],
-                valueList[1],
-                valueList[2],
-                valueList[3],
+                valuelist[0],
+                valuelist[1],
+                valuelist[2],
+                valuelist[3],
                 connectionCount,
                 connections
             ]

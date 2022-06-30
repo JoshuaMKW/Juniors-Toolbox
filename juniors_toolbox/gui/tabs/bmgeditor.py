@@ -201,7 +201,7 @@ class BMGMessageView(QObject, ABCWidget):
 
     @abstractmethod
     def render_(self, painter: QPainter, message: RichMessage,
-                currentPage: int) -> List[ButtonCB]: ...
+                currentPage: int) -> list[ButtonCB]: ...
 
     @abstractmethod
     def get_end_page(self, message: RichMessage) -> int: ...
@@ -398,7 +398,7 @@ class BMGMessageViewNPC(BMGMessageView):
         numPages = (numLines // self.get_lines_per_page()) + 1
         return currentPage == numPages-1
 
-    def render_(self, painter: QPainter, message: RichMessage, currentPage: int) -> List[ButtonCB]:
+    def render_(self, painter: QPainter, message: RichMessage, currentPage: int) -> list[ButtonCB]:
         font = QFont("FOT-PopHappiness Std EB")
         font.setPointSize(self.FontSize)
         painter.setFont(font)
@@ -631,7 +631,7 @@ class BMGMessageViewNPC(BMGMessageView):
         painter.drawImage(5, 5, returnImg)
         painter.restore()
 
-    def _render_options_button(self, painter: QPainter, options: Dict[int, str]) -> List[QRect]:
+    def _render_options_button(self, painter: QPainter, options: Dict[int, str]) -> list[QRect]:
         buttonPositions = []
         backImg = QImage(
             str(resource_path("gui/images/message_option_back.png"))
@@ -674,7 +674,7 @@ class BMGMessageViewBillboard(BMGMessageViewNPC):
             )
         )
 
-    def _render_message(self, painter: QPainter, message: RichMessage, currentPage: int) -> List[ButtonCB]:
+    def _render_message(self, painter: QPainter, message: RichMessage, currentPage: int) -> list[ButtonCB]:
         font = QFont("FOT-PopHappiness Std EB")
         font.setPointSize(self.FontSize)
         painter.setFont(font)
@@ -754,7 +754,7 @@ class BMGMessageViewDEBS(BMGMessageView):
     def get_start_page(self, message: RichMessage) -> int:
         return -1200
 
-    def render_(self, painter: QPainter, message: RichMessage, currentPage: int) -> List[ButtonCB]:
+    def render_(self, painter: QPainter, message: RichMessage, currentPage: int) -> list[ButtonCB]:
         font = QFont("FOT-PopHappiness Std EB")
         font.setPointSize(self.FontSize)
         painter.setFont(font)
@@ -798,7 +798,7 @@ class BMGMessageViewDEBS(BMGMessageView):
             QRect(5, 2, debsBackDrop.width() - 30, debsBackDrop.height() - 22)
         )
 
-        buttons: List[ButtonCB] = [
+        buttons: list[ButtonCB] = [
             RectangleButton(
                 debsRect,
                 lambda: None
@@ -821,7 +821,7 @@ class BMGMessageViewStage(BMGMessageView):
     def get_message_for_page(self, message: RichMessage, page: int) -> RichMessage:
         return message
 
-    def render_(self, painter: QPainter, message: RichMessage, currentPage: int) -> List[ButtonCB]:
+    def render_(self, painter: QPainter, message: RichMessage, currentPage: int) -> list[ButtonCB]:
         painter.translate(1920 / 2, 66)
 
         font = QFont("FOT-PopHappiness Std EB")
@@ -868,7 +868,7 @@ class BMGMessagePreviewWidget(QWidget):
         self._endFrame = -1
         self._curPage = 0
         self._boxState = BMGMessagePreviewWidget.BoxState.NPC
-        self._buttons: List[ButtonCB] = []
+        self._buttons: list[ButtonCB] = []
         self._lastXPos = 0
         self._buttonPressed = False
 
@@ -1313,7 +1313,7 @@ class BMGMessageListModel(QStandardItemModel):
 
         return action == Qt.CopyAction
 
-    def mimeData(self, indexes: list[int]) -> QMimeData:
+    def mimeData(self, indexes: list[QModelIndex | QPersistentModelIndex]) -> QMimeData:
         mimeType = self.mimeTypes()[0]
         mimeData = QMimeData()
 
@@ -1378,6 +1378,7 @@ class BMGMessageFilterModel(QSortFilterProxyModel):
         item = model.item(source_row)
         if item is None:
             return False
+
         message: BMG.MessageEntry = item.data(Qt.UserRole + 1)
 
         regexp = self.filterRegularExpression()
@@ -1575,7 +1576,7 @@ class BMGMessageTextBox(QPlainTextEdit):
         categories: Dict[str, list] = {}
         for rich in RichMessage._RICH_TO_COMMAND:
             category, specifier = rich[1:-1].split(":")
-            items: List[str] = categories.setdefault(category, [])
+            items: list[str] = categories.setdefault(category, [])
             items.append(specifier)
 
         menu.addSection("Formatters")
@@ -1936,7 +1937,7 @@ class BMGMessageEditorWidget(A_DockingInterface):
         self.mainWidget.setLayout(self.mainLayout)
         self.setWidget(self.mainWidget)
 
-        self.messages: List[BMG.MessageEntry] = []
+        self.messages: list[BMG.MessageEntry] = []
 
         self._cachedOpenPath: Optional[Path] = None
 

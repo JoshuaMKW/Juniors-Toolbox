@@ -34,7 +34,7 @@ class Fog:
     nearZ: float = 0.0
     farZ: float = 0.0
     color: RGBA8 = RGBA8(BasicColors.WHITE)
-    inverseBinPoseMtx: List[int] = field(default_factory=lambda: [])
+    inverseBinPoseMtx: list[int] = field(default_factory=lambda: [])
 
 @dataclass
 class NBTScale:

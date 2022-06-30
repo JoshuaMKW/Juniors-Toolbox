@@ -193,8 +193,8 @@ class SMSScene():
         """
         Reset the scene back to an empty state
         """
-        self._objects: List[A_SceneObject] = []
-        self._tables: List[A_SceneObject] = []
+        self._objects: list[A_SceneObject] = []
+        self._tables: list[A_SceneObject] = []
         self._raildata = RalData()
 
     def dump(self, out: Optional[TextIO] = None, indentwidth: int = 2) -> None:

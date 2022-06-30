@@ -176,7 +176,7 @@ class PrmEntryListModel(QStandardItemModel):
 
         return action == Qt.CopyAction
 
-    def mimeData(self, indexes: list[int]) -> QMimeData:
+    def mimeData(self, indexes: list[QModelIndex | QPersistentModelIndex]) -> QMimeData:
         mimeType = self.mimeTypes()[0]
         mimeData = QMimeData()
 
@@ -295,7 +295,7 @@ class PrmEditorWidget(A_DockingInterface):
         self.vBoxLayout.setContentsMargins(10, 0, 10, 10)
 
         prmEntryListBox = PrmEntryListWidget()
-        prmEntryListBox.currentItemChanged.connect(self.show_entry)
+        # prmEntryListBox.currentItemChanged.connect(self.show_entry)
         self.prmEntryListBox = prmEntryListBox
 
         prmEntryListInterface = ListInterfaceWidget()
@@ -316,9 +316,9 @@ class PrmEditorWidget(A_DockingInterface):
         self.prmEntryListWidget = prmEntryListWidget
 
         prmEntryEditor = PrmEntryListWidget()
-        prmEntryEditor.entryUpdateRequested.connect(
-            self.update_entry
-        )
+        # prmEntryEditor.entryUpdateRequested.connect(
+        #     self.update_entry
+        # )
         self.prmEntryEditor = prmEntryEditor
 
         splitter = QSplitter()
@@ -334,7 +334,7 @@ class PrmEditorWidget(A_DockingInterface):
         self.mainLayout.addWidget(self.scrollArea)
         self.setLayout(self.mainLayout)
 
-        self.entries: List[PrmEntry] = []
+        self.entries: list[PrmEntry] = []
 
         self.__cachedOpenPath: Optional[Path] = None
 

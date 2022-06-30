@@ -52,7 +52,7 @@ class A_SceneObject(jdrama.NameRef, ABC):
     def __init__(self, nameref: str, subkind: str = "Default"):
         super().__init__(nameref)
         self.key = jdrama.NameRef("(null)")
-        self._members: List[A_Member] = []
+        self._members: list[A_Member] = []
         self._parent: Optional[GroupObject] = None
 
         self.init_members(subkind)
@@ -515,7 +515,7 @@ class MapObject(A_SceneObject):
 class GroupObject(A_SceneObject):
     def __init__(self, nameref: str, subkind: str = "Default"):
         super().__init__(nameref, subkind)
-        self._grouped: List[A_SceneObject] = []
+        self._grouped: list[A_SceneObject] = []
 
     @classmethod
     def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **kwargs: VariadicKwargs) -> Optional["GroupObject"]:

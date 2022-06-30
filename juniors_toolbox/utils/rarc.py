@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import subprocess
 import tempfile
@@ -80,11 +82,11 @@ class A_ResourceHandle():
         self._name = name
 
     def get_extension(self) -> str:
-        return self._name.split(".")[-1]
+        return "." + self._name.split(".")[-1]
 
     def set_extension(self, extension: str):
         parts = self._name.split(".")
-        parts[-1] = extension
+        parts[-1] = extension.lstrip(".")
         self._name = ".".join(parts)
 
     def get_stem(self) -> str:
@@ -107,7 +109,7 @@ class A_ResourceHandle():
     def get_path(self) -> PurePath:
         path = PurePath(self.get_name())
         parent = self.get_parent()
-        while parent is not None:
+        while parent is not None and parent.is_archive() is False:
             path = parent.get_name() / path
             parent = parent.get_parent()
         return path
@@ -129,6 +131,9 @@ class A_ResourceHandle():
             return
             
         handle.add_handle(self)
+
+    @abstractmethod
+    def is_archive(self) -> bool: ...
 
     @abstractmethod
     def is_directory(self) -> bool: ...
@@ -244,6 +249,9 @@ class A_ResourceHandle():
     @abstractmethod
     def __ne__(self, __o: object) -> bool: ...
 
+    @abstractmethod
+    def __hash__(self) -> int: ...
+
 
 class ResourceFile(A_ResourceHandle):
     def __init__(
@@ -257,6 +265,9 @@ class ResourceFile(A_ResourceHandle):
 
         self._data = BytesIO(initialData)
         self._id = -1
+
+    def is_archive(self) -> bool:
+        return False
 
     def is_directory(self) -> bool:
         return False
@@ -399,6 +410,9 @@ class ResourceFile(A_ResourceHandle):
 
         return self.get_name() != __o.get_name() or self.get_data() != __o.get_data()
 
+    def __hash__(self) -> int:
+        return hash((self.get_path(), self.get_size()))
+
 
 class ResourceDirectory(A_ResourceHandle):
     def __init__(
@@ -413,6 +427,9 @@ class ResourceDirectory(A_ResourceHandle):
         if children is None:
             children = []
         self._children = children
+
+    def is_archive(self) -> bool:
+        return False
 
     def is_directory(self) -> bool:
         return True
@@ -468,7 +485,6 @@ class ResourceDirectory(A_ResourceHandle):
         if isinstance(__path, str):
             __path = PurePath(__path)
         curDir, *subParts = __path.parts
-        curDir = str(curDir)
         for handle in self.get_handles():
             if handle.get_name() == curDir:
                 if len(subParts) == 0:
@@ -628,6 +644,9 @@ class ResourceDirectory(A_ResourceHandle):
 
         return self.get_path() != __o.get_path()
 
+    def __hash__(self) -> int:
+        return hash((self.get_path(), self.get_size()))
+
 
 class ResourceArchive(ResourceDirectory, A_Serializable):
     @dataclass
@@ -673,6 +692,34 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
             children = []
         self._children = children
         self._syncIDs = syncIDs
+
+    @staticmethod
+    def is_archive_empty(archive: BinaryIO) -> bool:
+        _oldPos = archive.tell()
+
+        assert archive.read(4) == b"RARC", "Invalid identifier. Expected \"RARC\""
+        archive.seek(0x20, 0)
+        
+        directoryCount = read_uint32(archive)
+        archive.seek(4, 1)
+        fileEntryCount = read_uint32(archive)
+
+        archive.seek(_oldPos, 0)
+
+        return directoryCount <= 1 and fileEntryCount <= 2
+
+    @staticmethod
+    def get_directory_count(archive: BinaryIO) -> int:
+        _oldPos = archive.tell()
+
+        assert archive.read(4) == b"RARC", "Invalid identifier. Expected \"RARC\""
+        archive.seek(0x20, 0)
+        
+        directoryCount = read_uint32(archive)
+
+        archive.seek(_oldPos, 0)
+
+        return directoryCount
 
     @classmethod
     def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **kwargs: VariadicKwargs) -> Optional["ResourceArchive"]:
@@ -891,6 +938,9 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
     def path_exists(self, path: PurePath | str) -> bool:
         return self.get_handle(path) is not None
 
+    def is_archive(self) -> bool:
+        return True
+
     def new_file(
         self,
         name: str,
@@ -1064,7 +1114,7 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
             for size, directory in directories.items():
                 fileList.extend(
                     _process_dir(
-                        directory, fileList[size].offset, currentFolderID)
+                        directory, filelist[size].offset, currentFolderID)
                 )
             return fileList
 
@@ -1141,3 +1191,6 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
             return True
 
         return self.get_handles() != __o.get_handles()
+
+    def __hash__(self) -> int:
+        return hash((self.get_name(), self.get_size())) 

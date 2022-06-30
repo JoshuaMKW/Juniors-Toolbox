@@ -232,7 +232,7 @@ def read_generic_components(
     _type: VertexBufferType.Generic,
     trueCount: int,
     divisor: int = 0
-) -> List[float]:
+) -> list[float]:
     assert 0 < trueCount < 4, "True count is out of range! (1 - 3)"
 
     out = []
@@ -246,7 +246,7 @@ def read_components(
     _type: VertexBufferType,
     trueCount: int,
     divisor: int = 0
-) -> List[float]:
+) -> list[float]:
     return read_generic_components(reader, _type.item, trueCount, divisor)
 
 

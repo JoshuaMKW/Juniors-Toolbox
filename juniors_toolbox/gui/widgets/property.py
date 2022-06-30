@@ -682,7 +682,7 @@ class Vector3Property(A_ValueProperty):
         inputX = SpinBoxDragDouble(isFloat=True)
         inputY = SpinBoxDragDouble(isFloat=True)
         inputZ = SpinBoxDragDouble(isFloat=True)
-        self._xyzInputs: List[SpinBoxDragDouble] = [inputX, inputY, inputZ]
+        self._xyzInputs: list[SpinBoxDragDouble] = [inputX, inputY, inputZ]
         for i in range(3):
             axis = "XYZ"[i]
             spinBox = self._xyzInputs[i]
@@ -1100,7 +1100,7 @@ class TransformProperty(StructProperty):
         inputT.set_parent_property(self)
         inputR.set_parent_property(self)
         inputS.set_parent_property(self)
-        self.__trsInputs: List[Vector3Property] = [inputT, inputR, inputS]
+        self.__trsInputs: list[Vector3Property] = [inputT, inputR, inputS]
 
     def is_container(self) -> bool:
         return True

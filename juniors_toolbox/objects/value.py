@@ -49,11 +49,11 @@ class QualifiedName():
         return self.__scopes[self.__iter]
 
     @overload
-    def __getitem__(self, index: slice) -> List[str]: ...
+    def __getitem__(self, index: slice) -> list[str]: ...
     @overload
     def __getitem__(self, index: int) -> str: ...
 
-    def __getitem__(self, index: int | slice) -> str | List[str]:
+    def __getitem__(self, index: int | slice) -> str | list[str]:
         if isinstance(index, slice):
             return self.__scopes[index.start:index.stop:index.step]
         return self.__scopes[index]

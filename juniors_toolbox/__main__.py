@@ -6,7 +6,7 @@ from juniors_toolbox.gui.application import JuniorsToolbox
 from juniors_toolbox import __version__
 from juniors_toolbox.utils.bintemplate import convert_bin_to_toolbox
 
-def main(argv: Optional[List[str]] = None):
+def main(argv: Optional[list[str]] = None):
     if argv is None:
         argv = sys.argv[1:]
 

@@ -74,7 +74,7 @@ class InteractiveListWidget(QListWidget):
         self.itemDoubleClicked.connect(self.__handle_double_click)
         self.customContextMenuRequested.connect(self.custom_context_menu)
 
-        self.__selectedItems: List[InteractiveListWidgetItem] = []
+        self.__selectedItems: list[InteractiveListWidgetItem] = []
         self.__dragHoverItem: Optional[InteractiveListWidgetItem] = None
         self.__dragPreSelected = False
 
@@ -120,7 +120,7 @@ class InteractiveListWidget(QListWidget):
         super().editItem(item)
 
     @Slot(list)
-    def delete_items(self, items: List[InteractiveListWidgetItem]):
+    def delete_items(self, items: list[InteractiveListWidgetItem]):
         for item in items:
             row = self.row(item)
             self.itemDeleted.emit(item, row)
@@ -157,7 +157,7 @@ class InteractiveListWidget(QListWidget):
         return newName
 
     @Slot(list)
-    def duplicate_items(self, items: List[InteractiveListWidgetItem]) -> List[InteractiveListWidgetItem]:
+    def duplicate_items(self, items: list[InteractiveListWidgetItem]) -> list[InteractiveListWidgetItem]:
         """
         Returns the new item
         """
@@ -395,7 +395,7 @@ class InteractiveTreeWidget(QTreeWidget):
         self.itemDoubleClicked.connect(self.__handle_double_click)
         self.customContextMenuRequested.connect(self.custom_context_menu)
 
-        self.__selectedItems: List[InteractiveTreeWidgetItem] = []
+        self.__selectedItems: list[InteractiveTreeWidgetItem] = []
         self.__dragHoverItem: Optional[InteractiveTreeWidgetItem] = None
         self.__dragPreSelected = False
 
@@ -444,7 +444,7 @@ class InteractiveTreeWidget(QTreeWidget):
         super().editItem(item)
 
     @Slot(list)
-    def delete_items(self, items: List[InteractiveTreeWidgetItem]):
+    def delete_items(self, items: list[InteractiveTreeWidgetItem]):
         for item in items:
             self.itemDeleted.emit(item, item.parent().indexOfChild(item))
             item.parent().removeChild(item)
@@ -479,7 +479,7 @@ class InteractiveTreeWidget(QTreeWidget):
         return newName
 
     @Slot(list)
-    def duplicate_items(self, items: List[InteractiveTreeWidgetItem]) -> List[InteractiveTreeWidgetItem]:
+    def duplicate_items(self, items: list[InteractiveTreeWidgetItem]) -> list[InteractiveTreeWidgetItem]:
         """
         Returns the new item
         """
@@ -731,7 +731,7 @@ class InteractiveListView(QListView):
         return newIndexes
 
     @Slot(list)
-    def delete_indexes(self, indexes: List[AnyModelIndex]):
+    def delete_indexes(self, indexes: list[AnyModelIndex]):
         model = self.model()
         indexes = [QPersistentModelIndex(index) for index in indexes]
         for pindex in indexes:

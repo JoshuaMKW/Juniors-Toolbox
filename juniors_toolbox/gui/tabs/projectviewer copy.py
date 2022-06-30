@@ -5,15 +5,14 @@ import time
 from cmath import exp
 from enum import Enum, IntEnum, auto
 from pathlib import Path
-from typing import Any, BinaryIO, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from juniors_toolbox.gui.dialogs.moveconflict import MoveConflictDialog
 
 from juniors_toolbox.gui.images import get_icon, get_image
-from juniors_toolbox.gui.models.rarcfs import JSystemFSDirectoryProxyModel, JSystemFSModel, JSystemFSSortProxyModel
 from juniors_toolbox.gui.widgets import ABCMetaWidget, ABCWidget
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.gui.tools import clear_layout, walk_layout
-from juniors_toolbox.gui.widgets.interactivestructs import InteractiveListView, InteractiveListWidget, InteractiveListWidgetItem
+from juniors_toolbox.gui.widgets.interactivestructs import InteractiveListWidget, InteractiveListWidgetItem
 from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.utils import A_Serializable, VariadicArgs, VariadicKwargs
 from juniors_toolbox.utils.bmg import BMG
@@ -30,7 +29,7 @@ from juniors_toolbox.utils.j3d.anim.bva import BVA
 from juniors_toolbox.utils.j3d.bmd import BMD
 from juniors_toolbox.utils.prm import PrmFile
 from juniors_toolbox.utils.types import RGB8, RGB32, RGBA8, Vec3f
-from PySide6.QtCore import (QAbstractItemModel, QDataStream, QEvent, QIODevice, 
+from PySide6.QtCore import (QAbstractItemModel, QDataStream, QEvent, QIODevice,
                             QLine, QMimeData, QModelIndex, QObject, QPoint,
                             QSize, Qt, QThread, QTimer, QUrl, Signal, QItemSelectionModel, QPersistentModelIndex,
                             SignalInstance, Slot)
@@ -39,7 +38,6 @@ from PySide6.QtGui import (QAction, QColor, QCursor, QDrag, QDragEnterEvent,
                            QImage, QKeyEvent, QMouseEvent, QPaintDevice,
                            QPainter, QPaintEvent, QPalette, QPixmap, QPen,
                            QUndoCommand, QUndoStack)
-from PySide6.QtTest import QAbstractItemModelTester
 from PySide6.QtWidgets import (QBoxLayout, QComboBox, QFormLayout, QFrame,
                                QGridLayout, QGroupBox, QHBoxLayout, QLabel,
                                QLayout, QLineEdit, QListView, QListWidget,
@@ -47,7 +45,7 @@ from PySide6.QtWidgets import (QBoxLayout, QComboBox, QFormLayout, QFrame,
                                QScrollArea, QSizePolicy, QSpacerItem,
                                QSplitter, QStyle, QStyleOptionComboBox,
                                QStylePainter, QTableWidget, QTableWidgetItem,
-                               QToolBar, QTreeWidget, QTreeWidgetItem, QDialog, QDialogButtonBox, QApplication, QTreeView,
+                               QToolBar, QTreeWidget, QTreeWidgetItem, QDialog, QDialogButtonBox, QApplication,
                                QVBoxLayout, QWidget)
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
@@ -278,19 +276,17 @@ class ProjectHierarchyItem(QTreeWidgetItem):
 
 
 class ProjectCreateAction(QAction):
-    class _EmptyFile(A_Serializable):
-        @classmethod
-        def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **kwargs: VariadicKwargs) -> Optional[A_Serializable]:
-            return ProjectCreateAction._EmptyFile()
-
-        def to_bytes(self) -> bytes:
-            return b""
+    clicked = Signal(QAction)
+    triggered: Signal
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
 
-    def init_file(self) -> A_Serializable:
-        return ProjectCreateAction._EmptyFile()
+        self._init_fn_ = lambda self: None
+        self.triggered.connect(self.__click)
+
+    def __click(self, toggled: bool) -> None:
+        self.clicked.emit(self)
 
 
 class ProjectFocusedMenuBarAction(QAction):
@@ -473,12 +469,11 @@ class ProjectFocusedMenuBar(QMenuBar, A_FileSystemViewer):
         self.moveRequested.emit(paths, dst)
 
 
-class ProjectFolderViewWidget(InteractiveListView, A_FileSystemViewer):
+class ProjectFolderViewWidget(InteractiveListWidget, A_FileSystemViewer):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         A_FileSystemViewer.__init__(self)
 
-        self.setUniformItemSizes(True)
         self.setFlow(QListView.LeftToRight)
         self.setGridSize(QSize(88, 98))
         self.setIconSize(QSize(64, 64))
@@ -486,34 +481,86 @@ class ProjectFolderViewWidget(InteractiveListView, A_FileSystemViewer):
         self.setViewMode(QListView.IconMode)
         self.setWordWrap(True)
         self.setAcceptDrops(True)
-        self.setDragDropMode(QListView.DragDrop)
-        self.setDefaultDropAction(Qt.DropAction.MoveAction)
-        self.setEditTriggers(QListView.NoEditTriggers)
+        self.setDragDropMode(InteractiveListWidget.DragDropMode.DragDrop)
+        self.setDefaultDropAction(Qt.DropAction.CopyAction)
+        self.setUniformItemSizes(True)
 
         self.__selectedItemsOnDrag: list[ProjectAssetListItem] = []
 
-    def get_source_model(self) -> QAbstractItemModel:
-        proxy: JSystemFSSortProxyModel = self.model()
-        return proxy.sourceModel()
+    def view(self, path: Path) -> None:
+        """
+        Path is relative to scenePath
+        """
+        self.setSortingEnabled(False)
+        self.clear()
+        if not path.is_absolute():
+            path = self.scenePath / path
+            self._focusedPath = path
+        else:
+            self._focusedPath = path.relative_to(self.scenePath)
+        if not path.is_dir():
+            return
+        for entry in path.iterdir():
+            item = ProjectAssetListItem(entry.name, entry.is_dir())
+            self.addItem(item)
+        self.setSortingEnabled(True)
+        self.sortItems(Qt.SortOrder.AscendingOrder)
 
-    def set_source_model(self, model: QAbstractItemModel) -> None:
-        proxy: JSystemFSSortProxyModel = self.model()
-        proxy.setSourceModel(model)
+    def create_item(self, action: ProjectCreateAction, isFolder: bool) -> None:
+        item = ProjectAssetListItem("untitled", isFolder)
+        item._init_fn_ = action._init_fn_
+        self.addItem(item)
+        self.editItem(item)
 
-    def create_item(self, action: ProjectCreateAction) -> None:
-        ...
+    @Slot(list)
+    def delete_items(self, items: list[ProjectAssetListItem]) -> None:
+        super().delete_items(items)
+        if len(items) == 0:
+            return
+        self.deleteRequested.emit(items)
+
+    @Slot(ProjectAssetListItem)
+    def rename_item(self, item: ProjectAssetListItem) -> Optional[ProjectAssetListItem]:
+        """
+        Returns the new name of the item
+        """
+        name = super().rename_item(item)
+        if name == "":
+            return None
+        self.renameRequested.emit(item)
+        return item
+
+    @Slot(list)
+    def move_items(self, items: list[ProjectAssetListItem], targetItem: ProjectAssetListItem) -> None:
+        """
+        Moves the items in the filesystem
+        """
+        if not targetItem.is_folder():
+            return
+
+        self.moveRequested.emit(items, targetItem)
+
+    @Slot(list)
+    def duplicate_items(self, items: list[ProjectAssetListItem]) -> list[ProjectAssetListItem]:
+        """
+        Returns the new name of the item
+        """
+        nitems = super().duplicate_items(items)
+        if len(nitems) == 0:
+            return []
+        self.copyRequested.emit(items, nitems)
+        return nitems
 
     @Slot(QPoint)
     def custom_context_menu(self, point: QPoint) -> None:
         # Infos about the node selected.
-        index = self.indexAt(point)
+        item: Optional[ProjectHierarchyItem] = self.itemAt(point)
 
         createMenu = QMenu("Create", self)
         folderAction = ProjectCreateAction(createMenu)
         folderAction.setText("Folder")
         folderAction.triggered.connect(
-            lambda _action: self.create_item(_action)
-        )
+            lambda _action: self.create_item(_action, True))
 
         def traverse_structure(_menu: QMenu, initTable: dict):
             for assetKind, assetInfo in initTable.items():
@@ -531,26 +578,25 @@ class ProjectFolderViewWidget(InteractiveListView, A_FileSystemViewer):
                         action = QAction(
                             assetInfo["icon"], assetInfo["name"], _menu)
                     action.clicked.connect(
-                        lambda _action: self.create_item(_action)
-                    )
+                        lambda _action: self.create_item(_action, False))
                     _menu.addAction(action)
 
         traverse_structure(createMenu, _ASSET_INIT_TABLE)
 
         viewAction = QAction("Show in Explorer", self)
         viewAction.triggered.connect(
-            lambda clicked=None: self.openExplorerRequested.emit(index)
+            lambda clicked=None: self.openExplorerRequested.emit(item)
         )
 
         # We build the menu.
-        if index.isValid():
+        if item is not None:
             menu = self.get_context_menu(point)
             if menu is None:
                 return
 
             openAction = QAction("Open", self)
             openAction.triggered.connect(
-                lambda clicked=None: self.openRequested.emit(index)
+                lambda clicked=None: self.openRequested.emit(item)
             )
             beforeAction = menu.actions()
             beforeAction = beforeAction[0]
@@ -567,9 +613,7 @@ class ProjectFolderViewWidget(InteractiveListView, A_FileSystemViewer):
 
         menu.exec(self.mapToGlobal(point))
 
-    def _resolve_name(self, name: str, filterItem: Optional[QModelIndex | QPersistentModelIndex] = None) -> str:
-        model = self.model()
-
+    def _resolve_name(self, name: str, filterItem: InteractiveListWidgetItem = None) -> str:
         parts = name.rsplit(".", 1)
         name = parts[0]
 
@@ -577,16 +621,15 @@ class ProjectFolderViewWidget(InteractiveListView, A_FileSystemViewer):
         ogName = name
 
         possibleNames = []
-        for i in range(model.rowCount()):
+        for i in range(self.count()):
             if renameContext > 100:
                 raise FileExistsError(
                     "Name exists beyond 100 unique iterations!")
-            item = model.index(i, 0)
+            item = self.item(i)
             if item == filterItem:
                 continue
-            itemText: str = item.data(Qt.DisplayRole)
-            if itemText.startswith(ogName):
-                possibleNames.append(itemText.rsplit(".", 1)[0])
+            if item.text().startswith(ogName):
+                possibleNames.append(item.text().rsplit(".", 1)[0])
 
         i = 0
         while True:
@@ -607,37 +650,31 @@ class ProjectFolderViewWidget(InteractiveListView, A_FileSystemViewer):
 
     @Slot(QMouseEvent)
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
-        index = self.indexAt(event.pos())
-
-        model: JSystemFSSortProxyModel = self.model()
-        sourceIndex = model.mapToSource(index)
-
-        sourceModel: JSystemFSModel = sourceIndex.model()
-        if not sourceModel.is_populated(sourceIndex):
+        item: ProjectAssetListItem = self.itemAt(event.pos())
+        if not item.is_folder():
             event.ignore()
             return
         super().mouseDoubleClickEvent(event)
 
     def startDrag(self, supportedActions: Qt.DropActions) -> None:
-        indexes = self.selectedIndexes()
         drag = QDrag(self)
+        items = self.selectedItems()
+        indexes = self.selectedIndexes()
         mime = self.model().mimeData(indexes)
         urlList = []
-        for index in indexes:
-            urlList.append(
-                QUrl.fromLocalFile(
-                    index.data(JSystemFSModel.FilePathRole)
-                )
-            )
+        for item in items:
+            urlList.append(QUrl.fromLocalFile(
+                self.scenePath / self.focusedPath / item.text()))
         mime.setUrls(urlList)
         drag.setMimeData(mime)
 
         # -- ICON -- #
 
         if supportedActions & Qt.MoveAction:
-            if len(indexes) == 0:
+            items = self.selectedItems()
+            if len(items) == 0:
                 return
- 
+
             pixmap = QPixmap(70, 80)
             pixmap.fill(Qt.transparent)
 
@@ -653,18 +690,18 @@ class ProjectFolderViewWidget(InteractiveListView, A_FileSystemViewer):
             painter.setBrush(QColor(20, 150, 220, 70))
             painter.drawRoundedRect(0, 0, 70, 80, 5, 5)
 
-            if len(indexes) == 1:
-                icon: QIcon = indexes[0].data(Qt.DisplayRole).icon()
+            if len(items) == 1:
+                icon = items[0].icon()
                 iconPixmap = QPixmap(icon.pixmap(
                     icon.actualSize(QSize(64, 64)))).scaled(64, 64)
                 painter.drawPixmap(3, 8, iconPixmap)
             else:
                 fontMetrics = painter.fontMetrics()
-                textWidth = fontMetrics.boundingRect(str(len(indexes))).width()
+                textWidth = fontMetrics.boundingRect(str(len(items))).width()
                 painter.setPen(Qt.white)
                 painter.setBrush(QColor(20, 110, 220, 255))
                 painter.drawRect(27, 32, 16, 16)
-                painter.drawText(35 - (textWidth // 2), 43, str(len(indexes)))
+                painter.drawText(35 - (textWidth // 2), 43, str(len(items)))
 
             painter.end()
 
@@ -673,63 +710,61 @@ class ProjectFolderViewWidget(InteractiveListView, A_FileSystemViewer):
 
         drag.exec(supportedActions)
 
-    # @Slot(QDragEnterEvent)
-    # def dragEnterEvent(self, event: QDragEnterEvent) -> None:
-    #     if not event.mimeData().hasUrls():
-    #         event.ignore()
+    @Slot(QDragEnterEvent)
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
+        if not event.mimeData().hasUrls():
+            event.ignore()
 
-    #     self.__selectedItemsOnDrag = self.selectedItems()
-    #     super().dragEnterEvent(event)
+        self.__selectedItemsOnDrag = self.selectedItems()
+        super().dragEnterEvent(event)
 
-    # @Slot(QDragMoveEvent)
-    # def dragMoveEvent(self, event: QDragMoveEvent) -> None:
-    #     eventPos = event.pos()
-    #     rect = self.rect()
-    #     item: Optional[ProjectAssetListItem] = self.itemAt(eventPos)
-    #     if event.mimeData().hasUrls():
-    #         if item is None:
-    #             super().dragMoveEvent(event)
-    #             if event.source() == self:
-    #                 event.ignore()
-    #             return
-    #         else:
-    #             if item.is_folder():
-    #                 super().dragMoveEvent(event)
-    #                 if item in self.__selectedItemsOnDrag:
-    #                     event.ignore()
-    #                 return
-    #         if not rect.contains(eventPos):
-    #             super().dragMoveEvent(event)
-    #             return
-    #     event.ignore()
+    @Slot(QDragMoveEvent)
+    def dragMoveEvent(self, event: QDragMoveEvent) -> None:
+        eventPos = event.pos()
+        rect = self.rect()
+        item: Optional[ProjectAssetListItem] = self.itemAt(eventPos)
+        if event.mimeData().hasUrls():
+            if item is None:
+                super().dragMoveEvent(event)
+                if event.source() == self:
+                    event.ignore()
+                return
+            else:
+                if item.is_folder():
+                    super().dragMoveEvent(event)
+                    if item in self.__selectedItemsOnDrag:
+                        event.ignore()
+                    return
+            if not rect.contains(eventPos):
+                super().dragMoveEvent(event)
+                return
+        event.ignore()
 
-    # @Slot(QDropEvent)
-    # def dropEvent(self, event: QDropEvent) -> None:
-    #     mimeData = event.mimeData()
-    #     if not mimeData.hasUrls():
-    #         return
+    @Slot(QDropEvent)
+    def dropEvent(self, event: QDropEvent) -> None:
+        mimeData = event.mimeData()
+        if not mimeData.hasUrls():
+            return
 
-    #     item: Optional[ProjectAssetListItem] = self.itemAt(event.pos())
-    #     if item is None and event.source() != self:
-    #         paths = []
-    #         for url in mimeData.urls():
-    #             path = Path(url.toLocalFile())
-    #             paths.append(path)
-    #         self.dropInRequested.emit(paths)
-    #         event.accept()
-    #     if item is not None and item.is_folder():
-    #         self.move_items(self.__selectedItemsOnDrag, item)
-    #         event.accept()
-    #     else:
-    #         event.ignore()
-    #     return
+        item: Optional[ProjectAssetListItem] = self.itemAt(event.pos())
+        if item is None and event.source() != self:
+            paths = []
+            for url in mimeData.urls():
+                path = Path(url.toLocalFile())
+                paths.append(path)
+            self.dropInRequested.emit(paths)
+            event.accept()
+        if item is not None and item.is_folder():
+            self.move_items(self.__selectedItemsOnDrag, item)
+            event.accept()
+        else:
+            event.ignore()
+        return
 
     @Slot(QKeyEvent)
     def keyReleaseEvent(self, event: QKeyEvent) -> None:
-        indexes = self.selectedIndexes()
-
         if event.key() == Qt.Key_Delete:
-            self.delete_indexes(indexes)
+            self.delete_items(self.selectedItems())
             event.accept()
             return
 
@@ -741,10 +776,9 @@ class ProjectFolderViewWidget(InteractiveListView, A_FileSystemViewer):
                 clipboard = QApplication.clipboard()
 
                 urlList = []
-                for index in indexes:
+                for item in self.selectedItems():
                     url = QUrl.fromLocalFile(
-                        index.data(JSystemFSModel.FilePathRole)
-                    )
+                        self.scenePath / self.focusedPath / item.text())
                     urlList.append(url)
                 mimeData.setUrls(urlList)
                 clipboard.setMimeData(mimeData)
@@ -1005,6 +1039,64 @@ class ProjectHierarchyViewWidget(QTreeWidget, A_FileSystemViewer):
 
 
 class ProjectViewerWidget(A_DockingInterface):
+    class ProjectWatcher(QObject, FileSystemEventHandler):
+        fileSystemChanged = Signal()
+        finished = Signal()
+
+        def __init__(self, *args: VariadicArgs, **kwargs: VariadicKwargs) -> None:
+            super().__init__(*args, **kwargs)
+            FileSystemEventHandler.__init__(self)
+
+            self.updateInterval = 0.5
+
+            self.__blocking = True
+            self.__softBlock = False
+            self.__lastEventTime = 0.0
+            self.__lastEvent: FileSystemEvent = None
+
+        def run(self) -> None:
+            while True:
+                if self.__blocking:
+                    if time.time() - self.__lastEventTime < self.updateInterval:
+                        time.sleep(0.1)
+                        continue
+                    if self.__lastEvent is None:
+                        time.sleep(0.1)
+                        continue
+                if not self.__softBlock:
+                    self.fileSystemChanged.emit()
+                self.__softBlock = False
+                self.__lastEvent = None
+                self.__lastEventTime = time.time()
+
+        def on_created(self, event: FileSystemEvent) -> None:
+            self.signal_change(event)
+
+        def on_modified(self, event: FileSystemEvent) -> None:
+            self.signal_change(event)
+
+        def on_deleted(self, event: FileSystemEvent) -> None:
+            self.signal_change(event)
+
+        def on_moved(self, event: FileSystemEvent) -> None:
+            self.signal_change(event)
+
+        def signal_change(self, event: FileSystemEvent) -> None:
+            if event.is_synthetic:
+                return
+            if self.__lastEvent is None:
+                self.__lastEventTime = time.time()
+            self.__lastEvent = event
+
+        def is_blocking_enabled(self) -> bool:
+            return self.__blocking
+
+        def set_blocking_enabled(self, enabled: bool) -> None:
+            self.__blocking = enabled
+
+        def block_future_emit(self) -> None:
+            self.__softBlock = True
+
     def __init__(self, *args: VariadicArgs, **kwargs: VariadicKwargs) -> None:
         super().__init__(*args, **kwargs)
         self.__scenePath: Optional[Path] = None
@@ -1012,22 +1104,9 @@ class ProjectViewerWidget(A_DockingInterface):
         self.__ignoreItemRename = False
         self.__openTable: Dict[str, Any] = {}
 
-        self.fsModel = JSystemFSModel(None, False, self)
-
-        self.fsModelViewProxy = JSystemFSSortProxyModel(self)
-        self.fsModelViewProxy.setSourceModel(self.fsModel)
-        self.fsModelDirProxy = JSystemFSDirectoryProxyModel(self)
-        self.fsModelDirProxy.setSourceModel(self.fsModel)
-
         self.mainLayout = QHBoxLayout()
 
-        self.fsTreeWidget = QTreeView()
-        self.fsTreeWidget.setHeaderHidden(True)
-        self.fsTreeWidget.setAcceptDrops(True)
-        self.fsTreeWidget.setDragDropMode(QTreeWidget.DragDrop)
-        self.fsTreeWidget.setDefaultDropAction(Qt.MoveAction)
-        self.fsTreeWidget.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.fsTreeWidget.setModel(self.fsModelDirProxy)
+        self.fsTreeWidget = ProjectHierarchyViewWidget()
 
         self.folderWidget = QWidget()
 
@@ -1035,28 +1114,7 @@ class ProjectViewerWidget(A_DockingInterface):
         self.folderViewLayout.setContentsMargins(0, 0, 0, 0)
 
         self.focusedViewWidget = ProjectFocusedMenuBar()
-        
-        # self._modelTester = QAbstractItemModelTester(
-        #     self.fsModelViewProxy,
-        #     QAbstractItemModelTester.FailureReportingMode.Warning,
-        #     self
-        # )
-
-        # self._modelTester2 = QAbstractItemModelTester(
-        #     self.fsModelDirProxy,
-        #     QAbstractItemModelTester.FailureReportingMode.Warning,
-        #     self
-        # )
-
         self.folderViewWidget = ProjectFolderViewWidget()
-        self.folderViewWidget.setModel(self.fsModelViewProxy)
-        self.folderViewWidget.doubleClicked.connect(
-            self._view_directory_from_view
-        )
-
-        self.fsTreeWidget.clicked.connect(
-            self._view_directory
-        )
 
         self.folderViewLayout.addWidget(self.focusedViewWidget)
         self.folderViewLayout.addWidget(self.folderViewWidget)
@@ -1074,32 +1132,50 @@ class ProjectViewerWidget(A_DockingInterface):
         # self.setLayout(self.mainLayout)
         self.setMinimumSize(420, 200)
 
-        # self.fsTreeWidget.itemClicked.connect(self.view_folder)
+        self.watcherThread = QThread()
+        self.eventHandler = ProjectViewerWidget.ProjectWatcher()
+        self.eventHandler.fileSystemChanged.connect(self.update)
+        self.eventHandler.moveToThread(self.watcherThread)
+        self.watcherThread.started.connect(self.eventHandler.run)
+        self.eventHandler.finished.connect(self.watcherThread.quit)
+        self.eventHandler.finished.connect(self.eventHandler.deleteLater)
+        self.watcherThread.finished.connect(self.watcherThread.deleteLater)
 
-        # self.folderViewWidget.itemDoubleClicked.connect(
-        #     self.handle_view_double_click)
-        # self.folderViewWidget.openExplorerRequested.connect(self.explore_item)
-        # self.folderViewWidget.openRequested.connect(self.open_item)
-        # self.folderViewWidget.copyRequested.connect(self.copy_items)
-        # self.folderViewWidget.deleteRequested.connect(self.delete_items)
-        # self.folderViewWidget.renameRequested.connect(self.rename_item)
-        # self.folderViewWidget.moveRequested.connect(self.move_items)
-        # self.folderViewWidget.dropInRequested.connect(
-        #     self.copy_paths_to_focused
-        # )
+        self.observer = Observer()
+
+        self.fsTreeWidget.itemClicked.connect(self.view_folder)
+
+        self.folderViewWidget.itemDoubleClicked.connect(
+            self.handle_view_double_click)
+        self.folderViewWidget.openExplorerRequested.connect(self.explore_item)
+        self.folderViewWidget.openRequested.connect(self.open_item)
+        self.folderViewWidget.copyRequested.connect(self.copy_items)
+        self.folderViewWidget.deleteRequested.connect(self.delete_items)
+        self.folderViewWidget.renameRequested.connect(self.rename_item)
+        self.folderViewWidget.moveRequested.connect(self.move_items)
+        self.folderViewWidget.dropInRequested.connect(
+            self.copy_paths_to_focused
+        )
 
         self.focusedViewWidget.folderChangeRequested.connect(self.view_folder)
 
-        # self.fsTreeWidget.openExplorerRequested.connect(self.explore_item)
-        # self.fsTreeWidget.openRequested.connect(self.open_item)
-        # self.fsTreeWidget.deleteRequested.connect(self.delete_items)
-        # self.fsTreeWidget.renameRequested.connect(self.rename_item)
-        # self.fsTreeWidget.moveRequested.connect(self.move_items)
-        # self.fsTreeWidget.dropInRequested.connect(
-        #     self.copy_paths_to_focused
-        # )
+        self.fsTreeWidget.openExplorerRequested.connect(self.explore_item)
+        self.fsTreeWidget.openRequested.connect(self.open_item)
+        self.fsTreeWidget.deleteRequested.connect(self.delete_items)
+        self.fsTreeWidget.renameRequested.connect(self.rename_item)
+        self.fsTreeWidget.moveRequested.connect(self.move_items)
+        self.fsTreeWidget.dropInRequested.connect(
+            self.copy_paths_to_focused
+        )
 
         self.focusedViewWidget.moveRequested.connect(self.move_items)
+
+        #self.updateTimer = QTimer(self)
+        # self.updateTimer.timeout.connect(self.update_tree)
+        # self.updateTimer.start(10)
+
+        #self.watcherThread = ProjectViewerWidget.ProjectWatcher(app.scenePath)
+        # self.watcherThread.start()
 
     @property
     def scenePath(self) -> Path:
@@ -1108,14 +1184,8 @@ class ProjectViewerWidget(A_DockingInterface):
     @scenePath.setter
     def scenePath(self, path: Path) -> None:
         self.__scenePath = path
-        self.fsModel.rootPath = path
-        self.fsModelViewProxy.sort(0, Qt.AscendingOrder)
-        self.fsTreeWidget.expand(
-            self.fsModelDirProxy.index(0, 0, QModelIndex())
-        )
-        # self.folderViewWidget.update(self.fsModel.index(0, 0))
-        # self.fsTreeWidget.update(self.fsModel.index(0, 0))
-        # self.fsModelViewProxy.invalidate()
+        self.fsTreeWidget.scenePath = path
+        self.folderViewWidget.scenePath = path
         self.focusedViewWidget.scenePath = path
 
     @property
@@ -1125,11 +1195,8 @@ class ProjectViewerWidget(A_DockingInterface):
     @focusedPath.setter
     def focusedPath(self, path: Path) -> None:
         self.__focusedPath = path
-        self.folderViewWidget.setRootIndex(
-            self.fsModelViewProxy.mapFromSource(
-                self.fsModel.get_path_index(path)
-            )
-        )
+        self.fsTreeWidget.focusedPath = path
+        self.folderViewWidget.focusedPath = path
         self.focusedViewWidget.focusedPath = path
 
     def populate(self, scene: Optional[SMSScene], *args: VariadicArgs, **kwargs: VariadicKwargs) -> None:
@@ -1137,9 +1204,23 @@ class ProjectViewerWidget(A_DockingInterface):
         self.focusedPath = Path()
         self.update()
 
+        # Watch directory
+        if self.observer and self.observer.is_alive():
+            self.observer.stop()
+            self.observer.join()
+        self.observer = Observer()
+        self.observer.schedule(
+            self.eventHandler,
+            self.scenePath,
+            recursive=True
+        )
+        self.observer.start()
+        self.watcherThread.start()
+
     @Slot()
     def update(self) -> None:
-        # self.fsTreeWidget.view_project(self.scenePath)
+        self.fsTreeWidget.view_project(self.scenePath)
+        self.folderViewWidget.view(self.focusedPath)
         self.focusedViewWidget.view(self.focusedPath)
 
     @Slot(ProjectHierarchyItem)
@@ -1418,31 +1499,3 @@ class ProjectViewerWidget(A_DockingInterface):
 
         self.eventHandler.block_future_emit()
         return True
-
-    @Slot(QModelIndex)
-    def _view_directory(self, index: QModelIndex | QPersistentModelIndex):
-        sourceModel = self.fsModel
-        viewModel = self.fsModelViewProxy
-        sourceIndex = self.fsModelDirProxy.mapToSource(index)
-
-        if not sourceModel.is_loaded(sourceIndex):
-            sourceModel._cache_path(sourceIndex)
-
-        self.folderViewWidget.setRootIndex(
-            viewModel.mapFromSource(sourceIndex)
-        )
-
-    @Slot(QModelIndex)
-    def _view_directory_from_view(self, index: QModelIndex | QPersistentModelIndex):
-        sourceModel = self.fsModel
-        dirModel = self.fsModelDirProxy
-        sourceIndex = self.fsModelViewProxy.mapToSource(index)
-
-        if not sourceModel.is_loaded(sourceIndex):
-            sourceModel._cache_path(sourceIndex)
-
-        self.folderViewWidget.setRootIndex(index)
-
-        self.fsTreeWidget.expand(
-            dirModel.mapFromSource(sourceIndex)
-        )
