@@ -30,6 +30,12 @@ def write_pad32(f: BinaryIO):
     f.write(b"\x00"*(next_aligned_pos - f.tell()))
 
 
+class FileConflictAction(IntEnum):
+    REPLACE = 0
+    KEEP = 1
+    SKIP = 2
+
+
 class ResourceAttribute(IntFlag):
     FILE = 0x01
     DIRECTORY = 0x02
@@ -206,7 +212,7 @@ class A_ResourceHandle():
                     str) -> Optional["A_ResourceHandle"]: ...
 
     @abstractmethod
-    def rename(self, __path: PurePath | str, /) -> bool: ...
+    def rename(self, __path: PurePath | str, /, *, action: FileConflictAction = FileConflictAction.REPLACE) -> bool: ...
 
     @abstractmethod
     def read(self, __size: int, /) -> bytes: ...
@@ -216,6 +222,15 @@ class A_ResourceHandle():
 
     @abstractmethod
     def seek(self, __offset: int, __whence: int = os.SEEK_CUR) -> int: ...
+
+    @abstractmethod
+    def __eq__(self, __o: object) -> bool: ...
+
+    @abstractmethod
+    def __ne__(self, __o: object) -> bool: ...
+
+    @abstractmethod
+    def __hash__(self) -> int: ...
 
     def _get_files_by_load_type(self) -> _LoadSortedHandles:
         mramHandles = []
@@ -243,14 +258,39 @@ class A_ResourceHandle():
             dvdHandles
         )
 
-    @abstractmethod
-    def __eq__(self, __o: object) -> bool: ...
+    def _fs_resolve_name(self, name: str) -> str:
+        maxIterations = 1000
+        parts = name.rsplit(".", 1)
+        name = parts[0]
 
-    @abstractmethod
-    def __ne__(self, __o: object) -> bool: ...
+        renameContext = 1
+        ogName = name
 
-    @abstractmethod
-    def __hash__(self) -> int: ...
+        possibleNames = []
+        for handle in self.get_handles():
+            handleName = handle.get_name()
+            if renameContext > maxIterations:
+                raise FileExistsError(
+                    f"Name exists beyond {maxIterations} unique iterations!")
+            if handleName.startswith(ogName):
+                possibleNames.append(handleName.rsplit(".", 1)[0])
+
+        i = 0
+        while True:
+            if i >= len(possibleNames):
+                break
+            if renameContext > maxIterations:
+                raise FileExistsError(
+                    f"Name exists beyond {maxIterations} unique iterations!")
+            if possibleNames[i] == name:
+                name = f"{ogName}{renameContext}"
+                renameContext += 1
+                i = 0
+            else:
+                i += 1
+        if len(parts) == 2:
+            name += f".{parts[1]}"
+        return name
 
 
 class ResourceFile(A_ResourceHandle):
@@ -369,13 +409,33 @@ class ResourceFile(A_ResourceHandle):
             path.read_bytes()
         )
 
-    def rename(self, __path: PurePath | str, /) -> bool:
+    def rename(self, __path: PurePath | str, /, *, action: FileConflictAction = FileConflictAction.REPLACE) -> bool:
         if isinstance(__path, str):
             __path = PurePath(__path)
 
+        pathName = __path.name
+
         if __path.parent == self.get_path().parent:
-            self.set_name(__path.name)
-            return True
+            parent = self.get_parent()
+            if parent is None:
+                return False
+
+            conflictingHandle = parent.get_handle(pathName)
+            if conflictingHandle is None:
+                self.set_name(pathName)
+                return True
+
+            if action == FileConflictAction.REPLACE:
+                parent.remove_handle(conflictingHandle)
+                self.set_name(pathName)
+                return True
+        
+            if action == FileConflictAction.KEEP:
+                newName = parent._fs_resolve_name(pathName)
+                self.set_name(newName)
+                return True
+
+            return False
 
         archive = self.get_archive()
         if archive is None:
@@ -386,8 +446,23 @@ class ResourceFile(A_ResourceHandle):
             return False
 
         self.set_parent(newParent)
-        self.set_name(__path.name)
-        return True
+
+        conflictingHandle = newParent.get_handle(pathName)
+        if conflictingHandle is None:
+            self.set_name(pathName)
+            return True
+
+        if action == FileConflictAction.REPLACE:
+            newParent.remove_handle(conflictingHandle)
+            self.set_name(pathName)
+            return True
+    
+        if action == FileConflictAction.KEEP:
+            newName = newParent._fs_resolve_name(pathName)
+            self.set_name(newName)
+            return True
+
+        return False
 
     def read(self, __size: int, /) -> bytes:
         return self._data.read(__size)
@@ -597,13 +672,33 @@ class ResourceDirectory(A_ResourceHandle):
 
         return thisResource
 
-    def rename(self, __path: PurePath | str, /) -> bool:
+    def rename(self, __path: PurePath | str, /, *, action: FileConflictAction = FileConflictAction.REPLACE) -> bool:
         if isinstance(__path, str):
             __path = PurePath(__path)
 
+        pathName = __path.name
+
         if __path.parent == self.get_path().parent:
-            self.set_name(__path.name)
-            return True
+            parent = self.get_parent()
+            if parent is None:
+                return False
+
+            conflictingHandle = parent.get_handle(pathName)
+            if conflictingHandle is None:
+                self.set_name(pathName)
+                return True
+
+            if action == FileConflictAction.REPLACE:
+                parent.remove_handle(conflictingHandle)
+                self.set_name(pathName)
+                return True
+        
+            if action == FileConflictAction.KEEP:
+                newName = parent._fs_resolve_name(pathName)
+                self.set_name(newName)
+                return True
+
+            return False
 
         archive = self.get_archive()
         if archive is None:
@@ -614,8 +709,23 @@ class ResourceDirectory(A_ResourceHandle):
             return False
 
         self.set_parent(newParent)
-        self.set_name(__path.name)
-        return True
+
+        conflictingHandle = newParent.get_handle(pathName)
+        if conflictingHandle is None:
+            self.set_name(pathName)
+            return True
+
+        if action == FileConflictAction.REPLACE:
+            newParent.remove_handle(conflictingHandle)
+            self.set_name(pathName)
+            return True
+    
+        if action == FileConflictAction.KEEP:
+            newName = newParent._fs_resolve_name(pathName)
+            self.set_name(newName)
+            return True
+
+        return False
 
     def read(self, __size: int, /) -> bytes:
         raise RuntimeError("Resource directories don't have read support")
@@ -980,7 +1090,7 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
 
         return thisResource
 
-    def rename(self, __path: PurePath | str, /) -> bool:
+    def rename(self, __path: PurePath | str, /, *, action: FileConflictAction = FileConflictAction.REPLACE) -> bool:
         if isinstance(__path, str):
             __path = PurePath(__path)
         if len(__path.parts) > 1:
@@ -1114,7 +1224,7 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
             for size, directory in directories.items():
                 fileList.extend(
                     _process_dir(
-                        directory, filelist[size].offset, currentFolderID)
+                        directory, fileList[size].offset, currentFolderID)
                 )
             return fileList
 

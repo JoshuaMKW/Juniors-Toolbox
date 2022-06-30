@@ -4,8 +4,10 @@ import shutil
 import time
 from cmath import exp
 from enum import Enum, IntEnum, auto
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Any, BinaryIO, Callable, Dict, List, Optional, Tuple, Union
+
+from numpy import source
 from juniors_toolbox.gui.dialogs.moveconflict import MoveConflictDialog
 
 from juniors_toolbox.gui.images import get_icon, get_image
@@ -116,40 +118,6 @@ _ASSET_INIT_TABLE = {
         "icon": None
     },
 }
-
-
-def _fs_resolve_name(name: str, dir: Path) -> str:
-    maxIterations = 1000
-    parts = name.rsplit(".", 1)
-    name = parts[0]
-
-    renameContext = 1
-    ogName = name
-
-    possibleNames = []
-    for item in dir.iterdir():
-        if renameContext > maxIterations:
-            raise FileExistsError(
-                f"Name exists beyond {maxIterations} unique iterations!")
-        if item.name.startswith(ogName):
-            possibleNames.append(item.name.rsplit(".", 1)[0])
-
-    i = 0
-    while True:
-        if i >= len(possibleNames):
-            break
-        if renameContext > maxIterations:
-            raise FileExistsError(
-                f"Name exists beyond {maxIterations} unique iterations!")
-        if possibleNames[i] == name:
-            name = f"{ogName}{renameContext}"
-            renameContext += 1
-            i = 0
-        else:
-            i += 1
-    if len(parts) == 2:
-        name += f".{parts[1]}"
-    return name
 
 
 class ProjectAssetType(IntEnum):
@@ -488,6 +456,8 @@ class ProjectFolderViewWidget(InteractiveListView, A_FileSystemViewer):
         self.setAcceptDrops(True)
         self.setDragDropMode(QListView.DragDrop)
         self.setDefaultDropAction(Qt.DropAction.MoveAction)
+        self.setSelectionMode(QListView.ExtendedSelection)
+        self.setSelectionBehavior(QListView.SelectItems)
         self.setEditTriggers(QListView.NoEditTriggers)
 
         self.__selectedItemsOnDrag: list[ProjectAssetListItem] = []
@@ -673,56 +643,72 @@ class ProjectFolderViewWidget(InteractiveListView, A_FileSystemViewer):
 
         drag.exec(supportedActions)
 
-    # @Slot(QDragEnterEvent)
-    # def dragEnterEvent(self, event: QDragEnterEvent) -> None:
-    #     if not event.mimeData().hasUrls():
-    #         event.ignore()
+    @Slot(QDragEnterEvent)
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
+        if not event.mimeData().hasUrls():
+            event.ignore()
 
-    #     self.__selectedItemsOnDrag = self.selectedItems()
-    #     super().dragEnterEvent(event)
+        self.__selectedIndexesOnDrag = self.selectedIndexes()
+        super().dragEnterEvent(event)
 
-    # @Slot(QDragMoveEvent)
-    # def dragMoveEvent(self, event: QDragMoveEvent) -> None:
-    #     eventPos = event.pos()
-    #     rect = self.rect()
-    #     item: Optional[ProjectAssetListItem] = self.itemAt(eventPos)
-    #     if event.mimeData().hasUrls():
-    #         if item is None:
-    #             super().dragMoveEvent(event)
-    #             if event.source() == self:
-    #                 event.ignore()
-    #             return
-    #         else:
-    #             if item.is_folder():
-    #                 super().dragMoveEvent(event)
-    #                 if item in self.__selectedItemsOnDrag:
-    #                     event.ignore()
-    #                 return
-    #         if not rect.contains(eventPos):
-    #             super().dragMoveEvent(event)
-    #             return
-    #     event.ignore()
+    @Slot(QDragMoveEvent)
+    def dragMoveEvent(self, event: QDragMoveEvent) -> None:
+        eventPos = event.pos()
+        hoveredIndex = self.indexAt(eventPos)
+        
+        proxyModel: JSystemFSSortProxyModel = self.model()
+        sourceIndex = proxyModel.mapToSource(hoveredIndex)
+        sourceModel: JSystemFSModel = sourceIndex.model()
 
-    # @Slot(QDropEvent)
-    # def dropEvent(self, event: QDropEvent) -> None:
-    #     mimeData = event.mimeData()
-    #     if not mimeData.hasUrls():
-    #         return
+        event.accept()  # Accept by default
+        if not event.mimeData().hasUrls():
+            event.ignore()
+            return
 
-    #     item: Optional[ProjectAssetListItem] = self.itemAt(event.pos())
-    #     if item is None and event.source() != self:
-    #         paths = []
-    #         for url in mimeData.urls():
-    #             path = Path(url.toLocalFile())
-    #             paths.append(path)
-    #         self.dropInRequested.emit(paths)
-    #         event.accept()
-    #     if item is not None and item.is_folder():
-    #         self.move_items(self.__selectedItemsOnDrag, item)
-    #         event.accept()
-    #     else:
-    #         event.ignore()
-    #     return
+        if not hoveredIndex.isValid():
+            super().dragMoveEvent(event)
+            if event.source() == self:
+                event.ignore()
+            return
+
+        if sourceModel.is_dir(sourceIndex) or sourceModel.is_archive(sourceIndex):
+            super().dragMoveEvent(event)
+            if hoveredIndex in self.__selectedIndexesOnDrag:
+                event.ignore()
+            return
+
+        event.ignore()
+
+    @Slot(QDropEvent)
+    def dropEvent(self, event: QDropEvent) -> None:
+        mimeData = event.mimeData()
+        if not mimeData.hasUrls():
+            return
+
+        eventPos = event.pos()
+        hoveredIndex = self.indexAt(eventPos)
+        
+        proxyModel: JSystemFSSortProxyModel = self.model()
+        sourceIndex = proxyModel.mapToSource(hoveredIndex)
+        sourceModel: JSystemFSModel = sourceIndex.model()
+
+        if not hoveredIndex.isValid():
+            if event.source() == self:
+                event.ignore()
+            paths = []
+            for url in mimeData.urls():
+                path = Path(url.toLocalFile())
+                paths.append(path)
+            self.dropInRequested.emit(paths)
+            event.accept()
+            return
+
+        if sourceModel.is_dir(sourceIndex) or sourceModel.is_archive(sourceIndex):
+            self.move_indexes(self.__selectedIndexesOnDrag, hoveredIndex)
+            event.accept()
+        else:
+            event.ignore()
+        return
 
     @Slot(QKeyEvent)
     def keyReleaseEvent(self, event: QKeyEvent) -> None:
@@ -755,7 +741,50 @@ class ProjectFolderViewWidget(InteractiveListView, A_FileSystemViewer):
                     path = Path(url.toLocalFile())
                     paths.append(path)
                 self.dropInRequested.emit(paths)
+
         event.accept()
+
+    @Slot(list, QModelIndex | QPersistentModelIndex)
+    def move_indexes(self, indexesToMove: list[QModelIndex | QPersistentModelIndex], parentIndex: QModelIndex | QPersistentModelIndex) -> bool:
+        proxyModel: JSystemFSSortProxyModel = self.model()
+        sourceParent = proxyModel.mapToSource(parentIndex)
+        sourceModel: JSystemFSModel = sourceParent.model()
+
+        if not (sourceModel.is_dir(sourceParent) or sourceModel.is_archive(sourceParent)):
+            return False
+
+        conflictDialog = MoveConflictDialog(
+            len(indexesToMove) > 1,
+            self
+        )
+
+        for index in indexesToMove:
+            sourceIndex = proxyModel.mapToSource(index)
+            sourcePath: PurePath = sourceIndex.data(JSystemFSModel.FilePathRole)
+            destPath: PurePath = sourceParent.data(JSystemFSModel.FilePathRole) / sourcePath.name
+
+            destIndex = sourceModel.get_path_index(destPath)
+            if destIndex.isValid() and not conflictDialog.apply_to_all():
+                conflictDialog.set_paths(sourcePath, destPath.parent)
+
+                action, role = conflictDialog.resolve()
+                if action == QDialog.Rejected:
+                    return False
+
+                if role == MoveConflictDialog.ActionRole.REPLACE:
+                    sourcePath.replace(destPath)
+                elif role == MoveConflictDialog.ActionRole.KEEP:
+                    oldPath.rename(
+                        newPath.parent / _fs_resolve_name(
+                            newPath.name,
+                            newPath.parent
+                        )
+                    )
+                elif role == MoveConflictDialog.ActionRole.SKIP:
+                    return False
+                else:
+                    return False
+            sourceModel.move(sourceIndex, sourceParent)
 
 
 class ProjectHierarchyViewWidget(QTreeWidget, A_FileSystemViewer):
@@ -1113,9 +1142,6 @@ class ProjectViewerWidget(A_DockingInterface):
         self.fsTreeWidget.expand(
             self.fsModelDirProxy.index(0, 0, QModelIndex())
         )
-        # self.folderViewWidget.update(self.fsModel.index(0, 0))
-        # self.fsTreeWidget.update(self.fsModel.index(0, 0))
-        # self.fsModelViewProxy.invalidate()
         self.focusedViewWidget.scenePath = path
 
     @property

@@ -79,6 +79,9 @@ class MoveConflictDialog(QDialog):
         self.__actionRole: QDialogButtonBox.ButtonRole = None
         self.__blocked = False
 
+    def apply_to_all(self) -> bool:
+        return self.allCheckBox.isChecked()
+
     def set_paths(self, src: Path, dst: Path):
         self.setWindowTitle(
             f"Moving \"{src.name}\" from \"./{src.parent.name}\" to \"./{dst.parent.name}\""

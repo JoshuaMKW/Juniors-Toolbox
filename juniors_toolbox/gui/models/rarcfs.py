@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import IntEnum
 from io import BytesIO
 from logging import root
 import os
@@ -9,7 +10,7 @@ import shutil
 from typing import Any, Optional, Union, overload
 from juniors_toolbox.gui.images import get_icon
 
-from juniors_toolbox.utils.rarc import (A_ResourceHandle, ResourceArchive, ResourceDirectory,
+from juniors_toolbox.utils.rarc import (A_ResourceHandle, FileConflictAction, ResourceArchive, ResourceDirectory,
                                         ResourceFile)
 from PySide6.QtCore import (QAbstractItemModel, QByteArray, QDataStream, QFile, QDir, QFileSystemWatcher, QUrl,
                             QFileInfo, QIODevice, QMimeData, QModelIndex, QIdentityProxyModel,
@@ -455,24 +456,35 @@ class JSystemFSModel(QAbstractItemModel):
 
         return self.createIndex(row, column, handleInfo)
 
-    def rename(self, index: QModelIndex | QPersistentModelIndex, _path: PurePath) -> bool:
-        if not index.isValid():
-            return False
+    def move(self, index: QModelIndex | QPersistentModelIndex, parent: QModelIndex | QPersistentModelIndex, action: FileConflictAction = FileConflictAction.REPLACE) -> QModelIndex:
+        if not parent.isValid() or not index.isValid():
+            return index
 
-        if os.path.exists(_path):
+        parentPath: PurePath = parent.data(self.FilePathRole)
+        destPath: PurePath = parentPath / index.data(Qt.DisplayRole)
+
+        if os.path.exists(destPath) and action == FileConflictAction.SKIP:
             return False
 
         path = self.get_path(index)
         if os.path.exists(path):
 
             # Move/rename the file
-            if os.path.isdir(_path.parent):
-                os.rename(path, _path)
+            if os.path.isdir(destPath.parent):
+                if os.path.isdir(destPath):
+                    if action == FileConflictAction.REPLACE:
+                        shutil.rmtree(destPath)
+                        os.replace(path, destPath)
+                    elif action == FileConflictAction.KEEP:
+                        os.rename(path, self._resolve_path_conflict(destPath, ))
+                    return True
+                os.rename(path, destPath)
+                
                 self.update()
                 return True
 
             # Move/rename the handle into the archive from the fs
-            fsIndex = self.get_path_index(_path.parent)
+            fsIndex = self.get_path_index(destPath.parent)
             if not fsIndex.isValid():
                 return False
 
@@ -489,7 +501,7 @@ class JSystemFSModel(QAbstractItemModel):
             if handle is None:
                 return False
 
-            if handle.path_exists(_path.name):
+            if handle.path_exists(destPath.name):
                 return False
 
             if os.path.isdir(path):
@@ -519,16 +531,16 @@ class JSystemFSModel(QAbstractItemModel):
         if handle is None:
             return False
 
-        if _path.is_relative_to(archivePath):
+        if destPath.is_relative_to(archivePath):
             # Move/rename the handle internally in the archive
-            if handle.rename(_path.relative_to(archivePath)):
+            if handle.rename(destPath.relative_to(archivePath)):
                 self.update()
                 return True
             return False
 
-        if not os.path.isdir(_path.parent):
+        if not os.path.isdir(destPath.parent):
             # Move/rename the handle into the archive from the source archive
-            fsIndex = self.get_path_index(_path.parent)
+            fsIndex = self.get_path_index(destPath.parent)
             if not fsIndex.isValid():
                 return False
 
@@ -545,7 +557,7 @@ class JSystemFSModel(QAbstractItemModel):
             if pathHandle is None:
                 return False
 
-            if pathHandle.path_exists(_path.name):
+            if pathHandle.path_exists(destPath.name):
                 return False
 
             pathHandle.add_handle(handle)
@@ -553,11 +565,90 @@ class JSystemFSModel(QAbstractItemModel):
             return True
 
         # Move/rename the handle into the fs
-        handle.set_name(_path.name)
-        handle.export_to(Path(_path.parent))
+        handle.set_name(destPath.name)
+        handle.export_to(Path(destPath.parent))
         archive.remove_handle(handle)
 
         self.update()
+        return True
+
+    def rename(self, index: QModelIndex | QPersistentModelIndex, name: str, action: FileConflictAction = FileConflictAction.REPLACE) -> bool:
+        if not index.isValid():
+            return False
+
+        handleInfo: JSystemFSModel._HandleInfo = index.internalPointer()
+        parentInfo = handleInfo.parent
+        if parentInfo is None:
+            return False
+
+        path = self.get_path(index)
+        destPath = path.with_name(name)
+
+        if os.path.exists(destPath) and action == FileConflictAction.SKIP:
+            return False
+
+        archiveIndex = self.get_parent_archive(index)
+        if archiveIndex.isValid():
+            archivePath = self.get_path(archiveIndex)
+            archive = self._archives[archivePath]
+            if archive is None:
+                return False
+
+            virtualPath = path.relative_to(archivePath)
+            handle = archive.get_handle(virtualPath)
+            if handle is None:
+                return False
+
+            successful = handle.rename(name, action=action)
+            if not successful:
+                return False
+
+            if action == FileConflictAction.REPLACE:
+                for i, subHandle in enumerate(parentInfo.children):
+                    if subHandle.path.name == name:
+                        self.removeRow(i, index.parent())
+                handleInfo.path = handleInfo.path.with_name(handle.get_name())
+
+            elif action == FileConflictAction.KEEP:
+                handleInfo.path = handleInfo.path.with_name(handle.get_name())
+                
+            return True
+
+        if os.path.exists(destPath):
+            if os.path.isdir(destPath):
+                if action == FileConflictAction.REPLACE:
+                    shutil.rmtree(destPath)
+                    os.rename(path, destPath)
+                    for i, subHandle in enumerate(parentInfo.children):
+                        if subHandle.path.name == name:
+                            self.removeRow(i, index.parent())
+                    handleInfo.path = handleInfo.path.with_name(name)
+
+                elif action == FileConflictAction.KEEP:
+                    newPath = self._resolve_path_conflict(name, index.parent())
+                    if newPath is None:
+                        return False
+                    os.rename(path, newPath)
+                    handleInfo.path = handleInfo.path.with_name(newPath.name)
+
+                return True
+            
+            if action == FileConflictAction.REPLACE:
+                os.replace(path, destPath)
+                for i, subHandle in enumerate(parentInfo.children):
+                    if subHandle.path.name == name:
+                        self.removeRow(i, index.parent())
+                handleInfo.path = handleInfo.path.with_name(name)
+
+            elif action == FileConflictAction.KEEP:
+                newPath = self._resolve_path_conflict(name, index.parent())
+                if newPath is None:
+                    return False
+                os.rename(path, newPath)
+                handleInfo.path = handleInfo.path.with_name(newPath.name)
+
+        os.rename(path, destPath)
+        handleInfo.path = handleInfo.path.with_name(name)
         return True
 
     def remove(self, index: QModelIndex | QPersistentModelIndex) -> bool:
@@ -776,7 +867,7 @@ class JSystemFSModel(QAbstractItemModel):
             
         return self.createIndex(pParentInfo.children.index(parentInfo), 0, parentInfo)
 
-    def mimeData(self, indexes: list[QtCore.QModelIndex | QtCore.QPersistentModelIndex]) -> QMimeData:
+    def mimeData(self, indexes: list[QModelIndex | QPersistentModelIndex]) -> QMimeData:
         urls: list[QUrl] = []
         for index in indexes:
             urls.append(
@@ -806,6 +897,20 @@ class JSystemFSModel(QAbstractItemModel):
 
     def columnCount(self, parent: QModelIndex | QPersistentModelIndex = QModelIndex()) -> int:
         return 1
+
+    def removeRow(self, row: int, parent: QModelIndex | QPersistentModelIndex = QModelIndex()) -> bool:
+        if not parent.isValid():
+            return False
+
+        handleInfo: JSystemFSModel._HandleInfo = parent.internalPointer()
+        if row not in range(len(handleInfo.children)):
+            return False
+
+        handleInfo.children.pop(row)
+        return True
+
+    def removeColumn(self, column: int, parent: QModelIndex | QPersistentModelIndex = QModelIndex()) -> bool:
+        return False
 
     @Slot()
     def update(self) -> bool:
@@ -960,6 +1065,45 @@ class JSystemFSModel(QAbstractItemModel):
         self._icons["file"] = get_icon("generic_file.png")
         self._icons["folder"] = get_icon("generic_folder.png")
 
+    def _resolve_path_conflict(self, name: str, parent: QModelIndex | QPersistentModelIndex) -> PurePath | None:
+        if not parent.isValid():
+            return None
+
+        handleInfo: JSystemFSModel._HandleInfo = parent.internalPointer()
+        if len(handleInfo.children) == 0:
+            return handleInfo.path / name
+
+        parts = name.rsplit(".", 1)
+        name = parts[0]
+
+        renameContext = 1
+        ogName = name
+
+        possibleNames = []
+        for subHandleInfo in handleInfo.children:
+            subName = subHandleInfo.path.name
+            if renameContext > 100:
+                raise FileExistsError(
+                    "Name exists beyond 100 unique iterations!")
+            if subName.startswith(ogName):
+                possibleNames.append(subName.rsplit(".", 1)[0])
+
+        i = 0
+        while True:
+            if i >= len(possibleNames):
+                break
+            if renameContext > 100:
+                raise FileExistsError(
+                    "Name exists beyond 100 unique iterations!")
+            if possibleNames[i] == name:
+                name = f"{ogName}{renameContext}"
+                renameContext += 1
+                i = 0
+            else:
+                i += 1
+        if len(parts) == 2:
+            name += f".{parts[1]}"
+        return handleInfo.path / name
 
 class JSystemFSSortProxyModel(QSortFilterProxyModel):
     def lessThan(self, source_left: QModelIndex | QPersistentModelIndex, source_right: QModelIndex | QPersistentModelIndex) -> bool:
