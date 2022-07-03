@@ -180,7 +180,7 @@ class A_ResourceHandle():
     def path_exists(self, __path: PurePath | str, /) -> bool: ...
 
     @abstractmethod
-    def add_handle(self, __handle: "A_ResourceHandle", /) -> bool: ...
+    def add_handle(self, __handle: "A_ResourceHandle", /, *, action: FileConflictAction = FileConflictAction.REPLACE) -> bool: ...
 
     @abstractmethod
     def remove_handle(self, __handle: "A_ResourceHandle", /) -> bool: ...
@@ -358,7 +358,7 @@ class ResourceFile(A_ResourceHandle):
     def path_exists(self, path: PurePath | str) -> bool:
         return self.get_handle(path) is not None
 
-    def add_handle(self, __handle: "A_ResourceHandle", /) -> bool:
+    def add_handle(self, __handle: "A_ResourceHandle", /, *, action: FileConflictAction = FileConflictAction.REPLACE) -> bool:
         return False
 
     def remove_handle(self, __handle: "A_ResourceHandle", /) -> bool:
@@ -572,10 +572,24 @@ class ResourceDirectory(A_ResourceHandle):
     def path_exists(self, __path: PurePath | str, /) -> bool:
         return self.get_handle(__path) is not None
 
-    def add_handle(self, __handle: "A_ResourceHandle", /) -> bool:
+    def add_handle(self, __handle: "A_ResourceHandle", /, *, action: FileConflictAction = FileConflictAction.REPLACE) -> bool:
         if __handle in self._children:
             return False
 
+        for child in self._children:
+            if __handle.get_name() != child.get_name():
+                continue
+
+            if action == FileConflictAction.SKIP:
+                return False
+
+            if action == FileConflictAction.REPLACE:
+                self._children.remove(child)
+            elif action == FileConflictAction.KEEP:
+                __handle.set_name(
+                    self._fs_resolve_name(__handle.get_name())
+                )
+            
         self._children.append(__handle)
         __handle._parent = self
         return True

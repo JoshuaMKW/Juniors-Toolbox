@@ -7,7 +7,10 @@ from logging import root
 import os
 from pathlib import Path, PurePath
 import shutil
+import time
 from typing import Any, Optional, Union, overload
+
+from numpy import source
 from juniors_toolbox.gui.images import get_icon
 
 from juniors_toolbox.utils.rarc import (A_ResourceHandle, FileConflictAction, ResourceArchive, ResourceDirectory,
@@ -36,6 +39,7 @@ class JSystemFSModel(QAbstractItemModel):
     directoryLoaded = Signal(PurePath)
     fileRenamed = Signal(PurePath, str, str)
     rootPathChanged = Signal(PurePath)
+    conflictFound = Signal(PurePath, PurePath)
 
     FileIconRole = Qt.DecorationRole
     FilePathRole = Qt.UserRole + 1
@@ -95,6 +99,11 @@ class JSystemFSModel(QAbstractItemModel):
                 return f"Handle(\"{self.path.parent.name}/{self.path.name}\", parent={self.parent.path.name})"
             return f"Handle(\"{self.path.parent.name}/{self.path.name}\", parent=None)"
 
+    class _HandleType(IntEnum):
+        FILE = 0
+        DIRECTORY = 1
+        ARCHIVE = 2
+
     def __init__(self, rootPath: Path | None, readOnly: bool = True, parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
         self._rootPath = rootPath
@@ -114,6 +123,7 @@ class JSystemFSModel(QAbstractItemModel):
             self._fileSystemWatcher.addPath(str(rootPath))
 
         self._icons: dict[str, QIcon] = {}
+        self._conflictAction: FileConflictAction | None = None
 
         self._initialize_icons()
         self.update()
@@ -282,7 +292,6 @@ class JSystemFSModel(QAbstractItemModel):
             return False
 
         path = self.get_path(index)
-        indexInfo: JSystemFSModel._HandleInfo = index.internalPointer()
 
         archiveIndex = self.get_parent_archive(index)
         if archiveIndex.isValid():
@@ -338,6 +347,12 @@ class JSystemFSModel(QAbstractItemModel):
         with open(path, "rb") as f:
             magic = f.read(4)
         return magic == b"Yaz0"
+
+    def get_conflict_action(self) -> FileConflictAction | None:
+        return self._conflictAction
+
+    def set_conflict_action(self, action: FileConflictAction):
+        self._conflictAction = action
 
     def get_parent_archive(self, index: QModelIndex | QPersistentModelIndex) -> QModelIndex:
         if not index.isValid():
@@ -401,6 +416,279 @@ class JSystemFSModel(QAbstractItemModel):
             return self.ExtensionToTypeMap.get(name, "File")
         return "Folder"
 
+    def move(self, index: QModelIndex | QPersistentModelIndex, parent: QModelIndex | QPersistentModelIndex, action: FileConflictAction = FileConflictAction.REPLACE) -> QModelIndex:
+        self.set_conflict_action(action)
+
+        thisParent = index.parent()
+        thisRow = index.row()
+        destRow = self.rowCount(parent)
+
+        if not self.moveRow(
+            thisParent,
+            thisRow,
+            parent,
+            destRow
+        ):
+            return QModelIndex()
+
+        return self.createIndex(destRow, 0, parent)
+
+    def rename(self, index: QModelIndex | QPersistentModelIndex, name: str, action: FileConflictAction | None = None) -> QModelIndex:
+        if not index.isValid():
+            return QModelIndex()
+
+        handleInfo: JSystemFSModel._HandleInfo = index.internalPointer()
+        parentInfo = handleInfo.parent
+        if parentInfo is None:
+            return QModelIndex()
+
+        thisPath = self.get_path(index)
+        destPath = thisPath.with_name(name)
+
+        if os.path.exists(destPath) and action == FileConflictAction.SKIP:
+            return QModelIndex()
+
+        if action is None:
+            self.conflictFound.emit(thisPath, destPath)
+            while (action := self.get_conflict_action()) is None:
+                time.sleep(0.1)
+
+        archiveIndex = self.get_parent_archive(index)
+        if archiveIndex.isValid():
+            archivePath = self.get_path(archiveIndex)
+            archive = self._archives[archivePath]
+            if archive is None:
+                return QModelIndex()
+
+            virtualPath = thisPath.relative_to(archivePath)
+            handle = archive.get_handle(virtualPath)
+            if handle is None:
+                return QModelIndex()
+
+            successful = handle.rename(name, action=action)
+            if not successful:
+                return QModelIndex()
+
+            if action == FileConflictAction.REPLACE:
+                for i, subHandle in enumerate(parentInfo.children):
+                    if subHandle.path.name == name:
+                        self.removeRow(i, index.parent())
+                handleInfo.path = handleInfo.path.with_name(handle.get_name())
+
+            elif action == FileConflictAction.KEEP:
+                handleInfo.path = handleInfo.path.with_name(handle.get_name())
+                
+            newIndex = self.createIndex(
+                parentInfo.children.index(handleInfo),
+                0,
+                handleInfo
+            )
+            return newIndex
+
+        if os.path.exists(destPath):
+            if os.path.isdir(destPath):
+                if action == FileConflictAction.REPLACE:
+                    shutil.rmtree(destPath)
+                    os.rename(thisPath, destPath)
+                    for i, subHandle in enumerate(parentInfo.children):
+                        if subHandle.path.name == name:
+                            self.removeRow(i, index.parent())
+                    handleInfo.path = handleInfo.path.with_name(name)
+
+                elif action == FileConflictAction.KEEP:
+                    newPath = self._resolve_path_conflict(name, index.parent())
+                    if newPath is None:
+                        return QModelIndex()
+                    os.rename(thisPath, newPath)
+                    handleInfo.path = handleInfo.path.with_name(newPath.name)
+
+                newIndex = self.createIndex(
+                    parentInfo.children.index(handleInfo),
+                    0,
+                    handleInfo
+                )
+                return newIndex
+            
+            if action == FileConflictAction.REPLACE:
+                os.replace(thisPath, destPath)
+                for i, subHandle in enumerate(parentInfo.children):
+                    if subHandle.path.name == name:
+                        self.removeRow(i, index.parent())
+                handleInfo.path = handleInfo.path.with_name(name)
+
+            elif action == FileConflictAction.KEEP:
+                newPath = self._resolve_path_conflict(name, index.parent())
+                if newPath is None:
+                    return QModelIndex()
+                os.rename(thisPath, newPath)
+                handleInfo.path = handleInfo.path.with_name(newPath.name)
+
+        os.rename(thisPath, destPath)
+        handleInfo.path = handleInfo.path.with_name(name)
+
+        return index
+
+    def remove(self, index: QModelIndex | QPersistentModelIndex) -> bool:
+        if not index.isValid():
+            return False
+
+        parentIndex = index.parent()
+        parentInfo: JSystemFSModel._HandleInfo = parentIndex.internalPointer()
+        thisInfo: JSystemFSModel._HandleInfo = index.internalPointer()
+
+        path = self.get_path(index)
+        if os.path.isfile(path):
+            os.remove(path)
+            parentInfo.children.remove(thisInfo)
+            return True
+
+        if os.path.exists(path):
+            return False
+
+        archiveIndex = self.get_parent_archive(index)
+        if not archiveIndex.isValid():
+            return False
+
+        archivePath = self.get_path(archiveIndex)
+        archive = self._archives[archivePath]
+        if archive is None:
+            return False
+
+        if not archive.remove_path(path):
+            return False
+
+        parentInfo.children.remove(thisInfo)
+        return True
+
+    def import_path(self, data: QMimeData, destinationParent: QModelIndex | QPersistentModelIndex, action: FileConflictAction | None = None) -> QModelIndex:
+        if not destinationParent.isValid():
+            return QModelIndex()
+
+        def _import_fs_path(
+            inputStream: QDataStream,
+            destinationParent: QModelIndex | QPersistentModelIndex,
+            action: FileConflictAction | None = None
+        ):
+            destFolder = self.get_path(destinationParent)
+
+            thisPath = Path(inputStream.readString())
+            if thisPath.is_dir():
+                subDir = self.mkdir(destinationParent, thisPath.name)
+                return _import_fs_path(inputStream, subDir, action)
+            
+            # Check if the destination is part of an archive
+            destArchive: Optional[ResourceArchive] = None
+            destArchiveIndex = self.get_parent_archive(destinationParent)
+            destArchivePath = self.get_path(destArchiveIndex)
+            if destArchiveIndex.isValid():
+                destArchive = self._archives[destArchivePath]
+            
+            # Source exists in filesystem
+            if destArchive:  # Destination exists in an archive
+                virtualDestPath = destFolder.relative_to(destArchivePath)
+                destHandle = destArchive.get_handle(virtualDestPath)
+                if destHandle:  # Destination move exists
+                    if action is None:
+                        self.conflictFound.emit(thisPath, destFolder)
+                        while (action := self.get_conflict_action()) is None:
+                            time.sleep(0.1)
+
+                    if action == FileConflictAction.REPLACE:
+                        for i, handleInfo in enumerate(destParentInfo.children):
+                            if handleInfo.path.name == destHandle.get_name():
+                                self.removeRow(i, destinationParent)
+                                break
+                    
+                    elif action == FileConflictAction.KEEP:
+                        newPath = self._resolve_path_conflict(thisPath.name, destinationParent)
+                        if newPath is None:
+                            return QModelIndex()
+                        destPath = newPath
+                        virtualDestPath = destPath.relative_to(destArchivePath)
+                    
+                    else:  # Skip
+                        return True
+
+                # Move from filesystem to archive
+                if (isSrcDir := os.path.isdir(thisPath)):
+                    sourceHandle = ResourceDirectory.import_from(Path(thisPath))
+                else:
+                    sourceHandle = ResourceFile.import_from(Path(thisPath))
+
+                if sourceHandle is None:
+                    return False
+                
+                destParentHandle = destArchive.get_handle(virtualDestPath.parent)
+                if destParentHandle is None:
+                    return False
+
+                if not destParentHandle.add_handle(sourceHandle, action=FileConflictAction.REPLACE):
+                    return False
+
+                # Remove old path
+                if isSrcDir:
+                    shutil.rmtree(thisPath)
+                else:
+                    os.remove(thisPath)
+
+                return True
+
+            # Filesystem to filesystem
+            if os.path.exists(destPath):
+                if action is None:
+                    self.conflictFound.emit(thisPath, destPath)
+                    while (action := self.get_conflict_action()) is None:
+                        time.sleep(0.1)
+
+                if action == FileConflictAction.REPLACE:
+                    for i, handleInfo in enumerate(destParentInfo.children):
+                        if handleInfo.path.name == destPath.name:
+                            self.removeRow(i, destinationParent)
+                            break
+                
+                elif action == FileConflictAction.KEEP:
+                    newPath = self._resolve_path_conflict(thisPath.name, destinationParent)
+                    if newPath is None:
+                        return QModelIndex()
+                    destPath = newPath
+                
+                else:  # Skip
+                    return True
+
+            shutil.move(thisPath, destPath)
+                
+
+        def _import_virtual_path(
+            inputStream: QDataStream,
+            destinationParent: QModelIndex | QPersistentModelIndex,
+            action: FileConflictAction | None = None
+        ):
+            handleType = JSystemFSModel._HandleType(inputStream.readInt8())
+            if handleType == JSystemFSModel._HandleType.FILE:
+                ...
+            elif handleType == JSystemFSModel._HandleType.DIRECTORY:
+                ...
+            elif handleType == JSystemFSModel._HandleType.ARCHIVE:
+                ...
+
+
+        destParentInfo: JSystemFSModel._HandleInfo = destinationParent.internalPointer()
+        destParentPath = destParentInfo.path
+
+        # Path importing is a file
+        if not data.hasFormat("x-application/jsystem-fs-data"):
+            return QModelIndex()
+
+        importData = data.data("x-application/jsystem-fs-data")
+        dataStream = QDataStream(importData, QDataStream.ReadOnly)
+
+        isPhysical = dataStream.readBool()
+        if isPhysical:  # We can save on resources here because the path exists on the filesystem
+            _import_fs_path(dataStream, destinationParent, action)
+
+        # In this case, we are importing virtual data and thus it is stored in the mimedata
+        ...
+
     def mkdir(self, parent: QModelIndex | QPersistentModelIndex, name: str) -> QModelIndex:
         if not parent.isValid():
             return QModelIndex()
@@ -455,233 +743,6 @@ class JSystemFSModel(QAbstractItemModel):
         parentInfo.children.append(handleInfo)
 
         return self.createIndex(row, column, handleInfo)
-
-    def move(self, index: QModelIndex | QPersistentModelIndex, parent: QModelIndex | QPersistentModelIndex, action: FileConflictAction = FileConflictAction.REPLACE) -> QModelIndex:
-        if not parent.isValid() or not index.isValid():
-            return index
-
-        parentPath: PurePath = parent.data(self.FilePathRole)
-        destPath: PurePath = parentPath / index.data(Qt.DisplayRole)
-
-        if os.path.exists(destPath) and action == FileConflictAction.SKIP:
-            return False
-
-        path = self.get_path(index)
-        if os.path.exists(path):
-
-            # Move/rename the file
-            if os.path.isdir(destPath.parent):
-                if os.path.isdir(destPath):
-                    if action == FileConflictAction.REPLACE:
-                        shutil.rmtree(destPath)
-                        os.replace(path, destPath)
-                    elif action == FileConflictAction.KEEP:
-                        os.rename(path, self._resolve_path_conflict(destPath, ))
-                    return True
-                os.rename(path, destPath)
-                
-                self.update()
-                return True
-
-            # Move/rename the handle into the archive from the fs
-            fsIndex = self.get_path_index(destPath.parent)
-            if not fsIndex.isValid():
-                return False
-
-            archiveIndex = self.get_parent_archive(fsIndex)
-            if not archiveIndex.isValid():
-                return False
-
-            archivePath = self.get_path(archiveIndex)
-            archive = self._archives[archivePath]
-            if archive is None:
-                return False
-
-            handle = archive.get_handle(path)
-            if handle is None:
-                return False
-
-            if handle.path_exists(destPath.name):
-                return False
-
-            if os.path.isdir(path):
-                pathHandle = ResourceDirectory.import_from(Path(path))
-            elif os.path.isfile(path):
-                pathHandle = ResourceFile.import_from(Path(path))
-
-            if pathHandle is None:
-                return False
-
-            os.remove(path)
-
-            handle.add_handle(pathHandle)
-            self.update()
-            return True
-
-        archiveIndex = self.get_parent_archive(index)
-        if not archiveIndex.isValid():
-            return False
-
-        archivePath = self.get_path(archiveIndex)
-        archive = self._archives[archivePath]
-        if archive is None:
-            return False
-
-        handle = archive.get_handle(path)
-        if handle is None:
-            return False
-
-        if destPath.is_relative_to(archivePath):
-            # Move/rename the handle internally in the archive
-            if handle.rename(destPath.relative_to(archivePath)):
-                self.update()
-                return True
-            return False
-
-        if not os.path.isdir(destPath.parent):
-            # Move/rename the handle into the archive from the source archive
-            fsIndex = self.get_path_index(destPath.parent)
-            if not fsIndex.isValid():
-                return False
-
-            archiveIndex = self.get_parent_archive(fsIndex)
-            if not archiveIndex.isValid():
-                return False
-
-            archivePath = self.get_path(archiveIndex)
-            archive = self._archives[archivePath]
-            if archive is None:
-                return False
-
-            pathHandle = archive.get_handle(path)
-            if pathHandle is None:
-                return False
-
-            if pathHandle.path_exists(destPath.name):
-                return False
-
-            pathHandle.add_handle(handle)
-            self.update()
-            return True
-
-        # Move/rename the handle into the fs
-        handle.set_name(destPath.name)
-        handle.export_to(Path(destPath.parent))
-        archive.remove_handle(handle)
-
-        self.update()
-        return True
-
-    def rename(self, index: QModelIndex | QPersistentModelIndex, name: str, action: FileConflictAction = FileConflictAction.REPLACE) -> bool:
-        if not index.isValid():
-            return False
-
-        handleInfo: JSystemFSModel._HandleInfo = index.internalPointer()
-        parentInfo = handleInfo.parent
-        if parentInfo is None:
-            return False
-
-        path = self.get_path(index)
-        destPath = path.with_name(name)
-
-        if os.path.exists(destPath) and action == FileConflictAction.SKIP:
-            return False
-
-        archiveIndex = self.get_parent_archive(index)
-        if archiveIndex.isValid():
-            archivePath = self.get_path(archiveIndex)
-            archive = self._archives[archivePath]
-            if archive is None:
-                return False
-
-            virtualPath = path.relative_to(archivePath)
-            handle = archive.get_handle(virtualPath)
-            if handle is None:
-                return False
-
-            successful = handle.rename(name, action=action)
-            if not successful:
-                return False
-
-            if action == FileConflictAction.REPLACE:
-                for i, subHandle in enumerate(parentInfo.children):
-                    if subHandle.path.name == name:
-                        self.removeRow(i, index.parent())
-                handleInfo.path = handleInfo.path.with_name(handle.get_name())
-
-            elif action == FileConflictAction.KEEP:
-                handleInfo.path = handleInfo.path.with_name(handle.get_name())
-                
-            return True
-
-        if os.path.exists(destPath):
-            if os.path.isdir(destPath):
-                if action == FileConflictAction.REPLACE:
-                    shutil.rmtree(destPath)
-                    os.rename(path, destPath)
-                    for i, subHandle in enumerate(parentInfo.children):
-                        if subHandle.path.name == name:
-                            self.removeRow(i, index.parent())
-                    handleInfo.path = handleInfo.path.with_name(name)
-
-                elif action == FileConflictAction.KEEP:
-                    newPath = self._resolve_path_conflict(name, index.parent())
-                    if newPath is None:
-                        return False
-                    os.rename(path, newPath)
-                    handleInfo.path = handleInfo.path.with_name(newPath.name)
-
-                return True
-            
-            if action == FileConflictAction.REPLACE:
-                os.replace(path, destPath)
-                for i, subHandle in enumerate(parentInfo.children):
-                    if subHandle.path.name == name:
-                        self.removeRow(i, index.parent())
-                handleInfo.path = handleInfo.path.with_name(name)
-
-            elif action == FileConflictAction.KEEP:
-                newPath = self._resolve_path_conflict(name, index.parent())
-                if newPath is None:
-                    return False
-                os.rename(path, newPath)
-                handleInfo.path = handleInfo.path.with_name(newPath.name)
-
-        os.rename(path, destPath)
-        handleInfo.path = handleInfo.path.with_name(name)
-        return True
-
-    def remove(self, index: QModelIndex | QPersistentModelIndex) -> bool:
-        if not index.isValid():
-            return False
-
-        parentIndex = index.parent()
-        parentInfo: JSystemFSModel._HandleInfo = parentIndex.internalPointer()
-        thisInfo: JSystemFSModel._HandleInfo = index.internalPointer()
-
-        path = self.get_path(index)
-        if os.path.isfile(path):
-            os.remove(path)
-            parentInfo.children.remove(thisInfo)
-            return True
-
-        if os.path.exists(path):
-            return False
-
-        archiveIndex = self.get_parent_archive(index)
-        if not archiveIndex.isValid():
-            return False
-
-        archivePath = self.get_path(archiveIndex)
-        archive = self._archives[archivePath]
-        if archive is None:
-            return False
-
-        if not archive.remove_path(path):
-            return False
-
-        parentInfo.children.remove(thisInfo)
-        return True
 
     def rmdir(self, index: QModelIndex | QPersistentModelIndex) -> bool:
         if not index.isValid():
@@ -898,7 +959,7 @@ class JSystemFSModel(QAbstractItemModel):
     def columnCount(self, parent: QModelIndex | QPersistentModelIndex = QModelIndex()) -> int:
         return 1
 
-    def removeRow(self, row: int, parent: QModelIndex | QPersistentModelIndex = QModelIndex()) -> bool:
+    def removeRows(self, row: int, count: int, parent: QModelIndex | QPersistentModelIndex = QModelIndex()) -> bool:
         if not parent.isValid():
             return False
 
@@ -906,10 +967,228 @@ class JSystemFSModel(QAbstractItemModel):
         if row not in range(len(handleInfo.children)):
             return False
 
-        handleInfo.children.pop(row)
+        self.beginRemoveRows(parent, row, row+count)
+
+        try:
+            for i in range(row+count, row+1, -1):
+                handleInfo.children.pop(i)
+        except IndexError:
+            self.endRemoveRows()
+            return False
+
+        self.endRemoveRows()
         return True
 
-    def removeColumn(self, column: int, parent: QModelIndex | QPersistentModelIndex = QModelIndex()) -> bool:
+    def removeColumns(self, column: int, count: int, parent: QModelIndex | QPersistentModelIndex = QModelIndex()) -> bool:
+        return False
+
+    def insertRows(self, row: int, count: int, parent: QModelIndex | QPersistentModelIndex = QModelIndex()) -> bool:
+        return super().insertRows(row, count, parent)
+
+    def insertColumns(self, row: int, count: int, parent: QModelIndex | QPersistentModelIndex = QModelIndex()) -> bool:
+        return super().insertColumns(row, count, parent)
+
+    def moveRows(self, sourceParent: QModelIndex | QPersistentModelIndex, sourceRow: int, count: int, destinationParent: QModelIndex | QPersistentModelIndex, destinationChild: int) -> bool:
+        if not sourceParent.isValid() or not destinationParent.isValid():
+            return False
+
+        sourceParentInfo: JSystemFSModel._HandleInfo = sourceParent.internalPointer()
+        destParentInfo: JSystemFSModel._HandleInfo = destinationParent.internalPointer()
+        destParentPath = destParentInfo.path
+
+        if destinationChild not in range(len(destParentInfo.children)):
+            return False
+
+        # Check if the source is part of an archive
+        sourceArchive: Optional[ResourceArchive] = None
+        sourceArchiveIndex = self.get_parent_archive(sourceParent)
+        sourceArchivePath = self.get_path(sourceArchiveIndex)
+        if sourceArchiveIndex.isValid():
+            sourceArchive = self._archives[sourceArchivePath]
+            
+        # Check if the destination is part of an archive
+        destArchive: Optional[ResourceArchive] = None
+        destArchiveIndex = self.get_parent_archive(destinationParent)
+        destArchivePath = self.get_path(destArchiveIndex)
+        if destArchiveIndex.isValid():
+            destArchive = self._archives[destArchivePath]
+
+        successful = True
+        self.beginMoveRows(sourceParent, sourceRow, sourceRow+count, destinationParent, destinationChild)
+
+        conflictAction = self.get_conflict_action()
+        for i in range(sourceRow+count, sourceRow-1, -1):  # Reverse to preserve indices
+            thisIndex = self.index(i, 0, sourceParent)
+            if not thisIndex.isValid():
+                self._conflictAction = None
+                return False
+
+            thisInfo: JSystemFSModel._HandleInfo = thisIndex.internalPointer()
+            thisPath = thisInfo.path
+            destPath = destParentPath / thisPath.name
+
+            if sourceArchive:  # Source exists in an archive
+                virtualSourcePath = thisPath.relative_to(sourceArchivePath)
+                sourceHandle = sourceArchive.get_handle(virtualSourcePath)
+                if sourceHandle is None:
+                    successful = False
+                    continue
+
+                if destArchive:  # Destination exists in an archive
+                    virtualDestPath = destPath.relative_to(destArchivePath)
+                    destHandle = destArchive.get_handle(virtualDestPath)
+                    if destHandle:  # Destination move exists
+                        if conflictAction is None:
+                            self.conflictFound.emit(thisPath, destPath)
+                            while (conflictAction := self.get_conflict_action()) is None:
+                                time.sleep(0.1)
+
+                        if conflictAction == FileConflictAction.REPLACE:
+                            for i, handleInfo in enumerate(destParentInfo.children):
+                                if handleInfo.path.name == destHandle.get_name():
+                                    self.removeRow(i, destinationParent)
+                                    break
+                        
+                        elif conflictAction == FileConflictAction.KEEP:
+                            newPath = self._resolve_path_conflict(thisPath.name, destinationParent)
+                            if newPath is None:
+                                return QModelIndex()
+                            destPath = newPath
+                            virtualDestPath = destPath.relative_to(destArchivePath)
+                        
+                        else:  # Skip
+                            continue
+
+                    # Archives are the same, internal move
+                    if sourceArchive == destArchive:
+                        successful &= sourceHandle.rename(virtualDestPath, action=FileConflictAction.REPLACE)
+                        continue
+
+                    sourceParentHandle = sourceHandle.get_parent()
+                    if sourceParentHandle is None:
+                        successful = False
+                        continue
+
+                    destParentHandle = destArchive.get_handle(virtualDestPath.parent)
+                    if destParentHandle is None:
+                        successful = False
+                        continue
+
+                    # Archives are different, move between them
+                    sourceParentHandle.remove_handle(sourceHandle)
+                    destParentHandle.add_handle(sourceHandle)
+                    continue
+                    
+                # Destination exists in the filesystem
+                if os.path.exists(destPath):
+                    if conflictAction is None:
+                        self.conflictFound.emit(thisPath, destPath)
+                        while (conflictAction := self.get_conflict_action()) is None:
+                            time.sleep(0.1)
+
+                    if conflictAction == FileConflictAction.REPLACE:
+                        for i, handleInfo in enumerate(destParentInfo.children):
+                            if handleInfo.path.name == destPath.name:
+                                self.removeRow(i, destinationParent)
+                                break
+                    
+                    elif conflictAction == FileConflictAction.KEEP:
+                        newPath = self._resolve_path_conflict(thisPath.name, destinationParent)
+                        if newPath is None:
+                            successful = False
+                            continue
+                        destPath = newPath
+                        virtualDestPath = destPath.relative_to(destArchivePath)
+
+                    else:  # Skip
+                        continue
+
+                # Move handle from archive into filesystem
+                successful &= sourceHandle.export_to(Path(destPath.parent))
+
+            # Source exists in filesystem
+            if destArchive:  # Destination exists in an archive
+                virtualDestPath = destPath.relative_to(destArchivePath)
+                destHandle = destArchive.get_handle(virtualDestPath)
+                if destHandle:  # Destination move exists
+                    if conflictAction is None:
+                        self.conflictFound.emit(thisPath, destPath)
+                        while (conflictAction := self.get_conflict_action()) is None:
+                            time.sleep(0.1)
+
+                    if conflictAction == FileConflictAction.REPLACE:
+                        for i, handleInfo in enumerate(destParentInfo.children):
+                            if handleInfo.path.name == destHandle.get_name():
+                                self.removeRow(i, destinationParent)
+                                break
+                    
+                    elif conflictAction == FileConflictAction.KEEP:
+                        newPath = self._resolve_path_conflict(thisPath.name, destinationParent)
+                        if newPath is None:
+                            return QModelIndex()
+                        destPath = newPath
+                        virtualDestPath = destPath.relative_to(destArchivePath)
+                    
+                    else:  # Skip
+                        continue
+
+                # Move from filesystem to archive
+                if (isSrcDir := os.path.isdir(thisPath)):
+                    sourceHandle = ResourceDirectory.import_from(Path(thisPath))
+                else:
+                    sourceHandle = ResourceFile.import_from(Path(thisPath))
+
+                if sourceHandle is None:
+                    successful = False
+                    continue
+                
+                destParentHandle = destArchive.get_handle(virtualDestPath.parent)
+                if destParentHandle is None:
+                    successful = False
+                    continue
+
+                if not destParentHandle.add_handle(sourceHandle, action=FileConflictAction.REPLACE):
+                    successful = False
+                    continue
+
+                # Remove old path
+                if isSrcDir:
+                    shutil.rmtree(thisPath)
+                else:
+                    os.remove(thisPath)
+
+                continue
+
+            # Filesystem to filesystem
+            if os.path.exists(destPath):
+                if conflictAction is None:
+                    self.conflictFound.emit(thisPath, destPath)
+                    while (conflictAction := self.get_conflict_action()) is None:
+                        time.sleep(0.1)
+
+                if conflictAction == FileConflictAction.REPLACE:
+                    for i, handleInfo in enumerate(destParentInfo.children):
+                        if handleInfo.path.name == destPath.name:
+                            self.removeRow(i, destinationParent)
+                            break
+                
+                elif conflictAction == FileConflictAction.KEEP:
+                    newPath = self._resolve_path_conflict(thisPath.name, destinationParent)
+                    if newPath is None:
+                        return QModelIndex()
+                    destPath = newPath
+                
+                else:  # Skip
+                    continue
+
+            shutil.move(thisPath, destPath)
+
+        self.endMoveRows()
+
+        self._conflictAction = None
+        return successful
+
+    def moveColumns(self, sourceParent: QModelIndex | QPersistentModelIndex, sourceColumn: int, count: int, destinationParent: QModelIndex | QPersistentModelIndex, destinationChild: int) -> bool:
         return False
 
     @Slot()

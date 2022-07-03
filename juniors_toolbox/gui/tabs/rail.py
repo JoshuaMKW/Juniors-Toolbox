@@ -910,13 +910,13 @@ class RailNodeListWidget(InteractiveListView):
                 signed=True
             )
             valueList.append(value)
-        valuelist[0].valueChanged.connect(
+        valueList[0].valueChanged.connect(
             lambda _, v: railNode.values[0].set_value(v))
-        valuelist[1].valueChanged.connect(
+        valueList[1].valueChanged.connect(
             lambda _, v: railNode.values[1].set_value(v))
-        valuelist[2].valueChanged.connect(
+        valueList[2].valueChanged.connect(
             lambda _, v: railNode.values[2].set_value(v))
-        valuelist[3].valueChanged.connect(
+        valueList[3].valueChanged.connect(
             lambda _, v: railNode.values[3].set_value(v))
 
         connectionCount = IntProperty(

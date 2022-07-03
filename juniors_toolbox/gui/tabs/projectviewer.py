@@ -744,7 +744,7 @@ class ProjectFolderViewWidget(InteractiveListView, A_FileSystemViewer):
 
         event.accept()
 
-    @Slot(list, QModelIndex | QPersistentModelIndex)
+    @Slot(list, QModelIndex)
     def move_indexes(self, indexesToMove: list[QModelIndex | QPersistentModelIndex], parentIndex: QModelIndex | QPersistentModelIndex) -> bool:
         proxyModel: JSystemFSSortProxyModel = self.model()
         sourceParent = proxyModel.mapToSource(parentIndex)
