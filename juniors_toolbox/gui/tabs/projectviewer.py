@@ -121,8 +121,30 @@ _ASSET_INIT_TABLE = {
 }
 
 
-def generate_asset_menu() -> QMenu:
-    return QMenu()
+def generate_asset_menu(parent: QWidget) -> QMenu:
+    createMenu = QMenu("Create", parent)
+    folderAction = ProjectCreateAction(createMenu)
+    folderAction.setText("Folder")
+
+    def traverse_structure(_menu: QMenu, initTable: dict):
+        for assetKind, assetInfo in initTable.items():
+            if isinstance(assetKind, str):
+                subMenu = QMenu(assetKind)
+                traverse_structure(subMenu, assetInfo)
+                _menu.addMenu(subMenu)
+                _menu.addSeparator()
+            else:
+                if assetInfo["icon"] is None:
+                    action = ProjectCreateAction(_menu)
+                    action._init_fn_ = assetInfo["init_fn"]
+                    action.setText(assetInfo["name"])
+                else:
+                    action = QAction(
+                        assetInfo["icon"], assetInfo["name"], _menu)
+                _menu.addAction(action)
+
+    traverse_structure(createMenu, _ASSET_INIT_TABLE)
+    return createMenu
 
 
 class ProjectAssetType(IntEnum):
@@ -1064,14 +1086,14 @@ class ProjectTreeViewWidget(InteractiveTreeView, A_FileSystemViewer):
         selectedIndex = self.indexAt(point)
         selectedIndexValid = selectedIndex.isValid()
 
-        newAssetMenu = generate_asset_menu()
+        newAssetMenu = generate_asset_menu(self)
         newFolderAction = QAction("New Folder", self)
 
         explorerAction = QAction("Open in Explorer", self)
         terminalAction = QAction("Open in Terminal", self)
         copyPathAction = QAction("Copy Path", self)
 
-        if selectedIndex.isValid():
+        if selectedIndexValid:
             cutAction = QAction("Cut", self)
             copyAction = QAction("Copy", self)
             copyRelativePathAction = QAction("Copy Relative Path", self)
@@ -1084,14 +1106,14 @@ class ProjectTreeViewWidget(InteractiveTreeView, A_FileSystemViewer):
         menu.addAction(terminalAction)
         menu.addSeparator()
 
-        if selectedIndex.isValid():
+        if selectedIndexValid:
             menu.addAction(cutAction)
             menu.addAction(copyAction)
             menu.addSeparator()
 
         menu.addAction(copyPathAction)
 
-        if selectedIndex.isValid():
+        if selectedIndexValid:
             menu.addAction(copyRelativePathAction)
             menu.addSeparator()
             menu.addAction(renameAction)
