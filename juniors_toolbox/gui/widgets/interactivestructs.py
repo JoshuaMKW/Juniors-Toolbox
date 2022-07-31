@@ -187,7 +187,7 @@ class InteractiveListWidget(QListWidget):
             self.setCurrentRow(newItemRow, QItemSelectionModel.Select)
             self.blockSignals(False)
             self.itemCreated.emit(newItem, newItemRow)
-            
+
         self.currentItemChanged.emit(newItems[0], currentItem)
         self.currentRowChanged.emit(self.row(newItems[0]))
 
@@ -647,7 +647,7 @@ class InteractiveListView(QListView):
         duplicateAction.triggered.connect(
             lambda clicked=None: self.duplicate_indexes(selectedIndexes)
         )
-        
+
         renameAction = QAction("Rename", self)
         renameAction.triggered.connect(
             lambda clicked=None: self.edit(index)
@@ -668,7 +668,7 @@ class InteractiveListView(QListView):
         model = self.model()
         model.removeRows(0, model.rowCount())
 
-    @Slot(QStandardItem)
+    @Slot(QModelIndex)
     def rename_index(self, index: QModelIndex) -> str:
         """
         Returns the new name of the item
@@ -704,7 +704,7 @@ class InteractiveListView(QListView):
         """
         if len(indexes) == 0:
             return []
-            
+
         model = self.model()
 
         indexes = [QPersistentModelIndex(index) for index in indexes]
@@ -815,6 +815,310 @@ class InteractiveListView(QListView):
         )
 
         self.setState(QListView.NoState)
+        if worked:
+            event.accept()
+        else:
+            event.ignore()
+
+    @Slot(QMouseEvent)
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        mouseButton = event.button()
+        modifiers = QApplication.keyboardModifiers()
+        if mouseButton == Qt.LeftButton:
+            if modifiers == Qt.ControlModifier:
+                event.accept()
+                return
+
+        super().mousePressEvent(event)
+
+    @Slot(QMouseEvent)
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        mouseButton = event.button()
+        mousePos = event.pos()
+        modifiers = QApplication.keyboardModifiers()
+        index = self.indexAt(mousePos)
+        if mouseButton == Qt.LeftButton:
+            if modifiers == Qt.ControlModifier:
+                self._handle_ctrl_click(index)
+                event.accept()
+                return
+        super().mouseReleaseEvent(event)
+
+    @Slot(QMouseEvent)
+    def keyReleaseEvent(self, event: QKeyEvent) -> None:
+        model = self.model()
+
+        selectedIndexes = self.selectedIndexes()
+        anySelected = len(selectedIndexes) > 0
+
+        if event.key() == Qt.Key_Delete and anySelected:
+            self.delete_indexes(selectedIndexes)
+            event.accept()
+            return
+
+        key = event.key()
+        modifiers = QApplication.keyboardModifiers()
+        if modifiers == Qt.ControlModifier:
+            if key == Qt.Key_C and anySelected:
+                QApplication.clipboard().setMimeData(
+                    model.mimeData(self.selectedIndexes()),
+                    QClipboard.Clipboard
+                )
+            elif key == Qt.Key_V:
+                currentIndex = self.currentIndex()
+                if currentIndex.isValid():
+                    row = currentIndex.row() + 1
+                    column = currentIndex.column()
+                else:
+                    row = model.rowCount()
+                    column = 0
+                mimeData = QApplication.clipboard().mimeData(
+                    QClipboard.Clipboard
+                )
+                model.dropMimeData(
+                    mimeData,
+                    Qt.CopyAction,
+                    row,
+                    column,
+                    QModelIndex()
+                )
+
+        event.accept()
+
+    def _handle_shift_click(self, index: QModelIndex) -> None:
+        model = self.model()
+        selectionModel = self.selectionModel()
+
+        if index is None or selectionModel.isSelected(index):
+            return
+
+        selectedIndexes = self.selectedIndexes()
+        if len(selectedIndexes) == 0:
+            self.setCurrentIndex(index)
+            return
+
+        curIndex = self.currentIndex()
+        if index.row() < curIndex.row():
+            rows = range(index.row(), curIndex+1)
+        else:
+            rows = range(curIndex, index.row() + 1)
+
+        for row in range(model.rowCount()):
+            selectionModel.select(
+                index,
+                QItemSelectionModel.Select if row in rows else QItemSelectionModel.Deselect
+            )
+
+    def _handle_ctrl_click(self, index: QModelIndex) -> None:
+        selectionModel = self.selectionModel()
+        if index is None or selectionModel.isSelected(index):
+            return
+
+        selectedIndexes = self.selectedIndexes()
+        if len(selectedIndexes) == 0:
+            self.setCurrentIndex(index)
+            return
+
+        if selectionModel.isSelected(index):
+            return
+
+        selectionModel.select(index, QItemSelectionModel.Select)
+
+
+class InteractiveTreeView(QTreeView):
+    PrevNameRole = Qt.UserRole + 100
+    NewItemRole = Qt.UserRole + 101
+
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        self.setSelectionMode(QTreeView.ExtendedSelection)
+        self.setEditTriggers(QTreeView.DoubleClicked)
+        self.setDragDropMode(QTreeView.DragDrop)
+        self.setDefaultDropAction(Qt.MoveAction)
+        self.setDragDropOverwriteMode(False)
+
+    def get_context_menu(self, point: QPoint) -> Optional[QMenu]:
+        # Infos about the node selected.
+        index: Optional[QStandardItem] = self.indexAt(point)
+        if index is None:
+            return None
+
+        # We build the menu.
+        menu = QMenu(self)
+        selectedIndexes = self.selectedIndexes()
+
+        duplicateAction = QAction("Duplicate", self)
+        duplicateAction.triggered.connect(
+            lambda clicked=None: self.duplicate_indexes(selectedIndexes)
+        )
+
+        renameAction = QAction("Rename", self)
+        renameAction.triggered.connect(
+            lambda clicked=None: self.edit(index)
+        )
+        deleteAction = QAction("Delete", self)
+        deleteAction.triggered.connect(
+            lambda clicked=None: self.delete_indexes(selectedIndexes)
+        )
+
+        menu.addAction(duplicateAction)
+        menu.addSeparator()
+        menu.addAction(renameAction)
+        menu.addAction(deleteAction)
+
+        return menu
+
+    def clear(self) -> None:
+        model = self.model()
+        model.removeRows(0, model.rowCount())
+
+    @Slot(QModelIndex)
+    def rename_index(self, index: QModelIndex) -> str:
+        """
+        Returns the new name of the item
+        """
+        model = self.model()
+
+        name = index.data(Qt.EditRole)
+        isNew = index.data(self.NewItemRole)
+        oldName = index.data(self.PrevNameRole)
+
+        if name == "":
+            if isNew:
+                model.removeRow(index.row())
+                return ""
+            name = oldName
+
+        newName = self._resolve_name(name, index)
+
+        model.item(index.row()).setData(newName, Qt.EditRole)
+
+        model.blockSignals(True)
+        model.setData(index, False, self.NewItemRole)
+        model.blockSignals(False)
+
+        self.selectionModel().select(index, QItemSelectionModel.ClearAndSelect)
+
+        return newName
+
+    @Slot(list)
+    def duplicate_indexes(self, indexes: list[QModelIndex | QPersistentModelIndex]) -> list[QModelIndex]:
+        """
+        Returns the new item
+        """
+        if len(indexes) == 0:
+            return []
+
+        model = self.model()
+
+        indexes = [QPersistentModelIndex(index) for index in indexes]
+        newIndexes: list[QModelIndex] = []
+        for index in indexes:
+            mimeData = model.mimeData([index])
+
+            model.dropMimeData(
+                mimeData,
+                Qt.CopyAction,
+                index.row() + 1,
+                0,
+                QModelIndex()
+            )
+
+            newIndex = model.index(
+                index.row() + 1,
+                0
+            )
+
+            newIndexes.append(newIndex)
+            self.update(newIndex)
+
+        return newIndexes
+
+    @Slot(list)
+    def delete_indexes(self, indexes: list[AnyModelIndex]):
+        model = self.model()
+        indexes = [QPersistentModelIndex(index) for index in indexes]
+        for pindex in indexes:
+            model.removeRow(pindex.row())
+
+    def _resolve_name(self, name: str, filterItem: AnyModelIndex = None) -> str:
+        model = self.model()
+
+        renameContext = 1
+        ogName = name
+
+        possibleNames = []
+        for i in range(model.rowCount()):
+            if renameContext > 100:
+                raise FileExistsError(
+                    "Name exists beyond 100 unique iterations!")
+            item = model.index(i, 0)
+            if item == filterItem:
+                continue
+            itemText: str = item.data(Qt.DisplayRole)
+            if itemText.startswith(ogName):
+                possibleNames.append(itemText)
+
+        i = 0
+        while True:
+            if i >= len(possibleNames):
+                break
+            if renameContext > 100:
+                raise FileExistsError(
+                    "Name exists beyond 100 unique iterations!")
+            if possibleNames[i] == name:
+                name = f"{ogName}{renameContext}"
+                renameContext += 1
+                i = 0
+            else:
+                i += 1
+        return name
+
+    @Slot(QContextMenuEvent)
+    def contextMenuEvent(self, event: QContextMenuEvent) -> None:
+        menu = self.get_context_menu(event.pos())
+        if menu is None:
+            return
+        menu.exec(event.globalPos())
+
+    @Slot(QDropEvent)
+    def dropEvent(self, event: QDropEvent) -> None:
+        model = self.model()
+        mimedata = event.mimeData()
+
+        index = self.indexAt(event.pos())
+
+        parent = QModelIndex()
+        row = model.rowCount()
+        column = 0
+        if index.isValid():
+            row = index.row()
+            column = index.column()
+            parent = index.parent()
+
+        action = event.dropAction()
+        if event.source() is None:
+            action = Qt.CopyAction
+
+        if not model.canDropMimeData(
+            mimedata,
+            action,
+            row,
+            column,
+            parent
+        ):
+            event.ignore()
+            return
+
+        worked = model.dropMimeData(
+            mimedata,
+            action,
+            row,
+            column,
+            parent
+        )
+
+        self.setState(QTreeView.NoState)
         if worked:
             event.accept()
         else:

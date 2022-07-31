@@ -1,4 +1,5 @@
 from __future__ import annotations
+from abc import ABC, abstractmethod
 
 from dataclasses import dataclass
 from enum import IntEnum
@@ -9,6 +10,7 @@ from pathlib import Path, PurePath
 import shutil
 import time
 from typing import Any, Optional, Union, overload
+from isort import file
 
 from numpy import source
 from juniors_toolbox.gui.images import get_icon
@@ -30,6 +32,36 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QFileDialog,
                                QLineEdit, QMenu, QMenuBar, QPlainTextEdit,
                                QPushButton, QSizePolicy, QSplitter,
                                QVBoxLayout, QWidget)
+
+
+class A_JSystemFSImporter(ABC):
+    def __init__(self, model: JSystemFSModel) -> None:
+        super().__init__()
+        self.sourceModel = model
+
+    @abstractmethod
+    def process(self, src: Path | QMimeData, parent: QModelIndex |
+                QPersistentModelIndex) -> PurePath | None: ...
+
+
+class A_JSystemFSExporter(ABC):
+    def __init__(self, model: JSystemFSModel) -> None:
+        super().__init__()
+        self.sourceModel = model
+
+    @abstractmethod
+    def process(self, index: QModelIndex | QPersistentModelIndex,
+                dest: Path | QMimeData) -> PurePath | None: ...
+
+
+class JSystemFileImporter(A_JSystemFSImporter):
+    def process(self, src: Path | QMimeData, parent: QModelIndex | QPersistentModelIndex) -> PurePath | None:
+        return super().process(src, parent)
+
+
+class JSystemFileExporter(A_JSystemFSExporter):
+    def process(self, index: QModelIndex | QPersistentModelIndex, dest: Path | QMimeData) -> PurePath | None:
+        return super().process(index, dest)
 
 
 class JSystemFSModel(QAbstractItemModel):
@@ -113,11 +145,11 @@ class JSystemFSModel(QAbstractItemModel):
         self._filter = QDir.Filter.AllEntries
         self._nameFilters: list[str] = []
 
-
         self._fileSystemWatcher = QFileSystemWatcher(self)
         self._fileSystemWatcher.fileChanged.connect(self.file_changed)
-        self._fileSystemWatcher.directoryChanged.connect(self.directory_changed)
-        self._archives: dict[PurePath, ResourceArchive | None] = {}
+        self._fileSystemWatcher.directoryChanged.connect(
+            self.directory_changed)
+        self._archives: dict[PurePath, ResourceArchive] = {}
 
         if rootPath is not None:
             self._fileSystemWatcher.addPath(str(rootPath))
@@ -141,13 +173,13 @@ class JSystemFSModel(QAbstractItemModel):
         self._rootPath = rootPath
         if rootPath is None:
             return False
-        
+
         if not rootPath.exists():
             return False
 
         self._fileSystemWatcher.addPath(str(rootPath))
         self.update()
-            
+
         self.rootPathChanged.emit(rootPath)
         self.layoutChanged.emit()
         return True
@@ -216,9 +248,6 @@ class JSystemFSModel(QAbstractItemModel):
 
             archivePath = self.get_path(archiveIndex)
             archive = self._archives[archivePath]
-            if archive is None:
-                return False
-
             if not path.is_relative_to(archivePath):
                 return False
 
@@ -310,7 +339,7 @@ class JSystemFSModel(QAbstractItemModel):
 
             if handle.is_directory():
                 return len(handle.get_handles()) > 0
-            
+
             if handle.is_file() and handle.get_extension() == ".arc":
                 return not ResourceArchive.is_archive_empty(
                     BytesIO(handle.get_raw_data())
@@ -410,7 +439,7 @@ class JSystemFSModel(QAbstractItemModel):
     def get_type(self, index: QModelIndex | QPersistentModelIndex) -> str:
         if not index.isValid():
             return "NOT FOUND"
-        
+
         name = self.get_name(index)
         if self.is_file(index):
             return self.ExtensionToTypeMap.get(name, "File")
@@ -477,7 +506,7 @@ class JSystemFSModel(QAbstractItemModel):
 
             elif action == FileConflictAction.KEEP:
                 handleInfo.path = handleInfo.path.with_name(handle.get_name())
-                
+
             newIndex = self.createIndex(
                 parentInfo.children.index(handleInfo),
                 0,
@@ -508,7 +537,7 @@ class JSystemFSModel(QAbstractItemModel):
                     handleInfo
                 )
                 return newIndex
-            
+
             if action == FileConflictAction.REPLACE:
                 os.replace(thisPath, destPath)
                 for i, subHandle in enumerate(parentInfo.children):
@@ -560,134 +589,46 @@ class JSystemFSModel(QAbstractItemModel):
         parentInfo.children.remove(thisInfo)
         return True
 
-    def import_path(self, data: QMimeData, destinationParent: QModelIndex | QPersistentModelIndex, action: FileConflictAction | None = None) -> QModelIndex:
+    def import_path(self, data: QMimeData, destinationParent: QModelIndex | QPersistentModelIndex, action: FileConflictAction | None = None) -> bool:
         if not destinationParent.isValid():
-            return QModelIndex()
-
-        def _import_fs_path(
-            inputStream: QDataStream,
-            destinationParent: QModelIndex | QPersistentModelIndex,
-            action: FileConflictAction | None = None
-        ):
-            destFolder = self.get_path(destinationParent)
-
-            thisPath = Path(inputStream.readString())
-            if thisPath.is_dir():
-                subDir = self.mkdir(destinationParent, thisPath.name)
-                return _import_fs_path(inputStream, subDir, action)
-            
-            # Check if the destination is part of an archive
-            destArchive: Optional[ResourceArchive] = None
-            destArchiveIndex = self.get_parent_archive(destinationParent)
-            destArchivePath = self.get_path(destArchiveIndex)
-            if destArchiveIndex.isValid():
-                destArchive = self._archives[destArchivePath]
-            
-            # Source exists in filesystem
-            if destArchive:  # Destination exists in an archive
-                virtualDestPath = destFolder.relative_to(destArchivePath)
-                destHandle = destArchive.get_handle(virtualDestPath)
-                if destHandle:  # Destination move exists
-                    if action is None:
-                        self.conflictFound.emit(thisPath, destFolder)
-                        while (action := self.get_conflict_action()) is None:
-                            time.sleep(0.1)
-
-                    if action == FileConflictAction.REPLACE:
-                        for i, handleInfo in enumerate(destParentInfo.children):
-                            if handleInfo.path.name == destHandle.get_name():
-                                self.removeRow(i, destinationParent)
-                                break
-                    
-                    elif action == FileConflictAction.KEEP:
-                        newPath = self._resolve_path_conflict(thisPath.name, destinationParent)
-                        if newPath is None:
-                            return QModelIndex()
-                        destPath = newPath
-                        virtualDestPath = destPath.relative_to(destArchivePath)
-                    
-                    else:  # Skip
-                        return True
-
-                # Move from filesystem to archive
-                if (isSrcDir := os.path.isdir(thisPath)):
-                    sourceHandle = ResourceDirectory.import_from(Path(thisPath))
-                else:
-                    sourceHandle = ResourceFile.import_from(Path(thisPath))
-
-                if sourceHandle is None:
-                    return False
-                
-                destParentHandle = destArchive.get_handle(virtualDestPath.parent)
-                if destParentHandle is None:
-                    return False
-
-                if not destParentHandle.add_handle(sourceHandle, action=FileConflictAction.REPLACE):
-                    return False
-
-                # Remove old path
-                if isSrcDir:
-                    shutil.rmtree(thisPath)
-                else:
-                    os.remove(thisPath)
-
-                return True
-
-            # Filesystem to filesystem
-            if os.path.exists(destPath):
-                if action is None:
-                    self.conflictFound.emit(thisPath, destPath)
-                    while (action := self.get_conflict_action()) is None:
-                        time.sleep(0.1)
-
-                if action == FileConflictAction.REPLACE:
-                    for i, handleInfo in enumerate(destParentInfo.children):
-                        if handleInfo.path.name == destPath.name:
-                            self.removeRow(i, destinationParent)
-                            break
-                
-                elif action == FileConflictAction.KEEP:
-                    newPath = self._resolve_path_conflict(thisPath.name, destinationParent)
-                    if newPath is None:
-                        return QModelIndex()
-                    destPath = newPath
-                
-                else:  # Skip
-                    return True
-
-            shutil.move(thisPath, destPath)
-                
-
-        def _import_virtual_path(
-            inputStream: QDataStream,
-            destinationParent: QModelIndex | QPersistentModelIndex,
-            action: FileConflictAction | None = None
-        ):
-            handleType = JSystemFSModel._HandleType(inputStream.readInt8())
-            if handleType == JSystemFSModel._HandleType.FILE:
-                ...
-            elif handleType == JSystemFSModel._HandleType.DIRECTORY:
-                ...
-            elif handleType == JSystemFSModel._HandleType.ARCHIVE:
-                ...
-
-
-        destParentInfo: JSystemFSModel._HandleInfo = destinationParent.internalPointer()
-        destParentPath = destParentInfo.path
+            return False
 
         # Path importing is a file
         if not data.hasFormat("x-application/jsystem-fs-data"):
-            return QModelIndex()
+            return False
 
         importData = data.data("x-application/jsystem-fs-data")
         dataStream = QDataStream(importData, QDataStream.ReadOnly)
 
-        isPhysical = dataStream.readBool()
-        if isPhysical:  # We can save on resources here because the path exists on the filesystem
-            _import_fs_path(dataStream, destinationParent, action)
+        isVirtual = dataStream.readBool()
+        if isVirtual:
+            successful = self._import_virtual_path(
+                dataStream, destinationParent, action)
+        else:  # We can save on resources here because the path exists on the filesystem
+            successful = self._import_fs_path(
+                dataStream, destinationParent, action)
 
-        # In this case, we are importing virtual data and thus it is stored in the mimedata
-        ...
+        return successful
+
+    def export_path(self, data: QMimeData, pathIndex: QModelIndex | QPersistentModelIndex) -> bool:
+        if not pathIndex.isValid():
+            return False
+
+        dataStream = QDataStream(b"", QDataStream.WriteOnly)
+
+        parentArchiveIndex = self.get_parent_archive(pathIndex)
+
+        isVirtual = parentArchiveIndex.isValid()
+        dataStream.writeBool(isVirtual)
+
+        if isVirtual:  # Within an archive
+            successful = self._export_virtual_path(
+                dataStream, pathIndex, parentArchiveIndex)
+        else:
+            successful = self._export_fs_path(
+                dataStream, pathIndex)
+
+        return successful
 
     def mkdir(self, parent: QModelIndex | QPersistentModelIndex, name: str) -> QModelIndex:
         if not parent.isValid():
@@ -702,9 +643,6 @@ class JSystemFSModel(QAbstractItemModel):
         if not os.path.isdir(parentPath):
             if self.is_archive(parent):
                 archive = self._archives[parentPath]
-                if archive is None:
-                    return QModelIndex()
-
                 dirHandle = archive.new_directory(name)
                 if dirHandle is None:
                     return QModelIndex()
@@ -716,10 +654,9 @@ class JSystemFSModel(QAbstractItemModel):
 
                 archivePath = self.get_path(archiveIndex)
                 archive = self._archives[archivePath]
-                if archive is None:
-                    return QModelIndex()
 
-                parentHandle = archive.get_handle(parentPath)
+                virtualPath = parentPath.relative_to(archivePath)
+                parentHandle = archive.get_handle(virtualPath)
                 if parentHandle is None:
                     return QModelIndex()
 
@@ -737,10 +674,10 @@ class JSystemFSModel(QAbstractItemModel):
         if os.path.isdir(parentPath.parent) and not os.path.exists(parentPath / name):
             os.mkdir(parentPath / name)
 
-        handleInfo = JSystemFSModel._HandleInfo(
-            parentPath / name, parentInfo, [], False, 0
-        )
-        parentInfo.children.append(handleInfo)
+            handleInfo = JSystemFSModel._HandleInfo(
+                parentPath / name, parentInfo, [], False, 0
+            )
+            parentInfo.children.append(handleInfo)
 
         return self.createIndex(row, column, handleInfo)
 
@@ -767,8 +704,6 @@ class JSystemFSModel(QAbstractItemModel):
 
         archivePath = self.get_path(archiveIndex)
         archive = self._archives[archivePath]
-        if archive is None:
-            return False
 
         if not archive.remove_path(path):
             return False
@@ -907,7 +842,7 @@ class JSystemFSModel(QAbstractItemModel):
     @overload
     def parent(self, child: QModelIndex | QPersistentModelIndex): ...
 
-    def parent(self, child: QModelIndex | QPersistentModelIndex | None = None) -> QModelIndex: # type: ignore
+    def parent(self, child: QModelIndex | QPersistentModelIndex | None = None) -> QModelIndex:  # type: ignore
         if child is None:
             return super().parent()
 
@@ -925,7 +860,7 @@ class JSystemFSModel(QAbstractItemModel):
         pParentInfo = parentInfo.parent
         if pParentInfo is None:
             return self.createIndex(0, 0, self._fileSystemCache)
-            
+
         return self.createIndex(pParentInfo.children.index(parentInfo), 0, parentInfo)
 
     def mimeData(self, indexes: list[QModelIndex | QPersistentModelIndex]) -> QMimeData:
@@ -1005,7 +940,7 @@ class JSystemFSModel(QAbstractItemModel):
         sourceArchivePath = self.get_path(sourceArchiveIndex)
         if sourceArchiveIndex.isValid():
             sourceArchive = self._archives[sourceArchivePath]
-            
+
         # Check if the destination is part of an archive
         destArchive: Optional[ResourceArchive] = None
         destArchiveIndex = self.get_parent_archive(destinationParent)
@@ -1014,7 +949,8 @@ class JSystemFSModel(QAbstractItemModel):
             destArchive = self._archives[destArchivePath]
 
         successful = True
-        self.beginMoveRows(sourceParent, sourceRow, sourceRow+count, destinationParent, destinationChild)
+        self.beginMoveRows(sourceParent, sourceRow, sourceRow +
+                           count, destinationParent, destinationChild)
 
         conflictAction = self.get_conflict_action()
         for i in range(sourceRow+count, sourceRow-1, -1):  # Reverse to preserve indices
@@ -1048,20 +984,23 @@ class JSystemFSModel(QAbstractItemModel):
                                 if handleInfo.path.name == destHandle.get_name():
                                     self.removeRow(i, destinationParent)
                                     break
-                        
+
                         elif conflictAction == FileConflictAction.KEEP:
-                            newPath = self._resolve_path_conflict(thisPath.name, destinationParent)
+                            newPath = self._resolve_path_conflict(
+                                thisPath.name, destinationParent)
                             if newPath is None:
                                 return QModelIndex()
                             destPath = newPath
-                            virtualDestPath = destPath.relative_to(destArchivePath)
-                        
+                            virtualDestPath = destPath.relative_to(
+                                destArchivePath)
+
                         else:  # Skip
                             continue
 
                     # Archives are the same, internal move
                     if sourceArchive == destArchive:
-                        successful &= sourceHandle.rename(virtualDestPath, action=FileConflictAction.REPLACE)
+                        successful &= sourceHandle.rename(
+                            virtualDestPath, action=FileConflictAction.REPLACE)
                         continue
 
                     sourceParentHandle = sourceHandle.get_parent()
@@ -1069,7 +1008,8 @@ class JSystemFSModel(QAbstractItemModel):
                         successful = False
                         continue
 
-                    destParentHandle = destArchive.get_handle(virtualDestPath.parent)
+                    destParentHandle = destArchive.get_handle(
+                        virtualDestPath.parent)
                     if destParentHandle is None:
                         successful = False
                         continue
@@ -1078,7 +1018,7 @@ class JSystemFSModel(QAbstractItemModel):
                     sourceParentHandle.remove_handle(sourceHandle)
                     destParentHandle.add_handle(sourceHandle)
                     continue
-                    
+
                 # Destination exists in the filesystem
                 if os.path.exists(destPath):
                     if conflictAction is None:
@@ -1091,9 +1031,10 @@ class JSystemFSModel(QAbstractItemModel):
                             if handleInfo.path.name == destPath.name:
                                 self.removeRow(i, destinationParent)
                                 break
-                    
+
                     elif conflictAction == FileConflictAction.KEEP:
-                        newPath = self._resolve_path_conflict(thisPath.name, destinationParent)
+                        newPath = self._resolve_path_conflict(
+                            thisPath.name, destinationParent)
                         if newPath is None:
                             successful = False
                             continue
@@ -1121,28 +1062,31 @@ class JSystemFSModel(QAbstractItemModel):
                             if handleInfo.path.name == destHandle.get_name():
                                 self.removeRow(i, destinationParent)
                                 break
-                    
+
                     elif conflictAction == FileConflictAction.KEEP:
-                        newPath = self._resolve_path_conflict(thisPath.name, destinationParent)
+                        newPath = self._resolve_path_conflict(
+                            thisPath.name, destinationParent)
                         if newPath is None:
                             return QModelIndex()
                         destPath = newPath
                         virtualDestPath = destPath.relative_to(destArchivePath)
-                    
+
                     else:  # Skip
                         continue
 
                 # Move from filesystem to archive
                 if (isSrcDir := os.path.isdir(thisPath)):
-                    sourceHandle = ResourceDirectory.import_from(Path(thisPath))
+                    sourceHandle = ResourceDirectory.import_from(
+                        Path(thisPath))
                 else:
                     sourceHandle = ResourceFile.import_from(Path(thisPath))
 
                 if sourceHandle is None:
                     successful = False
                     continue
-                
-                destParentHandle = destArchive.get_handle(virtualDestPath.parent)
+
+                destParentHandle = destArchive.get_handle(
+                    virtualDestPath.parent)
                 if destParentHandle is None:
                     successful = False
                     continue
@@ -1171,13 +1115,14 @@ class JSystemFSModel(QAbstractItemModel):
                         if handleInfo.path.name == destPath.name:
                             self.removeRow(i, destinationParent)
                             break
-                
+
                 elif conflictAction == FileConflictAction.KEEP:
-                    newPath = self._resolve_path_conflict(thisPath.name, destinationParent)
+                    newPath = self._resolve_path_conflict(
+                        thisPath.name, destinationParent)
                     if newPath is None:
                         return QModelIndex()
                     destPath = newPath
-                
+
                 else:  # Skip
                     continue
 
@@ -1264,7 +1209,7 @@ class JSystemFSModel(QAbstractItemModel):
             handleInfo.size = i
             handleInfo.loaded = True
             return
-        
+
         if path.suffix == ".arc":
             self._cache_archive(index)
 
@@ -1310,9 +1255,6 @@ class JSystemFSModel(QAbstractItemModel):
             parentArchiveIndex = self.get_parent_archive(index)
             parentArchivePath = self.get_path(parentArchiveIndex)
             parentArchive = self._archives[parentArchivePath]
-            if parentArchive is None:
-                return
-            
 
             if not path.is_relative_to(parentArchivePath):
                 return False
@@ -1384,17 +1326,356 @@ class JSystemFSModel(QAbstractItemModel):
             name += f".{parts[1]}"
         return handleInfo.path / name
 
+    def _import_fs_path(
+        self,
+        inputStream: QDataStream,
+        destinationParent: QModelIndex | QPersistentModelIndex,
+        action: FileConflictAction | None = None
+    ):
+        thisPath = Path(inputStream.readString())
+
+        destFolder = self.get_path(destinationParent)
+        destParentInfo: JSystemFSModel._HandleInfo = destinationParent.internalPointer()  # type: ignore
+        destPath = destFolder / thisPath.name
+
+        if thisPath.is_dir():
+            subDir = self.mkdir(destinationParent, thisPath.name)
+            childCount = inputStream.readUInt32()
+
+            successful = True
+            for _ in range(childCount):
+                successful &= self._import_fs_path(inputStream, subDir, action)
+            return successful
+
+        # Check if the destination is part of an archive
+        destArchive: Optional[ResourceArchive] = None
+        destArchiveIndex = self.get_parent_archive(destinationParent)
+
+        # Source exists in filesystem
+        if destArchiveIndex.isValid():  # Destination exists in an archive
+            destArchivePath = self.get_path(destArchiveIndex)
+            destArchive = self._archives[destArchivePath]
+            virtualDestPath = destFolder.relative_to(destArchivePath)
+            destHandle = destArchive.get_handle(virtualDestPath)
+            if destHandle:  # Destination move exists
+                if action is None:
+                    self.conflictFound.emit(thisPath, destFolder)
+                    while (action := self.get_conflict_action()) is None:
+                        time.sleep(0.1)
+
+                if action == FileConflictAction.REPLACE:
+                    for i, handleInfo in enumerate(destParentInfo.children):
+                        if handleInfo.path.name == destHandle.get_name():
+                            self.removeRow(i, destinationParent)
+                            break
+
+                elif action == FileConflictAction.KEEP:
+                    newPath = self._resolve_path_conflict(
+                        thisPath.name, destinationParent)
+                    if newPath is None:
+                        return QModelIndex()
+                    destPath = newPath
+                    virtualDestPath = destPath.relative_to(destArchivePath)
+
+                else:  # Skip
+                    return True
+
+            # Move from filesystem to archive
+            if (isSrcDir := os.path.isdir(thisPath)):
+                sourceHandle = ResourceDirectory.import_from(
+                    Path(thisPath))
+            else:
+                sourceHandle = ResourceFile.import_from(Path(thisPath))
+
+            if sourceHandle is None:
+                return False
+
+            destParentHandle = destArchive.get_handle(
+                virtualDestPath.parent)
+            if destParentHandle is None:
+                destParentHandle = destArchive
+
+            if not destParentHandle.add_handle(sourceHandle, action=FileConflictAction.REPLACE):
+                return False
+
+            # Remove old path
+            if isSrcDir:
+                shutil.rmtree(thisPath)
+            else:
+                os.remove(thisPath)
+
+            return True
+
+        # Filesystem to filesystem
+        if os.path.exists(destPath):
+            if action is None:
+                self.conflictFound.emit(thisPath, destPath)
+                while (action := self.get_conflict_action()) is None:
+                    time.sleep(0.1)
+
+            if action == FileConflictAction.REPLACE:
+                for i, handleInfo in enumerate(destParentInfo.children):
+                    if handleInfo.path.name == destPath.name:
+                        self.removeRow(i, destinationParent)
+                        break
+
+            elif action == FileConflictAction.KEEP:
+                newPath = self._resolve_path_conflict(
+                    thisPath.name, destinationParent)
+                if newPath is None:
+                    return QModelIndex()
+                destPath = newPath
+
+            else:  # Skip
+                return True
+
+        shutil.move(thisPath, destPath)
+        return True
+
+    def _import_virtual_path(
+        self,
+        inputStream: QDataStream,
+        destinationParent: QModelIndex | QPersistentModelIndex,
+        action: FileConflictAction | None = None
+    ) -> bool:
+        """
+        This function handles importing filesystem nodes from
+        an archive or archive subdirectory to the real filesystem
+        """
+        thisPath = Path(inputStream.readString())
+        thisName = thisPath.name
+
+        destParentInfo: JSystemFSModel._HandleInfo = destinationParent.internalPointer()  # type: ignore
+        destFolder = self.get_path(destinationParent)
+        destPath = destFolder / thisName
+
+        handleType = JSystemFSModel._HandleType(inputStream.readInt8())
+
+        destArchiveIndex = self.get_parent_archive(destinationParent)
+        if not destArchiveIndex.isValid():  # To filesystem
+            # If a file, we simply copy the data to a file of the same name in this dir
+            if handleType == JSystemFSModel._HandleType.FILE:
+                fileData = QByteArray()
+                inputStream >> fileData
+
+                with open(destPath, "wb") as f:
+                    f.write(fileData.data())
+
+                return True
+
+            # If a dir, we create a sub dir of this name and iterate over the next items within this dir
+            elif handleType == JSystemFSModel._HandleType.DIRECTORY:
+                childrenCount = inputStream.readUInt32()
+
+                folderIndex = self.mkdir(destinationParent, thisPath.name)
+
+                successful = True
+                for _ in range(childrenCount):
+                    successful &= self._import_virtual_path(
+                        inputStream, folderIndex, action)
+
+                return successful
+
+            # If an archive, we can create the archive in the cache and import future items into it
+            # TODO: For now we simply copy an unextracted form of the archive
+            elif handleType == JSystemFSModel._HandleType.ARCHIVE:
+                fileData = QByteArray()
+                inputStream >> fileData
+
+                with open(destPath, "wb") as f:
+                    f.write(fileData.data())
+
+                # self._archives[destPath] = ResourceArchive.from_bytes(fileData.data())
+                return True
+
+            raise ValueError(
+                f"Encountered invalid type ID ({handleType}) while deserializing archive info")
+
+        destArchivePath = self.get_path(destArchiveIndex)
+        destArchive = self._archives[destArchivePath]
+
+        virtualPath = destPath.relative_to(destArchivePath)
+        destHandle = destArchive.get_handle(virtualPath)
+        if destHandle:
+            if action is None:
+                self.conflictFound.emit(thisPath, destFolder)
+                while (action := self.get_conflict_action()) is None:
+                    time.sleep(0.1)
+
+            if action == FileConflictAction.REPLACE:
+                for i, handleInfo in enumerate(destParentInfo.children):
+                    if handleInfo.path.name == destHandle.get_name():
+                        self.removeRow(i, destinationParent)
+                        break
+
+            elif action == FileConflictAction.KEEP:
+                newPath = self._resolve_path_conflict(
+                    thisPath.name, destinationParent)
+                if newPath is None:
+                    return QModelIndex()
+                destPath = newPath
+                virtualDestPath = destPath.relative_to(destArchivePath)
+
+            else:  # Skip
+                return True
+
+        destParentHandle = destArchive.get_handle(
+            virtualDestPath.parent)
+        if destParentHandle is None:
+            destParentHandle = destArchive
+
+        # If a file, we simply copy the data to a file of the same name in this dir
+        if handleType == JSystemFSModel._HandleType.FILE:
+            fileData = QByteArray()
+            inputStream >> fileData
+
+            newHandle = ResourceFile(
+                thisName,
+                initialData=fileData.data()
+            )
+            destParentHandle.add_handle(
+                newHandle, action=FileConflictAction.REPLACE)
+
+            return True
+
+        # If a dir, we create a sub dir of this name and iterate over the next items within this dir
+        elif handleType == JSystemFSModel._HandleType.DIRECTORY:
+            childrenCount = inputStream.readUInt32()
+
+            folderIndex = self.mkdir(destinationParent, thisPath.name)
+
+            successful = True
+            for _ in range(childrenCount):
+                successful &= self._import_virtual_path(
+                    inputStream, folderIndex, action)
+
+            return successful
+
+        # If an archive, we can create the archive in the cache and import future items into it
+        # TODO: For now we simply copy an unextracted form of the archive
+        elif handleType == JSystemFSModel._HandleType.ARCHIVE:
+            fileData = QByteArray()
+            inputStream >> fileData
+
+            newHandle = ResourceFile(
+                thisName,
+                initialData=fileData.data()
+            )
+            destParentHandle.add_handle(
+                newHandle, action=FileConflictAction.REPLACE)
+
+            # self._archives[destPath] = ResourceArchive.from_bytes(fileData.data())
+            return True
+
+        raise ValueError(
+            f"Encountered invalid type ID ({handleType}) while deserializing archive info")
+
+    def _export_fs_path(
+        self,
+        outputStream: QDataStream,
+        srcIndex: QModelIndex | QPersistentModelIndex
+    ) -> bool:
+        srcPath = Path(self.get_path(srcIndex))
+        srcParentInfo: JSystemFSModel._HandleInfo = srcIndex.internalPointer()  # type: ignore
+
+        outputStream.writeString(str(srcPath))
+
+        if not srcPath.is_dir():
+            return True
+
+        if srcParentInfo.size > 0:  # Number of children already cached
+            outputStream.writeUInt32(srcParentInfo.size)
+
+            successful = True
+            for p in srcPath.iterdir():
+                successful &= self._export_fs_path(
+                    outputStream, self.get_path_index(p))
+            return successful
+        else:
+            paths = [p for p in srcPath.iterdir()]
+            outputStream.writeUInt32(len(paths))
+
+            successful = True
+            for p in paths:
+                successful &= self._export_fs_path(
+                    outputStream, self.get_path_index(p))
+            return successful
+
+    def _export_virtual_path(
+        self,
+        outputStream: QDataStream,
+        srcIndex: QModelIndex | QPersistentModelIndex,
+        srcArchiveIndex: QModelIndex | QPersistentModelIndex
+    ) -> bool:
+        """
+        This function handles exporting filesystem nodes from
+        an archive or archive subdirectory to the real filesystem
+        """
+        srcPath = self.get_path(srcIndex)
+        srcParentInfo: JSystemFSModel._HandleInfo = srcIndex.internalPointer()  # type: ignore
+
+        if not srcArchiveIndex.isValid():  # To filesystem
+            return False
+
+        srcArchivePath = self.get_path(srcArchiveIndex)
+        srcArchive = self._archives[srcArchivePath]
+
+        virtualPath = srcPath.relative_to(srcArchivePath)
+        srcHandle = srcArchive.get_handle(virtualPath)
+        if srcHandle is None:
+            return False
+
+        outputStream.writeString(str(srcPath))
+
+        if srcHandle.is_file():
+            outputStream.writeInt8(JSystemFSModel._HandleType.FILE)
+            outputStream << srcHandle.get_raw_data()
+            return True
+
+        if srcHandle.is_directory():
+            outputStream.writeInt8(JSystemFSModel._HandleType.DIRECTORY)
+            if srcParentInfo.size > 0:  # Size is cached already
+                outputStream.writeUInt32(srcParentInfo.size)
+
+                successful = True
+                for p in srcHandle.get_handles():
+                    successful &= self._export_virtual_path(
+                        outputStream, self.get_path_index(
+                            srcPath / p.get_name()), srcArchiveIndex
+                    )
+                return successful
+            else:
+                paths = [p for p in srcHandle.get_handles()]
+                outputStream.writeUInt32(len(paths))
+
+                successful = True
+                for p in paths:
+                    successful &= self._export_virtual_path(
+                        outputStream, self.get_path_index(
+                            srcPath / p.get_name()), srcArchiveIndex
+                    )
+                return successful
+
+        if srcHandle.is_archive():
+            outputStream.writeInt8(JSystemFSModel._HandleType.ARCHIVE)
+            outputStream << srcHandle.get_raw_data()
+            return True
+
+        raise NotImplementedError(
+            "Handle encountered is not a supported handle type")
+
+
 class JSystemFSSortProxyModel(QSortFilterProxyModel):
     def lessThan(self, source_left: QModelIndex | QPersistentModelIndex, source_right: QModelIndex | QPersistentModelIndex) -> bool:
         sourceModel: JSystemFSModel = self.sourceModel()
         if sourceModel.is_populated(source_left):
             if sourceModel.is_file(source_right):
                 return True
-         
+
         if sourceModel.is_populated(source_right):
             if sourceModel.is_file(source_left):
                 return False
-        
+
         return super().lessThan(source_left, source_right)
 
 
@@ -1438,7 +1719,7 @@ class JSystemFSDirectoryProxyModel(JSystemFSSortProxyModel):
                     if subHandle.is_directory() or subHandle.get_extension() == ".arc":
                         return True
                 return False
-            
+
             if handle.is_file() and handle.get_extension() == ".arc":
                 return not ResourceArchive.is_archive_empty(
                     BytesIO(handle.get_raw_data())

@@ -8,6 +8,7 @@ from pathlib import Path, PurePath
 from typing import Any, BinaryIO, Callable, Dict, List, Optional, Tuple, Union
 
 from numpy import source
+from soupsieve import select
 from juniors_toolbox.gui.dialogs.moveconflict import MoveConflictDialog
 
 from juniors_toolbox.gui.images import get_icon, get_image
@@ -15,7 +16,7 @@ from juniors_toolbox.gui.models.rarcfs import JSystemFSDirectoryProxyModel, JSys
 from juniors_toolbox.gui.widgets import ABCMetaWidget, ABCWidget
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.gui.tools import clear_layout, walk_layout
-from juniors_toolbox.gui.widgets.interactivestructs import InteractiveListView, InteractiveListWidget, InteractiveListWidgetItem
+from juniors_toolbox.gui.widgets.interactivestructs import InteractiveListView, InteractiveTreeView, InteractiveListWidget, InteractiveListWidgetItem, InteractiveTreeWidget
 from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.utils import A_Serializable, VariadicArgs, VariadicKwargs
 from juniors_toolbox.utils.bmg import BMG
@@ -32,13 +33,13 @@ from juniors_toolbox.utils.j3d.anim.bva import BVA
 from juniors_toolbox.utils.j3d.bmd import BMD
 from juniors_toolbox.utils.prm import PrmFile
 from juniors_toolbox.utils.types import RGB8, RGB32, RGBA8, Vec3f
-from PySide6.QtCore import (QAbstractItemModel, QDataStream, QEvent, QIODevice, 
+from PySide6.QtCore import (QAbstractItemModel, QDataStream, QEvent, QIODevice,
                             QLine, QMimeData, QModelIndex, QObject, QPoint,
                             QSize, Qt, QThread, QTimer, QUrl, Signal, QItemSelectionModel, QPersistentModelIndex,
                             SignalInstance, Slot)
 from PySide6.QtGui import (QAction, QColor, QCursor, QDrag, QDragEnterEvent,
                            QDragLeaveEvent, QDragMoveEvent, QDropEvent, QIcon,
-                           QImage, QKeyEvent, QMouseEvent, QPaintDevice,
+                           QImage, QKeyEvent, QMouseEvent, QPaintDevice, QContextMenuEvent,
                            QPainter, QPaintEvent, QPalette, QPixmap, QPen,
                            QUndoCommand, QUndoStack)
 from PySide6.QtTest import QAbstractItemModelTester
@@ -118,6 +119,10 @@ _ASSET_INIT_TABLE = {
         "icon": None
     },
 }
+
+
+def generate_asset_menu() -> QMenu:
+    return QMenu()
 
 
 class ProjectAssetType(IntEnum):
@@ -286,7 +291,7 @@ class A_FileSystemViewer(ABCWidget):
     deleteRequested = Signal(list)
     dropInRequested = Signal(list)
     dropOutRequested = Signal(object)
-    
+
     _scenePath: Optional[Path] = None
     _focusedPath: Optional[Path] = None
 
@@ -431,7 +436,8 @@ class ProjectFocusedMenuBar(QMenuBar, A_FileSystemViewer):
             event.ignore()
             return
 
-        item: Optional[ProjectFocusedMenuBarAction] = self.actionAt(event.pos())
+        item: Optional[ProjectFocusedMenuBarAction] = self.actionAt(
+            event.pos())
         if item is None:
             event.ignore()
             return
@@ -607,7 +613,7 @@ class ProjectFolderViewWidget(InteractiveListView, A_FileSystemViewer):
         if supportedActions & Qt.MoveAction:
             if len(indexes) == 0:
                 return
- 
+
             pixmap = QPixmap(70, 80)
             pixmap.fill(Qt.transparent)
 
@@ -655,7 +661,7 @@ class ProjectFolderViewWidget(InteractiveListView, A_FileSystemViewer):
     def dragMoveEvent(self, event: QDragMoveEvent) -> None:
         eventPos = event.pos()
         hoveredIndex = self.indexAt(eventPos)
-        
+
         proxyModel: JSystemFSSortProxyModel = self.model()
         sourceIndex = proxyModel.mapToSource(hoveredIndex)
         sourceModel: JSystemFSModel = sourceIndex.model()
@@ -687,7 +693,7 @@ class ProjectFolderViewWidget(InteractiveListView, A_FileSystemViewer):
 
         eventPos = event.pos()
         hoveredIndex = self.indexAt(eventPos)
-        
+
         proxyModel: JSystemFSSortProxyModel = self.model()
         sourceIndex = proxyModel.mapToSource(hoveredIndex)
         sourceModel: JSystemFSModel = sourceIndex.model()
@@ -760,8 +766,10 @@ class ProjectFolderViewWidget(InteractiveListView, A_FileSystemViewer):
 
         for index in indexesToMove:
             sourceIndex = proxyModel.mapToSource(index)
-            sourcePath: PurePath = sourceIndex.data(JSystemFSModel.FilePathRole)
-            destPath: PurePath = sourceParent.data(JSystemFSModel.FilePathRole) / sourcePath.name
+            sourcePath: PurePath = sourceIndex.data(
+                JSystemFSModel.FilePathRole)
+            destPath: PurePath = sourceParent.data(
+                JSystemFSModel.FilePathRole) / sourcePath.name
 
             destIndex = sourceModel.get_path_index(destPath)
             if destIndex.isValid() and not conflictDialog.apply_to_all():
@@ -1033,6 +1041,65 @@ class ProjectHierarchyViewWidget(QTreeWidget, A_FileSystemViewer):
                 child.get_relative_path(), False))
 
 
+class ProjectTreeViewWidget(InteractiveTreeView, A_FileSystemViewer):
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        self.setHeaderHidden(True)
+        self.setAcceptDrops(True)
+        self.setDragDropMode(QTreeWidget.DragDrop)
+        self.setDefaultDropAction(Qt.MoveAction)
+
+    def get_source_model(self) -> QAbstractItemModel:
+        proxy: JSystemFSDirectoryProxyModel = self.model()
+        return proxy.sourceModel()
+
+    def set_source_model(self, model: QAbstractItemModel) -> None:
+        proxy: JSystemFSDirectoryProxyModel = self.model()
+        proxy.setSourceModel(model)
+
+    def get_context_menu(self, point: QPoint) -> Optional[QMenu]:
+        menu = QMenu(self)
+
+        # Infos about the node selected.
+        selectedIndex = self.indexAt(point)
+        selectedIndexValid = selectedIndex.isValid()
+
+        newAssetMenu = generate_asset_menu()
+        newFolderAction = QAction("New Folder", self)
+
+        explorerAction = QAction("Open in Explorer", self)
+        terminalAction = QAction("Open in Terminal", self)
+        copyPathAction = QAction("Copy Path", self)
+
+        if selectedIndex.isValid():
+            cutAction = QAction("Cut", self)
+            copyAction = QAction("Copy", self)
+            copyRelativePathAction = QAction("Copy Relative Path", self)
+            renameAction = QAction("Rename", self)
+            deleteAction = QAction("Delete", self)
+
+        menu.addMenu(newAssetMenu)
+        menu.addAction(newFolderAction)
+        menu.addAction(explorerAction)
+        menu.addAction(terminalAction)
+        menu.addSeparator()
+
+        if selectedIndex.isValid():
+            menu.addAction(cutAction)
+            menu.addAction(copyAction)
+            menu.addSeparator()
+
+        menu.addAction(copyPathAction)
+
+        if selectedIndex.isValid():
+            menu.addAction(copyRelativePathAction)
+            menu.addSeparator()
+            menu.addAction(renameAction)
+            menu.addAction(deleteAction)
+
+        return menu
+
+
 class ProjectViewerWidget(A_DockingInterface):
     def __init__(self, *args: VariadicArgs, **kwargs: VariadicKwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -1050,12 +1117,7 @@ class ProjectViewerWidget(A_DockingInterface):
 
         self.mainLayout = QHBoxLayout()
 
-        self.fsTreeWidget = QTreeView()
-        self.fsTreeWidget.setHeaderHidden(True)
-        self.fsTreeWidget.setAcceptDrops(True)
-        self.fsTreeWidget.setDragDropMode(QTreeWidget.DragDrop)
-        self.fsTreeWidget.setDefaultDropAction(Qt.MoveAction)
-        self.fsTreeWidget.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.fsTreeWidget = ProjectTreeViewWidget()
         self.fsTreeWidget.setModel(self.fsModelDirProxy)
 
         self.folderWidget = QWidget()
@@ -1064,7 +1126,7 @@ class ProjectViewerWidget(A_DockingInterface):
         self.folderViewLayout.setContentsMargins(0, 0, 0, 0)
 
         self.focusedViewWidget = ProjectFocusedMenuBar()
-        
+
         # self._modelTester = QAbstractItemModelTester(
         #     self.fsModelViewProxy,
         #     QAbstractItemModelTester.FailureReportingMode.Warning,

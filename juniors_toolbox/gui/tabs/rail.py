@@ -122,7 +122,8 @@ class TranslateRailDialog(QDialog):
         font = self.label.font()
         font.setPointSize(12)
         self.label.setFont(font)
-        self.label.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Maximum)
+        self.label.setSizePolicy(
+            QSizePolicy.MinimumExpanding, QSizePolicy.Maximum)
         self.label.setAlignment(Qt.AlignHCenter)
         self.mainLayout.addWidget(self.label, 0, 0, 1, 1)
 
@@ -131,19 +132,23 @@ class TranslateRailDialog(QDialog):
             readOnly=False,
             value=Vec3f.zero
         )
-        self.translateProperty._xyzInputs[0].setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
-        self.translateProperty._xyzInputs[1].setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
-        self.translateProperty._xyzInputs[2].setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
+        self.translateProperty._xyzInputs[0].setSizePolicy(
+            QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
+        self.translateProperty._xyzInputs[1].setSizePolicy(
+            QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
+        self.translateProperty._xyzInputs[2].setSizePolicy(
+            QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
         self.mainLayout.addWidget(self.translateProperty, 1, 0, 1, 1)
 
-        self.buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.buttonBox = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         self.buttonBox.button(QDialogButtonBox.Ok).setMinimumSize(60, 30)
         self.buttonBox.button(QDialogButtonBox.Cancel).setMinimumSize(60, 30)
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
 
         self.mainLayout.addWidget(self.buttonBox, 2, 0, 1, 1)
-        
+
         self.setLayout(self.mainLayout)
 
 
@@ -153,14 +158,15 @@ class RotateRailDialog(QDialog):
 
         self.setWindowTitle("Rotate Rail(s)...")
         self.setFixedSize(500, 122)
-        
+
         self.mainLayout = QGridLayout()
 
         self.label = QLabel("Rotate By:")
         font = self.label.font()
         font.setPointSize(12)
         self.label.setFont(font)
-        self.label.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Maximum)
+        self.label.setSizePolicy(
+            QSizePolicy.MinimumExpanding, QSizePolicy.Maximum)
         self.label.setAlignment(Qt.AlignHCenter)
         self.mainLayout.addWidget(self.label, 0, 0, 1, 1)
 
@@ -169,17 +175,21 @@ class RotateRailDialog(QDialog):
             readOnly=False,
             value=Vec3f.zero
         )
-        self.rotateProperty._xyzInputs[0].setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
-        self.rotateProperty._xyzInputs[1].setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
-        self.rotateProperty._xyzInputs[2].setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
+        self.rotateProperty._xyzInputs[0].setSizePolicy(
+            QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
+        self.rotateProperty._xyzInputs[1].setSizePolicy(
+            QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
+        self.rotateProperty._xyzInputs[2].setSizePolicy(
+            QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
         self.mainLayout.addWidget(self.rotateProperty, 1, 0, 1, 2)
 
-        self.buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.buttonBox = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         self.buttonBox.button(QDialogButtonBox.Ok).setMinimumSize(60, 30)
         self.buttonBox.button(QDialogButtonBox.Cancel).setMinimumSize(60, 30)
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
-        
+
         self.mainLayout.addWidget(self.buttonBox, 2, 0, 1, 1)
 
         self.setLayout(self.mainLayout)
@@ -191,14 +201,15 @@ class ScaleRailDialog(QDialog):
 
         self.setWindowTitle("Scale Rail(s)...")
         self.setFixedSize(500, 122)
-        
+
         self.mainLayout = QGridLayout()
 
         self.label = QLabel("Scale By:")
         font = self.label.font()
         font.setPointSize(12)
         self.label.setFont(font)
-        self.label.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Maximum)
+        self.label.setSizePolicy(
+            QSizePolicy.MinimumExpanding, QSizePolicy.Maximum)
         self.label.setAlignment(Qt.AlignHCenter)
         self.mainLayout.addWidget(self.label, 0, 0, 1, 1)
 
@@ -207,19 +218,23 @@ class ScaleRailDialog(QDialog):
             readOnly=False,
             value=Vec3f.zero
         )
-        self.scaleProperty._xyzInputs[0].setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
-        self.scaleProperty._xyzInputs[1].setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
-        self.scaleProperty._xyzInputs[2].setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
+        self.scaleProperty._xyzInputs[0].setSizePolicy(
+            QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
+        self.scaleProperty._xyzInputs[1].setSizePolicy(
+            QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
+        self.scaleProperty._xyzInputs[2].setSizePolicy(
+            QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
         self.mainLayout.addWidget(self.scaleProperty, 1, 0, 1, 1)
 
-        self.buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.buttonBox = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         self.buttonBox.button(QDialogButtonBox.Ok).setMinimumSize(60, 30)
         self.buttonBox.button(QDialogButtonBox.Cancel).setMinimumSize(60, 30)
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
 
         self.mainLayout.addWidget(self.buttonBox, 2, 0, 1, 1)
-        
+
         self.setLayout(self.mainLayout)
 
 
@@ -228,17 +243,18 @@ class SubdivideRailDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Subdivide Rail(s)...")
         self.setFixedSize(300, 122)
-        
+
         self.mainLayout = QGridLayout()
 
         self.label = QLabel("Subdivide By:")
         font = self.label.font()
         font.setPointSize(12)
         self.label.setFont(font)
-        self.label.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Maximum)
+        self.label.setSizePolicy(
+            QSizePolicy.MinimumExpanding, QSizePolicy.Maximum)
         self.label.setAlignment(Qt.AlignHCenter)
         self.mainLayout.addWidget(self.label, 0, 0, 1, 1)
-        
+
         self.subdivideProperty = IntProperty(
             "Subdivide",
             readOnly=False,
@@ -246,17 +262,19 @@ class SubdivideRailDialog(QDialog):
         )
         self.subdivideProperty.set_maximum_value(10)
         self.subdivideProperty.set_minimum_value(1)
-        self.subdivideProperty._input.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
+        self.subdivideProperty._input.setSizePolicy(
+            QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
         self.mainLayout.addWidget(self.subdivideProperty, 1, 0, 1, 1)
 
-        self.buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.buttonBox = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         self.buttonBox.button(QDialogButtonBox.Ok).setMinimumSize(60, 30)
         self.buttonBox.button(QDialogButtonBox.Cancel).setMinimumSize(60, 30)
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
 
         self.mainLayout.addWidget(self.buttonBox, 2, 0, 1, 1)
-        
+
         self.setLayout(self.mainLayout)
 
 
@@ -274,7 +292,7 @@ class RailItem(QStandardItem):
         self._rail = Rail("((null))")
         if other is None:
             return
-        
+
         self._rail = other
 
     def isAutoTristate(self) -> bool:
@@ -325,7 +343,7 @@ class RailItem(QStandardItem):
             return super().data(role)
 
         kind = "Spline Rail" if self._rail.is_spline() else "Rail"
-            
+
         if role == Qt.DisplayRole:
             return self._rail.name
 
@@ -377,7 +395,7 @@ class RailNodeItem(QStandardItem):
         self._node = RailNode()
         if other is None:
             return
-        
+
         self._node = other
 
     def isAutoTristate(self) -> bool:
@@ -429,7 +447,7 @@ class RailNodeItem(QStandardItem):
         railName = "Rail"
         if rail:
             railName = f"\"{rail.name}\""
-            
+
         if role == Qt.DisplayRole:
             return f"Node {self.row()} - {connections}"
 
@@ -529,7 +547,7 @@ class RailListModel(QStandardItemModel):
 
         stream.writeInt32(len(indexes))
         for index in indexes:
-            item = self.itemFromIndex(index) # type: ignore
+            item = self.itemFromIndex(index)  # type: ignore
             item.write(stream)
 
         mimeData.setData(
@@ -537,7 +555,7 @@ class RailListModel(QStandardItemModel):
             encodedData
         )
         return mimeData
-    
+
     def _resolve_name(self, name: str, filterItem: Optional[QStandardItem] = None) -> str:
         renameContext = 1
         ogName = name
@@ -609,7 +627,7 @@ class RailNodeListModel(QStandardItemModel):
         itemCount = stream.readInt32()
         if action & Qt.CopyAction:
             for i in range(itemCount):
-                stream.readInt32() # skip rows
+                stream.readInt32()  # skip rows
                 item = RailNodeItem()
                 item.read(stream)
                 self.insertRow(row + i, item)
@@ -645,8 +663,8 @@ class RailNodeListModel(QStandardItemModel):
 
         stream.writeInt32(len(indexes))
         for index in indexes:
-            item = self.itemFromIndex(index) # type: ignore
-            stream.writeInt32(index.row()) # type: ignore
+            item = self.itemFromIndex(index)  # type: ignore
+            stream.writeInt32(index.row())  # type: ignore
             item.write(stream)
 
         mimeData.setData(
@@ -763,7 +781,7 @@ class RailNodeListWidget(InteractiveListView):
         """
         if len(indexes) == 0:
             return []
-            
+
         model = self.model()
 
         newIndexes: list[QModelIndex | QPersistentModelIndex] = []
@@ -869,7 +887,7 @@ class RailNodeListWidget(InteractiveListView):
         node._set_period_from(slot, self.get_rail_node(connection))
         self.update(index)
         self._populate_data_view(index, QModelIndex())
-    
+
     @Slot(QModelIndex)
     def _populate_properties_view(self, selected: QModelIndex) -> None:
         from juniors_toolbox.gui.tabs import TabWidgetManager
@@ -890,7 +908,8 @@ class RailNodeListWidget(InteractiveListView):
                 railNode.posZ.get_value()
             ]
         )
-        position.valueChanged.connect(lambda _, v: self._set_position(selected, v))
+        position.valueChanged.connect(
+            lambda _, v: self._set_position(selected, v))
 
         flags = IntProperty(
             "Flags",
@@ -946,21 +965,21 @@ class RailNodeListWidget(InteractiveListView):
             connection.set_maximum_value(self.model().rowCount() - 1)
             connectionsList.append(connection)
             connections.add_property(connection)
-        connectionslist[0].valueChanged.connect(
+        connectionsList[0].valueChanged.connect(
             lambda _, v: self._update_connection(selected, 0, v))
-        connectionslist[1].valueChanged.connect(
+        connectionsList[1].valueChanged.connect(
             lambda _, v: self._update_connection(selected, 1, v))
-        connectionslist[2].valueChanged.connect(
+        connectionsList[2].valueChanged.connect(
             lambda _, v: self._update_connection(selected, 2, v))
-        connectionslist[3].valueChanged.connect(
+        connectionsList[3].valueChanged.connect(
             lambda _, v: self._update_connection(selected, 3, v))
-        connectionslist[4].valueChanged.connect(
+        connectionsList[4].valueChanged.connect(
             lambda _, v: self._update_connection(selected, 4, v))
-        connectionslist[5].valueChanged.connect(
+        connectionsList[5].valueChanged.connect(
             lambda _, v: self._update_connection(selected, 5, v))
-        connectionslist[6].valueChanged.connect(
+        connectionsList[6].valueChanged.connect(
             lambda _, v: self._update_connection(selected, 6, v))
-        connectionslist[7].valueChanged.connect(
+        connectionsList[7].valueChanged.connect(
             lambda _, v: self._update_connection(selected, 7, v))
 
         connectionCount.set_maximum_value(8)
@@ -972,10 +991,10 @@ class RailNodeListWidget(InteractiveListView):
             properties=[
                 position,
                 flags,
-                valuelist[0],
-                valuelist[1],
-                valuelist[2],
-                valuelist[3],
+                valueList[0],
+                valueList[1],
+                valueList[2],
+                valueList[3],
                 connectionCount,
                 connections
             ]
@@ -1096,11 +1115,11 @@ class RailListView(InteractiveListView):
         menu.addAction(deleteAction)
 
         return menu
-    
+
     def _set_rail_spline(self, index: QModelIndex, isSpline: bool):
         from juniors_toolbox.gui.tabs import TabWidgetManager
         from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
-        
+
         propertiesTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
         if propertiesTab is None or not index.isValid():
             return
@@ -1116,7 +1135,7 @@ class RailListView(InteractiveListView):
 
         self.update(index)
         # self._populate_data_view(index())
-    
+
     @Slot(list)
     def duplicate_indexes(self, indexes: list[QModelIndex | QPersistentModelIndex]) -> list[QModelIndex | QPersistentModelIndex]:
         """
@@ -1124,7 +1143,7 @@ class RailListView(InteractiveListView):
         """
         if len(indexes) == 0:
             return []
-            
+
         model = self.model()
 
         newIndexes: list[QModelIndex | QPersistentModelIndex] = []
@@ -1168,7 +1187,7 @@ class RailListView(InteractiveListView):
         dialog = TranslateRailDialog(self)
         if dialog.exec() != QDialog.Accepted:
             return
-        
+
         value = dialog.translateProperty.get_value()
         for index in indexes:
             rail = self.get_rail(index.row())
@@ -1179,7 +1198,7 @@ class RailListView(InteractiveListView):
         dialog = RotateRailDialog(self)
         if dialog.exec() != QDialog.Accepted:
             return
-        
+
         value = dialog.rotateProperty.get_value()
         for index in indexes:
             rail = self.get_rail(index.row())
@@ -1190,7 +1209,7 @@ class RailListView(InteractiveListView):
         dialog = ScaleRailDialog(self)
         if dialog.exec() != QDialog.Accepted:
             return
-        
+
         value = dialog.scaleProperty.get_value()
         for index in indexes:
             rail = self.get_rail(index.row())
@@ -1201,12 +1220,12 @@ class RailListView(InteractiveListView):
         dialog = SubdivideRailDialog(self)
         if dialog.exec() != QDialog.Accepted:
             return
-        
+
         value = dialog.subdivideProperty.get_value()
         for index in indexes:
             rail = self.get_rail(index.row())
             rail.subdivide(value)
-    
+
     @Slot(QModelIndex)
     def _populate_properties_view(self, selected: QModelIndex) -> None:
         from juniors_toolbox.gui.tabs import TabWidgetManager
@@ -1246,7 +1265,7 @@ class RailListView(InteractiveListView):
                 isSplineProperty
             ]
         )
-    
+
     @Slot(QModelIndex)
     def _populate_data_view(self, selected: QModelIndex):
         from juniors_toolbox.gui.tabs import TabWidgetManager
@@ -1279,7 +1298,7 @@ class RailInterfaceWidget(QWidget):
         self.buttonLayout.addWidget(self.scaleButton, 1, 0, 1, 1)
         self.buttonLayout.addWidget(self.rotateButton, 1, 1, 1, 1)
         self.buttonLayout.addWidget(self.subdivideButton, 2, 0, 2, 1)
-        
+
 
 class RailViewerWidget(A_DockingInterface):
     def __init__(self, title: str = "", parent: Optional[QWidget] = None) -> None:
@@ -1309,7 +1328,8 @@ class RailViewerWidget(A_DockingInterface):
         self.nodeListLayout = QVBoxLayout()
 
         nodeInterface = ListInterfaceWidget()
-        nodeInterface.addRequested.connect(lambda: self.new_node(self.nodeList.currentIndex()))
+        nodeInterface.addRequested.connect(
+            lambda: self.new_node(self.nodeList.currentIndex()))
         nodeInterface.removeRequested.connect(
             self.remove_selected_nodes)
         nodeInterface.copyRequested.connect(self.copy_selected_nodes)
