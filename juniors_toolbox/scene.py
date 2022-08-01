@@ -8,6 +8,7 @@ from juniors_toolbox.objects.object import A_SceneObject, MapObject, ObjectFacto
 from juniors_toolbox.rail import Rail, RalData
 from juniors_toolbox.utils.iohelper import write_uint16, write_uint32
 
+
 class SMSScene():
     BIN_PARAM_PATH = Path("Parameters")
 
@@ -37,7 +38,7 @@ class SMSScene():
                 obj = ObjectFactory.create_object_f(f)
                 if obj is not None:
                     this._objects.append(obj)
-        
+
         with railPath.open("rb") as f:
             this._raildata = RalData.from_bytes(f)
 
@@ -77,7 +78,7 @@ class SMSScene():
             if obj.get_ref() == name and obj.key.get_ref() == desc:
                 return obj
         return None
-        
+
     def iter_rails(self) -> Iterable[Rail]:
         for rail in self._raildata.iter_rails():
             yield rail
@@ -188,6 +189,12 @@ class SMSScene():
                 f.write(obj.to_bytes())
 
         return True
+
+    def get_object_data(self) -> bytes:
+        data = b""
+        for obj in self.iter_objects():
+            data += obj.to_bytes()
+        return data
 
     def reset(self) -> None:
         """

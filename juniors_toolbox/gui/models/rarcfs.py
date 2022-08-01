@@ -101,6 +101,7 @@ class JSystemFSModel(QAbstractItemModel):
         ".brk": "J3D Texture Register Animation",
         ".bpk": "J3D Color Animation",
         ".blk": "J3D Vertex Animation (UNUSED)",
+        ".bva": "J3D Mesh Visibility Animation (UNUSED)",
         ".col": "Collision Model",
         ".jpa": "JSystem Particle Effect",
         ".sb": "SPC Script (Sunscript)",
@@ -463,7 +464,7 @@ class JSystemFSModel(QAbstractItemModel):
         return self.createIndex(destRow, 0, parent)
 
     def rename(self, index: QModelIndex | QPersistentModelIndex, name: str, action: FileConflictAction | None = None) -> QModelIndex:
-        if not index.isValid():
+        if not index.isValid() or name == "":
             return QModelIndex()
 
         handleInfo: JSystemFSModel._HandleInfo = index.internalPointer()
@@ -474,13 +475,13 @@ class JSystemFSModel(QAbstractItemModel):
         thisPath = self.get_path(index)
         destPath = thisPath.with_name(name)
 
-        if os.path.exists(destPath) and action == FileConflictAction.SKIP:
-            return QModelIndex()
-
-        if action is None:
-            self.conflictFound.emit(thisPath, destPath)
-            while (action := self.get_conflict_action()) is None:
-                time.sleep(0.1)
+        if os.path.exists(destPath):
+            if action == FileConflictAction.SKIP:
+                return QModelIndex()
+            if action is None:
+                self.conflictFound.emit(thisPath, destPath)
+                while (action := self.get_conflict_action()) is None:
+                    time.sleep(0.1)
 
         archiveIndex = self.get_parent_archive(index)
         if archiveIndex.isValid():
@@ -630,7 +631,65 @@ class JSystemFSModel(QAbstractItemModel):
 
         return successful
 
-    def mkdir(self, parent: QModelIndex | QPersistentModelIndex, name: str) -> QModelIndex:
+    def mkfile(self, name: str, initialData: bytes | bytearray, parent: QModelIndex | QPersistentModelIndex) -> QModelIndex:
+        if not parent.isValid():
+            return QModelIndex()
+
+        parentPath = self.get_path(parent)
+        parentInfo: JSystemFSModel._HandleInfo = parent.internalPointer()
+
+        row = len(parentInfo.children)
+        column = 0
+
+        if not os.path.isdir(parentPath):
+            if self.is_archive(parent):
+                archive = self._archives[parentPath]
+                fileHandle = archive.new_file(name, initialData)
+                if fileHandle is None:
+                    return QModelIndex()
+
+            elif self.is_child_of_archive(parent):
+                archiveIndex = self.get_parent_archive(parent)
+                if not archiveIndex.isValid():
+                    return QModelIndex()
+
+                archivePath = self.get_path(archiveIndex)
+                archive = self._archives[archivePath]
+
+                virtualPath = parentPath.relative_to(archivePath)
+                parentHandle = archive.get_handle(virtualPath)
+                if parentHandle is None:
+                    return QModelIndex()
+
+                fileHandle = parentHandle.new_file(name, initialData)
+                if fileHandle is None:
+                    return QModelIndex()
+
+            handleInfo = JSystemFSModel._HandleInfo(
+                parentPath / name, parentInfo, [], True, 0
+            )
+            parentInfo.children.append(handleInfo)
+
+            return self.createIndex(row, column, handleInfo)
+
+        if os.path.isdir(parentPath):
+            if os.path.exists(parentPath / name):
+                raise PermissionError(
+                    f"\"{parentPath / name}\" already exists!")
+
+            with open(parentPath / name, "wb") as f:
+                f.write(initialData)
+
+            handleInfo = JSystemFSModel._HandleInfo(
+                parentPath / name, parentInfo, [], True, 0
+            )
+            parentInfo.children.append(handleInfo)
+        else:
+            return QModelIndex()
+
+        return self.createIndex(row, column, handleInfo)
+
+    def mkdir(self, name: str, parent: QModelIndex | QPersistentModelIndex) -> QModelIndex:
         if not parent.isValid():
             return QModelIndex()
 
@@ -671,7 +730,11 @@ class JSystemFSModel(QAbstractItemModel):
 
             return self.createIndex(row, column, handleInfo)
 
-        if os.path.isdir(parentPath.parent) and not os.path.exists(parentPath / name):
+        if os.path.isdir(parentPath):
+            if os.path.exists(parentPath / name):
+                raise PermissionError(
+                    f"\"{parentPath / name}\" already exists!")
+
             os.mkdir(parentPath / name)
 
             handleInfo = JSystemFSModel._HandleInfo(
@@ -723,6 +786,10 @@ class JSystemFSModel(QAbstractItemModel):
         if not index.isValid():
             return -1
 
+        if index.model() != self:
+            print("WARNING: Index doesn't belong to model!!", index.model(), self)
+            return -1
+
         handleInfo: JSystemFSModel._HandleInfo = index.internalPointer()
         isFile = handleInfo.isFile
         name = handleInfo.path.name
@@ -764,20 +831,16 @@ class JSystemFSModel(QAbstractItemModel):
             return False
 
         handleInfo: JSystemFSModel._HandleInfo = index.internalPointer()
-        path = handleInfo.path
 
         changed = False
         if role == Qt.DisplayRole:
-            newPath = path.parent / value
-            changed = self.rename(index, newPath)
+            changed = self.rename(index, value)
 
         if role == Qt.EditRole:
-            newPath = path.parent / value
-            changed = self.rename(index, newPath)
+            changed = self.rename(index, value)
 
         if role == self.FileNameRole:
-            newPath = path.parent / (value.split(".")[0] + "." + path.suffix)
-            changed = self.rename(index, newPath)
+            changed = self.rename(index, value)
 
         if role == self.FilePathRole:
             changed = self.rename(index, value)
@@ -1339,7 +1402,7 @@ class JSystemFSModel(QAbstractItemModel):
         destPath = destFolder / thisPath.name
 
         if thisPath.is_dir():
-            subDir = self.mkdir(destinationParent, thisPath.name)
+            subDir = self.mkdir(thisPath.name, destinationParent)
             childCount = inputStream.readUInt32()
 
             successful = True
@@ -1467,7 +1530,7 @@ class JSystemFSModel(QAbstractItemModel):
             elif handleType == JSystemFSModel._HandleType.DIRECTORY:
                 childrenCount = inputStream.readUInt32()
 
-                folderIndex = self.mkdir(destinationParent, thisPath.name)
+                folderIndex = self.mkdir(thisPath.name, destinationParent)
 
                 successful = True
                 for _ in range(childrenCount):
@@ -1542,7 +1605,7 @@ class JSystemFSModel(QAbstractItemModel):
         elif handleType == JSystemFSModel._HandleType.DIRECTORY:
             childrenCount = inputStream.readUInt32()
 
-            folderIndex = self.mkdir(destinationParent, thisPath.name)
+            folderIndex = self.mkdir(thisPath.name, destinationParent)
 
             successful = True
             for _ in range(childrenCount):

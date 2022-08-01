@@ -1,14 +1,13 @@
 from abc import abstractmethod
 from hashlib import new
 import shutil
+import sys
 import time
 from cmath import exp
 from enum import Enum, IntEnum, auto
 from pathlib import Path, PurePath
 from typing import Any, BinaryIO, Callable, Dict, List, Optional, Tuple, Union
 
-from numpy import source
-from soupsieve import select
 from juniors_toolbox.gui.dialogs.moveconflict import MoveConflictDialog
 
 from juniors_toolbox.gui.images import get_icon, get_image
@@ -20,7 +19,8 @@ from juniors_toolbox.gui.widgets.interactivestructs import InteractiveListView, 
 from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.utils import A_Serializable, VariadicArgs, VariadicKwargs
 from juniors_toolbox.utils.bmg import BMG
-from juniors_toolbox.utils.filesystem import open_path_in_explorer
+from juniors_toolbox.utils.filesystem import open_path_in_explorer, open_path_in_terminal
+from juniors_toolbox.utils.initializer import FileInitializer
 from juniors_toolbox.utils.j3d.anim.bca import BCA
 from juniors_toolbox.utils.j3d.anim.bck import BCK
 from juniors_toolbox.utils.j3d.anim.bla import BLA
@@ -37,7 +37,7 @@ from PySide6.QtCore import (QAbstractItemModel, QDataStream, QEvent, QIODevice,
                             QLine, QMimeData, QModelIndex, QObject, QPoint,
                             QSize, Qt, QThread, QTimer, QUrl, Signal, QItemSelectionModel, QPersistentModelIndex,
                             SignalInstance, Slot)
-from PySide6.QtGui import (QAction, QColor, QCursor, QDrag, QDragEnterEvent,
+from PySide6.QtGui import (QAction, QColor, QCursor, QDrag, QDragEnterEvent, QClipboard,
                            QDragLeaveEvent, QDragMoveEvent, QDropEvent, QIcon,
                            QImage, QKeyEvent, QMouseEvent, QPaintDevice, QContextMenuEvent,
                            QPainter, QPaintEvent, QPalette, QPixmap, QPen,
@@ -52,99 +52,71 @@ from PySide6.QtWidgets import (QBoxLayout, QComboBox, QFormLayout, QFrame,
                                QStylePainter, QTableWidget, QTableWidgetItem,
                                QToolBar, QTreeWidget, QTreeWidgetItem, QDialog, QDialogButtonBox, QApplication, QTreeView,
                                QVBoxLayout, QWidget)
-from watchdog.events import FileSystemEvent, FileSystemEventHandler
-from watchdog.observers import Observer
 
 _ASSET_INIT_TABLE = {
     "Animation": {
         BCA: {
-            "init_fn": BCA,
-            "name": "Joint All",
-            "icon": None
+            "Initializer": FileInitializer("NewJointAnim.bca", BCA()),
+            "ActionName": "Joint All",
+            "ActionIcon": None
         },
         BCK: {
-            "init_fn": BCK,
-            "name": "Joint Key",
-            "icon": None
+            "Initializer": FileInitializer("NewJointKeyAnim.bck", BCK()),
+            "ActionName": "Joint Key",
+            "ActionIcon": None
         },
         BLA: {
-            "init_fn": BLA,
-            "name": "Cluster All",
-            "icon": None
+            "Initializer": FileInitializer("NewClusterAnim.bla", BLA()),
+            "ActionName": "Cluster All",
+            "ActionIcon": None
         },
         BLK: {
-            "init_fn": BLK,
-            "name": "Cluster Key",
-            "icon": None
+            "Initializer": FileInitializer("NewClusterKeyAnim.blk", BLK()),
+            "ActionName": "Cluster Key",
+            "ActionIcon": None
         },
         BPK: {
-            "init_fn": BPK,
-            "name": "Color Key",
-            "icon": None
+            "Initializer": FileInitializer("NewColorKeyAnim.bpk", BPK()),
+            "ActionName": "Color Key",
+            "ActionIcon": None
         },
         BRK: {
-            "init_fn": BRK,
-            "name": "TEV Register Key",
-            "icon": None
+            "Initializer": FileInitializer("NewTEVRegisterKeyAnim.brk", BRK()),
+            "ActionName": "TEV Register Key",
+            "ActionIcon": None
         },
         BTK: {
-            "init_fn": BTK,
-            "name": "Texture SRT Key",
-            "icon": None
+            "Initializer": FileInitializer("NewTextureSRTKeyAnim.btk", BTK()),
+            "ActionName": "Texture SRT Key",
+            "ActionIcon": None
         },
         BTP: {
-            "init_fn": BTP,
-            "name": "Texture Palette All",
-            "icon": None
+            "Initializer": FileInitializer("NewTexturePaletteAnim.btp", BTP()),
+            "ActionName": "Texture Palette All",
+            "ActionIcon": None
         },
         BVA: {
-            "init_fn": BVA,
-            "name": "Mesh Visibility All",
-            "icon": None
+            "Initializer": FileInitializer("NewMeshVisibilityAnim.bva", BVA()),
+            "ActionName": "Mesh Visibility All",
+            "ActionIcon": None
         },
     },
     SMSScene: {
-        "init_fn": SMSScene,
-        "name": "Empty Scene",
-        "icon": None
+        "Initializer": FileInitializer("scene.bin", b""),
+        "ActionName": "Empty Scene",
+        "ActionIcon": None
     },
     BMG: {
-        "init_fn": BMG,
-        "name": "Message Table",
-        "icon": None
+        "Initializer": FileInitializer("NewMessage.bmg", BMG()),
+        "ActionName": "Message Table",
+        "ActionIcon": None
     },
     PrmFile: {
-        "init_fn": PrmFile,
-        "name": "Parameter Table",
-        "icon": None
+        "Initializer": FileInitializer("NewParams.prm", PrmFile()),
+        "ActionName": "Parameter Table",
+        "ActionIcon": None
     },
 }
-
-
-def generate_asset_menu(parent: QWidget) -> QMenu:
-    createMenu = QMenu("Create", parent)
-    folderAction = ProjectCreateAction(createMenu)
-    folderAction.setText("Folder")
-
-    def traverse_structure(_menu: QMenu, initTable: dict):
-        for assetKind, assetInfo in initTable.items():
-            if isinstance(assetKind, str):
-                subMenu = QMenu(assetKind)
-                traverse_structure(subMenu, assetInfo)
-                _menu.addMenu(subMenu)
-                _menu.addSeparator()
-            else:
-                if assetInfo["icon"] is None:
-                    action = ProjectCreateAction(_menu)
-                    action._init_fn_ = assetInfo["init_fn"]
-                    action.setText(assetInfo["name"])
-                else:
-                    action = QAction(
-                        assetInfo["icon"], assetInfo["name"], _menu)
-                _menu.addAction(action)
-
-    traverse_structure(createMenu, _ASSET_INIT_TABLE)
-    return createMenu
 
 
 class ProjectAssetType(IntEnum):
@@ -273,19 +245,9 @@ class ProjectHierarchyItem(QTreeWidgetItem):
 
 
 class ProjectCreateAction(QAction):
-    class _EmptyFile(A_Serializable):
-        @classmethod
-        def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **kwargs: VariadicKwargs) -> Optional[A_Serializable]:
-            return ProjectCreateAction._EmptyFile()
-
-        def to_bytes(self) -> bytes:
-            return b""
-
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
-
-    def init_file(self) -> A_Serializable:
-        return ProjectCreateAction._EmptyFile()
+        self.initializer = FileInitializer("Default", b"")
 
 
 class ProjectFocusedMenuBarAction(QAction):
@@ -498,20 +460,79 @@ class ProjectFolderViewWidget(InteractiveListView, A_FileSystemViewer):
         proxy: JSystemFSSortProxyModel = self.model()
         proxy.setSourceModel(model)
 
-    def create_item(self, action: ProjectCreateAction) -> None:
-        ...
+    def get_context_menu(self, point: QPoint) -> Optional[QMenu]:
+        menu = QMenu(self)
 
-    @Slot(QPoint)
-    def custom_context_menu(self, point: QPoint) -> None:
+        model: JSystemFSModel = self.get_source_model()
+        proxyModel: JSystemFSSortProxyModel = self.model()
+
         # Infos about the node selected.
-        index = self.indexAt(point)
+        selectedIndex = self.indexAt(point)
+        selectedIndexValid = selectedIndex.isValid()
 
+        sourceIndex = proxyModel.mapToSource(selectedIndex)
+        isChildOfArchive = model.get_parent_archive(sourceIndex).isValid()
+
+        newAssetMenu = self.generate_asset_menu(selectedIndex)
+        newFolderAction = QAction("New Folder", self)
+        newFolderAction.triggered.connect(
+            lambda: self._create_folder_index(parent=selectedIndex))
+
+        if not isChildOfArchive:
+            explorerAction = QAction("Open in Explorer", self)
+            explorerAction.triggered.connect(
+                lambda: self._open_index_in_explorer(selectedIndex)
+            )
+            terminalAction = QAction("Open in Terminal", self)
+            terminalAction.triggered.connect(
+                lambda: self._open_index_in_terminal(selectedIndex)
+            )
+
+        copyPathAction = QAction("Copy Path", self)
+        copyPathAction.triggered.connect(
+            lambda: self._copy_index_path(selectedIndex, relative=False)
+        )
+
+        if selectedIndexValid:
+            cutAction = QAction("Cut", self)
+            copyAction = QAction("Copy", self)
+
+            copyRelativePathAction = QAction("Copy Relative Path", self)
+            copyRelativePathAction.triggered.connect(
+                lambda: self._copy_index_path(selectedIndex, relative=True)
+            )
+
+            renameAction = QAction("Rename", self)
+            deleteAction = QAction("Delete", self)
+
+        menu.addMenu(newAssetMenu)
+        menu.addAction(newFolderAction)
+
+        if not isChildOfArchive:
+            menu.addAction(explorerAction)
+            menu.addAction(terminalAction)
+
+        menu.addSeparator()
+
+        if selectedIndexValid:
+            menu.addAction(cutAction)
+            menu.addAction(copyAction)
+            menu.addSeparator()
+
+        menu.addAction(copyPathAction)
+
+        if selectedIndexValid:
+            menu.addAction(copyRelativePathAction)
+            menu.addSeparator()
+            menu.addAction(renameAction)
+            menu.addAction(deleteAction)
+
+        return menu
+
+    def generate_asset_menu(self, parent: QModelIndex) -> QMenu:
         createMenu = QMenu("Create", self)
         folderAction = ProjectCreateAction(createMenu)
         folderAction.setText("Folder")
-        folderAction.triggered.connect(
-            lambda _action: self.create_item(_action)
-        )
 
         def traverse_structure(_menu: QMenu, initTable: dict):
             for assetKind, assetInfo in initTable.items():
@@ -521,49 +542,111 @@ class ProjectFolderViewWidget(InteractiveListView, A_FileSystemViewer):
                     _menu.addMenu(subMenu)
                     _menu.addSeparator()
                 else:
-                    if assetInfo["icon"] is None:
-                        action = ProjectCreateAction(_menu)
-                        action._init_fn_ = assetInfo["init_fn"]
-                        action.setText(assetInfo["name"])
-                    else:
-                        action = QAction(
-                            assetInfo["icon"], assetInfo["name"], _menu)
-                    action.clicked.connect(
-                        lambda _action: self.create_item(_action)
+                    action = ProjectCreateAction(_menu)
+                    action.setText(assetInfo["ActionName"])
+                    if assetInfo["ActionIcon"]:
+                        action.setIcon(assetInfo["ActionIcon"])
+
+                    action.initializer = assetInfo["Initializer"]
+                    action.triggered.connect(
+                        lambda: self._write_action_initializer(
+                            parent, action.initializer
+                        )
                     )
+
                     _menu.addAction(action)
 
         traverse_structure(createMenu, _ASSET_INIT_TABLE)
+        return createMenu
 
-        viewAction = QAction("Show in Explorer", self)
-        viewAction.triggered.connect(
-            lambda clicked=None: self.openExplorerRequested.emit(index)
-        )
+    def _open_index_in_explorer(self, index: QModelIndex | QPersistentModelIndex) -> None:
+        model: JSystemFSModel = self.get_source_model()
+        proxyModel: JSystemFSSortProxyModel = self.model()
 
-        # We build the menu.
-        if index.isValid():
-            menu = self.get_context_menu(point)
-            if menu is None:
-                return
+        if not index.isValid():
+            index = self.rootIndex()
 
-            openAction = QAction("Open", self)
-            openAction.triggered.connect(
-                lambda clicked=None: self.openRequested.emit(index)
-            )
-            beforeAction = menu.actions()
-            beforeAction = beforeAction[0]
-            menu.insertMenu(beforeAction, createMenu)
-            menu.insertSeparator(beforeAction)
-            menu.insertAction(beforeAction, viewAction)
-            menu.insertSeparator(beforeAction)
-            menu.insertAction(beforeAction, openAction)
+        if index.model() == proxyModel:
+            index = proxyModel.mapToSource(index)
+
+        open_path_in_explorer(Path(model.get_path(index)))
+
+    def _open_index_in_terminal(self, index: QModelIndex | QPersistentModelIndex) -> None:
+        model: JSystemFSModel = self.get_source_model()
+        proxyModel: JSystemFSSortProxyModel = self.model()
+
+        if not index.isValid():
+            index = self.rootIndex()
+
+        if index.model() == proxyModel:
+            index = proxyModel.mapToSource(index)
+
+        open_path_in_terminal(Path(model.get_path(index)))
+
+    def _copy_index_path(self, index: QModelIndex | QPersistentModelIndex, relative: bool = True) -> None:
+        model: JSystemFSModel = self.get_source_model()
+        proxyModel: JSystemFSSortProxyModel = self.model()
+
+        if not index.isValid():
+            index = self.rootIndex()
+
+        if index.model() == proxyModel:
+            index = proxyModel.mapToSource(index)
+
+        path = model.get_path(index)
+        if relative and model.rootPath:
+            path = path.relative_to(model.rootPath)
+            if sys.platform == "win32":
+                QClipboard().setText(f".\{path}")
+            else:
+                QClipboard().setText(f"./{path}")
         else:
-            menu = QMenu(self)
-            menu.addMenu(createMenu)
-            menu.addSeparator()
-            menu.addAction(viewAction)
+            QClipboard().setText(str(path))
 
-        menu.exec(self.mapToGlobal(point))
+    def _write_action_initializer(self, index: QModelIndex | QPersistentModelIndex, initializer: FileInitializer) -> None:
+        model: JSystemFSModel = self.get_source_model()
+        proxyModel: JSystemFSSortProxyModel = self.model()
+
+        if not index.isValid():
+            index = self.rootIndex()
+
+        if index.model() == proxyModel:
+            index = proxyModel.mapToSource(index)
+
+        initPath = model._resolve_path_conflict(initializer.get_name(), index)
+        if initPath is None:
+            raise RuntimeError("Failed to find unique path for init")
+        initName = initPath.name
+
+        newIndex = model.mkfile(initName,
+                                initializer.get_identity(), index)
+        proxyModel.invalidate()
+        proxyIndex = proxyModel.mapFromSource(newIndex)
+        self.edit(proxyIndex)
+
+    def _create_folder_index(self, name: str = "New Folder", parent: QModelIndex | QPersistentModelIndex = QModelIndex()) -> None:
+        """
+        Creates a folder and sets up the Widget to rename
+        """
+        model: JSystemFSModel = self.get_source_model()
+        proxyModel: JSystemFSSortProxyModel = self.model()
+
+        if not parent.isValid():
+            parent = self.rootIndex()
+
+        if parent.model() == proxyModel:
+            parent = proxyModel.mapToSource(parent)
+
+        initPath = model._resolve_path_conflict(name, parent)
+        if initPath is None:
+            raise RuntimeError("Failed to find unique path for init")
+        initName = initPath.name
+
+        newIndex = model.mkdir(initName, parent)
+
+        proxyModel.invalidate()
+        proxyIndex = proxyModel.mapFromSource(newIndex)
+        self.edit(proxyIndex)
 
     def _resolve_name(self, name: str, filterItem: Optional[QModelIndex | QPersistentModelIndex] = None) -> str:
         model = self.model()
@@ -602,6 +685,16 @@ class ProjectFolderViewWidget(InteractiveListView, A_FileSystemViewer):
         if len(parts) == 2:
             name += f".{parts[1]}"
         return name
+
+    def _create_asset_index(self, name: str = "New Asset", parent: QModelIndex | QPersistentModelIndex = QModelIndex()) -> None:
+        model: JSystemFSModel = self.get_source_model()
+        if parent.model() == model:
+            newIndex = model.mkdir(name, parent)
+        else:
+            proxyModel: JSystemFSSortProxyModel = self.model()
+            newIndex = model.mkdir(name, proxyModel.mapToSource(parent))
+        newProxyIndex = proxyModel.mapFromSource(newIndex)
+        self.edit(newProxyIndex)
 
     @Slot(QMouseEvent)
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
@@ -1086,7 +1179,6 @@ class ProjectTreeViewWidget(InteractiveTreeView, A_FileSystemViewer):
         selectedIndex = self.indexAt(point)
         selectedIndexValid = selectedIndex.isValid()
 
-        newAssetMenu = generate_asset_menu(self)
         newFolderAction = QAction("New Folder", self)
 
         explorerAction = QAction("Open in Explorer", self)
@@ -1100,7 +1192,6 @@ class ProjectTreeViewWidget(InteractiveTreeView, A_FileSystemViewer):
             renameAction = QAction("Rename", self)
             deleteAction = QAction("Delete", self)
 
-        menu.addMenu(newAssetMenu)
         menu.addAction(newFolderAction)
         menu.addAction(explorerAction)
         menu.addAction(terminalAction)
@@ -1213,6 +1304,8 @@ class ProjectViewerWidget(A_DockingInterface):
         # )
 
         self.focusedViewWidget.moveRequested.connect(self.move_items)
+
+        self.fsModel.conflictFound.connect(self._show_conflict_dialog)
 
     @property
     def scenePath(self) -> Path:
@@ -1556,3 +1649,10 @@ class ProjectViewerWidget(A_DockingInterface):
         self.fsTreeWidget.expand(
             dirModel.mapFromSource(sourceIndex)
         )
+
+    @Slot(PurePath, PurePath)
+    def _show_conflict_dialog(self, src: PurePath, dst: PurePath):
+        conflictDialog = MoveConflictDialog(True, self)
+        conflictDialog.set_paths(src, dst)
+        conflictDialog.exec()
+        self.fsModel.set_conflict_action(conflictDialog._actionRole)

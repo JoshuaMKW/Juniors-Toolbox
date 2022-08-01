@@ -67,7 +67,7 @@ class MatrixAnimation():
     
     
 class BTK(BasicAnimation):
-    def __init__(self, loop_mode, anglescale, duration, unknown_address=0, tantype = 1):
+    def __init__(self, loop_mode=0, anglescale=0, duration=1, unknown_address=0, tantype = 1):
         self.animations = []
         self.loop_mode = loop_mode
         self.anglescale = anglescale

@@ -18,7 +18,7 @@ BVAFILEMAGIC = b"J3D1bva1"
 
 
 class VisibilityAnimation():
-    def __init__(self, index, name, frames):
+    def __init__(self, index=0, name="BVAVisabilityAnimation", frames=0):
         self.index = index
         self.name = name
         self.frames = frames
@@ -33,7 +33,7 @@ class VisibilityAnimation():
 
 
 class BVA(BasicAnimation):
-    def __init__(self, loop_mode, duration, tantype=0):
+    def __init__(self, loop_mode=0, duration=1, tantype=0):
         self.animations = []
         self.loop_mode = loop_mode
         #self.anglescale = anglescale

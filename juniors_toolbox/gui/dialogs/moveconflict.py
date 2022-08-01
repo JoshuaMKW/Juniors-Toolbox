@@ -20,13 +20,10 @@ from PySide6.QtWidgets import (QBoxLayout, QComboBox, QFormLayout, QFrame,
                                QVBoxLayout, QWidget)
 from enum import IntEnum
 
+from juniors_toolbox.utils.rarc import FileConflictAction
+
 
 class MoveConflictDialog(QDialog):
-    class ActionRole(IntEnum):
-        REPLACE = 0
-        SKIP = 1
-        KEEP = 2
-
     def __init__(self, isMulti: bool = False, parent: Optional[QWidget] = None):
         super().__init__(parent)
         if isMulti:
@@ -49,14 +46,20 @@ class MoveConflictDialog(QDialog):
         replaceButton.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
         skipButton.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
         keepButton.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
-        replaceButton.clicked.connect(lambda: self.__accept_role(MoveConflictDialog.ActionRole.REPLACE))
-        skipButton.clicked.connect(lambda: self.__accept_role(MoveConflictDialog.ActionRole.SKIP))
-        keepButton.clicked.connect(lambda: self.__accept_role(MoveConflictDialog.ActionRole.KEEP))
+        replaceButton.clicked.connect(
+            lambda: self.__accept_role(FileConflictAction.REPLACE))
+        skipButton.clicked.connect(
+            lambda: self.__accept_role(FileConflictAction.SKIP))
+        keepButton.clicked.connect(
+            lambda: self.__accept_role(FileConflictAction.KEEP))
 
         choicesBox = QDialogButtonBox(Qt.Vertical)
-        choicesBox.addButton(replaceButton, QDialogButtonBox.ButtonRole.AcceptRole)
-        choicesBox.addButton(skipButton, QDialogButtonBox.ButtonRole.AcceptRole)
-        choicesBox.addButton(keepButton, QDialogButtonBox.ButtonRole.AcceptRole)
+        choicesBox.addButton(
+            replaceButton, QDialogButtonBox.ButtonRole.AcceptRole)
+        choicesBox.addButton(
+            skipButton, QDialogButtonBox.ButtonRole.AcceptRole)
+        choicesBox.addButton(
+            keepButton, QDialogButtonBox.ButtonRole.AcceptRole)
         choicesBox.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
 
         self.conflictMessage = conflictMessage
@@ -76,39 +79,43 @@ class MoveConflictDialog(QDialog):
 
         self.setLayout(layout)
 
-        self.__actionRole: QDialogButtonBox.ButtonRole = None
-        self.__blocked = False
+        self._actionRole = FileConflictAction.REPLACE
+        self._blocked = False
 
     def apply_to_all(self) -> bool:
         return self.allCheckBox.isChecked()
 
     def set_paths(self, src: Path, dst: Path):
-        self.setWindowTitle(
-            f"Moving \"{src.name}\" from \"./{src.parent.name}\" to \"./{dst.parent.name}\""
-        )
+        if src.parent == dst.parent:
+            self.setWindowTitle(
+                f"Renaming \"{src.name}\" to \"{dst.name}\""
+            )
+        else:
+            self.setWindowTitle(
+                f"Moving \"{src.name}\" from \"./{src.parent.name}\" to \"./{dst.parent.name}\""
+            )
 
         srcType = "folder" if src.is_dir() else "file"
         dstType = "folder" if src.is_dir() else "file"
 
         self.conflictMessage.setText(
-            f"The destination specified already has a {dstType} named \"{src.name}\""
+            f"The destination specified already has a {dstType} named \"{dst.name}\""
         )
         self.replaceButton.setText(f"Replace the {dstType}")
         self.skipButton.setText(f"Skip this {srcType}")
 
-
-    def resolve(self) -> Tuple[QDialog.DialogCode, ActionRole]:
-        if not self.__blocked:
-            return self.exec(), self.__actionRole
-        return QDialog.DialogCode.Accepted, self.__actionRole
+    def resolve(self) -> Tuple[QDialog.DialogCode, FileConflictAction]:
+        if not self._blocked:
+            return self.exec(), self._actionRole
+        return QDialog.DialogCode.Accepted, self._actionRole
 
     @Slot(bool)
     def block(self, block: bool):
-        self.__blocked = block
+        self._blocked = block
         self.allCheckBox.blockSignals(True)
         self.allCheckBox.setChecked(block)
         self.allCheckBox.blockSignals(False)
 
-    def __accept_role(self, role: ActionRole):
-        self.__actionRole = role
+    def __accept_role(self, role: FileConflictAction):
+        self._actionRole = role
         self.accept()
