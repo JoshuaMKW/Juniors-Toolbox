@@ -1,5 +1,6 @@
 from abc import abstractmethod
 from hashlib import new
+from importlib.resources import path
 import shutil
 import sys
 import time
@@ -119,131 +120,6 @@ _ASSET_INIT_TABLE = {
 }
 
 
-class ProjectAssetType(IntEnum):
-    UNKNOWN = -1
-    FOLDER = 0
-    BIN = 10001
-    BMD = auto()
-    BMT = auto()
-    BMG = auto()
-    BTI = auto()
-    COL = auto()
-    JPA = auto()
-    SB = auto()
-
-    @classmethod
-    def extension_to_flag(cls, extension: str) -> "ProjectAssetType":
-        key = extension.lstrip(".").upper()
-        if key not in cls._member_map_:
-            return cls.UNKNOWN
-        return cls[extension.lstrip(".").upper()]
-
-
-class ProjectAssetListItem(InteractiveListWidgetItem):
-    doubleClicked = Signal(InteractiveListWidgetItem)
-
-    MIME_FORMAT = __name__
-    _init_fn_: Callable[["ProjectAssetListItem"], Optional[A_Serializable]]
-
-    @staticmethod
-    def extension_to_icon_fname(ext: str):
-        return ext.lstrip(".") + ".png"
-
-    def __init__(self, item: Union["ProjectAssetListItem", str], isFolder: bool, icon: Optional[QIcon] = None):
-        if isinstance(item, str):
-            if isFolder:
-                _type = ProjectAssetType.FOLDER
-            else:
-                _type = ProjectAssetType.extension_to_flag(item.split(".")[-1])
-            super().__init__(item, type=_type.value)
-        else:
-            super().__init__(item)
-            item = item.text()
-
-        self.__isFolder = isFolder
-        self.__icon: QIcon = QIcon()
-
-        name = item.lower()
-        if icon is None:
-            if isFolder:
-                self.__icon = get_icon("generic_folder.png")
-                self.__typeID = ProjectAssetType.FOLDER
-            else:
-                ext = name.split(".")[-1]
-                if name == "scene.bin":
-                    self.__icon = get_icon("program.png")
-                else:
-                    _icon = get_icon(self.extension_to_icon_fname(ext))
-                    pixmap: QPixmap = _icon.pixmap(
-                        _icon.actualSize(QSize(512, 512)))
-                    if not pixmap.isNull():
-                        self.__icon = _icon
-                    else:
-                        self.__icon = get_icon("generic_file.png")
-                self.__typeID = ProjectAssetType.extension_to_flag(ext)
-        self.setIcon(self.__icon)
-
-        flags = Qt.ItemIsSelectable | Qt.ItemIsDragEnabled | Qt.ItemIsEnabled | Qt.ItemIsEditable
-        if isFolder:
-            flags |= Qt.ItemIsDropEnabled
-        self.setFlags(flags)
-
-        font = self.font()
-        font.setPointSize(7)
-        self.setFont(font)
-
-        self._init_fn_ = lambda self: None
-
-    def copy(self) -> "ProjectAssetListItem":
-        item = ProjectAssetListItem(
-            self,
-            self.__isFolder
-        )
-        return item
-
-    def is_folder(self) -> bool:
-        return self.__isFolder
-
-    def get_type(self) -> ProjectAssetType:
-        return self.__typeID
-
-    def set_type(self, ty: ProjectAssetType):
-        self.__typeID = ty
-
-    def __lt__(self, other: "ProjectAssetListItem"):
-        """ Used for sorting """
-        if self.is_folder() and not other.is_folder():
-            return True
-        if other.is_folder() and not self.is_folder():
-            return False
-        return self.text() < other.text()
-
-
-class ProjectHierarchyItem(QTreeWidgetItem):
-    _init_fn_: Callable[["ProjectHierarchyItem"], Optional[A_Serializable]]
-
-    def __init__(self, name: str, *args: VariadicArgs, **kwargs: VariadicKwargs) -> None:
-        super().__init__(*args, **kwargs)
-        flags = Qt.ItemIsSelectable | Qt.ItemIsEnabled | Qt.ItemIsEditable
-        self.setFlags(flags)
-        self.setText(0, name)
-
-        self._preRenamePath = ""
-
-        self._init_fn_ = lambda self: None
-
-    def get_relative_path(self) -> Path:
-        subPath = self.text(0)
-        parent = self.parent()
-        while parent:
-            next = parent.parent()
-            if next is None and parent.text(0) == "scene":
-                break
-            subPath = f"{parent.text(0)}/{subPath}"
-            parent = next
-        return Path(subPath) if subPath != "scene" else Path()
-
-
 class ProjectCreateAction(QAction):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -264,53 +140,11 @@ class ProjectFocusedMenuBarAction(QAction):
         self.clicked.emit(self)
 
 
-class A_FileSystemViewer(ABCWidget):
-    openExplorerRequested = Signal(object)
-    openRequested = Signal(object)
-    createFolderRequested = Signal(str)
-    copyRequested = Signal(
-        list, list)
-    moveRequested = Signal(list, object)
-    renameRequested = Signal(object)
-    deleteRequested = Signal(list)
-    dropInRequested = Signal(list)
-    dropOutRequested = Signal(object)
-
-    _scenePath: Optional[Path] = None
-    _focusedPath: Optional[Path] = None
-
-    def __init__(self) -> None:
-        self._scenePath: Optional[Path] = None
-        self._focusedPath: Optional[Path] = None
-
-    @property
-    def scenePath(self) -> Path:
-        return self._scenePath if self._scenePath is not None else Path.cwd()
-
-    @scenePath.setter
-    def scenePath(self, path: Path) -> None:
-        self._scenePath = path
-        self._focusedPath = Path()
-        self.view(self._focusedPath)
-
-    @property
-    def focusedPath(self) -> Path:
-        return self._focusedPath if self._focusedPath is not None else Path()
-
-    @focusedPath.setter
-    def focusedPath(self, path: Path) -> None:
-        self.view(path)
-
-    @abstractmethod
-    def view(self, __p: Path, /) -> None: ...
-
-
-class ProjectFocusedMenuBar(QMenuBar, A_FileSystemViewer):
+class ProjectFocusedMenuBar(QMenuBar):
     folderChangeRequested = Signal(Path)
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
-        A_FileSystemViewer.__init__(self)
 
         self.setNativeMenuBar(False)
         self.setAcceptDrops(True)
@@ -432,6 +266,60 @@ class ProjectFocusedMenuBar(QMenuBar, A_FileSystemViewer):
 
 
 class ProjectFolderViewWidget(InteractiveListView):
+    class PathUndoCommand(QUndoCommand):
+        def __init__(self, target: "ProjectFolderViewWidget"):
+            super().__init__("Cmd")
+            self.target = target
+            self.prevPath = PurePath()
+            self.curPath = PurePath()
+
+        def set_prev(self, path: PurePath):
+            self.prevPath = path
+
+        def set_current(self, path: PurePath):
+            self.curPath = path
+
+        def redo(self):
+            pathIndex = self._get_cur_index()
+            self.target.setRootIndex(pathIndex)
+            self._focusedPath = self.curPath
+
+        def undo(self):
+            pathIndex = self._get_prev_index()
+            self.target.setRootIndex(pathIndex)
+            self._focusedPath = self.prevPath
+
+        def _get_cur_index(self) -> QModelIndex:
+            model: JSystemFSModel = self.target.get_source_model()
+            proxyModel: JSystemFSSortProxyModel = self.target.model()
+            return proxyModel.mapFromSource(
+                model.get_path_index(self.curPath)
+            )
+
+        def _get_prev_index(self) -> QModelIndex:
+            model: JSystemFSModel = self.target.get_source_model()
+            proxyModel: JSystemFSSortProxyModel = self.target.model()
+            return proxyModel.mapFromSource(
+                model.get_path_index(self.prevPath)
+            )
+
+    class PathUndoStack(QUndoStack):
+        def canRedo(self) -> bool:
+            index = self.index()
+            command: ProjectFolderViewWidget.PathUndoCommand = self.command(
+                index)
+            if not command._get_cur_index().isValid():
+                return False
+            return super().canRedo()
+
+        def canUndo(self) -> bool:
+            index = self.index()
+            command: ProjectFolderViewWidget.PathUndoCommand = self.command(
+                index)
+            if not command._get_prev_index().isValid():
+                return False
+            return super().canUndo()
+
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
 
@@ -446,7 +334,25 @@ class ProjectFolderViewWidget(InteractiveListView):
         self.setAcceptDrops(True)
         self.setEditTriggers(QListView.NoEditTriggers)
 
-        self._selectedIndexesOnDrag: list[ProjectAssetListItem] = []
+        self._selectedIndexesOnDrag: list[QModelIndex |
+                                          QPersistentModelIndex] = []
+
+        self._pathHistory = ProjectFolderViewWidget.PathUndoStack(self)
+
+    def set_tracked_root_index(self, index: QModelIndex | QPersistentModelIndex) -> None:
+        if self.rootIndex() == index:
+            return
+
+        model: JSystemFSModel = self.get_source_model()
+        proxyModel: JSystemFSSortProxyModel = self.model()
+
+        sourceCurIndex = proxyModel.mapToSource(index)
+        sourcePrevIndex = proxyModel.mapToSource(self.rootIndex())
+
+        command = ProjectFolderViewWidget.PathUndoCommand(self)
+        command.set_prev(model.get_path(sourcePrevIndex))
+        command.set_current(model.get_path(sourceCurIndex))
+        self._pathHistory.push(command)
 
     def get_source_model(self) -> QAbstractItemModel:
         proxy: JSystemFSSortProxyModel = self.model()
@@ -820,8 +726,24 @@ class ProjectFolderViewWidget(InteractiveListView):
         self.edit(newProxyIndex)
 
     @Slot(QMouseEvent)
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.BackButton:
+            self._pathHistory.undo()
+            event.accept()
+            return
+
+        if event.button() == Qt.ForwardButton:
+            self._pathHistory.redo()
+            event.accept()
+            return
+
+        super().mouseReleaseEvent(event)
+
+    @Slot(QMouseEvent)
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
         index = self.indexAt(event.pos())
+        if not index.isValid():
+            return
 
         model: JSystemFSSortProxyModel = self.model()
         sourceIndex = model.mapToSource(index)
@@ -956,6 +878,12 @@ class ProjectFolderViewWidget(InteractiveListView):
         return
 
     @Slot(QKeyEvent)
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        print(event.key())
+        print(event.keyCombination())
+        super().keyPressEvent(event)
+
+    @Slot(QKeyEvent)
     def keyReleaseEvent(self, event: QKeyEvent) -> None:
         indexes = self.selectedIndexes()
 
@@ -1012,7 +940,7 @@ class ProjectFolderViewWidget(InteractiveListView):
             sourceModel.move(sourceIndex, sourceParent)
 
 
-class ProjectTreeViewWidget(InteractiveTreeView, A_FileSystemViewer):
+class ProjectTreeViewWidget(InteractiveTreeView):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setHeaderHidden(True)
@@ -1074,9 +1002,7 @@ class ProjectViewerWidget(A_DockingInterface):
     def __init__(self, *args: VariadicArgs, **kwargs: VariadicKwargs) -> None:
         super().__init__(*args, **kwargs)
         self.__scenePath: Optional[Path] = None
-        self.__focusedPath: Optional[Path] = None
-        self.__ignoreItemRename = False
-        self.__openTable: Dict[str, Any] = {}
+        self._focusedPath = PurePath()
 
         self.fsModel = JSystemFSModel(Path("__doesnt_exist__"), False, self)
 
@@ -1135,35 +1061,6 @@ class ProjectViewerWidget(A_DockingInterface):
         # self.setLayout(self.mainLayout)
         self.setMinimumSize(420, 200)
 
-        # self.fsTreeWidget.itemClicked.connect(self.view_folder)
-
-        # self.folderViewWidget.itemDoubleClicked.connect(
-        #     self.handle_view_double_click)
-        # self.folderViewWidget.openExplorerRequested.connect(self.explore_item)
-        # self.folderViewWidget.openRequested.connect(self.open_item)
-        # self.folderViewWidget.copyRequested.connect(self.copy_items)
-        # self.folderViewWidget.deleteRequested.connect(self.delete_items)
-        # self.folderViewWidget.renameRequested.connect(self.rename_item)
-        # self.folderViewWidget.moveRequested.connect(self.move_items)
-        # self.folderViewWidget.dropInRequested.connect(
-        #     self.copy_paths_to_focused
-        # )
-
-        self.focusedViewWidget.folderChangeRequested.connect(self.view_folder)
-
-        # self.fsTreeWidget.openExplorerRequested.connect(self.explore_item)
-        # self.fsTreeWidget.openRequested.connect(self.open_item)
-        # self.fsTreeWidget.deleteRequested.connect(self.delete_items)
-        # self.fsTreeWidget.renameRequested.connect(self.rename_item)
-        # self.fsTreeWidget.moveRequested.connect(self.move_items)
-        # self.fsTreeWidget.dropInRequested.connect(
-        #     self.copy_paths_to_focused
-        # )
-
-        self.focusedViewWidget.moveRequested.connect(self.move_items)
-
-        self.fsModel.conflictFound.connect(self._show_conflict_dialog)
-
     @property
     def scenePath(self) -> Path:
         return self.__scenePath if self.__scenePath is not None else Path.cwd()
@@ -1176,21 +1073,25 @@ class ProjectViewerWidget(A_DockingInterface):
         self.fsTreeWidget.expand(
             self.fsModelDirProxy.index(0, 0, QModelIndex())
         )
-        self.focusedViewWidget.scenePath = path
+        self.folderViewWidget.setRootIndex(
+            self.fsModelViewProxy.index(0, 0)
+        )
 
     @property
-    def focusedPath(self) -> Path:
-        return self.__focusedPath if self.__focusedPath is not None else Path()
+    def focusedPath(self) -> PurePath:
+        return self._focusedPath
 
     @focusedPath.setter
-    def focusedPath(self, path: Path) -> None:
-        self.__focusedPath = path
-        self.folderViewWidget.setRootIndex(
-            self.fsModelViewProxy.mapFromSource(
-                self.fsModel.get_path_index(path)
-            )
-        )
-        self.focusedViewWidget.focusedPath = path
+    def focusedPath(self, path: PurePath) -> None:
+        if self._focusedPath == path:
+            return
+
+        model: JSystemFSModel = self.folderViewWidget.get_source_model()
+        proxyModel: JSystemFSSortProxyModel = self.folderViewWidget.model()
+
+        focusedIndex = model.get_path_index(path)
+        self.folderViewWidget.set_tracked_root_index(
+            proxyModel.mapFromSource(focusedIndex))
 
     def populate(self, scene: Optional[SMSScene], *args: VariadicArgs, **kwargs: VariadicKwargs) -> None:
         self.scenePath = args[0]
@@ -1200,284 +1101,8 @@ class ProjectViewerWidget(A_DockingInterface):
     @Slot()
     def update(self) -> None:
         # self.fsTreeWidget.view_project(self.scenePath)
-        self.focusedViewWidget.view(self.focusedPath)
-
-    @Slot(ProjectHierarchyItem)
-    @Slot(Path)
-    def view_folder(self, item: ProjectHierarchyItem | Path) -> None:
-        if isinstance(item, ProjectHierarchyItem):
-            itemPath = item.get_relative_path()
-        else:
-            itemPath = item
-            if item.is_absolute():
-                itemPath = item.relative_to(self.scenePath)
-
-        if not (self.scenePath / itemPath).is_dir():
-            return
-
-        if self.focusedPath == itemPath:
-            return
-        self.focusedPath = itemPath  # Set viewed directory
-
-    @Slot(ProjectAssetListItem)
-    def handle_view_double_click(self, item: ProjectAssetListItem) -> None:
-        self.view_folder(self.focusedPath / item.text())
-
-    @Slot(ProjectHierarchyItem)
-    @Slot(ProjectAssetListItem)
-    def explore_item(self, item: Optional[ProjectHierarchyItem | ProjectAssetListItem]) -> None:
-        if item is None:
-            open_path_in_explorer(
-                self.scenePath / self.focusedPath)
-        else:
-            if isinstance(item, ProjectHierarchyItem):
-                open_path_in_explorer(
-                    self.scenePath / item.get_relative_path())
-            else:
-                open_path_in_explorer(
-                    self.scenePath / self.focusedPath / item.text())
-
-    @Slot(ProjectHierarchyItem)
-    @Slot(ProjectAssetListItem)
-    def open_item(self, item: Union[ProjectHierarchyItem, ProjectAssetListItem]) -> None:
-        if isinstance(item, ProjectAssetListItem) and str(item.get_type()) in self.__openTable:
-            self.__open_table[str(item.get_type())]()
-
-    @Slot(list)
-    def delete_items(self, _items: Union[list[ProjectHierarchyItem], list[ProjectAssetListItem]]) -> None:
-        for item in _items:
-            if isinstance(item, ProjectHierarchyItem):
-                path = self.scenePath / item.get_relative_path()
-            else:
-                path = self.scenePath / self.focusedPath / item.text()
-
-            if path.is_dir():
-                shutil.rmtree(path)
-            else:
-                path.unlink()
-
-            if isinstance(item, ProjectHierarchyItem):
-                item.parent().removeChild(item)
-                if path.parent.relative_to(self.scenePath) == self.focusedPath:
-                    items = self.folderViewWidget.findItems(
-                        path.name, Qt.MatchFlag.MatchExactly)
-                    if len(items) == 1:
-                        self.folderViewWidget.takeItem(
-                            self.folderViewWidget.row(items[0]))
-            else:
-                self.folderViewWidget.takeItem(self.folderViewWidget.row(item))
-                fsItem = self.fsTreeWidget.get_fs_tree_item(
-                    path.relative_to(self.scenePath))
-                if fsItem:
-                    fsItem.parent().removeChild(fsItem)
-
-            if path.relative_to(self.scenePath) == self.focusedPath:
-                self.focusedPath = self.focusedPath.parent
-
-            self.eventHandler.block_future_emit()
-
-    @Slot(ProjectHierarchyItem)
-    @Slot(ProjectAssetListItem)
-    def rename_item(self, item: Union[ProjectHierarchyItem, ProjectAssetListItem]) -> None:
-        if self.__ignoreItemRename:
-            return
-
-        if isinstance(item, ProjectHierarchyItem):
-            itemPath = item.get_relative_path()
-        else:
-            self.focusedPath / item.text()
-
-        previousPath = self.focusedPath / item._prevName_
-        if previousPath == itemPath:
-            return
-
-        oldPath = self.scenePath / previousPath
-        newPath = self.scenePath / itemPath
-
-        if oldPath.exists():
-            oldPath.rename(newPath)
-        else:
-            with newPath.open("wb") as f:
-                f.write(item._init_fn_().to_bytes())
-
-        if self.focusedPath == previousPath:
-            self.focusedPath = newPath
-
-        if isinstance(item, ProjectHierarchyItem):
-            self.fsTreeWidget.sortByColumn(0, Qt.SortOrder.AscendingOrder)
-        else:
-            self.folderViewWidget.sortItems(Qt.SortOrder.AscendingOrder)
-            if newPath.is_dir():
-                fsItem = self.fsTreeWidget.get_fs_tree_item(
-                    oldPath.relative_to(self.scenePath))
-                if fsItem:
-                    self.__ignoreItemRename = True
-                    fsItem.setText(0, newPath.name)
-                    self.__ignoreItemRename = False
-                    self.fsTreeWidget.sortByColumn(
-                        0, Qt.SortOrder.AscendingOrder)
-        self.eventHandler.block_future_emit()
-
-    @Slot(list, ProjectHierarchyItem)
-    @Slot(list, ProjectAssetListItem)
-    @Slot(list, Path)
-    def move_items(
-        self,
-        items: list[ProjectHierarchyItem] | list[ProjectAssetListItem],
-        target: Optional[ProjectHierarchyItem | ProjectAssetListItem | Path]
-    ) -> None:
-        if self.__ignoreItemRename:
-            return
-
-        if target is None:
-            targetItemPath = Path()
-        elif isinstance(target, (Path, str)):
-            targetItemPath = Path(target)
-        elif isinstance(target, ProjectHierarchyItem):
-            targetItemPath = target.get_relative_path()
-        else:
-            targetItemPath = self.focusedPath / target.text()
-
-        conflictDialog = MoveConflictDialog(len(items) > 1, self)
-        for item in items:
-            if isinstance(item, (Path, str)):
-                itemPath = Path(item)
-                self.__move_path(
-                    self.scenePath / itemPath,
-                    self.scenePath / targetItemPath,
-                    conflictDialog
-                )
-            else:
-                self.__move_item(
-                    item,
-                    targetItemPath,
-                    conflictDialog
-                )
-        self.update()
-
-    @Slot(list)
-    def copy_items(
-        self,
-        _oldItems: list[ProjectHierarchyItem] | list[ProjectAssetListItem],
-        _newItems: list[ProjectHierarchyItem] | list[ProjectAssetListItem]
-    ) -> None:
-        if self.__ignoreItemRename:
-            return
-
-        for oldItem, newItem in zip(_oldItems, _newItems):
-            if isinstance(oldItem, ProjectHierarchyItem) and isinstance(newItem, ProjectHierarchyItem):
-                itemPath = newItem.get_relative_path()
-                previousPath = oldItem.get_relative_path()
-            else:
-                itemPath = self.focusedPath / newItem.text()
-                previousPath = self.focusedPath / oldItem.text()
-
-            if previousPath == itemPath:
-                return
-
-            oldPath = self.scenePath / previousPath
-            newPath = self.scenePath / itemPath
-
-            self.eventHandler.block_future_emit()
-            if oldPath.is_file():
-                shutil.copy(oldPath, newPath)
-            else:
-                shutil.copytree(oldPath, newPath, dirs_exist_ok=True)
-            if self.focusedPath == previousPath:
-                self.focusedPath = newPath
-
-            if isinstance(oldItem, ProjectHierarchyItem) and isinstance(newItem, ProjectHierarchyItem):
-                self.fsTreeWidget.sortByColumn(0, Qt.SortOrder.AscendingOrder)
-            else:
-                self.folderViewWidget.sortItems(Qt.SortOrder.AscendingOrder)
-                if newPath.is_dir():
-                    fsItem = self.fsTreeWidget.get_fs_tree_item(
-                        oldPath.relative_to(self.scenePath))
-                    if fsItem:
-                        self.__ignoreItemRename = True
-                        fsItem.setText(0, newPath.name)
-                        self.__ignoreItemRename = False
-                        self.fsTreeWidget.sortByColumn(
-                            0, Qt.SortOrder.AscendingOrder)
-
-    @Slot(list)
-    def copy_paths_to_focused(self, paths: list[Path]) -> None:
-        for path in paths:
-            dest = self.scenePath / self.focusedPath
-            dest = dest / _fs_resolve_name(path.name, dest)
-
-            try:
-                if path.is_file():
-                    shutil.copy(path, dest)
-                else:
-                    shutil.copytree(path, dest, dirs_exist_ok=True)
-            except PermissionError:
-                continue
-
-    def __move_path(self, src: Path, dst: Path, conflictDialog: MoveConflictDialog) -> bool:
-        dst = dst / src.name
-        if dst.exists():
-            conflictDialog.set_paths(src, dst)
-            action, role = conflictDialog.resolve()
-            if action == QDialog.Rejected:
-                return False
-            if role == MoveConflictDialog.ActionRole.REPLACE:
-                src.replace(dst)
-            elif role == MoveConflictDialog.ActionRole.KEEP:
-                src.rename(
-                    dst.parent / _fs_resolve_name(
-                        dst.name,
-                        dst.parent
-                    )
-                )
-            elif role == MoveConflictDialog.ActionRole.SKIP:
-                return False
-            else:
-                return False
-        else:
-            src.rename(dst)
-
-        self.eventHandler.block_future_emit()
-        return True
-
-    def __move_item(self, src: ProjectHierarchyItem | ProjectAssetListItem, dst: Path, conflictDialog: MoveConflictDialog) -> bool:
-        if isinstance(src, ProjectHierarchyItem):
-            itemPath = src.get_relative_path()
-        else:
-            itemPath = self.focusedPath / src.text()
-
-        oldPath = self.scenePath / itemPath
-        newPath = self.scenePath / dst / itemPath.name
-
-        if oldPath.parent == newPath.parent:
-            return False
-
-        if not oldPath.exists():
-            return False
-
-        if newPath.exists():
-            conflictDialog.set_paths(oldPath, newPath)
-            action, role = conflictDialog.resolve()
-            if action == QDialog.Rejected:
-                return False
-            if role == MoveConflictDialog.ActionRole.REPLACE:
-                oldPath.replace(newPath)
-            elif role == MoveConflictDialog.ActionRole.KEEP:
-                oldPath.rename(
-                    newPath.parent / _fs_resolve_name(
-                        newPath.name,
-                        newPath.parent
-                    )
-                )
-            elif role == MoveConflictDialog.ActionRole.SKIP:
-                return False
-            else:
-                return False
-        else:
-            oldPath.rename(newPath)
-
-        self.eventHandler.block_future_emit()
-        return True
+        # self.focusedViewWidget.view(self.focusedPath)
+        ...
 
     @Slot(QModelIndex)
     def _view_directory(self, index: QModelIndex | QPersistentModelIndex):
@@ -1488,7 +1113,7 @@ class ProjectViewerWidget(A_DockingInterface):
         if not sourceModel.is_loaded(sourceIndex):
             sourceModel._cache_path(sourceIndex)
 
-        self.folderViewWidget.setRootIndex(
+        self.folderViewWidget.set_tracked_root_index(
             viewModel.mapFromSource(sourceIndex)
         )
 
@@ -1501,15 +1126,8 @@ class ProjectViewerWidget(A_DockingInterface):
         if not sourceModel.is_loaded(sourceIndex):
             sourceModel._cache_path(sourceIndex)
 
-        self.folderViewWidget.setRootIndex(index)
+        self.folderViewWidget.set_tracked_root_index(index)
 
         self.fsTreeWidget.expand(
             dirModel.mapFromSource(sourceIndex)
         )
-
-    @Slot(PurePath, PurePath)
-    def _show_conflict_dialog(self, src: PurePath, dst: PurePath):
-        conflictDialog = MoveConflictDialog(True, self)
-        conflictDialog.set_paths(src, dst)
-        conflictDialog.exec()
-        self.fsModel.set_conflict_action(conflictDialog._actionRole)

@@ -18,7 +18,7 @@ from juniors_toolbox.gui.images import get_icon
 
 from juniors_toolbox.utils.rarc import (A_ResourceHandle, FileConflictAction, ResourceArchive, ResourceDirectory,
                                         ResourceFile)
-from PySide6.QtCore import (QAbstractItemModel, QByteArray, QDataStream, QFile, QDir, QFileSystemWatcher, QUrl,
+from PySide6.QtCore import (QAbstractItemModel, QByteArray, QDataStream, QFile, QDir, QFileSystemWatcher, QUrl, QTimer,
                             QFileInfo, QIODevice, QMimeData, QModelIndex, QIdentityProxyModel,
                             QObject, QPersistentModelIndex, QPoint, QRect,
                             QRectF, QRegularExpression, QSize,
@@ -122,7 +122,7 @@ class JSystemFSModel(QAbstractItemModel):
     class _FsKind(IntEnum):
         UNKNOWN = -1
         FILE = 0
-        DIR = 1
+        DIRECTORY = 1
         ARCHIVE = 2
 
     @dataclass
@@ -151,11 +151,6 @@ class JSystemFSModel(QAbstractItemModel):
                 self.parent == other.parent
             ])
 
-    class _HandleType(IntEnum):
-        FILE = 0
-        DIRECTORY = 1
-        ARCHIVE = 2
-
     def __init__(self, rootPath: Path, readOnly: bool = True, parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
         self._rootPath = rootPath
@@ -174,6 +169,8 @@ class JSystemFSModel(QAbstractItemModel):
         self._icons: dict[str, QIcon] = {}
         self._conflictAction: FileConflictAction | None = None
 
+        self._indexesToRecache: set[QModelIndex] = set()
+
         self._initialize_icons()
         self.reset_cache()
 
@@ -190,12 +187,13 @@ class JSystemFSModel(QAbstractItemModel):
         if not rootPath.exists():
             return False
 
-        self._fileSystemWatcher.removePaths(
-            self._fileSystemWatcher.files()
-        )
-        self._fileSystemWatcher.removePaths(
-            self._fileSystemWatcher.directories()
-        )
+        files = self._fileSystemWatcher.files()
+        if len(files) > 0:
+            self._fileSystemWatcher.removePaths(files)
+
+        directories = self._fileSystemWatcher.directories()
+        if len(directories) > 0:
+            self._fileSystemWatcher.removePaths(directories)
 
         self.reset_cache()
 
@@ -223,7 +221,7 @@ class JSystemFSModel(QAbstractItemModel):
 
     def is_dir(self, index: QModelIndex) -> bool:
         handleInfo: JSystemFSModel._HandleInfo = index.internalPointer()
-        return handleInfo.fsKind == JSystemFSModel._FsKind.DIR
+        return handleInfo.fsKind == JSystemFSModel._FsKind.DIRECTORY
 
     def is_archive(self, index: QModelIndex) -> bool:
         handleInfo: JSystemFSModel._HandleInfo = index.internalPointer()
@@ -323,9 +321,6 @@ class JSystemFSModel(QAbstractItemModel):
     def get_path_index(self, path: PurePath) -> QModelIndex:
         if str(path) in {"", "."}:
             return self.createIndex(0, 0, self._fileSystemCache)
-
-        if not path.is_relative_to(self.rootPath):
-            return QModelIndex()
 
         relPath = path.relative_to(self.rootPath.parent)
         handleInfo = self._fileSystemCache
@@ -585,7 +580,11 @@ class JSystemFSModel(QAbstractItemModel):
                     return QModelIndex()
 
             handleInfo = JSystemFSModel._HandleInfo(
-                parentPath / name, parentInfo, [], True, 0
+                parentPath / name,
+                parentInfo,
+                [],
+                JSystemFSModel._FsKind.FILE,
+                len(initialData)
             )
             parentInfo.children.append(handleInfo)
 
@@ -600,7 +599,11 @@ class JSystemFSModel(QAbstractItemModel):
                 f.write(initialData)
 
             handleInfo = JSystemFSModel._HandleInfo(
-                parentPath / name, parentInfo, [], True, 0
+                parentPath / name,
+                parentInfo,
+                [],
+                JSystemFSModel._FsKind.FILE,
+                len(initialData)
             )
             parentInfo.children.append(handleInfo)
         else:
@@ -643,7 +646,11 @@ class JSystemFSModel(QAbstractItemModel):
                     return QModelIndex()
 
             handleInfo = JSystemFSModel._HandleInfo(
-                parentPath / name, parentInfo, [], False, 0
+                parentPath / name,
+                parentInfo,
+                [],
+                JSystemFSModel._FsKind.DIRECTORY,
+                0
             )
             parentInfo.children.append(handleInfo)
 
@@ -657,7 +664,11 @@ class JSystemFSModel(QAbstractItemModel):
             os.mkdir(parentPath / name)
 
             handleInfo = JSystemFSModel._HandleInfo(
-                parentPath / name, parentInfo, [], False, 0
+                parentPath / name,
+                parentInfo,
+                [],
+                JSystemFSModel._FsKind.DIRECTORY,
+                0
             )
             parentInfo.children.append(handleInfo)
 
@@ -713,7 +724,7 @@ class JSystemFSModel(QAbstractItemModel):
         stem = handleInfo.path.stem
         extension = handleInfo.path.suffix
 
-        if fsKind == JSystemFSModel._FsKind.DIR:
+        if fsKind == JSystemFSModel._FsKind.DIRECTORY:
             _type = "Folder"
         else:
             _type = self.ExtensionToTypeMap[extension]
@@ -732,7 +743,7 @@ class JSystemFSModel(QAbstractItemModel):
 
         if role == Qt.DecorationRole:
             if handleInfo.icon is None:
-                if fsKind == JSystemFSModel._FsKind.DIR:
+                if fsKind == JSystemFSModel._FsKind.DIRECTORY:
                     handleInfo.icon = self._icons["folder"]
                 elif extension in self._icons:
                     handleInfo.icon = self._icons[extension]
@@ -837,7 +848,11 @@ class JSystemFSModel(QAbstractItemModel):
             return QModelIndex()
 
         handleInfo: JSystemFSModel._HandleInfo = child.internalPointer()
-        parentInfo = handleInfo.parent
+        try:
+            parentInfo = handleInfo.parent
+        except AttributeError as e:
+            print(e)
+            return QModelIndex()
         if parentInfo is None:
             return QModelIndex()
 
@@ -1149,7 +1164,7 @@ class JSystemFSModel(QAbstractItemModel):
             path=self.rootPath,
             parent=None,
             children=[],
-            fsKind=JSystemFSModel._FsKind.DIR,
+            fsKind=JSystemFSModel._FsKind.DIRECTORY,
             size=0
         )
 
@@ -1172,11 +1187,12 @@ class JSystemFSModel(QAbstractItemModel):
             handleInfo.size = os.stat(path).st_size
             return
 
-        handleInfo.loaded = False  # Mark dirty
+        self._indexesToRecache.add(index)
 
-        self.layoutAboutToBeChanged.emit()
-        self._cache_path(index)
-        self.layoutChanged.emit()
+        self._cacheTimer = QTimer()
+        self._cacheTimer.timeout.connect(self._recache_indexes)
+        self._cacheTimer.setSingleShot(True)
+        self._cacheTimer.start(100)  # Reset timer
 
     @Slot(str)
     def directory_changed(self, path: str):
@@ -1187,10 +1203,20 @@ class JSystemFSModel(QAbstractItemModel):
 
         handleInfo: JSystemFSModel._HandleInfo = index.internalPointer()
         handleInfo.path = PurePath(path)
-        handleInfo.loaded = False  # Mark dirty
 
+        self._indexesToRecache.add(index)
+
+        self._cacheTimer = QTimer()
+        self._cacheTimer.timeout.connect(self._recache_indexes)
+        self._cacheTimer.setSingleShot(True)
+        self._cacheTimer.start(100)  # Reset timer
+
+    def _recache_indexes(self):
         self.layoutAboutToBeChanged.emit()
-        self._cache_path(index)
+        for index in self._indexesToRecache:
+            handleInfo: JSystemFSModel._HandleInfo = index.internalPointer()
+            handleInfo.loaded = False  # Mark dirty
+            self._cache_path(index)
         self.layoutChanged.emit()
 
     def _cache_path(self, index: QModelIndex | QPersistentModelIndex):
@@ -1212,15 +1238,13 @@ class JSystemFSModel(QAbstractItemModel):
                         path=subPath,
                         parent=handleInfo,
                         children=[],
-                        fsKind=JSystemFSModel._FsKind.DIR,
-                        size=sum(
-                            1 for _ in Path(subPath).glob('*')
-                        )
+                        fsKind=JSystemFSModel._FsKind.DIRECTORY,
+                        size=0
                     )
-                    for sp in os.listdir(subPath):
+                    for i, sp in enumerate(os.listdir(subPath)):
                         if os.path.isdir(subPath / sp):
                             info.hasSubDir = True
-                            break
+                    info.size = i
                     handleInfo.hasSubDir = True
                 else:
                     info = JSystemFSModel._HandleInfo(
@@ -1267,7 +1291,7 @@ class JSystemFSModel(QAbstractItemModel):
                     path=self.get_path(index) / p.get_path(),
                     parent=subHandleInfo,
                     children=[],
-                    fsKind=JSystemFSModel._FsKind.DIR,
+                    fsKind=JSystemFSModel._FsKind.DIRECTORY,
                     size=p.get_size()
                 )
                 _recursive_cache(p, childHandleInfo)
@@ -1487,12 +1511,12 @@ class JSystemFSModel(QAbstractItemModel):
         destFolder = self.get_path(destinationParent)
         destPath = destFolder / thisName
 
-        handleType = JSystemFSModel._HandleType(inputStream.readInt8())
+        handleType = JSystemFSModel._FsKind(inputStream.readInt8())
 
         destArchiveIndex = self.get_parent_archive(destinationParent)
         if not destArchiveIndex.isValid():  # To filesystem
             # If a file, we simply copy the data to a file of the same name in this dir
-            if handleType == JSystemFSModel._HandleType.FILE:
+            if handleType == JSystemFSModel._FsKind.FILE:
                 fileData = QByteArray()
                 inputStream >> fileData
 
@@ -1502,7 +1526,7 @@ class JSystemFSModel(QAbstractItemModel):
                 return True
 
             # If a dir, we create a sub dir of this name and iterate over the next items within this dir
-            elif handleType == JSystemFSModel._HandleType.DIRECTORY:
+            elif handleType == JSystemFSModel._FsKind.DIRECTORY:
                 childrenCount = inputStream.readUInt32()
 
                 folderIndex = self.mkdir(thisPath.name, destinationParent)
@@ -1516,7 +1540,7 @@ class JSystemFSModel(QAbstractItemModel):
 
             # If an archive, we can create the archive in the cache and import future items into it
             # TODO: For now we simply copy an unextracted form of the archive
-            elif handleType == JSystemFSModel._HandleType.ARCHIVE:
+            elif handleType == JSystemFSModel._FsKind.ARCHIVE:
                 fileData = QByteArray()
                 inputStream >> fileData
 
@@ -1563,7 +1587,7 @@ class JSystemFSModel(QAbstractItemModel):
             destParentHandle = destArchive
 
         # If a file, we simply copy the data to a file of the same name in this dir
-        if handleType == JSystemFSModel._HandleType.FILE:
+        if handleType == JSystemFSModel._FsKind.FILE:
             fileData = QByteArray()
             inputStream >> fileData
 
@@ -1577,7 +1601,7 @@ class JSystemFSModel(QAbstractItemModel):
             return True
 
         # If a dir, we create a sub dir of this name and iterate over the next items within this dir
-        elif handleType == JSystemFSModel._HandleType.DIRECTORY:
+        elif handleType == JSystemFSModel._FsKind.DIRECTORY:
             childrenCount = inputStream.readUInt32()
 
             folderIndex = self.mkdir(thisPath.name, destinationParent)
@@ -1591,7 +1615,7 @@ class JSystemFSModel(QAbstractItemModel):
 
         # If an archive, we can create the archive in the cache and import future items into it
         # TODO: For now we simply copy an unextracted form of the archive
-        elif handleType == JSystemFSModel._HandleType.ARCHIVE:
+        elif handleType == JSystemFSModel._FsKind.ARCHIVE:
             fileData = QByteArray()
             inputStream >> fileData
 
@@ -1666,12 +1690,12 @@ class JSystemFSModel(QAbstractItemModel):
         outputStream.writeString(str(srcPath))
 
         if srcHandle.is_file():
-            outputStream.writeInt8(JSystemFSModel._HandleType.FILE)
+            outputStream.writeInt8(JSystemFSModel._FsKind.FILE)
             outputStream << srcHandle.get_raw_data()
             return True
 
         if srcHandle.is_directory():
-            outputStream.writeInt8(JSystemFSModel._HandleType.DIRECTORY)
+            outputStream.writeInt8(JSystemFSModel._FsKind.DIRECTORY)
             if srcParentInfo.size > 0:  # Size is cached already
                 outputStream.writeUInt32(srcParentInfo.size)
 
@@ -1695,7 +1719,7 @@ class JSystemFSModel(QAbstractItemModel):
                 return successful
 
         if srcHandle.is_archive():
-            outputStream.writeInt8(JSystemFSModel._HandleType.ARCHIVE)
+            outputStream.writeInt8(JSystemFSModel._FsKind.ARCHIVE)
             outputStream << srcHandle.get_raw_data()
             return True
 
