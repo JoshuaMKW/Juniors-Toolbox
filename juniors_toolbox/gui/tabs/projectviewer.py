@@ -33,7 +33,7 @@ from juniors_toolbox.utils.j3d.anim.bva import BVA
 from juniors_toolbox.utils.j3d.bmd import BMD
 from juniors_toolbox.utils.prm import PrmFile
 from juniors_toolbox.utils.types import RGB8, RGB32, RGBA8, Vec3f
-from PySide6.QtCore import (QAbstractItemModel, QDataStream, QEvent, QIODevice,
+from PySide6.QtCore import (QAbstractItemModel, QDataStream, QEvent, QIODevice, QByteArray,
                             QLine, QMimeData, QModelIndex, QObject, QPoint,
                             QSize, Qt, QThread, QTimer, QUrl, Signal, QItemSelectionModel, QPersistentModelIndex,
                             SignalInstance, Slot)
@@ -431,26 +431,22 @@ class ProjectFocusedMenuBar(QMenuBar, A_FileSystemViewer):
         self.moveRequested.emit(paths, dst)
 
 
-class ProjectFolderViewWidget(InteractiveListView, A_FileSystemViewer):
+class ProjectFolderViewWidget(InteractiveListView):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
-        A_FileSystemViewer.__init__(self)
 
         self.setUniformItemSizes(True)
-        self.setFlow(QListView.LeftToRight)
         self.setGridSize(QSize(88, 98))
         self.setIconSize(QSize(64, 64))
-        self.setResizeMode(QListView.Adjust)
         self.setViewMode(QListView.IconMode)
+        self.setFlow(QListView.LeftToRight)
+        self.setResizeMode(QListView.Adjust)
+
         self.setWordWrap(True)
         self.setAcceptDrops(True)
-        self.setDragDropMode(QListView.DragDrop)
-        self.setDefaultDropAction(Qt.DropAction.MoveAction)
-        self.setSelectionMode(QListView.ExtendedSelection)
-        self.setSelectionBehavior(QListView.SelectItems)
         self.setEditTriggers(QListView.NoEditTriggers)
 
-        self.__selectedItemsOnDrag: list[ProjectAssetListItem] = []
+        self._selectedIndexesOnDrag: list[ProjectAssetListItem] = []
 
     def get_source_model(self) -> QAbstractItemModel:
         proxy: JSystemFSSortProxyModel = self.model()
@@ -467,43 +463,69 @@ class ProjectFolderViewWidget(InteractiveListView, A_FileSystemViewer):
         proxyModel: JSystemFSSortProxyModel = self.model()
 
         # Infos about the node selected.
-        selectedIndex = self.indexAt(point)
-        selectedIndexValid = selectedIndex.isValid()
+        contextIndex = self.indexAt(point)
+        contextIndexValid = contextIndex.isValid()
 
-        sourceIndex = proxyModel.mapToSource(selectedIndex)
-        isChildOfArchive = model.get_parent_archive(sourceIndex).isValid()
+        sourceContextIndex = proxyModel.mapToSource(contextIndex)
+        isChildOfArchive = model.get_parent_archive(
+            sourceContextIndex).isValid()
 
-        newAssetMenu = self.generate_asset_menu(selectedIndex)
+        # Selected indexes
+        selectedIndexes = self.selectedIndexes()
+
+        newAssetMenu = self.generate_asset_menu(contextIndex)
         newFolderAction = QAction("New Folder", self)
         newFolderAction.triggered.connect(
-            lambda: self._create_folder_index(parent=selectedIndex))
+            lambda: self._create_folder_index(parent=contextIndex))
 
         if not isChildOfArchive:
             explorerAction = QAction("Open in Explorer", self)
             explorerAction.triggered.connect(
-                lambda: self._open_index_in_explorer(selectedIndex)
+                lambda: self._open_index_in_explorer(contextIndex)
             )
             terminalAction = QAction("Open in Terminal", self)
             terminalAction.triggered.connect(
-                lambda: self._open_index_in_terminal(selectedIndex)
+                lambda: self._open_index_in_terminal(contextIndex)
             )
 
         copyPathAction = QAction("Copy Path", self)
         copyPathAction.triggered.connect(
-            lambda: self._copy_index_path(selectedIndex, relative=False)
+            lambda: self._copy_index_paths(contextIndex, relative=False)
         )
 
-        if selectedIndexValid:
+        if contextIndexValid:
             cutAction = QAction("Cut", self)
+            cutAction.triggered.connect(
+                lambda: self._cut_paths(selectedIndexes)
+            )
+
             copyAction = QAction("Copy", self)
+            copyAction.triggered.connect(
+                lambda: self._copy_paths(selectedIndexes)
+            )
 
             copyRelativePathAction = QAction("Copy Relative Path", self)
             copyRelativePathAction.triggered.connect(
-                lambda: self._copy_index_path(selectedIndex, relative=True)
+                lambda: self._copy_index_paths(contextIndex, relative=True)
             )
 
             renameAction = QAction("Rename", self)
+            renameAction.triggered.connect(
+                lambda: self.edit(contextIndex)
+            )
+
             deleteAction = QAction("Delete", self)
+            deleteAction.triggered.connect(
+                lambda: self._delete_paths(selectedIndexes)
+            )
+        else:
+            pasteAction = QAction("Paste")
+            pasteAction.setEnabled(
+                self._is_import_ready(QClipboard().mimeData())
+            )
+            pasteAction.triggered.connect(
+                lambda: self._paste_paths(self.rootIndex())
+            )
 
         menu.addMenu(newAssetMenu)
         menu.addAction(newFolderAction)
@@ -514,14 +536,14 @@ class ProjectFolderViewWidget(InteractiveListView, A_FileSystemViewer):
 
         menu.addSeparator()
 
-        if selectedIndexValid:
+        if contextIndexValid:
             menu.addAction(cutAction)
             menu.addAction(copyAction)
             menu.addSeparator()
 
         menu.addAction(copyPathAction)
 
-        if selectedIndexValid:
+        if contextIndexValid:
             menu.addAction(copyRelativePathAction)
             menu.addSeparator()
             menu.addAction(renameAction)
@@ -559,6 +581,13 @@ class ProjectFolderViewWidget(InteractiveListView, A_FileSystemViewer):
         traverse_structure(createMenu, _ASSET_INIT_TABLE)
         return createMenu
 
+    def _is_import_ready(self, mimeData: QMimeData) -> bool:
+        # Has virtual archive data
+        if mimeData.hasFormat("x-application/jsystem-fs-data"):
+            return True
+
+        return mimeData.hasUrls()
+
     def _open_index_in_explorer(self, index: QModelIndex | QPersistentModelIndex) -> None:
         model: JSystemFSModel = self.get_source_model()
         proxyModel: JSystemFSSortProxyModel = self.model()
@@ -583,7 +612,85 @@ class ProjectFolderViewWidget(InteractiveListView, A_FileSystemViewer):
 
         open_path_in_terminal(Path(model.get_path(index)))
 
-    def _copy_index_path(self, index: QModelIndex | QPersistentModelIndex, relative: bool = True) -> None:
+    def _copy_index_paths(self, indexes: list[QModelIndex | QPersistentModelIndex], relative: bool = True) -> None:
+        model: JSystemFSModel = self.get_source_model()
+        proxyModel: JSystemFSSortProxyModel = self.model()
+
+        mappedIndexes = []
+        for index in indexes:
+            if not index.isValid():
+                index = self.rootIndex()
+
+            if index.model() == proxyModel:
+                index = proxyModel.mapToSource(index)
+            mappedIndexes.append(index)
+
+        paths: list[str] = []
+        for index in mappedIndexes:
+            path = model.get_path(index)
+            if relative and model.rootPath:
+                path = path.relative_to(model.rootPath)
+                if sys.platform == "win32":
+                    paths.append(f".\{path}")
+                else:
+                    paths.append(f"./{path}")
+            else:
+                paths.append(str(path))
+
+        QClipboard.setText("\n".join(paths))
+
+    def _copy_paths(self, indexes: list[QModelIndex | QPersistentModelIndex]):
+        model: JSystemFSModel = self.get_source_model()
+        proxyModel: JSystemFSSortProxyModel = self.model()
+
+        mappedIndexes = []
+        for index in indexes:
+            if not index.isValid():
+                continue
+
+            if index.model() == proxyModel:
+                index = proxyModel.mapToSource(index)
+            mappedIndexes.append(index)
+
+        mimeData = QMimeData()
+
+        successful = model.export_paths(mimeData, mappedIndexes)
+        if not successful:
+            print("Failed to copy path to clipboard")
+            return
+
+        QClipboard().setMimeData(mimeData)
+
+    def _cut_paths(self, indexes: list[QModelIndex | QPersistentModelIndex]):
+        model: JSystemFSModel = self.get_source_model()
+        proxyModel: JSystemFSSortProxyModel = self.model()
+
+        mappedIndexes = []
+        for index in indexes:
+            if not index.isValid():
+                continue
+
+            if index.model() == proxyModel:
+                index = proxyModel.mapToSource(index)
+            mappedIndexes.append(index)
+
+        mimeData = QMimeData()
+
+        data = QByteArray()
+        stream = QDataStream(data, QIODevice.WriteOnly)
+        stream.setByteOrder(QDataStream.LittleEndian)
+        stream << 2
+
+        mimeData.setData("Preferred DropEffect", data)
+
+        successful = model.export_paths(mimeData, mappedIndexes)
+        if not successful:
+            print("Failed to copy path to clipboard")
+            return
+
+        QClipboard().setMimeData(mimeData)
+
+    def _paste_paths(self, index: QModelIndex | QPersistentModelIndex):
         model: JSystemFSModel = self.get_source_model()
         proxyModel: JSystemFSSortProxyModel = self.model()
 
@@ -593,15 +700,31 @@ class ProjectFolderViewWidget(InteractiveListView, A_FileSystemViewer):
         if index.model() == proxyModel:
             index = proxyModel.mapToSource(index)
 
-        path = model.get_path(index)
-        if relative and model.rootPath:
-            path = path.relative_to(model.rootPath)
-            if sys.platform == "win32":
-                QClipboard().setText(f".\{path}")
-            else:
-                QClipboard().setText(f"./{path}")
-        else:
-            QClipboard().setText(str(path))
+        mimeData = QClipboard().mimeData()
+
+        successful = model.import_paths(mimeData, index)
+        if not successful:
+            print("Failed to copy path to clipboard")
+            return
+
+    def _delete_paths(self, indexes: list[QModelIndex | QPersistentModelIndex]):
+        model: JSystemFSModel = self.get_source_model()
+        proxyModel: JSystemFSSortProxyModel = self.model()
+        selectionModel = self.selectionModel()
+
+        mappedIndexes = []
+        for index in indexes:
+            if not index.isValid():
+                continue
+
+            self.selectionModel().select(index, QItemSelectionModel.Deselect)
+
+            if index.model() == proxyModel:
+                index = proxyModel.mapToSource(index)
+            mappedIndexes.append(index)
+
+        for index in mappedIndexes:
+            model.remove(index)
 
     def _write_action_initializer(self, index: QModelIndex | QPersistentModelIndex, initializer: FileInitializer) -> None:
         model: JSystemFSModel = self.get_source_model()
@@ -707,6 +830,7 @@ class ProjectFolderViewWidget(InteractiveListView, A_FileSystemViewer):
         if not sourceModel.is_populated(sourceIndex):
             event.ignore()
             return
+
         super().mouseDoubleClickEvent(event)
 
     def startDrag(self, supportedActions: Qt.DropActions) -> None:
@@ -769,7 +893,7 @@ class ProjectFolderViewWidget(InteractiveListView, A_FileSystemViewer):
         if not event.mimeData().hasUrls():
             event.ignore()
 
-        self.__selectedIndexesOnDrag = self.selectedIndexes()
+        self._selectedIndexesOnDrag = self.selectedIndexes()
         super().dragEnterEvent(event)
 
     @Slot(QDragMoveEvent)
@@ -794,7 +918,7 @@ class ProjectFolderViewWidget(InteractiveListView, A_FileSystemViewer):
 
         if sourceModel.is_dir(sourceIndex) or sourceModel.is_archive(sourceIndex):
             super().dragMoveEvent(event)
-            if hoveredIndex in self.__selectedIndexesOnDrag:
+            if hoveredIndex in self._selectedIndexesOnDrag:
                 event.ignore()
             return
 
@@ -825,7 +949,7 @@ class ProjectFolderViewWidget(InteractiveListView, A_FileSystemViewer):
             return
 
         if sourceModel.is_dir(sourceIndex) or sourceModel.is_archive(sourceIndex):
-            self.move_indexes(self.__selectedIndexesOnDrag, hoveredIndex)
+            self.move_indexes(self._selectedIndexesOnDrag, hoveredIndex)
             event.accept()
         else:
             event.ignore()
@@ -836,324 +960,56 @@ class ProjectFolderViewWidget(InteractiveListView, A_FileSystemViewer):
         indexes = self.selectedIndexes()
 
         if event.key() == Qt.Key_Delete:
-            self.delete_indexes(indexes)
+            self._delete_paths(indexes)
             event.accept()
             return
 
         key = event.key()
         modifiers = QApplication.keyboardModifiers()
-        if modifiers == Qt.ControlModifier:
-            if key == Qt.Key_C:
-                mimeData = QMimeData()
-                clipboard = QApplication.clipboard()
 
-                urlList = []
-                for index in indexes:
-                    url = QUrl.fromLocalFile(
-                        index.data(JSystemFSModel.FilePathRole)
-                    )
-                    urlList.append(url)
-                mimeData.setUrls(urlList)
-                clipboard.setMimeData(mimeData)
+        if modifiers & Qt.ControlModifier:
+            if modifiers & Qt.ShiftModifier:
+                if key == Qt.Key_C:
+                    self._copy_index_paths(indexes, relative=False)
+                elif key == Qt.Key_X:
+                    self._copy_index_paths(indexes, relative=True)
+                event.accept()
+                return
+
+            if key == Qt.Key_C:
+                self._copy_paths(indexes)
+            elif key == Qt.Key_X:
+                self._cut_paths(indexes)
             elif key == Qt.Key_V:
-                mimeData = QApplication.clipboard().mimeData()
-                paths = []
-                for url in mimeData.urls():
-                    path = Path(url.toLocalFile())
-                    paths.append(path)
-                self.dropInRequested.emit(paths)
+                self._paste_paths(self.rootIndex())
+            elif key == Qt.Key_O:
+                if len(indexes) != 1:
+                    return
+                self._open_index_in_explorer(indexes[0])
+            elif key == Qt.Key_T:
+                if len(indexes) != 1:
+                    return
+                self._open_index_in_terminal(indexes[0])
+            elif key == Qt.Key_R:
+                if len(indexes) != 1:
+                    return
+                self.edit(indexes[0])
 
         event.accept()
 
     @Slot(list, QModelIndex)
-    def move_indexes(self, indexesToMove: list[QModelIndex | QPersistentModelIndex], parentIndex: QModelIndex | QPersistentModelIndex) -> bool:
+    def move_indexes(self, indexesToMove: list[QModelIndex | QPersistentModelIndex], parentIndex: QModelIndex | QPersistentModelIndex):
         proxyModel: JSystemFSSortProxyModel = self.model()
         sourceParent = proxyModel.mapToSource(parentIndex)
         sourceModel: JSystemFSModel = sourceParent.model()
 
         if not (sourceModel.is_dir(sourceParent) or sourceModel.is_archive(sourceParent)):
+            print("Destination folder is invalid")
             return False
-
-        conflictDialog = MoveConflictDialog(
-            len(indexesToMove) > 1,
-            self
-        )
 
         for index in indexesToMove:
             sourceIndex = proxyModel.mapToSource(index)
-            sourcePath: PurePath = sourceIndex.data(
-                JSystemFSModel.FilePathRole)
-            destPath: PurePath = sourceParent.data(
-                JSystemFSModel.FilePathRole) / sourcePath.name
-
-            destIndex = sourceModel.get_path_index(destPath)
-            if destIndex.isValid() and not conflictDialog.apply_to_all():
-                conflictDialog.set_paths(sourcePath, destPath.parent)
-
-                action, role = conflictDialog.resolve()
-                if action == QDialog.Rejected:
-                    return False
-
-                if role == MoveConflictDialog.ActionRole.REPLACE:
-                    sourcePath.replace(destPath)
-                elif role == MoveConflictDialog.ActionRole.KEEP:
-                    oldPath.rename(
-                        newPath.parent / _fs_resolve_name(
-                            newPath.name,
-                            newPath.parent
-                        )
-                    )
-                elif role == MoveConflictDialog.ActionRole.SKIP:
-                    return False
-                else:
-                    return False
             sourceModel.move(sourceIndex, sourceParent)
-
-
-class ProjectHierarchyViewWidget(QTreeWidget, A_FileSystemViewer):
-    ExpandTime = 0.8  # Seconds
-
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
-        super().__init__(parent)
-        self.setHeaderHidden(True)
-        self.setAcceptDrops(True)
-        self.setDragDropMode(QTreeWidget.DragDrop)
-        self.setDefaultDropAction(Qt.MoveAction)
-        self.setContextMenuPolicy(Qt.CustomContextMenu)
-
-        self.__rootFsItem: Optional[ProjectHierarchyItem] = None
-        self.__dragHoverItem: Optional[ProjectHierarchyItem] = None
-        self.__dragPreSelected = False
-        self.__expandTimer = time.time()
-        self.__expandCheckTimer = QTimer(self)
-        self.__expandCheckTimer.timeout.connect(self.check_expand)
-        self.__expandCheckTimer.start(10)
-
-        self.itemChanged.connect(
-            lambda item: self.renameRequested.emit(item)
-        )
-        self.customContextMenuRequested.connect(
-            self.custom_context_menu
-        )
-
-    def get_fs_tree_item(self, path: Optional[Path]) -> Optional[ProjectHierarchyItem]:
-        if path is None:
-            return None
-        if path == Path():
-            return self.topLevelItem(0)
-        possibleItems: list[ProjectHierarchyItem] = self.findItems(
-            path.name, Qt.MatchExactly | Qt.MatchRecursive, 0)
-        if len(possibleItems) == 0:
-            return None
-        for pItem in possibleItems:
-            pPath = pItem.get_relative_path()
-            if pPath == path:
-                return pItem
-        return None
-
-    def view(self, __p: Path, /) -> None:
-        fsItem = self.get_fs_tree_item(self.focusedPath)
-        while fsItem:
-            fsItem.setExpanded(False)
-            fsItem = fsItem.parent()
-
-        self._focusedPath = __p
-
-        fsItem = self.get_fs_tree_item(__p)
-        while fsItem:
-            fsItem.setExpanded(True)
-            fsItem = fsItem.parent()
-
-    def view_project(self, path: Path) -> None:
-        """
-        Path is absolute to scene
-        """
-        def __inner_recurse_tree(parent: ProjectHierarchyItem, path: Path):
-            for entry in path.iterdir():
-                if not entry.is_dir():
-                    continue
-
-                item = ProjectHierarchyItem(entry.name)
-                __inner_recurse_tree(item, entry)
-                parent.addChild(item)
-
-        expandTree = self.__record_expand_tree()
-
-        self.clear()
-        self.setSortingEnabled(False)
-
-        self.__rootFsItem = ProjectHierarchyItem(path.name)
-        self.__rootFsItem.setFlags(
-            Qt.ItemIsEnabled | Qt.ItemIsDropEnabled | Qt.ItemIsSelectable
-        )
-        __inner_recurse_tree(self.__rootFsItem, path)
-
-        self.addTopLevelItem(self.__rootFsItem)
-        self.setSortingEnabled(True)
-        self.sortItems(0, Qt.SortOrder.AscendingOrder)
-
-        self.__apply_expand_tree(expandTree)
-
-        self.__rootFsItem.setExpanded(True)
-
-    @Slot(QPoint)
-    def custom_context_menu(self, point: QPoint) -> None:
-        # Infos about the node selected.
-        index = self.indexAt(point)
-
-        if not index.isValid():
-            return
-
-        item: ProjectHierarchyItem = self.itemAt(point)
-        itemList = [item]
-
-        # We build the menu.
-        menu = QMenu(self)
-
-        viewAction = QAction("Open Path in Explorer", self)
-        viewAction.triggered.connect(
-            lambda clicked=None: self.openExplorerRequested.emit(item)
-        )
-        openAction = QAction("Open", self)
-        openAction.setEnabled(False)
-        deleteAction = QAction("Delete", self)
-        deleteAction.triggered.connect(
-            lambda clicked=None: self.deleteRequested.emit(itemList)
-        )
-        renameAction = QAction("Rename", self)
-        renameAction.triggered.connect(
-            lambda clicked=None: self.editItem(item)
-        )
-
-        menu.addAction(viewAction)
-        menu.addSeparator()
-        menu.addAction(openAction)
-        menu.addAction(deleteAction)
-        menu.addAction(renameAction)
-
-        menu.exec(self.mapToGlobal(point))
-
-    def check_expand(self) -> None:
-        if self.__dragHoverItem is None:
-            self.__expandTimer = time.time()
-            self.__dragPreSelected = False
-            return
-
-        if time.time() - self.__expandTimer > self.ExpandTime:
-            self.__dragHoverItem.setExpanded(True)
-            self.__expandTimer = time.time()
-
-    @Slot(ProjectHierarchyItem)
-    def editItem(self, item: ProjectHierarchyItem) -> None:
-        item._preRenamePath = item.get_relative_path()
-        super().editItem(item)
-
-    @Slot(QDragEnterEvent)
-    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
-        mimeData = event.mimeData()
-
-        if not mimeData.hasUrls():
-            event.ignore()
-
-        self.__dragHoverItem = self.itemAt(event.pos())
-        self.__dragPreSelected = False if self.__dragHoverItem is None else self.__dragHoverItem.isSelected()
-        self.__expandTimer = time.time()
-        event.acceptProposedAction()
-
-    @Slot(QDragEnterEvent)
-    def dragMoveEvent(self, event: QDragMoveEvent) -> None:
-        mimeData = event.mimeData()
-        if not mimeData.hasUrls():
-            event.ignore()
-
-        if self.__dragHoverItem is None:
-            event.acceptProposedAction()
-            return
-
-        item = self.itemAt(event.pos())
-        if item != self.__dragHoverItem:
-            if not self.__dragPreSelected:
-                self.setSelection(
-                    self.visualItemRect(self.__dragHoverItem),
-                    QItemSelectionModel.Deselect | QItemSelectionModel.Rows
-                )
-            self.__expandTimer = time.time()
-            self.__dragHoverItem = item
-            self.__dragPreSelected = False if item is None else item.isSelected()
-
-        if not self.__dragHoverItem in self.selectedItems():
-            self.setSelection(
-                self.visualItemRect(self.__dragHoverItem),
-                QItemSelectionModel.Select | QItemSelectionModel.Rows
-            )
-
-        if self.__dragHoverItem:
-            for url in mimeData.urls():
-                path = Path(url.toLocalFile())
-                if path.parent == self.scenePath / self.__dragHoverItem.get_relative_path():
-                    event.ignore()
-        event.acceptProposedAction()
-
-    @Slot(QDragLeaveEvent)
-    def dragLeaveEvent(self, event: QDragLeaveEvent) -> None:
-        if self.__dragHoverItem is None:
-            event.accept()
-            return
-
-        if not self.__dragPreSelected:
-            self.setSelection(
-                self.visualItemRect(self.__dragHoverItem),
-                QItemSelectionModel.Deselect | QItemSelectionModel.Rows
-            )
-        self.__expandTimer = time.time()
-        self.__dragHoverItem = None
-        self.__dragPreSelected = False
-
-    @Slot(QDropEvent)
-    def dropEvent(self, event: QDropEvent) -> None:
-        md = event.mimeData()
-        targetItem = self.__dragHoverItem
-
-        self.__dragHoverItem = None
-        if md.hasUrls():
-            paths = [url.toLocalFile() for url in md.urls()]
-            self.moveRequested.emit(paths, targetItem)
-            event.accept()
-            return
-        event.ignore()
-
-    @Slot(QMouseEvent)
-    def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
-        event.ignore()
-
-    def __record_expand_tree(self) -> dict:
-        tree = {}
-
-        def __inner_recurse(parent: ProjectHierarchyItem):
-            nonlocal tree
-            for i in range(parent.childCount()):
-                child: ProjectHierarchyItem = parent.child(i)
-                __inner_recurse(child)
-                tree[child.get_relative_path()] = child.isExpanded()
-        for i in range(self.topLevelItemCount()):
-            child: ProjectHierarchyItem = self.topLevelItem(i)
-            __inner_recurse(child)
-            tree[child.get_relative_path()] = child.isExpanded()
-        return tree
-
-    def __apply_expand_tree(self, tree: dict):
-        def __inner_recurse(parent: ProjectHierarchyItem):
-            nonlocal tree
-            for i in range(parent.childCount()):
-                child: ProjectHierarchyItem = parent.child(i)
-                __inner_recurse(child)
-                child.setExpanded(tree.setdefault(
-                    child.get_relative_path(), False))
-        for i in range(self.topLevelItemCount()):
-            child: ProjectHierarchyItem = self.topLevelItem(i)
-            __inner_recurse(child)
-            child.setExpanded(tree.setdefault(
-                child.get_relative_path(), False))
 
 
 class ProjectTreeViewWidget(InteractiveTreeView, A_FileSystemViewer):
@@ -1161,8 +1017,9 @@ class ProjectTreeViewWidget(InteractiveTreeView, A_FileSystemViewer):
         super().__init__(parent)
         self.setHeaderHidden(True)
         self.setAcceptDrops(True)
-        self.setDragDropMode(QTreeWidget.DragDrop)
+        self.setDragDropMode(QTreeView.DragDrop)
         self.setDefaultDropAction(Qt.MoveAction)
+        self.setEditTriggers(QTreeView.NoEditTriggers)
 
     def get_source_model(self) -> QAbstractItemModel:
         proxy: JSystemFSDirectoryProxyModel = self.model()
@@ -1221,7 +1078,7 @@ class ProjectViewerWidget(A_DockingInterface):
         self.__ignoreItemRename = False
         self.__openTable: Dict[str, Any] = {}
 
-        self.fsModel = JSystemFSModel(None, False, self)
+        self.fsModel = JSystemFSModel(Path("__doesnt_exist__"), False, self)
 
         self.fsModelViewProxy = JSystemFSSortProxyModel(self)
         self.fsModelViewProxy.setSourceModel(self.fsModel)

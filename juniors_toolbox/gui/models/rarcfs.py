@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 
 from dataclasses import dataclass
 from enum import IntEnum
+from genericpath import isfile
 from io import BytesIO
 from logging import root
 import os
@@ -118,39 +119,54 @@ class JSystemFSModel(QAbstractItemModel):
         ".bnk": "Instrument Bank",
     }
 
+    class _FsKind(IntEnum):
+        UNKNOWN = -1
+        FILE = 0
+        DIR = 1
+        ARCHIVE = 2
+
     @dataclass
     class _HandleInfo:
         path: PurePath
         parent: "JSystemFSModel._HandleInfo" | None
         children: list["JSystemFSModel._HandleInfo"]
-        isFile: bool
+        fsKind: "JSystemFSModel._FsKind"
         size: int
         loaded: bool = False
+        hasSubDir: bool = False
+        icon: QIcon | None = None
+        archive: QModelIndex | None = None
 
         def __repr__(self) -> str:
             if self.parent:
                 return f"Handle(\"{self.path.parent.name}/{self.path.name}\", parent={self.parent.path.name})"
             return f"Handle(\"{self.path.parent.name}/{self.path.name}\", parent=None)"
 
+        def __eq__(self, other: object) -> bool:
+            if not isinstance(other, JSystemFSModel._HandleInfo):
+                return False
+
+            return all([
+                self.path == other.path,
+                self.parent == other.parent
+            ])
+
     class _HandleType(IntEnum):
         FILE = 0
         DIRECTORY = 1
         ARCHIVE = 2
 
-    def __init__(self, rootPath: Path | None, readOnly: bool = True, parent: Optional[QObject] = None) -> None:
+    def __init__(self, rootPath: Path, readOnly: bool = True, parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
         self._rootPath = rootPath
-        self._rootDirectory = PurePath()
+        self._archives: dict[PurePath, ResourceArchive] = {}
+
         self._readOnly = readOnly
-        self._nameFilterDisables = True
-        self._filter = QDir.Filter.AllEntries
-        self._nameFilters: list[str] = []
 
         self._fileSystemWatcher = QFileSystemWatcher(self)
         self._fileSystemWatcher.fileChanged.connect(self.file_changed)
         self._fileSystemWatcher.directoryChanged.connect(
             self.directory_changed)
-        self._archives: dict[PurePath, ResourceArchive] = {}
 
         if rootPath is not None:
             self._fileSystemWatcher.addPath(str(rootPath))
@@ -159,40 +175,32 @@ class JSystemFSModel(QAbstractItemModel):
         self._conflictAction: FileConflictAction | None = None
 
         self._initialize_icons()
-        self.update()
+        self.reset_cache()
 
     @property
-    def rootPath(self) -> Path | None:
+    def rootPath(self) -> Path:
         return self._rootPath
 
     @rootPath.setter
-    def rootPath(self, rootPath: Path | None) -> bool:
+    def rootPath(self, rootPath: Path) -> bool:
         if rootPath == self._rootPath:
             return True
 
-        self._fileSystemWatcher.removePath(str(self._rootPath))
         self._rootPath = rootPath
-        if rootPath is None:
-            return False
-
         if not rootPath.exists():
             return False
 
-        self._fileSystemWatcher.addPath(str(rootPath))
-        self.update()
+        self._fileSystemWatcher.removePaths(
+            self._fileSystemWatcher.files()
+        )
+        self._fileSystemWatcher.removePaths(
+            self._fileSystemWatcher.directories()
+        )
+
+        self.reset_cache()
 
         self.rootPathChanged.emit(rootPath)
-        self.layoutChanged.emit()
         return True
-
-    @property
-    def rootDirectory(self) -> PurePath:
-        return self._rootDirectory
-
-    @rootDirectory.setter
-    def rootDirectory(self, rootDirectory: PurePath) -> bool:
-        self._rootDirectory = rootDirectory
-        return self.update()
 
     @property
     def readOnly(self) -> bool:
@@ -202,33 +210,6 @@ class JSystemFSModel(QAbstractItemModel):
     def readOnly(self, readOnly: bool):
         self._readOnly = readOnly
 
-    @property
-    def nameFilterDisables(self) -> bool:
-        return self._nameFilterDisables
-
-    @nameFilterDisables.setter
-    def nameFilterDisables(self, disables: bool):
-        self._nameFilterDisables = disables
-        self.update()
-
-    @property
-    def filter(self) -> QDir.Filters:
-        return self._filter
-
-    @filter.setter
-    def filter(self, filter: QDir.Filters):
-        self._filter = filter
-        self.update()
-
-    @property
-    def nameFilters(self) -> list[str]:
-        return self._nameFilters
-
-    @filter.setter
-    def nameFilters(self, filters: list[str]):
-        self._nameFilters = filters
-        self.update()
-
     def is_loaded(self, index: QModelIndex) -> bool:
         if not index.isValid():
             return True
@@ -237,122 +218,59 @@ class JSystemFSModel(QAbstractItemModel):
         return parentInfo.loaded
 
     def is_file(self, index: QModelIndex) -> bool:
-        if not index.isValid():
-            return False
-
-        path = self.get_path(index)
-
-        if self.is_child_of_archive(index):
-            archiveIndex = self.get_parent_archive(index)
-            if not archiveIndex.isValid():
-                return False
-
-            archivePath = self.get_path(archiveIndex)
-            archive = self._archives[archivePath]
-            if not path.is_relative_to(archivePath):
-                return False
-
-            virtualPath = path.relative_to(archivePath)
-            handle = archive.get_handle(virtualPath)
-            if handle is None:
-                return False
-
-            return handle.is_file()
-
-        return os.path.isfile(path)
+        handleInfo: JSystemFSModel._HandleInfo = index.internalPointer()
+        return handleInfo.fsKind == JSystemFSModel._FsKind.FILE
 
     def is_dir(self, index: QModelIndex) -> bool:
-        if not index.isValid():
-            return False
-
-        path = self.get_path(index)
-
-        if self.is_child_of_archive(index):
-            archiveIndex = self.get_parent_archive(index)
-            if not archiveIndex.isValid():
-                return False
-
-            archivePath = self.get_path(archiveIndex)
-            archive = self._archives[archivePath]
-            if archive is None:
-                return False
-
-            if not path.is_relative_to(archivePath):
-                return False
-
-            virtualPath = path.relative_to(archivePath)
-            handle = archive.get_handle(virtualPath)
-            if handle is None:
-                return False
-
-            return handle.is_directory()
-
-        return os.path.isdir(path)
+        handleInfo: JSystemFSModel._HandleInfo = index.internalPointer()
+        return handleInfo.fsKind == JSystemFSModel._FsKind.DIR
 
     def is_archive(self, index: QModelIndex) -> bool:
-        if not index.isValid():
-            return False
-
-        path = self.get_path(index)
-
-        if self.is_child_of_archive(index):
-            archiveIndex = self.get_parent_archive(index)
-            if not archiveIndex.isValid():
-                return False
-
-            archivePath = self.get_path(archiveIndex)
-            archive = self._archives[archivePath]
-            if archive is None:
-                return False
-
-            if not path.is_relative_to(archivePath):
-                return False
-
-            virtualPath = path.relative_to(archivePath)
-            handle = archive.get_handle(virtualPath)
-            if handle is None:
-                return False
-
-            return handle.is_file() and handle.get_extension() == ".arc"
-
-        return os.path.isfile(path) and path.suffix == ".arc"
+        handleInfo: JSystemFSModel._HandleInfo = index.internalPointer()
+        return handleInfo.fsKind == JSystemFSModel._FsKind.ARCHIVE
 
     def is_populated(self, index: QModelIndex) -> bool:
         if not index.isValid():
             return False
 
-        path = self.get_path(index)
+        if self.is_file(index):
+            return False
+
+        handleInfo: JSystemFSModel._HandleInfo = index.internalPointer()
+        if handleInfo.size > 0:  # Size is already cached
+            return True
+
+        indexPath = self.get_path(index)
 
         archiveIndex = self.get_parent_archive(index)
         if archiveIndex.isValid():
             archivePath = self.get_path(archiveIndex)
             archive = self._archives[archivePath]
-            if archive is None:
+
+            if not indexPath.is_relative_to(archivePath):
                 return False
 
-            if not path.is_relative_to(archivePath):
-                return False
-
-            virtualPath = path.relative_to(archivePath)
+            virtualPath = indexPath.relative_to(archivePath)
             handle = archive.get_handle(virtualPath)
             if handle is None:
                 return False
 
             if handle.is_directory():
-                return len(handle.get_handles()) > 0
+                handleInfo.size = len(handle.get_handles())
+                return handleInfo.size > 0
 
             if handle.is_file() and handle.get_extension() == ".arc":
                 return not ResourceArchive.is_archive_empty(
                     BytesIO(handle.get_raw_data())
                 )
 
-        if os.path.isdir(path):
-            for _ in Path(path).glob("*"):
+        if os.path.isdir(indexPath):
+            for _ in Path(indexPath).glob("*"):
                 return True
             return False
 
-        if os.path.isfile(path) and path.suffix == ".arc":
-            with open(path, "rb") as f:
+        if os.path.isfile(indexPath) and indexPath.suffix == ".arc":
+            with open(indexPath, "rb") as f:
                 isEmpty = ResourceArchive.is_archive_empty(f)
             return not isEmpty
 
@@ -381,45 +299,49 @@ class JSystemFSModel(QAbstractItemModel):
     def get_conflict_action(self) -> FileConflictAction | None:
         return self._conflictAction
 
-    def set_conflict_action(self, action: FileConflictAction):
+    def set_conflict_action(self, action: FileConflictAction | None):
         self._conflictAction = action
 
     def get_parent_archive(self, index: QModelIndex | QPersistentModelIndex) -> QModelIndex:
         if not index.isValid():
             return QModelIndex()
-        parent = index.parent()
-        while parent.isValid():
-            path = self.get_path(parent)
-            if path in self._archives:
-                return parent
-            parent = parent.parent()
-        return QModelIndex()
+
+        handleInfo: JSystemFSModel._HandleInfo = index.internalPointer()
+
+        if handleInfo.archive is None:  # Not cached yet
+            parent = index.parent()
+            while parent.isValid():
+                parentInfo: JSystemFSModel._HandleInfo = parent.internalPointer()
+                if parentInfo.fsKind == JSystemFSModel._FsKind.ARCHIVE:
+                    handleInfo.archive = parent
+                    return parent  # We found an archive
+                parent = parent.parent()
+            handleInfo.archive = QModelIndex()
+
+        return handleInfo.archive
 
     def get_path_index(self, path: PurePath) -> QModelIndex:
-        if self.rootPath is None:
-            return QModelIndex()
-
         if str(path) in {"", "."}:
             return self.createIndex(0, 0, self._fileSystemCache)
 
         if not path.is_relative_to(self.rootPath):
             return QModelIndex()
 
-        relPath = path.relative_to(self.rootPath)
+        relPath = path.relative_to(self.rootPath.parent)
         handleInfo = self._fileSystemCache
 
-        column = 0
+        row = 0
         for part in relPath.parts[1:]:
             row = 0
             for child in handleInfo.children:
                 if child.path.name == part:
                     handleInfo = child
-                    continue
+                    break
                 row += 1
             else:
                 return QModelIndex()
 
-        return self.createIndex(row, column, handleInfo)
+        return self.createIndex(row, 0, handleInfo)
 
     def get_icon(self, index: QModelIndex | QPersistentModelIndex) -> QIcon:
         return self.data(index, self.FileIconRole)
@@ -446,7 +368,7 @@ class JSystemFSModel(QAbstractItemModel):
             return self.ExtensionToTypeMap.get(name, "File")
         return "Folder"
 
-    def move(self, index: QModelIndex | QPersistentModelIndex, parent: QModelIndex | QPersistentModelIndex, action: FileConflictAction = FileConflictAction.REPLACE) -> QModelIndex:
+    def move(self, index: QModelIndex | QPersistentModelIndex, parent: QModelIndex | QPersistentModelIndex, action: FileConflictAction | None = None) -> QModelIndex:
         self.set_conflict_action(action)
 
         thisParent = index.parent()
@@ -483,12 +405,13 @@ class JSystemFSModel(QAbstractItemModel):
                 while (action := self.get_conflict_action()) is None:
                     time.sleep(0.1)
 
+        if action is None:
+            action = FileConflictAction.REPLACE
+
         archiveIndex = self.get_parent_archive(index)
         if archiveIndex.isValid():
             archivePath = self.get_path(archiveIndex)
             archive = self._archives[archivePath]
-            if archive is None:
-                return QModelIndex()
 
             virtualPath = thisPath.relative_to(archivePath)
             handle = archive.get_handle(virtualPath)
@@ -559,75 +482,71 @@ class JSystemFSModel(QAbstractItemModel):
         return index
 
     def remove(self, index: QModelIndex | QPersistentModelIndex) -> bool:
-        if not index.isValid():
-            return False
+        return self.removeRow(index.row(), index.parent())
 
-        parentIndex = index.parent()
-        parentInfo: JSystemFSModel._HandleInfo = parentIndex.internalPointer()
-        thisInfo: JSystemFSModel._HandleInfo = index.internalPointer()
-
-        path = self.get_path(index)
-        if os.path.isfile(path):
-            os.remove(path)
-            parentInfo.children.remove(thisInfo)
-            return True
-
-        if os.path.exists(path):
-            return False
-
-        archiveIndex = self.get_parent_archive(index)
-        if not archiveIndex.isValid():
-            return False
-
-        archivePath = self.get_path(archiveIndex)
-        archive = self._archives[archivePath]
-        if archive is None:
-            return False
-
-        if not archive.remove_path(path):
-            return False
-
-        parentInfo.children.remove(thisInfo)
-        return True
-
-    def import_path(self, data: QMimeData, destinationParent: QModelIndex | QPersistentModelIndex, action: FileConflictAction | None = None) -> bool:
+    def import_paths(self, data: QMimeData, destinationParent: QModelIndex | QPersistentModelIndex, action: FileConflictAction | None = None) -> bool:
         if not destinationParent.isValid():
             return False
 
-        # Path importing is a file
-        if not data.hasFormat("x-application/jsystem-fs-data"):
-            return False
+        dropEffect = data.data("Preferred DropEffect")
+        dropEffectStream = QDataStream(dropEffect, QIODevice.ReadOnly)
+        dropEffectStream.setByteOrder(QDataStream.LittleEndian)
+        isCutAction = dropEffectStream.readInt32() == 2
 
-        importData = data.data("x-application/jsystem-fs-data")
-        dataStream = QDataStream(importData, QDataStream.ReadOnly)
+        successful = True
 
-        isVirtual = dataStream.readBool()
-        if isVirtual:
-            successful = self._import_virtual_path(
-                dataStream, destinationParent, action)
-        else:  # We can save on resources here because the path exists on the filesystem
-            successful = self._import_fs_path(
-                dataStream, destinationParent, action)
+        if data.hasFormat("x-application/jsystem-fs-data"):
+            importData = data.data("x-application/jsystem-fs-data")
+            dataStream = QDataStream(importData, QDataStream.ReadOnly)
+
+            pathCount = dataStream.readInt32()
+            for _ in range(pathCount):
+                successful &= self._import_virtual_path(
+                    dataStream, destinationParent, action)
+
+        if data.hasUrls():  # We can save on resources here because the path exists on the filesystem
+            for url in data.urls():
+                successful &= self._import_fs_path(
+                    Path(url.toLocalFile()), destinationParent, action, cutSource=isCutAction)
 
         return successful
 
-    def export_path(self, data: QMimeData, pathIndex: QModelIndex | QPersistentModelIndex) -> bool:
-        if not pathIndex.isValid():
-            return False
+    def export_paths(self, data: QMimeData, pathIndexes: list[QModelIndex | QPersistentModelIndex]) -> bool:
+        successful = True
 
-        dataStream = QDataStream(b"", QDataStream.WriteOnly)
+        length = 0
+        for pathIndex in pathIndexes:
+            if not pathIndex.isValid():
+                print("WARNING: Invalid index found when exporting")
+                continue
 
-        parentArchiveIndex = self.get_parent_archive(pathIndex)
+            bytedata = QByteArray()
+            dataStream = QDataStream(bytedata, QIODevice.WriteOnly)
 
-        isVirtual = parentArchiveIndex.isValid()
-        dataStream.writeBool(isVirtual)
+            parentArchiveIndex = self.get_parent_archive(pathIndex)
 
-        if isVirtual:  # Within an archive
-            successful = self._export_virtual_path(
-                dataStream, pathIndex, parentArchiveIndex)
-        else:
-            successful = self._export_fs_path(
-                dataStream, pathIndex)
+            isVirtual = parentArchiveIndex.isValid()
+
+            if isVirtual:  # Within an archive
+                serialSuccessful = self._export_virtual_path(
+                    dataStream, pathIndex, parentArchiveIndex)
+
+                if serialSuccessful:
+                    length += 1
+                else:
+                    successful = False
+            else:
+                path = self.get_path(pathIndex)
+                data.setUrls([*data.urls(), QUrl.fromLocalFile(path)])
+
+        if length > 0:
+            completeData = QByteArray()
+            completeStream = QDataStream(completeData, QIODevice.WriteOnly)
+
+            completeStream.writeInt32(length)
+            completeStream << bytedata
+
+            data.setData("x-application/jsystem-fs-data", completeData)
 
         return successful
 
@@ -755,7 +674,6 @@ class JSystemFSModel(QAbstractItemModel):
         path = self.get_path(index)
         if os.path.isdir(path):
             shutil.rmtree(path)
-            parentInfo.children.remove(thisInfo)
             return True
 
         if os.path.exists(path):
@@ -771,13 +689,12 @@ class JSystemFSModel(QAbstractItemModel):
         if not archive.remove_path(path):
             return False
 
-        parentInfo.children.remove(thisInfo)
         return True
 
     def flags(self, index: QModelIndex | QPersistentModelIndex) -> Qt.ItemFlags:
         if not index.isValid():
             return Qt.ItemIsDropEnabled
-        itemFlags = Qt.ItemIsDragEnabled | Qt.ItemIsEnabled | Qt.ItemIsEditable
+        itemFlags = Qt.ItemIsDragEnabled | Qt.ItemIsEnabled | Qt.ItemIsEditable | Qt.ItemIsSelectable
         if self.is_dir(index):
             itemFlags |= Qt.ItemIsDragEnabled
         return itemFlags
@@ -791,22 +708,37 @@ class JSystemFSModel(QAbstractItemModel):
             return -1
 
         handleInfo: JSystemFSModel._HandleInfo = index.internalPointer()
-        isFile = handleInfo.isFile
+        fsKind = handleInfo.fsKind
         name = handleInfo.path.name
         stem = handleInfo.path.stem
         extension = handleInfo.path.suffix
 
-        _type = self.ExtensionToTypeMap[extension] if isFile else "Folder"
+        if fsKind == JSystemFSModel._FsKind.DIR:
+            _type = "Folder"
+        else:
+            _type = self.ExtensionToTypeMap[extension]
+
+        if role == self.FileNameRole:
+            return stem
+
+        if role == self.FilePathRole:
+            return handleInfo.path
 
         if role == Qt.DisplayRole:
             return name
 
+        if role == Qt.SizeHintRole:
+            return QSize(80, 90)
+
         if role == Qt.DecorationRole:
-            if isFile:
-                if extension in self._icons:
-                    return self._icons[extension]
-                return self._icons["file"]
-            return self._icons["folder"]
+            if handleInfo.icon is None:
+                if fsKind == JSystemFSModel._FsKind.DIR:
+                    handleInfo.icon = self._icons["folder"]
+                elif extension in self._icons:
+                    handleInfo.icon = self._icons[extension]
+                else:
+                    handleInfo.icon = self._icons["file"]
+            return handleInfo.icon
 
         if role == Qt.EditRole:
             return name
@@ -816,15 +748,6 @@ class JSystemFSModel(QAbstractItemModel):
 
         if role == Qt.WhatsThisRole:
             return _type
-
-        if role == Qt.SizeHintRole:
-            return QSize(80, 90)
-
-        if role == self.FileNameRole:
-            return stem
-
-        if role == self.FilePathRole:
-            return handleInfo.path
 
     def setData(self, index: QModelIndex | QPersistentModelIndex, value: Any, role: int = Qt.DisplayRole) -> bool:
         if not index.isValid():
@@ -846,6 +769,7 @@ class JSystemFSModel(QAbstractItemModel):
             changed = self.rename(index, value)
 
         if changed:
+            handleInfo.icon = None
             self.dataChanged.emit(index, index, [role])
             return True
 
@@ -855,12 +779,9 @@ class JSystemFSModel(QAbstractItemModel):
         if not parent.isValid():
             return False
         handleInfo: JSystemFSModel._HandleInfo = parent.internalPointer()
-        return self.rootPath is not None and handleInfo.loaded is False
+        return handleInfo.loaded is False
 
     def fetchMore(self, parent: QModelIndex | QPersistentModelIndex) -> None:
-        if self.rootPath is None:
-            return
-
         if not self.rootPath.exists():
             return
 
@@ -924,7 +845,10 @@ class JSystemFSModel(QAbstractItemModel):
         if pParentInfo is None:
             return self.createIndex(0, 0, self._fileSystemCache)
 
-        return self.createIndex(pParentInfo.children.index(parentInfo), 0, parentInfo)
+        for i, pChild in enumerate(pParentInfo.children):
+            if pChild.path == parentInfo.path:
+                return self.createIndex(i, 0, parentInfo)
+        return QModelIndex()
 
     def mimeData(self, indexes: list[QModelIndex | QPersistentModelIndex]) -> QMimeData:
         urls: list[QUrl] = []
@@ -967,15 +891,34 @@ class JSystemFSModel(QAbstractItemModel):
 
         self.beginRemoveRows(parent, row, row+count)
 
-        try:
-            for i in range(row+count, row+1, -1):
-                handleInfo.children.pop(i)
-        except IndexError:
-            self.endRemoveRows()
-            return False
+        successful = True
+
+        for i in range(row+count-1, row-1, -1):
+            index = self.index(i, 0, parent)
+            path = self.get_path(index)
+
+            if os.path.isdir(path):
+                shutil.rmtree(path)
+                continue
+
+            if os.path.exists(path):
+                os.remove(path)
+                continue
+
+            archiveIndex = self.get_parent_archive(index)
+            if not archiveIndex.isValid():
+                successful = False
+                continue
+
+            archivePath = self.get_path(archiveIndex)
+            archive = self._archives[archivePath]
+
+            if not archive.remove_path(path):
+                successful = False
+                continue
 
         self.endRemoveRows()
-        return True
+        return successful
 
     def removeColumns(self, column: int, count: int, parent: QModelIndex | QPersistentModelIndex = QModelIndex()) -> bool:
         return False
@@ -990,7 +933,6 @@ class JSystemFSModel(QAbstractItemModel):
         if not sourceParent.isValid() or not destinationParent.isValid():
             return False
 
-        sourceParentInfo: JSystemFSModel._HandleInfo = sourceParent.internalPointer()
         destParentInfo: JSystemFSModel._HandleInfo = destinationParent.internalPointer()
         destParentPath = destParentInfo.path
 
@@ -1200,27 +1142,20 @@ class JSystemFSModel(QAbstractItemModel):
         return False
 
     @Slot()
-    def update(self) -> bool:
-        if self.rootPath is None:
-            self._fileSystemCache = JSystemFSModel._HandleInfo(
-                path=Path(),
-                parent=None,
-                children=[],
-                isFile=False,
-                size=-1
-            )
-            return False
+    def reset_cache(self) -> bool:
+        self.layoutAboutToBeChanged.emit()
 
         self._fileSystemCache = JSystemFSModel._HandleInfo(
             path=self.rootPath,
             parent=None,
             children=[],
-            isFile=False,
+            fsKind=JSystemFSModel._FsKind.DIR,
             size=0
         )
 
-        rootIndex = self.index(0, 0)
-        self._cache_path(rootIndex)
+        self._cache_path(self.index(0, 0))
+
+        self.layoutChanged.emit()
         return True
 
     @Slot(str)
@@ -1228,14 +1163,35 @@ class JSystemFSModel(QAbstractItemModel):
         if path not in self._fileSystemWatcher.files():
             self._fileSystemWatcher.addPath(path)
 
-        self.update()
+        index = self.get_path_index(PurePath(path))
+
+        handleInfo: JSystemFSModel._HandleInfo = index.internalPointer()
+        handleInfo.path = PurePath(path)
+
+        if handleInfo.path.suffix != ".arc":
+            handleInfo.size = os.stat(path).st_size
+            return
+
+        handleInfo.loaded = False  # Mark dirty
+
+        self.layoutAboutToBeChanged.emit()
+        self._cache_path(index)
+        self.layoutChanged.emit()
 
     @Slot(str)
     def directory_changed(self, path: str):
         if path not in self._fileSystemWatcher.directories():
             self._fileSystemWatcher.addPath(path)
 
-        self.update()
+        index = self.get_path_index(PurePath(path))
+
+        handleInfo: JSystemFSModel._HandleInfo = index.internalPointer()
+        handleInfo.path = PurePath(path)
+        handleInfo.loaded = False  # Mark dirty
+
+        self.layoutAboutToBeChanged.emit()
+        self._cache_path(index)
+        self.layoutChanged.emit()
 
     def _cache_path(self, index: QModelIndex | QPersistentModelIndex):
         handleInfo: JSystemFSModel._HandleInfo = index.internalPointer()
@@ -1245,6 +1201,8 @@ class JSystemFSModel(QAbstractItemModel):
         handleInfo.children.clear()
 
         path = handleInfo.path
+        self._fileSystemWatcher.addPath(str(path))
+
         if os.path.isdir(path):
             i = 0
             for p in os.listdir(path):
@@ -1254,17 +1212,22 @@ class JSystemFSModel(QAbstractItemModel):
                         path=subPath,
                         parent=handleInfo,
                         children=[],
-                        isFile=False,
+                        fsKind=JSystemFSModel._FsKind.DIR,
                         size=sum(
                             1 for _ in Path(subPath).glob('*')
                         )
                     )
+                    for sp in os.listdir(subPath):
+                        if os.path.isdir(subPath / sp):
+                            info.hasSubDir = True
+                            break
+                    handleInfo.hasSubDir = True
                 else:
                     info = JSystemFSModel._HandleInfo(
                         path=subPath,
                         parent=handleInfo,
                         children=[],
-                        isFile=True,
+                        fsKind=JSystemFSModel._FsKind.FILE,
                         size=os.stat(subPath).st_size
                     )
                 handleInfo.children.append(info)
@@ -1275,6 +1238,7 @@ class JSystemFSModel(QAbstractItemModel):
 
         if path.suffix == ".arc":
             self._cache_archive(index)
+            return
 
     def _cache_archive(self, index: QModelIndex | QPersistentModelIndex):
 
@@ -1284,12 +1248,17 @@ class JSystemFSModel(QAbstractItemModel):
             i = 0
             for p in handle.get_handles():
                 if p.is_file():
+                    if p.get_extension() == ".arc":
+                        fsKind = JSystemFSModel._FsKind.ARCHIVE
+                    else:
+                        fsKind = JSystemFSModel._FsKind.FILE
+
                     subHandleInfo.children.append(
                         JSystemFSModel._HandleInfo(
                             path=self.get_path(index) / p.get_path(),
                             parent=subHandleInfo,
                             children=[],
-                            isFile=True,
+                            fsKind=fsKind,
                             size=p.get_size()
                         )
                     )
@@ -1298,11 +1267,12 @@ class JSystemFSModel(QAbstractItemModel):
                     path=self.get_path(index) / p.get_path(),
                     parent=subHandleInfo,
                     children=[],
-                    isFile=False,
+                    fsKind=JSystemFSModel._FsKind.DIR,
                     size=p.get_size()
                 )
                 _recursive_cache(p, childHandleInfo)
                 subHandleInfo.children.append(childHandleInfo)
+                subHandleInfo.hasSubDir = True
                 i += 1
             subHandleInfo.size = i
             subHandleInfo.loaded = True
@@ -1391,23 +1361,22 @@ class JSystemFSModel(QAbstractItemModel):
 
     def _import_fs_path(
         self,
-        inputStream: QDataStream,
+        thisPath: Path,
         destinationParent: QModelIndex | QPersistentModelIndex,
-        action: FileConflictAction | None = None
-    ):
-        thisPath = Path(inputStream.readString())
-
+        action: FileConflictAction | None = None,
+        cutSource: bool = False
+    ) -> bool:
         destFolder = self.get_path(destinationParent)
         destParentInfo: JSystemFSModel._HandleInfo = destinationParent.internalPointer()  # type: ignore
         destPath = destFolder / thisPath.name
 
         if thisPath.is_dir():
             subDir = self.mkdir(thisPath.name, destinationParent)
-            childCount = inputStream.readUInt32()
 
             successful = True
-            for _ in range(childCount):
-                successful &= self._import_fs_path(inputStream, subDir, action)
+            for subPath in thisPath.iterdir():
+                successful &= self._import_fs_path(
+                    subPath, subDir, action, cutSource)
             return successful
 
         # Check if the destination is part of an archive
@@ -1461,6 +1430,9 @@ class JSystemFSModel(QAbstractItemModel):
             if not destParentHandle.add_handle(sourceHandle, action=FileConflictAction.REPLACE):
                 return False
 
+            if not cutSource:
+                return True
+
             # Remove old path
             if isSrcDir:
                 shutil.rmtree(thisPath)
@@ -1492,7 +1464,10 @@ class JSystemFSModel(QAbstractItemModel):
             else:  # Skip
                 return True
 
-        shutil.move(thisPath, destPath)
+        if cutSource:
+            shutil.move(thisPath, destPath)
+        else:
+            shutil.copy(thisPath, destPath)
         return True
 
     def _import_virtual_path(
@@ -1650,18 +1625,18 @@ class JSystemFSModel(QAbstractItemModel):
             outputStream.writeUInt32(srcParentInfo.size)
 
             successful = True
-            for p in srcPath.iterdir():
+            for i in range(srcParentInfo.size):
                 successful &= self._export_fs_path(
-                    outputStream, self.get_path_index(p))
+                    outputStream, self.index(i, 0, srcIndex))
             return successful
         else:
             paths = [p for p in srcPath.iterdir()]
             outputStream.writeUInt32(len(paths))
 
             successful = True
-            for p in paths:
+            for i, _ in enumerate(paths):
                 successful &= self._export_fs_path(
-                    outputStream, self.get_path_index(p))
+                    outputStream, self.index(i, 0, srcIndex))
             return successful
 
     def _export_virtual_path(
@@ -1701,10 +1676,10 @@ class JSystemFSModel(QAbstractItemModel):
                 outputStream.writeUInt32(srcParentInfo.size)
 
                 successful = True
-                for p in srcHandle.get_handles():
+                for i in range(srcParentInfo.size):
                     successful &= self._export_virtual_path(
-                        outputStream, self.get_path_index(
-                            srcPath / p.get_name()), srcArchiveIndex
+                        outputStream, self.index(
+                            i, 0, srcIndex), srcArchiveIndex
                     )
                 return successful
             else:
@@ -1712,10 +1687,10 @@ class JSystemFSModel(QAbstractItemModel):
                 outputStream.writeUInt32(len(paths))
 
                 successful = True
-                for p in paths:
+                for i, _ in enumerate(paths):
                     successful &= self._export_virtual_path(
-                        outputStream, self.get_path_index(
-                            srcPath / p.get_name()), srcArchiveIndex
+                        outputStream, self.index(
+                            i, 0, srcIndex), srcArchiveIndex
                     )
                 return successful
 
@@ -1758,45 +1733,7 @@ class JSystemFSDirectoryProxyModel(JSystemFSSortProxyModel):
         if not parent.isValid():
             return True
 
-        sourceModel: JSystemFSModel = self.sourceModel()
         sourceParent = self.mapToSource(parent)
-        path = sourceModel.get_path(sourceParent)
+        sourceParentHandle: JSystemFSModel._HandleInfo = sourceParent.internalPointer()
 
-        archiveIndex = sourceModel.get_parent_archive(sourceParent)
-        if archiveIndex.isValid():
-            archivePath = sourceModel.get_path(archiveIndex)
-            archive = sourceModel._archives[archivePath]
-            if archive is None:
-                return False
-
-            if not path.is_relative_to(archivePath):
-                return False
-
-            virtualPath = path.relative_to(archivePath)
-            handle = archive.get_handle(virtualPath)
-            if handle is None:
-                return False
-
-            if handle.is_directory():
-                for subHandle in handle.get_handles():
-                    if subHandle.is_directory() or subHandle.get_extension() == ".arc":
-                        return True
-                return False
-
-            if handle.is_file() and handle.get_extension() == ".arc":
-                return not ResourceArchive.is_archive_empty(
-                    BytesIO(handle.get_raw_data())
-                )
-
-        if os.path.isdir(path):
-            for p in Path(path).glob("*"):
-                if p.is_dir() or p.suffix == ".arc":
-                    return True
-            return False
-
-        if os.path.isfile(path) and path.suffix == ".arc":
-            with open(path, "rb") as f:
-                dirCount = ResourceArchive.get_directory_count(f)
-            return dirCount > 1
-
-        return False
+        return sourceParentHandle.hasSubDir
