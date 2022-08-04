@@ -34,7 +34,7 @@ from juniors_toolbox.utils.j3d.anim.bva import BVA
 from juniors_toolbox.utils.j3d.bmd import BMD
 from juniors_toolbox.utils.prm import PrmFile
 from juniors_toolbox.utils.types import RGB8, RGB32, RGBA8, Vec3f
-from PySide6.QtCore import (QAbstractItemModel, QDataStream, QEvent, QIODevice, QByteArray,
+from PySide6.QtCore import (QAbstractItemModel, QDataStream, QEvent, QIODevice, QByteArray, QThread, QRunnable,
                             QLine, QMimeData, QModelIndex, QObject, QPoint,
                             QSize, Qt, QThread, QTimer, QUrl, Signal, QItemSelectionModel, QPersistentModelIndex,
                             SignalInstance, Slot)
@@ -124,6 +124,18 @@ class ProjectCreateAction(QAction):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.initializer = FileInitializer("Default", b"")
+
+
+class ProjectCacheUpdater(QObject, QRunnable):
+    cacheUpdated = Signal()
+
+    def __init__(self, model: JSystemFSModel, indexToCache: QModelIndex | QPersistentModelIndex, parent: Optional[QObject] = None) -> None:
+        super().__init__(parent)
+        self.model = model
+        self.indexToCache = indexToCache
+
+    def run(self) -> None:
+        self.model._cache_path(self.indexToCache)
 
 
 class ProjectFocusedMenuBarAction(QAction):
@@ -375,9 +387,11 @@ class ProjectFolderViewWidget(InteractiveListView):
         sourceContextIndex = proxyModel.mapToSource(contextIndex)
         isChildOfArchive = model.get_parent_archive(
             sourceContextIndex).isValid()
+        isFolder = model.is_dir(sourceContextIndex)
 
         # Selected indexes
         selectedIndexes = self.selectedIndexes()
+        singularSelection = len(selectedIndexes) == 1
 
         newAssetMenu = self.generate_asset_menu(contextIndex)
         newFolderAction = QAction("New Folder", self)
@@ -396,7 +410,7 @@ class ProjectFolderViewWidget(InteractiveListView):
 
         copyPathAction = QAction("Copy Path", self)
         copyPathAction.triggered.connect(
-            lambda: self._copy_index_paths(contextIndex, relative=False)
+            lambda: self._copy_index_paths(selectedIndexes, relative=False)
         )
 
         if contextIndexValid:
@@ -415,20 +429,26 @@ class ProjectFolderViewWidget(InteractiveListView):
                 lambda: self._copy_index_paths(contextIndex, relative=True)
             )
 
-            renameAction = QAction("Rename", self)
-            renameAction.triggered.connect(
-                lambda: self.edit(contextIndex)
-            )
+            if singularSelection:
+                renameAction = QAction("Rename", self)
+                renameAction.triggered.connect(
+                    lambda: self.edit(contextIndex)
+                )
 
             deleteAction = QAction("Delete", self)
             deleteAction.triggered.connect(
                 lambda: self._delete_paths(selectedIndexes)
             )
-        else:
-            pasteAction = QAction("Paste")
-            pasteAction.setEnabled(
-                self._is_import_ready(QClipboard().mimeData())
+
+        pasteAction = QAction("Paste", self)
+        pasteAction.setEnabled(
+            self._is_import_ready(QClipboard().mimeData())
+        )
+        if isFolder:
+            pasteAction.triggered.connect(
+                lambda: self._paste_paths(contextIndex)
             )
+        else:
             pasteAction.triggered.connect(
                 lambda: self._paste_paths(self.rootIndex())
             )
@@ -445,14 +465,20 @@ class ProjectFolderViewWidget(InteractiveListView):
         if contextIndexValid:
             menu.addAction(cutAction)
             menu.addAction(copyAction)
-            menu.addSeparator()
+            if isFolder:
+                menu.addAction(pasteAction)
+        else:
+            menu.addAction(pasteAction)
+
+        menu.addSeparator()
 
         menu.addAction(copyPathAction)
 
         if contextIndexValid:
             menu.addAction(copyRelativePathAction)
             menu.addSeparator()
-            menu.addAction(renameAction)
+            if singularSelection:
+                menu.addAction(renameAction)
             menu.addAction(deleteAction)
 
         return menu
@@ -543,7 +569,7 @@ class ProjectFolderViewWidget(InteractiveListView):
             else:
                 paths.append(str(path))
 
-        QClipboard.setText("\n".join(paths))
+        QClipboard().setText("\n".join(paths))
 
     def _copy_paths(self, indexes: list[QModelIndex | QPersistentModelIndex]):
         model: JSystemFSModel = self.get_source_model()
@@ -591,7 +617,7 @@ class ProjectFolderViewWidget(InteractiveListView):
 
         successful = model.export_paths(mimeData, mappedIndexes)
         if not successful:
-            print("Failed to copy path to clipboard")
+            print("Failed to cut path to clipboard")
             return
 
         QClipboard().setMimeData(mimeData)
@@ -610,7 +636,7 @@ class ProjectFolderViewWidget(InteractiveListView):
 
         successful = model.import_paths(mimeData, index)
         if not successful:
-            print("Failed to copy path to clipboard")
+            print("Failed to paste clipboard to path")
             return
 
     def _delete_paths(self, indexes: list[QModelIndex | QPersistentModelIndex]):
@@ -1004,7 +1030,8 @@ class ProjectViewerWidget(A_DockingInterface):
         self.__scenePath: Optional[Path] = None
         self._focusedPath = PurePath()
 
-        self.fsModel = JSystemFSModel(Path("__doesnt_exist__"), False, self)
+        self.fsModel = JSystemFSModel(
+            Path("__doesnt_exist__"), False, self)
 
         self.fsModelViewProxy = JSystemFSSortProxyModel(self)
         self.fsModelViewProxy.setSourceModel(self.fsModel)

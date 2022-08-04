@@ -69,8 +69,6 @@ class JSystemFSModel(QAbstractItemModel):
     """
     Mimics QFileSystemModel with a watchdog and async updates, with RARC support
     """
-    directoryLoaded = Signal(PurePath)
-    fileRenamed = Signal(PurePath, str, str)
     rootPathChanged = Signal(PurePath)
     conflictFound = Signal(PurePath, PurePath)
 
@@ -216,14 +214,20 @@ class JSystemFSModel(QAbstractItemModel):
         return parentInfo.loaded
 
     def is_file(self, index: QModelIndex) -> bool:
+        if not index.isValid():
+            return False
         handleInfo: JSystemFSModel._HandleInfo = index.internalPointer()
         return handleInfo.fsKind == JSystemFSModel._FsKind.FILE
 
     def is_dir(self, index: QModelIndex) -> bool:
+        if not index.isValid():
+            return False
         handleInfo: JSystemFSModel._HandleInfo = index.internalPointer()
         return handleInfo.fsKind == JSystemFSModel._FsKind.DIRECTORY
 
     def is_archive(self, index: QModelIndex) -> bool:
+        if not index.isValid():
+            return False
         handleInfo: JSystemFSModel._HandleInfo = index.internalPointer()
         return handleInfo.fsKind == JSystemFSModel._FsKind.ARCHIVE
 
@@ -1277,15 +1281,14 @@ class JSystemFSModel(QAbstractItemModel):
                     else:
                         fsKind = JSystemFSModel._FsKind.FILE
 
-                    subHandleInfo.children.append(
-                        JSystemFSModel._HandleInfo(
-                            path=self.get_path(index) / p.get_path(),
-                            parent=subHandleInfo,
-                            children=[],
-                            fsKind=fsKind,
-                            size=p.get_size()
-                        )
+                    childHandleInfo = JSystemFSModel._HandleInfo(
+                        path=self.get_path(index) / p.get_path(),
+                        parent=subHandleInfo,
+                        children=[],
+                        fsKind=fsKind,
+                        size=p.get_size()
                     )
+                    subHandleInfo.children.append(childHandleInfo)
                     continue
                 childHandleInfo = JSystemFSModel._HandleInfo(
                     path=self.get_path(index) / p.get_path(),
@@ -1294,9 +1297,9 @@ class JSystemFSModel(QAbstractItemModel):
                     fsKind=JSystemFSModel._FsKind.DIRECTORY,
                     size=p.get_size()
                 )
-                _recursive_cache(p, childHandleInfo)
                 subHandleInfo.children.append(childHandleInfo)
                 subHandleInfo.hasSubDir = True
+                _recursive_cache(p, childHandleInfo)
                 i += 1
             subHandleInfo.size = i
             subHandleInfo.loaded = True
@@ -1394,8 +1397,39 @@ class JSystemFSModel(QAbstractItemModel):
         destParentInfo: JSystemFSModel._HandleInfo = destinationParent.internalPointer()  # type: ignore
         destPath = destFolder / thisPath.name
 
+        if destPath == thisPath:
+            print("Source can't be dest")
+            return False
+
+        if destPath.is_relative_to(thisPath):
+            print("Source can't be parent of dest")
+            return False
+
         if thisPath.is_dir():
-            subDir = self.mkdir(thisPath.name, destinationParent)
+            destIndex = self.get_path_index(destPath)
+            if destIndex.isValid():  # Conflict found
+                if action is None:
+                    self.conflictFound.emit(thisPath, destFolder)
+                    while (action := self.get_conflict_action()) is None:
+                        time.sleep(0.1)
+
+                if action == FileConflictAction.REPLACE:
+                    for i, handleInfo in enumerate(destParentInfo.children):
+                        if handleInfo.path.name == destPath.name:
+                            self.removeRow(i, destinationParent)
+                            break
+
+                elif action == FileConflictAction.KEEP:
+                    newPath = self._resolve_path_conflict(
+                        thisPath.name, destinationParent)
+                    if newPath is None:
+                        return QModelIndex()
+                    destPath = newPath
+
+                else:  # Skip
+                    return True
+
+            subDir = self.mkdir(destPath.name, destinationParent)
 
             successful = True
             for subPath in thisPath.iterdir():
