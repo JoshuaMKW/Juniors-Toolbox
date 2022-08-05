@@ -249,7 +249,7 @@ class RailNode(A_Serializable, A_Clonable):
                 return False
             self._rail = targetRail
             self._rail.insert_node(node.get_index() + 1, self)
-            
+
         self._connect_slots(srcSlot, node, dstSlot)
         return True
 
@@ -295,8 +295,6 @@ class RailNode(A_Serializable, A_Clonable):
         nextNode = rail.get_node(nextRow)
         prevNode = rail.get_node(prevRow)
         if nextNode is None or prevNode is None:
-            print(
-                f"WARNING: Couldn't connect to neighbors ({prevRow}) and ({nextRow})")
             return False
 
         self.connectionCount.set_value(1)
@@ -336,7 +334,6 @@ class RailNode(A_Serializable, A_Clonable):
 
         prevNode = rail.get_node(prevRow)
         if prevNode is None:
-            print(f"WARNING: Couldn't connect to previous node ({prevRow})")
             return False
 
         self.connectionCount.set_value(1)
@@ -366,7 +363,6 @@ class RailNode(A_Serializable, A_Clonable):
 
         nextNode = rail.get_node(nextRow)
         if nextNode is None:
-            print(f"WARNING: Couldn't connect to next node ({nextRow})")
             return False
 
         self.connectionCount.set_value(1)
@@ -402,7 +398,6 @@ class RailNode(A_Serializable, A_Clonable):
 
             otherNode = rail.get_node(row)
             if otherNode is None:
-                print(f"WARNING: Couldn't connect to referring node ({row})")
                 continue
 
             for i in range(otherNode.connectionCount.get_value()):
@@ -792,19 +787,18 @@ class Rail(A_Serializable, A_Clonable):
                 self.insert_node(qNode.get_index() + int(slot > 0), rNode)
 
                 rNode.connect(0, thisNode, nextSlot)
-                rNode.connect(1, otherNode,thisSlot)
+                rNode.connect(1, otherNode, thisSlot)
                 rNode.values[3].set_value(1111)
 
                 nodeVisitedMap[rNode] = True
             nodeVisitedMap[qNode] = True
-            
+
         # for i, node in enumerate(oldNodes[1:], start=1):
         #     if i + 1 >= nodeCount:
         #         endNode = oldNodes[i]
         #         break
 
         #     qNode = node.copy(deep=True)
-
 
         #     connectionCount = node.connectionCount.get_value()
         #     if connectionCount != 2:
@@ -846,7 +840,6 @@ class Rail(A_Serializable, A_Clonable):
         #     # newNodes.append(rNode)
         #     # if slot == 0:
         #     #     newNodes.append(qNode)
-                
 
         #     # nodeVisitedMap[qNode] = True
         #     nodeVisitedMap[rNode] = True

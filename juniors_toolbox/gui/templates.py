@@ -6,6 +6,8 @@ from typing import Any, Iterable, Iterator, Optional, Tuple, Type, TypeAlias
 from PySide6.QtCore import QObject
 from juniors_toolbox.utils import VariadicArgs, VariadicKwargs
 from juniors_toolbox.utils.filesystem import resource_path
+from juniors_toolbox.gui.tabs import TabWidgetManager
+from juniors_toolbox.gui.tabs.console import ConsoleLogWidget
 
 
 TemplateEnumType: TypeAlias = dict[str, Any]
@@ -110,13 +112,13 @@ class Template():
             for flag in _enum["Flags"]:
                 _enum["Flags"][flag] = int(_enum["Flags"][flag], 0)
             self.set_enum(name, _enum)
-        
+
         for name, _struct in structInfo.items():
             self.set_struct(name, _struct)
-        
+
         for name, _member in memberInfo.items():
             self.set_member(name, _member)
-        
+
         for name, _wizard in wizardInfo.items():
             self.set_wizard(name, _wizard)
 
@@ -182,16 +184,26 @@ class ToolboxTemplates(QObject):
     def iter_templates(self) -> Iterable[Template]:
         for template in self.__templates.values():
             yield template
-        
+
     def reload(self):
+        console = TabWidgetManager.get_tab(ConsoleLogWidget)
+
         self.__templates.clear()
         for templateFile in self.__templatePath.iterdir():
             template = Template(templateFile.stem)
             successful = template.load(self.__templatePath)
             if not successful:
-                print(f"Error loading template {template.get_name()}")
+                console.error(
+                    __name__,
+                    f"Error loading template {template.get_name()}"
+                )
                 continue
             self.__templates[template.get_name()] = template
+
+        console.info(
+            __name__,
+            f"Successfully loaded \"{template.get_name()}\""
+        )
 
     def load(self, template: Template):
         template.load(self.__templatePath)

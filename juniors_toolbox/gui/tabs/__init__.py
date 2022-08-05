@@ -1,5 +1,6 @@
 from typing import Dict, Iterable, Optional, TypeVar
-from juniors_toolbox.gui.tabs.dataeditor import DataEditorTextEdit, DataEditorWidget
+from juniors_toolbox.gui.tabs.console import ConsoleLogWidget
+from juniors_toolbox.gui.tabs.dataeditor import DataEditorWidget
 from juniors_toolbox.gui.tabs.hierarchyviewer import NameRefHierarchyWidget
 from juniors_toolbox.gui.tabs.prmeditor import PrmEditorWidget
 from juniors_toolbox.gui.tabs.projectviewer import ProjectViewerWidget
@@ -11,6 +12,7 @@ from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 
 T = TypeVar("T", bound=A_DockingInterface)
 
+
 class TabWidgetManager():
     _STR_TO_TYPE = {
         "Project Viewer": ProjectViewerWidget,
@@ -21,7 +23,8 @@ class TabWidgetManager():
         "PRM Editor": PrmEditorWidget,
         "Demo Editor": None,
         "Data Viewer": DataEditorWidget,
-        "Scene Renderer": SceneRendererWidget
+        "Scene Renderer": SceneRendererWidget,
+        "Console Log": ConsoleLogWidget
     }
 
     _TAB_WIDGETS: Dict[type, Optional[A_DockingInterface]] = {}

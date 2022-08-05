@@ -36,8 +36,8 @@ class RunnableWorker(QRunnable):
             exctype, value = sys.exc_info()[:2]
             self.signals.error.emit((exctype, value, traceback.format_exc()))
         else:
-            print("Emitting Result")
-            self.signals.result.emit(result)  # Return the result of the processing
+            # Return the result of the processing
+            self.signals.result.emit(result)
         finally:
             self.signals.finished.emit()  # Done
 
@@ -53,7 +53,7 @@ class ThreadWorker(QObject):
         self.fn = fn
         self.args = args
         self.kwargs = kwargs
-        
+
     @Slot()
     def process(self):
         try:
@@ -77,17 +77,17 @@ class ThreadWorker(QObject):
 class RunnableSerializer(RunnableWorker):
     def __init__(self, serializable: A_Serializable) -> None:
         super().__init__(serializable.to_bytes)
-        
+
 
 class RunnableDeserializer(RunnableWorker):
     def __init__(self, serializable: A_Serializable) -> None:
         super().__init__(serializable.from_bytes)
 
-        
+
 class ThreadSerializer(ThreadWorker):
     def __init__(self, serializable: A_Serializable) -> None:
         super().__init__(serializable.to_bytes)
-        
+
 
 class ThreadDeserializer(ThreadWorker):
     def __init__(self, serializable: A_Serializable) -> None:
@@ -100,7 +100,7 @@ class ToolboxManager(QObject):
     sceneLoaded = Signal(Path)
     sceneReset = Signal(Path)
     sceneCleared = Signal()
-    
+
     def __new__(cls: type["ToolboxManager"]) -> "ToolboxManager":
         if ToolboxManager.__singleton is not None:
             return ToolboxManager.__singleton
@@ -109,7 +109,7 @@ class ToolboxManager(QObject):
     def __init__(self) -> None:
         if ToolboxManager.__singleton is not None:
             return
-            
+
         super().__init__()
 
         self.__scene: SMSScene | None = None
@@ -129,29 +129,29 @@ class ToolboxManager(QObject):
 
     def get_scene_path(self) -> Optional[Path]:
         return self.__scenePath
-        
+
     def load_scene(self, path: Path) -> Optional[SMSScene]:
         scene = SMSScene.from_path(path)
         self.__scene = scene
         self.__scenePath = path
-        self.sceneLoaded.emit(path) # type: ignore
+        self.sceneLoaded.emit(path)  # type: ignore
         return scene
 
     def clear_scene(self) -> None:
         self.__scene = None
         self.__scenePath = None
-        self.sceneCleared.emit() # type: ignore
+        self.sceneCleared.emit()  # type: ignore
 
     def reset_scene(self) -> None:
         self.__scene = SMSScene()
-        self.sceneReset.emit(self.__scenePath) # type: ignore
-    
+        self.sceneReset.emit(self.__scenePath)  # type: ignore
+
     def get_settings(self) -> ToolboxSettings:
         return self.__settings
 
     def load_settings(self, settings: Optional[QSettings] = None) -> bool:
         return self.__settings.load(settings)
-    
+
     def save_settings(self, path: Path) -> None:
         self.__settings.save()
 
