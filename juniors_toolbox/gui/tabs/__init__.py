@@ -1,33 +1,39 @@
 from typing import Dict, Iterable, Optional, TypeVar
-from juniors_toolbox.gui.tabs.dataeditor import DataEditorTextEdit, DataEditorWidget
-from juniors_toolbox.gui.tabs.hierarchyviewer import NameRefHierarchyWidget
-from juniors_toolbox.gui.tabs.prmeditor import PrmEditorWidget
-from juniors_toolbox.gui.tabs.projectviewer import ProjectViewerWidget
-from juniors_toolbox.gui.tabs.renderer import SceneRendererWidget
-from juniors_toolbox.gui.tabs.rail import RailViewerWidget
-from juniors_toolbox.gui.tabs.bmgeditor import BMGMessageEditorWidget
-from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 
 T = TypeVar("T", bound=A_DockingInterface)
 
-class TabWidgetManager():
-    _STR_TO_TYPE = {
-        "Project Viewer": ProjectViewerWidget,
-        "Scene Hierarchy": NameRefHierarchyWidget,
-        "Selected Properties": SelectedPropertiesWidget,
-        "Rail List": RailViewerWidget,
-        "BMG Editor": BMGMessageEditorWidget,
-        "PRM Editor": PrmEditorWidget,
-        "Demo Editor": None,
-        "Data Viewer": DataEditorWidget,
-        "Scene Renderer": SceneRendererWidget
-    }
 
+class TabWidgetManager():
+
+    _STR_TO_TYPE: Dict[str, type] = {}
     _TAB_WIDGETS: Dict[type, Optional[A_DockingInterface]] = {}
 
     @staticmethod
     def init():
+        from juniors_toolbox.gui.tabs.console import ConsoleLogWidget
+        from juniors_toolbox.gui.tabs.dataeditor import DataEditorWidget
+        from juniors_toolbox.gui.tabs.hierarchyviewer import NameRefHierarchyWidget
+        from juniors_toolbox.gui.tabs.prmeditor import PrmEditorWidget
+        from juniors_toolbox.gui.tabs.projectviewer import ProjectViewerWidget
+        from juniors_toolbox.gui.tabs.renderer import SceneRendererWidget
+        from juniors_toolbox.gui.tabs.rail import RailViewerWidget
+        from juniors_toolbox.gui.tabs.bmgeditor import BMGMessageEditorWidget
+        from juniors_toolbox.gui.tabs.propertyviewer import SelectedPropertiesWidget
+
+        TabWidgetManager._STR_TO_TYPE = {
+            "Project Viewer": ProjectViewerWidget,
+            "Scene Hierarchy": NameRefHierarchyWidget,
+            "Selected Properties": SelectedPropertiesWidget,
+            "Rail List": RailViewerWidget,
+            "BMG Editor": BMGMessageEditorWidget,
+            "PRM Editor": PrmEditorWidget,
+            "Demo Editor": None,
+            "Data Viewer": DataEditorWidget,
+            "Scene Renderer": SceneRendererWidget,
+            "Console Log": ConsoleLogWidget
+        }
+
         for name, tab in TabWidgetManager._STR_TO_TYPE.items():
             if tab is None:
                 continue
