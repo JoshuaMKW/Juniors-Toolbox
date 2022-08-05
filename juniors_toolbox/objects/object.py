@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Any, BinaryIO, Callable, Dict, Iterable, List, Optional, TextIO, Tuple, Union
 
 from numpy import array
-from juniors_toolbox.gui.templates import Template, ToolboxTemplates
 from juniors_toolbox.objects.value import A_Member, MemberComment, MemberEnum, MemberStruct, MemberValue, QualifiedName, ValueType
 from juniors_toolbox.utils.types import RGB32, RGB8, RGBA8, Transform, Vec3f
 from juniors_toolbox.utils import A_Serializable, VariadicArgs, VariadicKwargs, jdrama
@@ -211,6 +210,9 @@ class A_SceneObject(jdrama.NameRef, ABC):
 
         Returns True if successful
         """
+        from juniors_toolbox.gui.templates import ToolboxTemplates
+        from juniors_toolbox.objects.template import Template
+
         self._members = []
 
         templateManager = ToolboxTemplates.get_instance()

@@ -1,3 +1,5 @@
+import inspect
+import gc
 import time
 from enum import IntEnum
 from typing import Optional
@@ -30,17 +32,121 @@ class ConsoleLogWidget(A_DockingInterface):
 
         self.setWidget(self.messageLog)
 
-    def log(self, scope: str, message: str) -> None:
-        self._log_message(scope, message, ConsoleLogWidget.Level.LOG)
+    def log(self, message: str) -> None:
+        currentFrame = inspect.currentframe()
+        if currentFrame is None:
+            self._log_message(
+                "(Unknown)",
+                message,
+                ConsoleLogWidget.Level.INFO
+            )
+            return
 
-    def info(self, scope: str, message: str) -> None:
-        self._log_message(scope, message, ConsoleLogWidget.Level.INFO)
+        backFrame = currentFrame.f_back
+        if backFrame is None:
+            self._log_message(
+                "(Unknown)",
+                message,
+                ConsoleLogWidget.Level.INFO
+            )
+            return
 
-    def warning(self, scope: str, message: str) -> None:
-        self._log_message(scope, message, ConsoleLogWidget.Level.WARNING)
+        code = backFrame.f_code
+        func = [obj for obj in gc.get_referrers(
+            code) if inspect.isfunction(obj)][0]
 
-    def error(self, scope: str, message: str) -> None:
-        self._log_message(scope, message, ConsoleLogWidget.Level.ERROR)
+        self._log_message(
+            func.__qualname__,
+            message,
+            ConsoleLogWidget.Level.LOG
+        )
+
+    def info(self, message: str) -> None:
+        currentFrame = inspect.currentframe()
+        if currentFrame is None:
+            self._log_message(
+                "(Unknown)",
+                message,
+                ConsoleLogWidget.Level.INFO
+            )
+            return
+
+        backFrame = currentFrame.f_back
+        if backFrame is None:
+            self._log_message(
+                "(Unknown)",
+                message,
+                ConsoleLogWidget.Level.INFO
+            )
+            return
+
+        code = backFrame.f_code
+        func = [obj for obj in gc.get_referrers(
+            code) if inspect.isfunction(obj)][0]
+
+        self._log_message(
+            func.__qualname__,
+            message,
+            ConsoleLogWidget.Level.INFO
+        )
+
+    def warning(self, message: str) -> None:
+        currentFrame = inspect.currentframe()
+        if currentFrame is None:
+            self._log_message(
+                "(Unknown)",
+                message,
+                ConsoleLogWidget.Level.INFO
+            )
+            return
+
+        backFrame = currentFrame.f_back
+        if backFrame is None:
+            self._log_message(
+                "(Unknown)",
+                message,
+                ConsoleLogWidget.Level.INFO
+            )
+            return
+
+        code = backFrame.f_code
+        func = [obj for obj in gc.get_referrers(
+            code) if inspect.isfunction(obj)][0]
+
+        self._log_message(
+            func.__qualname__,
+            message,
+            ConsoleLogWidget.Level.WARNING
+        )
+
+    def error(self, message: str) -> None:
+        currentFrame = inspect.currentframe()
+        if currentFrame is None:
+            self._log_message(
+                "(Unknown)",
+                message,
+                ConsoleLogWidget.Level.INFO
+            )
+            return
+
+        backFrame = currentFrame.f_back
+        if backFrame is None:
+            self._log_message(
+                "(Unknown)",
+                message,
+                ConsoleLogWidget.Level.INFO
+            )
+            return
+
+        code = backFrame.f_code
+        func = [obj for obj in gc.get_referrers(
+            code) if inspect.isfunction(obj)][0]
+
+        self._log_message(
+            func.__qualname__,
+            message,
+            ConsoleLogWidget.Level.ERROR
+        )
 
     def _log_message(self, scope: str, message: str, level: "ConsoleLogWidget.Level") -> None:
         t = time.localtime()

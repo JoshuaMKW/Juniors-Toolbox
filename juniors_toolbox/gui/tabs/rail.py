@@ -32,7 +32,6 @@ from PySide6.QtWidgets import (QFormLayout, QGridLayout, QListView, QDialog, QLa
                                QVBoxLayout, QWidget, QPushButton)
 
 from juniors_toolbox.utils.types import Quaternion, Vec3f
-from juniors_toolbox.gui.tabs import TabWidgetManager
 from juniors_toolbox.gui.tabs.console import ConsoleLogWidget
 
 
@@ -825,6 +824,7 @@ class RailNodeListWidget(InteractiveListView):
 
     @Slot(list)
     def connect_to_neighbors(self, indexes: list[QModelIndex]):
+        from juniors_toolbox.gui.tabs import TabWidgetManager
         console = TabWidgetManager.get_tab(ConsoleLogWidget)
 
         for index in indexes:
@@ -833,14 +833,12 @@ class RailNodeListWidget(InteractiveListView):
             rail = node.get_rail()
             if rail is None:
                 console.warning(
-                    __name__,
                     f"Node {index.row()} has no parent rail"
                 )
                 continue
 
             if not node.connect_to_neighbors():
                 console.warning(
-                    __name__,
                     f"Node {index.row()} of Rail \"{rail.name}\" failed to connect to its neighbors"
                 )
                 continue
@@ -857,14 +855,12 @@ class RailNodeListWidget(InteractiveListView):
             rail = node.get_rail()
             if rail is None:
                 console.warning(
-                    __name__,
                     f"Node {index.row()} has no parent rail"
                 )
                 continue
 
             if not node.connect_to_prev():
                 console.warning(
-                    __name__,
                     f"Node {index.row()} of Rail \"{rail.name}\" failed to connect to the previous node"
                 )
                 continue
@@ -881,14 +877,12 @@ class RailNodeListWidget(InteractiveListView):
             rail = node.get_rail()
             if rail is None:
                 console.warning(
-                    __name__,
                     f"Node {index.row()} has no parent rail"
                 )
                 continue
 
             if not node.connect_to_next():
                 console.warning(
-                    __name__,
                     f"Node {index.row()} of Rail \"{rail.name}\" failed to connect to the next node"
                 )
                 continue
@@ -905,14 +899,12 @@ class RailNodeListWidget(InteractiveListView):
             rail = node.get_rail()
             if rail is None:
                 console.warning(
-                    __name__,
                     f"Node {index.row()} has no parent rail"
                 )
                 continue
 
             if not node.connect_to_referring():
                 console.warning(
-                    __name__,
                     f"Node {index.row()} of Rail \"{rail.name}\" failed to connect to nodes referring it"
                 )
                 continue
