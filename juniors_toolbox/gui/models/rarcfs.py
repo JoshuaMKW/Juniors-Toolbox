@@ -70,7 +70,7 @@ class JSystemFSModel(QAbstractItemModel):
     Mimics QFileSystemModel with a watchdog and async updates, with RARC support
     """
     rootPathChanged = Signal(PurePath)
-    conflictFound = Signal(PurePath, PurePath)
+    conflictFound = Signal(PurePath, PurePath, bool)
 
     FileIconRole = Qt.DecorationRole
     FilePathRole = Qt.UserRole + 1
@@ -149,6 +149,36 @@ class JSystemFSModel(QAbstractItemModel):
                 self.parent == other.parent
             ])
 
+        def __lt__(self, other: object) -> bool:
+            if not isinstance(other, JSystemFSModel._HandleInfo):
+                return False
+
+            if self.fsKind == JSystemFSModel._FsKind.FILE:
+                if other.fsKind == JSystemFSModel._FsKind.FILE:
+                    return self.path.name < other.path.name
+                if other.fsKind == JSystemFSModel._FsKind.ARCHIVE:
+                    return False
+                if other.fsKind == JSystemFSModel._FsKind.DIRECTORY:
+                    return False
+
+            if self.fsKind == JSystemFSModel._FsKind.ARCHIVE:
+                if other.fsKind == JSystemFSModel._FsKind.FILE:
+                    return True
+                if other.fsKind == JSystemFSModel._FsKind.ARCHIVE:
+                    return self.path.name < other.path.name
+                if other.fsKind == JSystemFSModel._FsKind.DIRECTORY:
+                    return self.path.name < other.path.name
+
+            if self.fsKind == JSystemFSModel._FsKind.DIRECTORY:
+                if other.fsKind == JSystemFSModel._FsKind.FILE:
+                    return True
+                if other.fsKind == JSystemFSModel._FsKind.ARCHIVE:
+                    return self.path.name < other.path.name
+                if other.fsKind == JSystemFSModel._FsKind.DIRECTORY:
+                    return self.path.name < other.path.name
+
+            return self.path.name < other.path.name
+
     def __init__(self, rootPath: Path, readOnly: bool = True, parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
         self._rootPath = rootPath
@@ -166,6 +196,7 @@ class JSystemFSModel(QAbstractItemModel):
 
         self._icons: dict[str, QIcon] = {}
         self._conflictAction: FileConflictAction | None = None
+        self._actionAll = False
 
         self._indexesToRecache: set[QModelIndex] = set()
 
@@ -299,10 +330,20 @@ class JSystemFSModel(QAbstractItemModel):
         return magic == b"Yaz0"
 
     def get_conflict_action(self) -> FileConflictAction | None:
-        return self._conflictAction
+        if self.is_action_for_all():
+            return self._conflictAction
+        action = self._conflictAction
+        self._conflictAction = None
+        return action
 
-    def set_conflict_action(self, action: FileConflictAction | None):
+    def set_conflict_action(self, action: FileConflictAction | None) -> None:
         self._conflictAction = action
+
+    def is_action_for_all(self) -> bool:
+        return self._actionAll
+
+    def set_action_for_all(self, forAll: bool) -> None:
+        self._actionAll = forAll
 
     def get_parent_archive(self, index: QModelIndex | QPersistentModelIndex) -> QModelIndex:
         if not index.isValid():
@@ -368,7 +409,8 @@ class JSystemFSModel(QAbstractItemModel):
         return "Folder"
 
     def move(self, index: QModelIndex | QPersistentModelIndex, parent: QModelIndex | QPersistentModelIndex, action: FileConflictAction | None = None) -> QModelIndex:
-        self.set_conflict_action(action)
+        if action:
+            self.set_conflict_action(action)
 
         thisParent = index.parent()
         thisRow = index.row()
@@ -393,16 +435,21 @@ class JSystemFSModel(QAbstractItemModel):
         if parentInfo is None:
             return QModelIndex()
 
+        if action:
+            self.set_conflict_action(action)
+
         thisPath = self.get_path(index)
         destPath = thisPath.with_name(name)
 
         if os.path.exists(destPath):
             if action == FileConflictAction.SKIP:
                 return QModelIndex()
-            if action is None:
-                self.conflictFound.emit(thisPath, destPath)
-                while (action := self.get_conflict_action()) is None:
-                    time.sleep(0.1)
+            self.conflictFound.emit(
+                thisPath, destPath, os.path.isdir(destPath))
+            while (action := self.get_conflict_action()) is None:
+                time.sleep(0.1)
+
+        self.set_conflict_action(None)
 
         if action is None:
             action = FileConflictAction.REPLACE
@@ -508,6 +555,7 @@ class JSystemFSModel(QAbstractItemModel):
                 successful &= self._import_fs_path(
                     Path(url.toLocalFile()), destinationParent, action, cutSource=isCutAction)
 
+        self.set_conflict_action(None)
         return successful
 
     def export_paths(self, data: QMimeData, pathIndexes: list[QModelIndex | QPersistentModelIndex]) -> bool:
@@ -559,7 +607,7 @@ class JSystemFSModel(QAbstractItemModel):
         row = len(parentInfo.children)
         column = 0
 
-        if not os.path.isdir(parentPath):
+        if os.path.isdir(parentPath):
             if self.is_archive(parent):
                 archive = self._archives[parentPath]
                 fileHandle = archive.new_file(name, initialData)
@@ -583,6 +631,10 @@ class JSystemFSModel(QAbstractItemModel):
                 if fileHandle is None:
                     return QModelIndex()
 
+            else:  # File
+                with open(parentPath / name, "wb") as f:
+                    f.write(initialData)
+
             handleInfo = JSystemFSModel._HandleInfo(
                 parentPath / name,
                 parentInfo,
@@ -591,29 +643,11 @@ class JSystemFSModel(QAbstractItemModel):
                 len(initialData)
             )
             parentInfo.children.append(handleInfo)
+            parentInfo.children.sort()
 
             return self.createIndex(row, column, handleInfo)
 
-        if os.path.isdir(parentPath):
-            if os.path.exists(parentPath / name):
-                raise PermissionError(
-                    f"\"{parentPath / name}\" already exists!")
-
-            with open(parentPath / name, "wb") as f:
-                f.write(initialData)
-
-            handleInfo = JSystemFSModel._HandleInfo(
-                parentPath / name,
-                parentInfo,
-                [],
-                JSystemFSModel._FsKind.FILE,
-                len(initialData)
-            )
-            parentInfo.children.append(handleInfo)
-        else:
-            return QModelIndex()
-
-        return self.createIndex(row, column, handleInfo)
+        return QModelIndex()
 
     def mkdir(self, name: str, parent: QModelIndex | QPersistentModelIndex) -> QModelIndex:
         if not parent.isValid():
@@ -625,7 +659,7 @@ class JSystemFSModel(QAbstractItemModel):
         row = len(parentInfo.children)
         column = 0
 
-        if not os.path.isdir(parentPath):
+        if os.path.isdir(parentPath):
             if self.is_archive(parent):
                 archive = self._archives[parentPath]
                 dirHandle = archive.new_directory(name)
@@ -657,6 +691,7 @@ class JSystemFSModel(QAbstractItemModel):
                 0
             )
             parentInfo.children.append(handleInfo)
+            parentInfo.children.sort()
 
             return self.createIndex(row, column, handleInfo)
 
@@ -675,6 +710,7 @@ class JSystemFSModel(QAbstractItemModel):
                 0
             )
             parentInfo.children.append(handleInfo)
+            parentInfo.children.sort()
 
         return self.createIndex(row, column, handleInfo)
 
@@ -976,11 +1012,9 @@ class JSystemFSModel(QAbstractItemModel):
         self.beginMoveRows(sourceParent, sourceRow, sourceRow +
                            count, destinationParent, destinationChild)
 
-        conflictAction = self.get_conflict_action()
         for i in range(sourceRow+count, sourceRow-1, -1):  # Reverse to preserve indices
             thisIndex = self.index(i, 0, sourceParent)
             if not thisIndex.isValid():
-                self._conflictAction = None
                 return False
 
             thisInfo: JSystemFSModel._HandleInfo = thisIndex.internalPointer()
@@ -998,10 +1032,10 @@ class JSystemFSModel(QAbstractItemModel):
                     virtualDestPath = destPath.relative_to(destArchivePath)
                     destHandle = destArchive.get_handle(virtualDestPath)
                     if destHandle:  # Destination move exists
-                        if conflictAction is None:
-                            self.conflictFound.emit(thisPath, destPath)
-                            while (conflictAction := self.get_conflict_action()) is None:
-                                time.sleep(0.1)
+                        self.conflictFound.emit(
+                            thisPath, destPath, destHandle.is_directory())
+                        while (conflictAction := self.get_conflict_action()) is None:
+                            time.sleep(0.1)
 
                         if conflictAction == FileConflictAction.REPLACE:
                             for i, handleInfo in enumerate(destParentInfo.children):
@@ -1013,7 +1047,8 @@ class JSystemFSModel(QAbstractItemModel):
                             newPath = self._resolve_path_conflict(
                                 thisPath.name, destinationParent)
                             if newPath is None:
-                                return QModelIndex()
+                                successful = False
+                                continue
                             destPath = newPath
                             virtualDestPath = destPath.relative_to(
                                 destArchivePath)
@@ -1045,10 +1080,10 @@ class JSystemFSModel(QAbstractItemModel):
 
                 # Destination exists in the filesystem
                 if os.path.exists(destPath):
-                    if conflictAction is None:
-                        self.conflictFound.emit(thisPath, destPath)
-                        while (conflictAction := self.get_conflict_action()) is None:
-                            time.sleep(0.1)
+                    self.conflictFound.emit(
+                        thisPath, destPath, os.path.isdir(destPath))
+                    while (conflictAction := self.get_conflict_action()) is None:
+                        time.sleep(0.1)
 
                     if conflictAction == FileConflictAction.REPLACE:
                         for i, handleInfo in enumerate(destParentInfo.children):
@@ -1076,10 +1111,10 @@ class JSystemFSModel(QAbstractItemModel):
                 virtualDestPath = destPath.relative_to(destArchivePath)
                 destHandle = destArchive.get_handle(virtualDestPath)
                 if destHandle:  # Destination move exists
-                    if conflictAction is None:
-                        self.conflictFound.emit(thisPath, destPath)
-                        while (conflictAction := self.get_conflict_action()) is None:
-                            time.sleep(0.1)
+                    self.conflictFound.emit(
+                        thisPath, destPath, destHandle.is_directory())
+                    while (conflictAction := self.get_conflict_action()) is None:
+                        time.sleep(0.1)
 
                     if conflictAction == FileConflictAction.REPLACE:
                         for i, handleInfo in enumerate(destParentInfo.children):
@@ -1091,7 +1126,8 @@ class JSystemFSModel(QAbstractItemModel):
                         newPath = self._resolve_path_conflict(
                             thisPath.name, destinationParent)
                         if newPath is None:
-                            return QModelIndex()
+                            successful = False
+                            continue
                         destPath = newPath
                         virtualDestPath = destPath.relative_to(destArchivePath)
 
@@ -1129,10 +1165,10 @@ class JSystemFSModel(QAbstractItemModel):
 
             # Filesystem to filesystem
             if os.path.exists(destPath):
-                if conflictAction is None:
-                    self.conflictFound.emit(thisPath, destPath)
-                    while (conflictAction := self.get_conflict_action()) is None:
-                        time.sleep(0.1)
+                self.conflictFound.emit(
+                    thisPath, destPath, os.path.isdir(destPath))
+                while (conflictAction := self.get_conflict_action()) is None:
+                    time.sleep(0.1)
 
                 if conflictAction == FileConflictAction.REPLACE:
                     for i, handleInfo in enumerate(destParentInfo.children):
@@ -1144,7 +1180,8 @@ class JSystemFSModel(QAbstractItemModel):
                     newPath = self._resolve_path_conflict(
                         thisPath.name, destinationParent)
                     if newPath is None:
-                        return QModelIndex()
+                        successful = False
+                        continue
                     destPath = newPath
 
                 else:  # Skip
@@ -1153,8 +1190,6 @@ class JSystemFSModel(QAbstractItemModel):
             shutil.move(thisPath, destPath)
 
         self.endMoveRows()
-
-        self._conflictAction = None
         return successful
 
     def moveColumns(self, sourceParent: QModelIndex | QPersistentModelIndex, sourceColumn: int, count: int, destinationParent: QModelIndex | QPersistentModelIndex, destinationChild: int) -> bool:
@@ -1262,10 +1297,12 @@ class JSystemFSModel(QAbstractItemModel):
                 i += 1
             handleInfo.size = i
             handleInfo.loaded = True
+            handleInfo.children.sort()
             return
 
         if path.suffix == ".arc":
             self._cache_archive(index)
+            handleInfo.children.sort()
             return
 
     def _cache_archive(self, index: QModelIndex | QPersistentModelIndex):
@@ -1335,6 +1372,7 @@ class JSystemFSModel(QAbstractItemModel):
             self._archives[path] = archive
             _recursive_cache(archive, handleInfo)
 
+        handleInfo.children.sort()
         handleInfo.loaded = True
 
     def _initialize_icons(self):
@@ -1405,13 +1443,16 @@ class JSystemFSModel(QAbstractItemModel):
             print("Source can't be parent of dest")
             return False
 
+        if action:
+            self.set_conflict_action(action)
+
         if thisPath.is_dir():
             destIndex = self.get_path_index(destPath)
             if destIndex.isValid():  # Conflict found
-                if action is None:
-                    self.conflictFound.emit(thisPath, destFolder)
-                    while (action := self.get_conflict_action()) is None:
-                        time.sleep(0.1)
+                self.conflictFound.emit(
+                    thisPath, destFolder, os.path.isdir(destFolder))
+                while (action := self.get_conflict_action()) is None:
+                    time.sleep(0.1)
 
                 if action == FileConflictAction.REPLACE:
                     for i, handleInfo in enumerate(destParentInfo.children):
@@ -1423,7 +1464,7 @@ class JSystemFSModel(QAbstractItemModel):
                     newPath = self._resolve_path_conflict(
                         thisPath.name, destinationParent)
                     if newPath is None:
-                        return QModelIndex()
+                        return False
                     destPath = newPath
 
                 else:  # Skip
@@ -1448,10 +1489,10 @@ class JSystemFSModel(QAbstractItemModel):
             virtualDestPath = destFolder.relative_to(destArchivePath)
             destHandle = destArchive.get_handle(virtualDestPath)
             if destHandle:  # Destination move exists
-                if action is None:
-                    self.conflictFound.emit(thisPath, destFolder)
-                    while (action := self.get_conflict_action()) is None:
-                        time.sleep(0.1)
+                self.conflictFound.emit(
+                    thisPath, destFolder, destHandle.is_directory())
+                while (action := self.get_conflict_action()) is None:
+                    time.sleep(0.1)
 
                 if action == FileConflictAction.REPLACE:
                     for i, handleInfo in enumerate(destParentInfo.children):
@@ -1463,7 +1504,7 @@ class JSystemFSModel(QAbstractItemModel):
                     newPath = self._resolve_path_conflict(
                         thisPath.name, destinationParent)
                     if newPath is None:
-                        return QModelIndex()
+                        return False
                     destPath = newPath
                     virtualDestPath = destPath.relative_to(destArchivePath)
 
@@ -1501,10 +1542,10 @@ class JSystemFSModel(QAbstractItemModel):
 
         # Filesystem to filesystem
         if os.path.exists(destPath):
-            if action is None:
-                self.conflictFound.emit(thisPath, destPath)
-                while (action := self.get_conflict_action()) is None:
-                    time.sleep(0.1)
+            self.conflictFound.emit(
+                thisPath, destPath, os.path.isdir(thisPath))
+            while (action := self.get_conflict_action()) is None:
+                time.sleep(0.1)
 
             if action == FileConflictAction.REPLACE:
                 for i, handleInfo in enumerate(destParentInfo.children):
@@ -1516,7 +1557,7 @@ class JSystemFSModel(QAbstractItemModel):
                 newPath = self._resolve_path_conflict(
                     thisPath.name, destinationParent)
                 if newPath is None:
-                    return QModelIndex()
+                    return False
                 destPath = newPath
 
             else:  # Skip
@@ -1526,6 +1567,7 @@ class JSystemFSModel(QAbstractItemModel):
             shutil.move(thisPath, destPath)
         else:
             shutil.copy(thisPath, destPath)
+
         return True
 
     def _import_virtual_path(
@@ -1546,6 +1588,9 @@ class JSystemFSModel(QAbstractItemModel):
         destPath = destFolder / thisName
 
         handleType = JSystemFSModel._FsKind(inputStream.readInt8())
+
+        if action:
+            self.set_conflict_action(action)
 
         destArchiveIndex = self.get_parent_archive(destinationParent)
         if not destArchiveIndex.isValid():  # To filesystem
@@ -1593,10 +1638,10 @@ class JSystemFSModel(QAbstractItemModel):
         virtualPath = destPath.relative_to(destArchivePath)
         destHandle = destArchive.get_handle(virtualPath)
         if destHandle:
-            if action is None:
-                self.conflictFound.emit(thisPath, destFolder)
-                while (action := self.get_conflict_action()) is None:
-                    time.sleep(0.1)
+            self.conflictFound.emit(
+                thisPath, destFolder, destHandle.is_directory())
+            while (action := self.get_conflict_action()) is None:
+                time.sleep(0.1)
 
             if action == FileConflictAction.REPLACE:
                 for i, handleInfo in enumerate(destParentInfo.children):
@@ -1608,7 +1653,7 @@ class JSystemFSModel(QAbstractItemModel):
                 newPath = self._resolve_path_conflict(
                     thisPath.name, destinationParent)
                 if newPath is None:
-                    return QModelIndex()
+                    return False
                 destPath = newPath
                 virtualDestPath = destPath.relative_to(destArchivePath)
 
@@ -1762,6 +1807,10 @@ class JSystemFSModel(QAbstractItemModel):
 
 
 class JSystemFSSortProxyModel(QSortFilterProxyModel):
+    def __init__(self, parent: Optional[QObject] = None) -> None:
+        super().__init__(parent)
+        self.setDynamicSortFilter(False)
+
     def lessThan(self, source_left: QModelIndex | QPersistentModelIndex, source_right: QModelIndex | QPersistentModelIndex) -> bool:
         sourceModel: JSystemFSModel = self.sourceModel()
         if sourceModel.is_populated(source_left):

@@ -1,4 +1,4 @@
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Optional, Tuple
 from PySide6.QtCore import (QAbstractItemModel, QDataStream, QEvent, QIODevice,
                             QLine, QMimeData, QModelIndex, QObject, QPoint,
@@ -38,7 +38,6 @@ class MoveConflictDialog(QDialog):
 
         allCheckBox = QCheckBox("Apply to all")
         allCheckBox.setCheckable(True)
-        allCheckBox.toggled.connect(self.block)
 
         replaceButton = QPushButton()
         skipButton = QPushButton()
@@ -85,7 +84,7 @@ class MoveConflictDialog(QDialog):
     def apply_to_all(self) -> bool:
         return self.allCheckBox.isChecked()
 
-    def set_paths(self, src: Path, dst: Path):
+    def set_paths(self, src: PurePath, dst: PurePath, isDir: bool):
         if src.parent == dst.parent:
             self.setWindowTitle(
                 f"Renaming \"{src.name}\" to \"{dst.name}\""
@@ -95,26 +94,14 @@ class MoveConflictDialog(QDialog):
                 f"Moving \"{src.name}\" from \"./{src.parent.name}\" to \"./{dst.parent.name}\""
             )
 
-        srcType = "folder" if src.is_dir() else "file"
-        dstType = "folder" if src.is_dir() else "file"
+        srcType = "folder" if isDir else "file"
+        dstType = "folder" if isDir else "file"
 
         self.conflictMessage.setText(
             f"The destination specified already has a {dstType} named \"{dst.name}\""
         )
         self.replaceButton.setText(f"Replace the {dstType}")
         self.skipButton.setText(f"Skip this {srcType}")
-
-    def resolve(self) -> Tuple[QDialog.DialogCode, FileConflictAction]:
-        if not self._blocked:
-            return self.exec(), self._actionRole
-        return QDialog.DialogCode.Accepted, self._actionRole
-
-    @Slot(bool)
-    def block(self, block: bool):
-        self._blocked = block
-        self.allCheckBox.blockSignals(True)
-        self.allCheckBox.setChecked(block)
-        self.allCheckBox.blockSignals(False)
 
     def __accept_role(self, role: FileConflictAction):
         self._actionRole = role

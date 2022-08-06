@@ -1,6 +1,4 @@
 from abc import abstractmethod
-from hashlib import new
-from importlib.resources import path
 import shutil
 import sys
 import time
@@ -302,18 +300,12 @@ class ProjectFolderViewWidget(InteractiveListView):
             self._focusedPath = self.prevPath
 
         def _get_cur_index(self) -> QModelIndex:
-            model: JSystemFSModel = self.target.get_source_model()
-            proxyModel: JSystemFSSortProxyModel = self.target.model()
-            return proxyModel.mapFromSource(
-                model.get_path_index(self.curPath)
-            )
+            model: JSystemFSModel = self.target.model()
+            return model.get_path_index(self.curPath)
 
         def _get_prev_index(self) -> QModelIndex:
-            model: JSystemFSModel = self.target.get_source_model()
-            proxyModel: JSystemFSSortProxyModel = self.target.model()
-            return proxyModel.mapFromSource(
-                model.get_path_index(self.prevPath)
-            )
+            model: JSystemFSModel = self.target.model()
+            return model.get_path_index(self.prevPath)
 
     class PathUndoStack(QUndoStack):
         def canRedo(self) -> bool:
@@ -355,11 +347,10 @@ class ProjectFolderViewWidget(InteractiveListView):
         if self.rootIndex() == index:
             return
 
-        model: JSystemFSModel = self.get_source_model()
-        proxyModel: JSystemFSSortProxyModel = self.model()
+        model: JSystemFSModel = self.model()
 
-        sourceCurIndex = proxyModel.mapToSource(index)
-        sourcePrevIndex = proxyModel.mapToSource(self.rootIndex())
+        sourceCurIndex = index
+        sourcePrevIndex = self.rootIndex()
 
         command = ProjectFolderViewWidget.PathUndoCommand(self)
         command.set_prev(model.get_path(sourcePrevIndex))
@@ -377,14 +368,13 @@ class ProjectFolderViewWidget(InteractiveListView):
     def get_context_menu(self, point: QPoint) -> Optional[QMenu]:
         menu = QMenu(self)
 
-        model: JSystemFSModel = self.get_source_model()
-        proxyModel: JSystemFSSortProxyModel = self.model()
+        model: JSystemFSModel = self.model()
 
         # Infos about the node selected.
         contextIndex = self.indexAt(point)
         contextIndexValid = contextIndex.isValid()
 
-        sourceContextIndex = proxyModel.mapToSource(contextIndex)
+        sourceContextIndex = contextIndex
         isChildOfArchive = model.get_parent_archive(
             sourceContextIndex).isValid()
         isFolder = model.is_dir(sourceContextIndex)
@@ -521,44 +511,28 @@ class ProjectFolderViewWidget(InteractiveListView):
         return mimeData.hasUrls()
 
     def _open_index_in_explorer(self, index: QModelIndex | QPersistentModelIndex) -> None:
-        model: JSystemFSModel = self.get_source_model()
-        proxyModel: JSystemFSSortProxyModel = self.model()
+        model: JSystemFSModel = self.model()
 
         if not index.isValid():
             index = self.rootIndex()
-
-        if index.model() == proxyModel:
-            index = proxyModel.mapToSource(index)
 
         open_path_in_explorer(Path(model.get_path(index)))
 
     def _open_index_in_terminal(self, index: QModelIndex | QPersistentModelIndex) -> None:
-        model: JSystemFSModel = self.get_source_model()
-        proxyModel: JSystemFSSortProxyModel = self.model()
+        model: JSystemFSModel = self.model()
 
         if not index.isValid():
             index = self.rootIndex()
 
-        if index.model() == proxyModel:
-            index = proxyModel.mapToSource(index)
-
         open_path_in_terminal(Path(model.get_path(index)))
 
     def _copy_index_paths(self, indexes: list[QModelIndex | QPersistentModelIndex], relative: bool = True) -> None:
-        model: JSystemFSModel = self.get_source_model()
-        proxyModel: JSystemFSSortProxyModel = self.model()
-
-        mappedIndexes = []
-        for index in indexes:
-            if not index.isValid():
-                index = self.rootIndex()
-
-            if index.model() == proxyModel:
-                index = proxyModel.mapToSource(index)
-            mappedIndexes.append(index)
+        model: JSystemFSModel = self.model()
 
         paths: list[str] = []
-        for index in mappedIndexes:
+        for index in indexes:
+            if not index.isValid():
+                continue
             path = model.get_path(index)
             if relative and model.rootPath:
                 path = path.relative_to(model.rootPath)
@@ -572,21 +546,11 @@ class ProjectFolderViewWidget(InteractiveListView):
         QClipboard().setText("\n".join(paths))
 
     def _copy_paths(self, indexes: list[QModelIndex | QPersistentModelIndex]):
-        model: JSystemFSModel = self.get_source_model()
-        proxyModel: JSystemFSSortProxyModel = self.model()
-
-        mappedIndexes = []
-        for index in indexes:
-            if not index.isValid():
-                continue
-
-            if index.model() == proxyModel:
-                index = proxyModel.mapToSource(index)
-            mappedIndexes.append(index)
+        model: JSystemFSModel = self.model()
 
         mimeData = QMimeData()
 
-        successful = model.export_paths(mimeData, mappedIndexes)
+        successful = model.export_paths(mimeData, indexes)
         if not successful:
             print("Failed to copy path to clipboard")
             return
@@ -594,17 +558,7 @@ class ProjectFolderViewWidget(InteractiveListView):
         QClipboard().setMimeData(mimeData)
 
     def _cut_paths(self, indexes: list[QModelIndex | QPersistentModelIndex]):
-        model: JSystemFSModel = self.get_source_model()
-        proxyModel: JSystemFSSortProxyModel = self.model()
-
-        mappedIndexes = []
-        for index in indexes:
-            if not index.isValid():
-                continue
-
-            if index.model() == proxyModel:
-                index = proxyModel.mapToSource(index)
-            mappedIndexes.append(index)
+        model: JSystemFSModel = self.model()
 
         mimeData = QMimeData()
 
@@ -615,7 +569,7 @@ class ProjectFolderViewWidget(InteractiveListView):
 
         mimeData.setData("Preferred DropEffect", data)
 
-        successful = model.export_paths(mimeData, mappedIndexes)
+        successful = model.export_paths(mimeData, indexes)
         if not successful:
             print("Failed to cut path to clipboard")
             return
@@ -623,14 +577,10 @@ class ProjectFolderViewWidget(InteractiveListView):
         QClipboard().setMimeData(mimeData)
 
     def _paste_paths(self, index: QModelIndex | QPersistentModelIndex):
-        model: JSystemFSModel = self.get_source_model()
-        proxyModel: JSystemFSSortProxyModel = self.model()
+        model: JSystemFSModel = self.model()
 
         if not index.isValid():
             index = self.rootIndex()
-
-        if index.model() == proxyModel:
-            index = proxyModel.mapToSource(index)
 
         mimeData = QClipboard().mimeData()
 
@@ -640,33 +590,18 @@ class ProjectFolderViewWidget(InteractiveListView):
             return
 
     def _delete_paths(self, indexes: list[QModelIndex | QPersistentModelIndex]):
-        model: JSystemFSModel = self.get_source_model()
-        proxyModel: JSystemFSSortProxyModel = self.model()
+        model: JSystemFSModel = self.model()
         selectionModel = self.selectionModel()
 
-        mappedIndexes = []
         for index in indexes:
-            if not index.isValid():
-                continue
-
-            self.selectionModel().select(index, QItemSelectionModel.Deselect)
-
-            if index.model() == proxyModel:
-                index = proxyModel.mapToSource(index)
-            mappedIndexes.append(index)
-
-        for index in mappedIndexes:
+            selectionModel.select(index, QItemSelectionModel.Deselect)
             model.remove(index)
 
     def _write_action_initializer(self, index: QModelIndex | QPersistentModelIndex, initializer: FileInitializer) -> None:
-        model: JSystemFSModel = self.get_source_model()
-        proxyModel: JSystemFSSortProxyModel = self.model()
+        model: JSystemFSModel = self.model()
 
         if not index.isValid():
             index = self.rootIndex()
-
-        if index.model() == proxyModel:
-            index = proxyModel.mapToSource(index)
 
         initPath = model._resolve_path_conflict(initializer.get_name(), index)
         if initPath is None:
@@ -675,22 +610,16 @@ class ProjectFolderViewWidget(InteractiveListView):
 
         newIndex = model.mkfile(initName,
                                 initializer.get_identity(), index)
-        proxyModel.invalidate()
-        proxyIndex = proxyModel.mapFromSource(newIndex)
-        self.edit(proxyIndex)
+        self.edit(newIndex)
 
     def _create_folder_index(self, name: str = "New Folder", parent: QModelIndex | QPersistentModelIndex = QModelIndex()) -> None:
         """
         Creates a folder and sets up the Widget to rename
         """
-        model: JSystemFSModel = self.get_source_model()
-        proxyModel: JSystemFSSortProxyModel = self.model()
+        model: JSystemFSModel = self.model()
 
         if not parent.isValid():
             parent = self.rootIndex()
-
-        if parent.model() == proxyModel:
-            parent = proxyModel.mapToSource(parent)
 
         initPath = model._resolve_path_conflict(name, parent)
         if initPath is None:
@@ -698,10 +627,7 @@ class ProjectFolderViewWidget(InteractiveListView):
         initName = initPath.name
 
         newIndex = model.mkdir(initName, parent)
-
-        proxyModel.invalidate()
-        proxyIndex = proxyModel.mapFromSource(newIndex)
-        self.edit(proxyIndex)
+        self.edit(newIndex)
 
     def _resolve_name(self, name: str, filterItem: Optional[QModelIndex | QPersistentModelIndex] = None) -> str:
         model = self.model()
@@ -746,10 +672,8 @@ class ProjectFolderViewWidget(InteractiveListView):
         if parent.model() == model:
             newIndex = model.mkdir(name, parent)
         else:
-            proxyModel: JSystemFSSortProxyModel = self.model()
-            newIndex = model.mkdir(name, proxyModel.mapToSource(parent))
-        newProxyIndex = proxyModel.mapFromSource(newIndex)
-        self.edit(newProxyIndex)
+            newIndex = model.mkdir(name, parent)
+        self.edit(newIndex)
 
     @Slot(QMouseEvent)
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
@@ -771,34 +695,27 @@ class ProjectFolderViewWidget(InteractiveListView):
         if not index.isValid():
             return
 
-        model: JSystemFSSortProxyModel = self.model()
-        sourceIndex = model.mapToSource(index)
-
-        sourceModel: JSystemFSModel = sourceIndex.model()
-        if not sourceModel.is_populated(sourceIndex):
+        sourceModel: JSystemFSModel = index.model()
+        if not sourceModel.is_populated(index):
             event.ignore()
             return
 
         super().mouseDoubleClickEvent(event)
 
     def startDrag(self, supportedActions: Qt.DropActions) -> None:
-        indexes = self.selectedIndexes()
+        model: JSystemFSModel = self.model()
+        self._selectedIndexesOnDrag = self.selectedIndexes()
+
+        mimeData = QMimeData()
+        model.export_paths(mimeData, self._selectedIndexesOnDrag)
+
         drag = QDrag(self)
-        mime = self.model().mimeData(indexes)
-        urlList = []
-        for index in indexes:
-            urlList.append(
-                QUrl.fromLocalFile(
-                    index.data(JSystemFSModel.FilePathRole)
-                )
-            )
-        mime.setUrls(urlList)
-        drag.setMimeData(mime)
+        drag.setMimeData(mimeData)
 
         # -- ICON -- #
 
         if supportedActions & Qt.MoveAction:
-            if len(indexes) == 0:
+            if len(self._selectedIndexesOnDrag) == 0:
                 return
 
             pixmap = QPixmap(70, 80)
@@ -838,25 +755,26 @@ class ProjectFolderViewWidget(InteractiveListView):
 
     @Slot(QDragEnterEvent)
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
-        if not event.mimeData().hasUrls():
+        mimeData = event.mimeData()
+        if not mimeData.hasUrls() and not mimeData.hasFormat("x-application/jsystem-fs-data"):
             event.ignore()
+            return
 
-        self._selectedIndexesOnDrag = self.selectedIndexes()
         super().dragEnterEvent(event)
 
     @Slot(QDragMoveEvent)
     def dragMoveEvent(self, event: QDragMoveEvent) -> None:
-        eventPos = event.pos()
-        hoveredIndex = self.indexAt(eventPos)
-
-        proxyModel: JSystemFSSortProxyModel = self.model()
-        sourceIndex = proxyModel.mapToSource(hoveredIndex)
-        sourceModel: JSystemFSModel = sourceIndex.model()
-
         event.accept()  # Accept by default
-        if not event.mimeData().hasUrls():
+
+        mimeData = event.mimeData()
+        if not mimeData.hasUrls() and not mimeData.hasFormat("x-application/jsystem-fs-data"):
             event.ignore()
             return
+
+        sourceModel: JSystemFSModel = hoveredIndex.model()
+
+        eventPos = event.pos()
+        hoveredIndex = self.indexAt(eventPos)
 
         if not hoveredIndex.isValid():
             super().dragMoveEvent(event)
@@ -864,9 +782,9 @@ class ProjectFolderViewWidget(InteractiveListView):
                 event.ignore()
             return
 
-        if sourceModel.is_dir(sourceIndex) or sourceModel.is_archive(sourceIndex):
+        if sourceModel.is_dir(hoveredIndex) or sourceModel.is_archive(hoveredIndex):
             super().dragMoveEvent(event)
-            if hoveredIndex in self._selectedIndexesOnDrag:
+            if hoveredIndex in self._selectedIndexesOnDrag and event.source() == self:
                 event.ignore()
             return
 
@@ -881,33 +799,21 @@ class ProjectFolderViewWidget(InteractiveListView):
         eventPos = event.pos()
         hoveredIndex = self.indexAt(eventPos)
 
-        proxyModel: JSystemFSSortProxyModel = self.model()
-        sourceIndex = proxyModel.mapToSource(hoveredIndex)
-        sourceModel: JSystemFSModel = sourceIndex.model()
+        sourceModel: JSystemFSModel = hoveredIndex.model()
 
         if not hoveredIndex.isValid():
             if event.source() == self:
                 event.ignore()
-            paths = []
-            for url in mimeData.urls():
-                path = Path(url.toLocalFile())
-                paths.append(path)
-            self.dropInRequested.emit(paths)
+            sourceModel.import_paths(mimeData, self.rootIndex())
             event.accept()
             return
 
-        if sourceModel.is_dir(sourceIndex) or sourceModel.is_archive(sourceIndex):
-            self.move_indexes(self._selectedIndexesOnDrag, hoveredIndex)
+        if sourceModel.is_dir(hoveredIndex) or sourceModel.is_archive(hoveredIndex):
+            sourceModel.import_paths(mimeData, hoveredIndex)
             event.accept()
-        else:
-            event.ignore()
-        return
+            return
 
-    @Slot(QKeyEvent)
-    def keyPressEvent(self, event: QKeyEvent) -> None:
-        print(event.key())
-        print(event.keyCombination())
-        super().keyPressEvent(event)
+        event.ignore()
 
     @Slot(QKeyEvent)
     def keyReleaseEvent(self, event: QKeyEvent) -> None:
@@ -964,6 +870,8 @@ class ProjectFolderViewWidget(InteractiveListView):
         for index in indexesToMove:
             sourceIndex = proxyModel.mapToSource(index)
             sourceModel.move(sourceIndex, sourceParent)
+
+        sourceModel.set_conflict_action(None)
 
 
 class ProjectTreeViewWidget(InteractiveTreeView):
@@ -1031,7 +939,7 @@ class ProjectViewerWidget(A_DockingInterface):
         self._focusedPath = PurePath()
 
         self.fsModel = JSystemFSModel(
-            Path("__doesnt_exist__"), False, self)
+            Path("__default__"), False, self)
 
         self.fsModelViewProxy = JSystemFSSortProxyModel(self)
         self.fsModelViewProxy.setSourceModel(self.fsModel)
@@ -1063,7 +971,7 @@ class ProjectViewerWidget(A_DockingInterface):
         # )
 
         self.folderViewWidget = ProjectFolderViewWidget()
-        self.folderViewWidget.setModel(self.fsModelViewProxy)
+        self.folderViewWidget.setModel(self.fsModel)
         self.folderViewWidget.doubleClicked.connect(
             self._view_directory_from_view
         )
@@ -1087,6 +995,10 @@ class ProjectViewerWidget(A_DockingInterface):
         self.setWidget(self.splitter)
         # self.setLayout(self.mainLayout)
         self.setMinimumSize(420, 200)
+
+        self.fsModel.conflictFound.connect(
+            self._show_conflict_dialog
+        )
 
     @property
     def scenePath(self) -> Path:
@@ -1113,12 +1025,10 @@ class ProjectViewerWidget(A_DockingInterface):
         if self._focusedPath == path:
             return
 
-        model: JSystemFSModel = self.folderViewWidget.get_source_model()
-        proxyModel: JSystemFSSortProxyModel = self.folderViewWidget.model()
+        model: JSystemFSModel = self.folderViewWidget.model()
 
         focusedIndex = model.get_path_index(path)
-        self.folderViewWidget.set_tracked_root_index(
-            proxyModel.mapFromSource(focusedIndex))
+        self.folderViewWidget.set_tracked_root_index(focusedIndex)
 
     def populate(self, scene: Optional[SMSScene], *args: VariadicArgs, **kwargs: VariadicKwargs) -> None:
         self.scenePath = args[0]
@@ -1134,27 +1044,37 @@ class ProjectViewerWidget(A_DockingInterface):
     @Slot(QModelIndex)
     def _view_directory(self, index: QModelIndex | QPersistentModelIndex):
         sourceModel = self.fsModel
-        viewModel = self.fsModelViewProxy
         sourceIndex = self.fsModelDirProxy.mapToSource(index)
 
         if not sourceModel.is_loaded(sourceIndex):
             sourceModel._cache_path(sourceIndex)
 
         self.folderViewWidget.set_tracked_root_index(
-            viewModel.mapFromSource(sourceIndex)
+            sourceIndex
         )
 
     @Slot(QModelIndex)
     def _view_directory_from_view(self, index: QModelIndex | QPersistentModelIndex):
         sourceModel = self.fsModel
         dirModel = self.fsModelDirProxy
-        sourceIndex = self.fsModelViewProxy.mapToSource(index)
 
-        if not sourceModel.is_loaded(sourceIndex):
-            sourceModel._cache_path(sourceIndex)
+        if not sourceModel.is_loaded(index):
+            sourceModel._cache_path(index)
 
         self.folderViewWidget.set_tracked_root_index(index)
 
         self.fsTreeWidget.expand(
-            dirModel.mapFromSource(sourceIndex)
+            dirModel.mapFromSource(index)
         )
+
+    @Slot(PurePath, PurePath)
+    def _show_conflict_dialog(self, src: PurePath, dst: PurePath, isDir: bool) -> None:
+        if self.fsModel.get_conflict_action() is not None:
+            return
+
+        dialog = MoveConflictDialog(True, self)
+        dialog.set_paths(src, dst, isDir)
+        dialog.exec()
+
+        self.fsModel.set_action_for_all(dialog.allCheckBox.isChecked())
+        self.fsModel.set_conflict_action(dialog._actionRole)
