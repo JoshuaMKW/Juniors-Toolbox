@@ -120,10 +120,10 @@ class A_ResourceHandle():
             parent = parent.get_parent()
         return path
 
-    def get_archive(self) -> Optional["ResourceArchive"]:
+    def get_archive(self) -> "ResourceArchive" | None:
         return self._archive
 
-    def get_parent(self) -> Optional["A_ResourceHandle"]:
+    def get_parent(self) -> "A_ResourceHandle" | None:
         return self._parent
 
     def set_parent(self, handle: "A_ResourceHandle" | None):
@@ -135,8 +135,12 @@ class A_ResourceHandle():
 
         if handle is None:
             return
-            
+
         handle.add_handle(self)
+        if handle.is_archive():
+            self._archive = handle  # type: ignore
+        else:
+            self._archive = handle.get_archive()
 
     @abstractmethod
     def is_archive(self) -> bool: ...
@@ -174,45 +178,48 @@ class A_ResourceHandle():
 
     @abstractmethod
     def get_handle(self, __path: PurePath | str, /
-                   ) -> Optional["A_ResourceHandle"]: ...
+                   ) -> "A_ResourceHandle" | None: ...
 
-    @abstractmethod
+    @ abstractmethod
     def path_exists(self, __path: PurePath | str, /) -> bool: ...
 
-    @abstractmethod
-    def add_handle(self, __handle: "A_ResourceHandle", /, *, action: FileConflictAction = FileConflictAction.REPLACE) -> bool: ...
+    @ abstractmethod
+    def add_handle(self, __handle: "A_ResourceHandle", /, *,
+                   action: FileConflictAction = FileConflictAction.REPLACE) -> bool: ...
 
-    @abstractmethod
+    @ abstractmethod
     def remove_handle(self, __handle: "A_ResourceHandle", /) -> bool: ...
 
-    @abstractmethod
+    @ abstractmethod
     def remove_path(self, __path: PurePath | str, /) -> bool: ...
 
-    @abstractmethod
+    @ abstractmethod
     def new_file(
         self,
         name: str,
         initialData: bytes | bytearray = b"",
         attributes: ResourceAttribute = ResourceAttribute.FILE | ResourceAttribute.PRELOAD_TO_MRAM
-    ) -> Optional["A_ResourceHandle"]: ...
+    ) -> "A_ResourceHandle" | None: ...
 
     @abstractmethod
     def new_directory(
         self,
         name: str,
         attributes: ResourceAttribute = ResourceAttribute.DIRECTORY | ResourceAttribute.PRELOAD_TO_MRAM
-    ) -> Optional["A_ResourceHandle"]: ...
+    ) -> "A_ResourceHandle" | None: ...
 
     @abstractmethod
-    def export_to(self, folderPath: Path | str) -> bool: ...
+    def export_to(self, __folderPath: Path | str, /, *,
+                  action: FileConflictAction = FileConflictAction.REPLACE) -> bool: ...
 
     @classmethod
     @abstractmethod
     def import_from(self, path: Path |
-                    str) -> Optional["A_ResourceHandle"]: ...
+                    str) -> "A_ResourceHandle" | None: ...
 
     @abstractmethod
-    def rename(self, __path: PurePath | str, /, *, action: FileConflictAction = FileConflictAction.REPLACE) -> bool: ...
+    def rename(self, __path: PurePath | str, /, *,
+               action: FileConflictAction = FileConflictAction.REPLACE) -> bool: ...
 
     @abstractmethod
     def read(self, __size: int, /) -> bytes: ...
@@ -317,7 +324,7 @@ class ResourceFile(A_ResourceHandle):
 
     def get_magic(self) -> str:
         name = self.get_name()
-        return name.upper().ljust(4)
+        return name.upper().ljust(4)[:4]
 
     def sync_ids(self) -> bool:
         archive = self.get_archive()
@@ -352,7 +359,7 @@ class ResourceFile(A_ResourceHandle):
     def get_handles(self, *, flatten: bool = False) -> list["A_ResourceHandle"]:
         return []
 
-    def get_handle(self, __path: PurePath | str, /) -> Optional["A_ResourceHandle"]:
+    def get_handle(self, __path: PurePath | str, /) -> "A_ResourceHandle" | None:
         return None
 
     def path_exists(self, path: PurePath | str) -> bool:
@@ -372,32 +379,44 @@ class ResourceFile(A_ResourceHandle):
         name: str,
         initialData: bytes | bytearray = b"",
         attributes: ResourceAttribute = ResourceAttribute.FILE | ResourceAttribute.PRELOAD_TO_MRAM
-    ) -> Optional["A_ResourceHandle"]:
+    ) -> "A_ResourceHandle" | None:
         return None
 
     def new_directory(
         self,
         name: str,
         attributes: ResourceAttribute = ResourceAttribute.DIRECTORY | ResourceAttribute.PRELOAD_TO_MRAM
-    ) -> Optional["A_ResourceHandle"]:
+    ) -> "A_ResourceHandle" | None:
         return None
 
-    def export_to(self, folderPath: Path | str) -> bool:
-        if isinstance(folderPath, str):
-            folderPath = Path(folderPath)
+    def export_to(self, __folderPath: Path | str, /, *,
+                  action: FileConflictAction = FileConflictAction.REPLACE) -> bool:
+        if isinstance(__folderPath, str):
+            __folderPath = Path(__folderPath)
 
-        if not folderPath.is_dir():
+        if not __folderPath.is_dir():
             return False
 
-        thisFile = folderPath / self.get_name()
+        thisFile = __folderPath / self.get_name()
+        if thisFile.is_dir():
+            raise PermissionError("Can't replace a folder with a file")
+
+        if thisFile.exists():
+            if action == FileConflictAction.SKIP:
+                return False
+
+            if action == FileConflictAction.KEEP:
+                thisFile = thisFile.with_name(
+                    self._fs_resolve_name(thisFile.name)
+                )
+
         thisFile.write_bytes(
             self.get_data()
         )
-
         return True
 
-    @classmethod
-    def import_from(self, path: Path | str) -> Optional["A_ResourceHandle"]:
+    @ classmethod
+    def import_from(self, path: Path | str) -> "A_ResourceHandle" | None:
         if isinstance(path, str):
             path = Path(path)
 
@@ -429,7 +448,7 @@ class ResourceFile(A_ResourceHandle):
                 parent.remove_handle(conflictingHandle)
                 self.set_name(pathName)
                 return True
-        
+
             if action == FileConflictAction.KEEP:
                 newName = parent._fs_resolve_name(pathName)
                 self.set_name(newName)
@@ -456,7 +475,7 @@ class ResourceFile(A_ResourceHandle):
             newParent.remove_handle(conflictingHandle)
             self.set_name(pathName)
             return True
-    
+
         if action == FileConflictAction.KEEP:
             newName = newParent._fs_resolve_name(pathName)
             self.set_name(newName)
@@ -520,7 +539,7 @@ class ResourceDirectory(A_ResourceHandle):
 
     def get_magic(self) -> str:
         name = self.get_name()
-        return name.upper().ljust(4)
+        return name.upper().ljust(4)[: 4]
 
     def get_id(self) -> int:
         return -1
@@ -556,7 +575,7 @@ class ResourceDirectory(A_ResourceHandle):
 
         return handles
 
-    def get_handle(self, __path: PurePath | str, /) -> Optional["A_ResourceHandle"]:
+    def get_handle(self, __path: PurePath | str, /) -> "A_ResourceHandle" | None:
         if isinstance(__path, str):
             __path = PurePath(__path)
         curDir, *subParts = __path.parts
@@ -589,7 +608,7 @@ class ResourceDirectory(A_ResourceHandle):
                 __handle.set_name(
                     self._fs_resolve_name(__handle.get_name())
                 )
-            
+
         self._children.append(__handle)
         __handle._parent = self
         return True
@@ -615,7 +634,7 @@ class ResourceDirectory(A_ResourceHandle):
         name: str,
         initialData: bytes | bytearray = b"",
         attributes: ResourceAttribute = ResourceAttribute.FILE | ResourceAttribute.PRELOAD_TO_MRAM
-    ) -> Optional["A_ResourceHandle"]:
+    ) -> "A_ResourceHandle" | None:
         if self.path_exists(PurePath(name)):
             return None
 
@@ -633,7 +652,7 @@ class ResourceDirectory(A_ResourceHandle):
         self,
         name: str,
         attributes: ResourceAttribute = ResourceAttribute.DIRECTORY | ResourceAttribute.PRELOAD_TO_MRAM
-    ) -> Optional["A_ResourceHandle"]:
+    ) -> "A_ResourceHandle" | None:
         if self.path_exists(PurePath(name)):
             return None
 
@@ -646,24 +665,25 @@ class ResourceDirectory(A_ResourceHandle):
         self.add_handle(newDir)
         return newDir
 
-    def export_to(self, folderPath: Path | str) -> bool:
-        if isinstance(folderPath, str):
-            folderPath = Path(folderPath)
+    def export_to(self, __folderPath: Path | str, /, *,
+                  action: FileConflictAction = FileConflictAction.REPLACE) -> bool:
+        if isinstance(__folderPath, str):
+            __folderPath = Path(__folderPath)
 
-        if not folderPath.is_dir():
+        if not __folderPath.is_dir():
             return False
 
-        thisDir = folderPath / self.get_name()
+        thisDir = __folderPath / self.get_name()
         thisDir.mkdir(exist_ok=True)
 
         successful = True
         for handle in self.get_handles():
-            successful &= handle.export_to(thisDir)
+            successful &= handle.export_to(thisDir, action=action)
 
         return successful
 
-    @classmethod
-    def import_from(self, path: Path | str) -> Optional["A_ResourceHandle"]:
+    @ classmethod
+    def import_from(self, path: Path | str) -> "A_ResourceHandle" | None:
         if isinstance(path, str):
             path = Path(path)
 
@@ -706,7 +726,7 @@ class ResourceDirectory(A_ResourceHandle):
                 parent.remove_handle(conflictingHandle)
                 self.set_name(pathName)
                 return True
-        
+
             if action == FileConflictAction.KEEP:
                 newName = parent._fs_resolve_name(pathName)
                 self.set_name(newName)
@@ -733,7 +753,7 @@ class ResourceDirectory(A_ResourceHandle):
             newParent.remove_handle(conflictingHandle)
             self.set_name(pathName)
             return True
-    
+
         if action == FileConflictAction.KEEP:
             newName = newParent._fs_resolve_name(pathName)
             self.set_name(newName)
@@ -773,7 +793,7 @@ class ResourceDirectory(A_ResourceHandle):
 
 
 class ResourceArchive(ResourceDirectory, A_Serializable):
-    @dataclass
+    @ dataclass
     class FileEntry:
         fileID: int
         flags: int
@@ -782,7 +802,7 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
         size: int
         nameHash: int
 
-    @dataclass
+    @ dataclass
     class DirectoryEntry:
         magic: str
         name: str
@@ -791,7 +811,7 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
         fileCount: int
         firstFileOffset: int
 
-    @dataclass
+    @ dataclass
     class _DataInformation:
         data: BytesIO
         offsets: dict[A_ResourceHandle, int]
@@ -799,7 +819,7 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
         aramSize: int
         dvdSize: int
 
-    @dataclass
+    @ dataclass
     class _StringTableData:
         strings: bytes
         offsets: dict[str, int]
@@ -817,13 +837,14 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
         self._children = children
         self._syncIDs = syncIDs
 
-    @staticmethod
+    @ staticmethod
     def is_archive_empty(archive: BinaryIO) -> bool:
         _oldPos = archive.tell()
 
-        assert archive.read(4) == b"RARC", "Invalid identifier. Expected \"RARC\""
+        assert archive.read(
+            4) == b"RARC", "Invalid identifier. Expected \"RARC\""
         archive.seek(0x20, 0)
-        
+
         directoryCount = read_uint32(archive)
         archive.seek(4, 1)
         fileEntryCount = read_uint32(archive)
@@ -832,21 +853,22 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
 
         return directoryCount <= 1 and fileEntryCount <= 2
 
-    @staticmethod
+    @ staticmethod
     def get_directory_count(archive: BinaryIO) -> int:
         _oldPos = archive.tell()
 
-        assert archive.read(4) == b"RARC", "Invalid identifier. Expected \"RARC\""
+        assert archive.read(
+            4) == b"RARC", "Invalid identifier. Expected \"RARC\""
         archive.seek(0x20, 0)
-        
+
         directoryCount = read_uint32(archive)
 
         archive.seek(_oldPos, 0)
 
         return directoryCount
 
-    @classmethod
-    def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **kwargs: VariadicKwargs) -> Optional["ResourceArchive"]:
+    @ classmethod
+    def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **kwargs: VariadicKwargs) -> "ResourceArchive" | None:
         assert data.read(4) == b"RARC", "Invalid identifier. Expected \"RARC\""
 
         archive = ResourceArchive("Root")
@@ -943,19 +965,19 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
             else:
                 directory = ResourceDirectory(dirEntry.name)
             fileEntries = dirToFileEntry.setdefault(directory, [])
-            for handleEntry in flatFileList[dirEntry.firstFileOffset:dirEntry.fileCount + dirEntry.firstFileOffset]:
+            for handleEntry in flatFileList[dirEntry.firstFileOffset: dirEntry.fileCount + dirEntry.firstFileOffset]:
                 if handleEntry.flags == 0x200:
                     fileEntries.append(handleEntry)
                 else:
                     data.seek(dataOffset + handleEntry.offset, 0)
-                    directory.add_handle(
-                        ResourceFile(
-                            handleEntry.name,
-                            initialData=data.read(handleEntry.size),
-                            attributes=ResourceAttribute(
-                                handleEntry.flags >> 8)
-                        )
+                    fHandle = ResourceFile(
+                        handleEntry.name,
+                        initialData=data.read(handleEntry.size),
+                        attributes=ResourceAttribute(
+                            handleEntry.flags >> 8)
                     )
+                    fHandle.set_id(handleEntry.fileID)
+                    directory.add_handle(fHandle)
             directories.append(directory)
 
         for directory in directories:
@@ -1070,18 +1092,18 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
         name: str,
         initialData: bytes | BinaryIO = b"",
         attributes: ResourceAttribute = ResourceAttribute.FILE | ResourceAttribute.PRELOAD_TO_MRAM
-    ) -> Optional["A_ResourceHandle"]:
+    ) -> "A_ResourceHandle" | None:
         return None
 
     def new_directory(
         self,
         name: str,
         attributes: ResourceAttribute = ResourceAttribute.DIRECTORY | ResourceAttribute.PRELOAD_TO_MRAM
-    ) -> Optional["A_ResourceHandle"]:
+    ) -> "A_ResourceHandle" | None:
         return None
 
-    @classmethod
-    def import_from(self, path: Path | str) -> Optional["A_ResourceHandle"]:
+    @ classmethod
+    def import_from(self, path: Path | str) -> "A_ResourceHandle" | None:
         if isinstance(path, str):
             path = Path(path)
 
@@ -1262,7 +1284,7 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
                             name=handle.get_name(),
                             nameOffset=-1,
                             nameHash=jdrama.get_key_code(handle.get_name()),
-                            fileCount=len(handle.get_handles()),
+                            fileCount=len(handle.get_handles()) + 2,
                             firstFileOffset=firstFileOffset
                         )
                     )
@@ -1272,7 +1294,18 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
             dirList.extend(tmpList)
             return dirList
 
-        return _process_dir(self)
+        flatList = [
+            ResourceArchive.DirectoryEntry(
+                magic="ROOT",
+                name=self.get_name(),
+                nameOffset=-1,
+                nameHash=jdrama.get_key_code(self.get_name()),
+                fileCount=len(self.get_handles()) + 2,
+                firstFileOffset=0
+            )
+        ]
+        flatList.extend(_process_dir(self))
+        return flatList
 
     def _get_string_table_data(self, fileList: list["ResourceArchive.FileEntry"]) -> _StringTableData:
         offsets: dict[str, int] = {}
@@ -1317,4 +1350,4 @@ class ResourceArchive(ResourceDirectory, A_Serializable):
         return self.get_handles() != __o.get_handles()
 
     def __hash__(self) -> int:
-        return hash((self.get_name(), self.get_size())) 
+        return hash((self.get_name(), self.get_size()))

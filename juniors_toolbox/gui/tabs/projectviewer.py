@@ -10,7 +10,7 @@ from typing import Any, BinaryIO, Callable, Dict, List, Optional, Tuple, Union
 from juniors_toolbox.gui.dialogs.moveconflict import MoveConflictDialog
 
 from juniors_toolbox.gui.images import get_icon, get_image
-from juniors_toolbox.gui.models.rarcfs import JSystemFSDirectoryProxyModel, JSystemFSModel, JSystemFSSortProxyModel
+from juniors_toolbox.gui.models.rarcfs import JSystemFSDirectoryProxyModel, JSystemFSModel
 from juniors_toolbox.gui.widgets import ABCMetaWidget, ABCWidget
 from juniors_toolbox.gui.widgets.dockinterface import A_DockingInterface
 from juniors_toolbox.gui.tools import clear_layout, walk_layout
@@ -133,7 +133,7 @@ class ProjectCacheUpdater(QObject, QRunnable):
         self.indexToCache = indexToCache
 
     def run(self) -> None:
-        self.model._cache_path(self.indexToCache)
+        self.model.cache_index(self.indexToCache)
 
 
 class ProjectFocusedMenuBarAction(QAction):
@@ -333,13 +333,15 @@ class ProjectFolderViewWidget(InteractiveListView):
         self.setViewMode(QListView.IconMode)
         self.setFlow(QListView.LeftToRight)
         self.setResizeMode(QListView.Adjust)
+        self.setDragEnabled(True)
+        self.setDragDropMode(QListView.DragDrop)
+        self.setDefaultDropAction(Qt.MoveAction)
 
         self.setWordWrap(True)
         self.setAcceptDrops(True)
         self.setEditTriggers(QListView.NoEditTriggers)
 
-        self._selectedIndexesOnDrag: list[QModelIndex |
-                                          QPersistentModelIndex] = []
+        self._selectedIndexesOnDrag: list[QPersistentModelIndex] = []
 
         self._pathHistory = ProjectFolderViewWidget.PathUndoStack(self)
 
@@ -505,7 +507,7 @@ class ProjectFolderViewWidget(InteractiveListView):
 
     def _is_import_ready(self, mimeData: QMimeData) -> bool:
         # Has virtual archive data
-        if mimeData.hasFormat("x-application/jsystem-fs-data"):
+        if mimeData.hasFormat(JSystemFSModel.ArchiveMimeType):
             return True
 
         return mimeData.hasUrls()
@@ -527,10 +529,11 @@ class ProjectFolderViewWidget(InteractiveListView):
         open_path_in_terminal(Path(model.get_path(index)))
 
     def _copy_index_paths(self, indexes: list[QModelIndex | QPersistentModelIndex], relative: bool = True) -> None:
+        pIndexes = [QPersistentModelIndex(p) for p in indexes]
         model: JSystemFSModel = self.model()
 
         paths: list[str] = []
-        for index in indexes:
+        for index in pIndexes:
             if not index.isValid():
                 continue
             path = model.get_path(index)
@@ -546,11 +549,12 @@ class ProjectFolderViewWidget(InteractiveListView):
         QClipboard().setText("\n".join(paths))
 
     def _copy_paths(self, indexes: list[QModelIndex | QPersistentModelIndex]):
+        pIndexes = [QPersistentModelIndex(p) for p in indexes]
         model: JSystemFSModel = self.model()
 
         mimeData = QMimeData()
 
-        successful = model.export_paths(mimeData, indexes)
+        successful = model.export_paths(mimeData, pIndexes)
         if not successful:
             print("Failed to copy path to clipboard")
             return
@@ -558,6 +562,7 @@ class ProjectFolderViewWidget(InteractiveListView):
         QClipboard().setMimeData(mimeData)
 
     def _cut_paths(self, indexes: list[QModelIndex | QPersistentModelIndex]):
+        pIndexes = [QPersistentModelIndex(p) for p in indexes]
         model: JSystemFSModel = self.model()
 
         mimeData = QMimeData()
@@ -569,7 +574,7 @@ class ProjectFolderViewWidget(InteractiveListView):
 
         mimeData.setData("Preferred DropEffect", data)
 
-        successful = model.export_paths(mimeData, indexes)
+        successful = model.export_paths(mimeData, pIndexes)
         if not successful:
             print("Failed to cut path to clipboard")
             return
@@ -584,16 +589,18 @@ class ProjectFolderViewWidget(InteractiveListView):
 
         mimeData = QClipboard().mimeData()
 
-        successful = model.import_paths(mimeData, index)
+        successful = model.import_paths(mimeData, QPersistentModelIndex(index))
         if not successful:
             print("Failed to paste clipboard to path")
             return
 
     def _delete_paths(self, indexes: list[QModelIndex | QPersistentModelIndex]):
+        pIndexes = [QPersistentModelIndex(p) for p in indexes]
+
         model: JSystemFSModel = self.model()
         selectionModel = self.selectionModel()
 
-        for index in indexes:
+        for index in pIndexes:
             selectionModel.select(index, QItemSelectionModel.Deselect)
             model.remove(index)
 
@@ -626,46 +633,8 @@ class ProjectFolderViewWidget(InteractiveListView):
             raise RuntimeError("Failed to find unique path for init")
         initName = initPath.name
 
-        newIndex = model.mkdir(initName, parent)
+        newIndex = model.mkdir(initName, QPersistentModelIndex(parent))
         self.edit(newIndex)
-
-    def _resolve_name(self, name: str, filterItem: Optional[QModelIndex | QPersistentModelIndex] = None) -> str:
-        model = self.model()
-
-        parts = name.rsplit(".", 1)
-        name = parts[0]
-
-        renameContext = 1
-        ogName = name
-
-        possibleNames = []
-        for i in range(model.rowCount()):
-            if renameContext > 100:
-                raise FileExistsError(
-                    "Name exists beyond 100 unique iterations!")
-            item = model.index(i, 0)
-            if item == filterItem:
-                continue
-            itemText: str = item.data(Qt.DisplayRole)
-            if itemText.startswith(ogName):
-                possibleNames.append(itemText.rsplit(".", 1)[0])
-
-        i = 0
-        while True:
-            if i >= len(possibleNames):
-                break
-            if renameContext > 100:
-                raise FileExistsError(
-                    "Name exists beyond 100 unique iterations!")
-            if possibleNames[i] == name:
-                name = f"{ogName}{renameContext}"
-                renameContext += 1
-                i = 0
-            else:
-                i += 1
-        if len(parts) == 2:
-            name += f".{parts[1]}"
-        return name
 
     def _create_asset_index(self, name: str = "New Asset", parent: QModelIndex | QPersistentModelIndex = QModelIndex()) -> None:
         model: JSystemFSModel = self.get_source_model()
@@ -704,7 +673,8 @@ class ProjectFolderViewWidget(InteractiveListView):
 
     def startDrag(self, supportedActions: Qt.DropActions) -> None:
         model: JSystemFSModel = self.model()
-        self._selectedIndexesOnDrag = self.selectedIndexes()
+        self._selectedIndexesOnDrag = [
+            QPersistentModelIndex(p) for p in self.selectedIndexes()]
 
         mimeData = QMimeData()
         model.export_paths(mimeData, self._selectedIndexesOnDrag)
@@ -733,18 +703,21 @@ class ProjectFolderViewWidget(InteractiveListView):
             painter.setBrush(QColor(20, 150, 220, 70))
             painter.drawRoundedRect(0, 0, 70, 80, 5, 5)
 
-            if len(indexes) == 1:
-                icon: QIcon = indexes[0].data(Qt.DisplayRole).icon()
+            if len(self._selectedIndexesOnDrag) == 1:
+                icon: QIcon = self._selectedIndexesOnDrag[0].data(
+                    JSystemFSModel.FileIconRole)
                 iconPixmap = QPixmap(icon.pixmap(
                     icon.actualSize(QSize(64, 64)))).scaled(64, 64)
                 painter.drawPixmap(3, 8, iconPixmap)
             else:
                 fontMetrics = painter.fontMetrics()
-                textWidth = fontMetrics.boundingRect(str(len(indexes))).width()
+                textWidth = fontMetrics.boundingRect(
+                    str(len(self._selectedIndexesOnDrag))).width()
                 painter.setPen(Qt.white)
                 painter.setBrush(QColor(20, 110, 220, 255))
                 painter.drawRect(27, 32, 16, 16)
-                painter.drawText(35 - (textWidth // 2), 43, str(len(indexes)))
+                painter.drawText(35 - (textWidth // 2), 43,
+                                 str(len(self._selectedIndexesOnDrag)))
 
             painter.end()
 
@@ -755,26 +728,26 @@ class ProjectFolderViewWidget(InteractiveListView):
 
     @Slot(QDragEnterEvent)
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
+        event.accept()
+
         mimeData = event.mimeData()
-        if not mimeData.hasUrls() and not mimeData.hasFormat("x-application/jsystem-fs-data"):
+        if not mimeData.hasUrls() and not mimeData.hasFormat(JSystemFSModel.ArchiveMimeType):
             event.ignore()
             return
-
-        super().dragEnterEvent(event)
 
     @Slot(QDragMoveEvent)
     def dragMoveEvent(self, event: QDragMoveEvent) -> None:
         event.accept()  # Accept by default
 
         mimeData = event.mimeData()
-        if not mimeData.hasUrls() and not mimeData.hasFormat("x-application/jsystem-fs-data"):
+        if not mimeData.hasUrls() and not mimeData.hasFormat(JSystemFSModel.ArchiveMimeType):
             event.ignore()
             return
 
-        sourceModel: JSystemFSModel = hoveredIndex.model()
-
         eventPos = event.pos()
         hoveredIndex = self.indexAt(eventPos)
+
+        sourceModel: JSystemFSModel = hoveredIndex.model()
 
         if not hoveredIndex.isValid():
             super().dragMoveEvent(event)
@@ -783,7 +756,6 @@ class ProjectFolderViewWidget(InteractiveListView):
             return
 
         if sourceModel.is_dir(hoveredIndex) or sourceModel.is_archive(hoveredIndex):
-            super().dragMoveEvent(event)
             if hoveredIndex in self._selectedIndexesOnDrag and event.source() == self:
                 event.ignore()
             return
@@ -796,6 +768,8 @@ class ProjectFolderViewWidget(InteractiveListView):
         if not mimeData.hasUrls():
             return
 
+        isCutPaths = event.dropAction() == Qt.MoveAction
+
         eventPos = event.pos()
         hoveredIndex = self.indexAt(eventPos)
 
@@ -805,11 +779,18 @@ class ProjectFolderViewWidget(InteractiveListView):
             if event.source() == self:
                 event.ignore()
             sourceModel.import_paths(mimeData, self.rootIndex())
+            if isCutPaths:
+                for index in self._selectedIndexesOnDrag:
+                    sourceModel.remove(index)
             event.accept()
             return
 
         if sourceModel.is_dir(hoveredIndex) or sourceModel.is_archive(hoveredIndex):
-            sourceModel.import_paths(mimeData, hoveredIndex)
+            sourceModel.import_paths(
+                mimeData, QPersistentModelIndex(hoveredIndex))
+            if isCutPaths:
+                for index in self._selectedIndexesOnDrag:
+                    sourceModel.remove(index)
             event.accept()
             return
 
@@ -938,11 +919,12 @@ class ProjectViewerWidget(A_DockingInterface):
         self.__scenePath: Optional[Path] = None
         self._focusedPath = PurePath()
 
+        self.fsModelThread = QThread(self)
         self.fsModel = JSystemFSModel(
-            Path("__default__"), False, self)
+            Path("__default__"), False, self
+        )
+        # self.fsModel.moveToThread(self.fsModelThread)
 
-        self.fsModelViewProxy = JSystemFSSortProxyModel(self)
-        self.fsModelViewProxy.setSourceModel(self.fsModel)
         self.fsModelDirProxy = JSystemFSDirectoryProxyModel(self)
         self.fsModelDirProxy.setSourceModel(self.fsModel)
 
@@ -958,11 +940,11 @@ class ProjectViewerWidget(A_DockingInterface):
 
         self.focusedViewWidget = ProjectFocusedMenuBar()
 
-        # self._modelTester = QAbstractItemModelTester(
-        #     self.fsModelViewProxy,
-        #     QAbstractItemModelTester.FailureReportingMode.Warning,
-        #     self
-        # )
+        self._modelTester = QAbstractItemModelTester(
+            self.fsModel,
+            QAbstractItemModelTester.FailureReportingMode.Warning,
+            self
+        )
 
         # self._modelTester2 = QAbstractItemModelTester(
         #     self.fsModelDirProxy,
@@ -1008,12 +990,11 @@ class ProjectViewerWidget(A_DockingInterface):
     def scenePath(self, path: Path) -> None:
         self.__scenePath = path
         self.fsModel.rootPath = path
-        self.fsModelViewProxy.sort(0, Qt.AscendingOrder)
         self.fsTreeWidget.expand(
             self.fsModelDirProxy.index(0, 0, QModelIndex())
         )
         self.folderViewWidget.setRootIndex(
-            self.fsModelViewProxy.index(0, 0)
+            self.fsModel.index(0, 0)
         )
 
     @property
@@ -1046,22 +1027,34 @@ class ProjectViewerWidget(A_DockingInterface):
         sourceModel = self.fsModel
         sourceIndex = self.fsModelDirProxy.mapToSource(index)
 
-        if not sourceModel.is_loaded(sourceIndex):
-            sourceModel._cache_path(sourceIndex)
+        if self.folderViewWidget.rootIndex() == sourceIndex:
+            return
 
-        self.folderViewWidget.set_tracked_root_index(
-            sourceIndex
-        )
+        if not sourceModel.is_loaded(sourceIndex):
+            sourceModel.cache_index(sourceIndex)
+
+        self.folderViewWidget.set_tracked_root_index(sourceIndex)
+
+        selectionModel = self.folderViewWidget.selectionModel()
+        for sIndex in selectionModel.selectedIndexes():
+            selectionModel.select(sIndex, QItemSelectionModel.Deselect)
 
     @Slot(QModelIndex)
     def _view_directory_from_view(self, index: QModelIndex | QPersistentModelIndex):
         sourceModel = self.fsModel
         dirModel = self.fsModelDirProxy
 
+        if self.folderViewWidget.rootIndex() == index:
+            return
+
         if not sourceModel.is_loaded(index):
-            sourceModel._cache_path(index)
+            sourceModel.cache_index(index)
 
         self.folderViewWidget.set_tracked_root_index(index)
+
+        selectionModel = self.folderViewWidget.selectionModel()
+        for sIndex in selectionModel.selectedIndexes():
+            selectionModel.select(sIndex, QItemSelectionModel.Deselect)
 
         self.fsTreeWidget.expand(
             dirModel.mapFromSource(index)
