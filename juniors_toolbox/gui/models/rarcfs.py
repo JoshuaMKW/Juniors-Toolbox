@@ -1095,44 +1095,28 @@ class JSystemFSModel(QAbstractItemModel):
             return itemFlags
 
     def data(self, index: QModelIndex | QPersistentModelIndex, role: int = Qt.DisplayRole) -> Any:
+        if not index.isValid():
+            return -1
+
         with QReadLocker(self._fsLock):
-            if not index.isValid():
-                return -1
-
-            if index.model() != self:
-                print("WARNING: Index doesn't belong to model!!",
-                      index.model(), self)
-                return -1
-
             handleInfo: JSystemFSModel._HandleInfo = index.internalPointer()
 
-            fsKind = handleInfo.fsKind
-            name = handleInfo.path.name
-            stem = handleInfo.path.stem
-            extension = handleInfo.path.suffix
-
-            if fsKind == JSystemFSModel._FsKind.DIRECTORY:
-                _type = "Folder"
-            elif extension in self.ExtensionToTypeMap:
-                _type = self.ExtensionToTypeMap[extension]
-            else:
-                _type = "UNKNOWN"
-
             if role == self.FileNameRole:
-                return stem
+                return handleInfo.path.stem
 
             if role == self.FilePathRole:
                 return handleInfo.path
 
             if role == Qt.DisplayRole:
-                return name
+                return handleInfo.path.name
 
             if role == Qt.SizeHintRole:
                 return QSize(80, 90)
 
             if role == Qt.DecorationRole:
                 if handleInfo.icon is None:
-                    if fsKind == JSystemFSModel._FsKind.DIRECTORY:
+                    extension = handleInfo.path.suffix
+                    if handleInfo.fsKind == JSystemFSModel._FsKind.DIRECTORY:
                         handleInfo.icon = self._icons["folder"]
                     elif extension in self._icons:
                         handleInfo.icon = self._icons[extension]
@@ -1141,20 +1125,27 @@ class JSystemFSModel(QAbstractItemModel):
                 return handleInfo.icon
 
             if role == Qt.EditRole:
-                return name
+                return handleInfo.path.name
 
             if role == Qt.ToolTipRole:
-                return _type
+                extension = handleInfo.path.suffix
+                if handleInfo.fsKind == JSystemFSModel._FsKind.DIRECTORY:
+                    return "Folder"
+                if extension in self.ExtensionToTypeMap:
+                    return self.ExtensionToTypeMap[extension]
+                return "UNKNOWN"
 
             if role == Qt.WhatsThisRole:
-                return _type
+                extension = handleInfo.path.suffix
+                if handleInfo.fsKind == JSystemFSModel._FsKind.DIRECTORY:
+                    return "Folder"
+                if extension in self.ExtensionToTypeMap:
+                    return self.ExtensionToTypeMap[extension]
+                return "UNKNOWN"
 
     def setData(self, index: QModelIndex | QPersistentModelIndex, value: Any, role: int = Qt.DisplayRole) -> bool:
-        with QReadLocker(self._fsLock):
-            if not index.isValid():
-                return False
-
-            handleInfo: JSystemFSModel._HandleInfo = index.internalPointer()
+        if not index.isValid():
+            return False
 
         changed = False
         if role == Qt.DisplayRole:
@@ -1170,16 +1161,18 @@ class JSystemFSModel(QAbstractItemModel):
             changed = self.rename(index, value)
 
         if changed:
-            handleInfo.icon = None
+            with QWriteLocker(self._fsLock):
+                handleInfo: JSystemFSModel._HandleInfo = index.internalPointer()
+                handleInfo.icon = None
             return True
 
         return False
 
     def canFetchMore(self, parent: QModelIndex | QPersistentModelIndex) -> bool:
-        with QReadLocker(self._fsLock):
-            if not parent.isValid():
-                return False
+        if not parent.isValid():
+            return False
 
+        with QReadLocker(self._fsLock):
             handleInfo: JSystemFSModel._HandleInfo = parent.internalPointer()
             return handleInfo.loaded is False
 
@@ -1190,11 +1183,10 @@ class JSystemFSModel(QAbstractItemModel):
         self.cache_index(parent)
 
     def hasChildren(self, parent: QModelIndex | QPersistentModelIndex = QModelIndex()) -> bool:
-        with QReadLocker(self._fsLock):
-            if not parent.isValid():
-                return True
+        if not parent.isValid():
+            return True
 
-            return self.is_populated(parent)
+        return self.is_populated(parent)
 
     def hasIndex(self, row: int, column: int, parent: QModelIndex | QPersistentModelIndex = QModelIndex()) -> bool:
         return self.index(row, column, parent).isValid()
@@ -1245,11 +1237,11 @@ class JSystemFSModel(QAbstractItemModel):
 
             parentInfo = handleInfo.parent
             if parentInfo is None:
-                return QModelIndex()
+                return QModelIndex()  # Already top level
 
             pParentInfo = parentInfo.parent
             if pParentInfo is None:
-                return self.createIndex(0, 0, self._fileSystemCache)
+                return self.createIndex(0, 0, self._fileSystemCache)  # Root
 
             return self.createIndex(parentInfo.row, 0, parentInfo)
 
@@ -1294,9 +1286,10 @@ class JSystemFSModel(QAbstractItemModel):
         if self._fileSystemCache is None:
             return 0
 
+        if not parent.isValid():
+            return 1
+
         with QReadLocker(self._fsLock):
-            if not parent.isValid():
-                return 1 if self._fileSystemCache.size >= 0 else 0
             handleInfo: JSystemFSModel._HandleInfo = parent.internalPointer()
             return len(handleInfo.children)
 
@@ -1331,10 +1324,6 @@ class JSystemFSModel(QAbstractItemModel):
         with QWriteLocker(self._fsLock):
             handleInfo: JSystemFSModel._HandleInfo = index.internalPointer()
             handleInfo.path = PurePath(path)
-
-            if handleInfo.path.suffix != ".arc":
-                handleInfo.size = os.stat(path).st_size
-                return
 
         self._indexesToRecache.add(index)
 
@@ -1433,7 +1422,7 @@ class JSystemFSModel(QAbstractItemModel):
                 continue
 
             pHandleInfo: JSystemFSModel._HandleInfo = pIndex.internalPointer()
-            if pHandleInfo.path.parent != infoToSort.path:
+            if str(pHandleInfo.path.parent) != str(infoToSort.path):
                 continue
 
             for childInfo in infoToSort.children:
