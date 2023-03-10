@@ -451,7 +451,7 @@ class RailNode(A_Serializable, A_Clonable):
 
 
 class Rail(A_Serializable, A_Clonable):
-    def __init__(self, name: str, nodes: Optional[List[RailNode]] = None):
+    def __init__(self, name: str, nodes: Optional[list[RailNode]] = None):
         if nodes is None:
             nodes = []
 
@@ -889,7 +889,7 @@ class Rail(A_Serializable, A_Clonable):
 
 
 class RalData(A_Serializable):
-    def __init__(self, rails: Optional[List[Rail]] = None):
+    def __init__(self, rails: Optional[list[Rail]] = None):
         if rails is None:
             rails = []
 

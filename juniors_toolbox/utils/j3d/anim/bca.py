@@ -63,7 +63,7 @@ class BoneAnim():
        
 
 class BCA(BasicAnimation):
-    def __init__(self, loop_mode, anglescale, duration):
+    def __init__(self, loop_mode=0, anglescale=0, duration=1):
         self.loop_mode = loop_mode
         self.duration = duration
         self.anglescale = anglescale

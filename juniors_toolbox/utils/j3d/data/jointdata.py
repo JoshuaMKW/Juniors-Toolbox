@@ -26,6 +26,6 @@ class JointData():
         self.rotate = Vec3f.zero
         self.translate = Vec3f.zero
         self.parentID = -1
-        self.children: List[int] = []
-        self.displays: List[JointData.Display] = []
+        self.children: list[int] = []
+        self.displays: list[JointData.Display] = []
         self.inverseBinPoseMtx = glm.mtx4x4()

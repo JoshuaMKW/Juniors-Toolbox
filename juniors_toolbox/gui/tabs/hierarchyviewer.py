@@ -215,7 +215,7 @@ class NameRefHierarchyTreeWidget(InteractiveTreeWidget):
         return
 
     @Slot(list)
-    def duplicate_items(self, items: List[NameRefHierarchyTreeWidgetItem]) -> List[NameRefHierarchyTreeWidgetItem]:
+    def duplicate_items(self, items: list[NameRefHierarchyTreeWidgetItem]) -> list[NameRefHierarchyTreeWidgetItem]:
         """
         Returns the new item
         """
@@ -542,7 +542,7 @@ class NameRefHierarchyWidget(A_DockingInterface):
         self.__selectedObject = sceneObj
         self.__selectedObjectSize = sceneObj.get_simple_data_size()
 
-        properties: List[A_ValueProperty] = []
+        properties: list[A_ValueProperty] = []
 
         self.keyProperty = StringProperty(
             "Key",

@@ -17,7 +17,7 @@ class ClusterAnim:
 
 
 class BLA(BasicAnimation, A_Serializable):
-    def __init__(self, loop_mode, duration):
+    def __init__(self, loop_mode=0, duration=1):
         self.loop_mode = loop_mode
         self.anglescale = 0
         self.duration = duration

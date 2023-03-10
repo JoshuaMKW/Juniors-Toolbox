@@ -8,7 +8,7 @@ def read_sbyte(f: BinaryIO):
     return struct.unpack("b", f.read(1))[0]
 
 
-def write_sbyte(f: BinaryIO, val: Union[int, List[int]]):
+def write_sbyte(f: BinaryIO, val: Union[int, list[int]]):
     if isinstance(val, (list, tuple)):
         f.write(struct.pack(">" + ("b"*len(val)), *val))
         return
@@ -19,7 +19,7 @@ def read_sint16(f: BinaryIO):
     return struct.unpack(">h", f.read(2))[0]
 
 
-def write_sint16(f: BinaryIO, val: Union[int, List[int]]):
+def write_sint16(f: BinaryIO, val: Union[int, list[int]]):
     if isinstance(val, (list, tuple)):
         f.write(struct.pack(">" + ("h"*len(val)), *val))
         return
@@ -30,7 +30,7 @@ def read_sint32(f: BinaryIO):
     return struct.unpack(">i", f.read(4))[0]
 
 
-def write_sint32(f: BinaryIO, val: Union[int, List[int]]):
+def write_sint32(f: BinaryIO, val: Union[int, list[int]]):
     if isinstance(val, (list, tuple)):
         f.write(struct.pack(">" + ("i"*len(val)), *val))
         return
@@ -41,7 +41,7 @@ def read_ubyte(f: BinaryIO):
     return struct.unpack("B", f.read(1))[0]
 
 
-def write_ubyte(f: BinaryIO, val: Union[int, List[int]]):
+def write_ubyte(f: BinaryIO, val: Union[int, list[int]]):
     if isinstance(val, (list, tuple)):
         f.write(struct.pack(">" + ("B"*len(val)), *val))
         return
@@ -52,7 +52,7 @@ def read_uint16(f: BinaryIO):
     return struct.unpack(">H", f.read(2))[0]
 
 
-def write_uint16(f: BinaryIO, val: Union[int, List[int]]):
+def write_uint16(f: BinaryIO, val: Union[int, list[int]]):
     if isinstance(val, (list, tuple)):
         f.write(struct.pack(">" + ("H"*len(val)), *val))
         return
@@ -63,7 +63,7 @@ def read_uint32(f: BinaryIO):
     return struct.unpack(">I", f.read(4))[0]
 
 
-def write_uint32(f: BinaryIO, val: Union[int, List[int]]):
+def write_uint32(f: BinaryIO, val: Union[int, list[int]]):
     if isinstance(val, (list, tuple)):
         f.write(struct.pack(">" + ("I"*len(val)), *val))
         return
@@ -74,7 +74,7 @@ def read_float(f: BinaryIO):
     return struct.unpack(">f", f.read(4))[0]
 
 
-def write_float(f: BinaryIO, val: Union[float, List[float]]):
+def write_float(f: BinaryIO, val: Union[float, list[float]]):
     if isinstance(val, (list, tuple)):
         f.write(struct.pack(">" + ("f"*len(val)), *val))
         return
@@ -85,7 +85,7 @@ def read_double(f: BinaryIO):
     return struct.unpack(">d", f.read(4))[0]
 
 
-def write_double(f: BinaryIO, val: Union[float, List[float]]):
+def write_double(f: BinaryIO, val: Union[float, list[float]]):
     if isinstance(val, (list, tuple)):
         f.write(struct.pack(">" + ("d"*len(val)), *val))
         return

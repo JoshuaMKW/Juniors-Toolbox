@@ -100,7 +100,7 @@ class RichMessage(A_Serializable, A_Clonable):
         encoding = kwargs.get("encoding")
 
         string = b""
-        components: List[str | bytes] = []
+        components: list[str | bytes] = []
         _encodingGuess = encoding
         _nullCount = 0
         while (char := data.read(1)) != b"":
@@ -402,7 +402,7 @@ class BMG(A_Serializable, A_Clonable):
     def __init__(self, isStr1Present: bool = True, flagSize: int = 12):
         self.flagSize = flagSize
 
-        self._messages: List[BMG.MessageEntry] = []
+        self._messages: list[BMG.MessageEntry] = []
         self._isStr1 = isStr1Present
 
     @staticmethod

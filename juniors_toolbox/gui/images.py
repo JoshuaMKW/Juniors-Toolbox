@@ -14,12 +14,18 @@ def get_common_cursor(cursor: CommonCursor, size: QSize = QSize(20, 20)) -> QCur
 
     return QCursor(cursorScaledPix, -1, -1)
 
-def get_image(filename: str, size: Optional[QSize] = None) -> QImage:
-    image = QImage(str(resource_path("gui/images/" + filename)))
+def get_image(filename: str, size: Optional[QSize] = None) -> QImage | None:
+    path = resource_path("gui/icons/" + filename)
+    if not path.is_file():
+        return None
+
+    image = QImage(str(path))
     if size:
         return image.scaled(size)
     return image
 
-def get_icon(filename: str) -> QIcon:
-    icon = QIcon(str(resource_path("gui/icons/" + filename)))
-    return icon
+def get_icon(filename: str) -> QIcon | None:
+    path = resource_path("gui/icons/" + filename)
+    if not path.is_file():
+        return None
+    return QIcon(str(path))
