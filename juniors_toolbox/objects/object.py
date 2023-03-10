@@ -1,14 +1,11 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from io import BytesIO
 import json
 from pathlib import Path
 from typing import Any, BinaryIO, Callable, Dict, Iterable, List, Optional, TextIO, Tuple, Union
-from attr import field
 
 from numpy import array
-from requests import JSONDecodeError
-from juniors_toolbox.gui.templates import Template, ToolboxTemplates
 from juniors_toolbox.objects.value import A_Member, MemberComment, MemberEnum, MemberStruct, MemberValue, QualifiedName, ValueType
 from juniors_toolbox.utils.types import RGB32, RGB8, RGBA8, Transform, Vec3f
 from juniors_toolbox.utils import A_Serializable, VariadicArgs, VariadicKwargs, jdrama
@@ -213,6 +210,9 @@ class A_SceneObject(jdrama.NameRef, ABC):
 
         Returns True if successful
         """
+        from juniors_toolbox.gui.templates import ToolboxTemplates
+        from juniors_toolbox.objects.template import Template
+
         self._members = []
 
         templateManager = ToolboxTemplates.get_instance()
@@ -263,7 +263,7 @@ class A_SceneObject(jdrama.NameRef, ABC):
                         ValueType.ENUM,
                         enumInfo=_enumInfo
                     )
-                    memberEnum.set_array_size(repeatRef) # type: ignore
+                    memberEnum.set_array_size(repeatRef)  # type: ignore
                     return memberEnum
                 else:
                     raise KeyError(
@@ -422,9 +422,6 @@ class MapObject(A_SceneObject):
                 continue
             fileOffset = data.tell()
             if fileOffset >= objEndPos:
-                print(
-                    f"Reached end of object data before loading could complete! ({fileOffset} >= {objEndPos}) ({thisObj.get_explicit_name()}::{member.get_qualified_name()})"
-                )
                 break
             member.load(data, objEndPos)
 

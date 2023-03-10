@@ -269,7 +269,7 @@ class JuniorsToolbox(QApplication):
         settings = ToolboxSettings.get_instance()
         settings.load()
         self.set_central_status(self.is_docker_empty())
-        
+
         self.__init_objects()
         self.__init_rails()
 
