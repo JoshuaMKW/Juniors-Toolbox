@@ -179,10 +179,13 @@ class JSystemFSModel(QAbstractItemModel):
         def __lt__(self, other: object) -> bool:
             if not isinstance(other, JSystemFSModel._HandleInfo):
                 return False
+            
+            lname: str = self.path.name.lower()
+            rname: str = other.path.name.lower()
 
             if self.fsKind == JSystemFSModel._FsKind.FILE:
                 if other.fsKind == JSystemFSModel._FsKind.FILE:
-                    return self.path.name < other.path.name
+                    return lname < rname
                 if other.fsKind == JSystemFSModel._FsKind.ARCHIVE:
                     return False
                 if other.fsKind == JSystemFSModel._FsKind.DIRECTORY:
@@ -192,19 +195,19 @@ class JSystemFSModel(QAbstractItemModel):
                 if other.fsKind == JSystemFSModel._FsKind.FILE:
                     return True
                 if other.fsKind == JSystemFSModel._FsKind.ARCHIVE:
-                    return self.path.name < other.path.name
+                    return lname < rname
                 if other.fsKind == JSystemFSModel._FsKind.DIRECTORY:
-                    return self.path.name < other.path.name
+                    return lname < rname
 
             if self.fsKind == JSystemFSModel._FsKind.DIRECTORY:
                 if other.fsKind == JSystemFSModel._FsKind.FILE:
                     return True
                 if other.fsKind == JSystemFSModel._FsKind.ARCHIVE:
-                    return self.path.name < other.path.name
+                    return lname < rname
                 if other.fsKind == JSystemFSModel._FsKind.DIRECTORY:
-                    return self.path.name < other.path.name
+                    return lname < rname
 
-            return self.path.name < other.path.name
+            return lname < rname
 
     def __init__(self, rootPath: Path | None, readOnly: bool = True, parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
