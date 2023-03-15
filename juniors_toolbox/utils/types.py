@@ -954,7 +954,7 @@ class Quaternion(_PyrrQuaternion):
         elif nangle <= -180:
             return nangle + 360
         return nangle
-        
+
     @staticmethod
     def normalize_angles(angles: Vec3f):
         angles.x = Quaternion.normalize_angle(angles.x)
@@ -1389,3 +1389,9 @@ class Transform():
     def look_at(self, target: Union["Transform", Vec3f], worldUp: Vec3f = Vec3f.up):
         pos = target.translation if isinstance(target, Transform) else target
         target.rotation.set_look_rotation(pos, worldUp)
+
+    def __str__(self) -> str:
+        t = Vec3f(self.translation.x, self.translation.y, self.translation.z)
+        r = Vec3f(self.rotation.x, self.rotation.y, self.rotation.z)
+        s = Vec3f(self.scale.x, self.scale.y, self.scale.z)
+        return f"{self.__class__.__name__}({t=}, {r=}, {s=})"

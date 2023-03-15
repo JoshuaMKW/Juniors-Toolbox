@@ -1,5 +1,5 @@
 {
-    "Red Coin Switch": {
+    "Launch Star": {
         "Enums": {},
         "Structs": {
             "LightInfo": {
@@ -34,24 +34,16 @@
                 "Type": "STRING",
                 "ArraySize": 1
             },
-            "Timer": {
-                "Type": "INT",
+            "MarioRail": {
+                "Type": "STRING",
                 "ArraySize": 1
             },
-            "Unknown1": {
-                "Type": "INT",
+            "CameraDemo": {
+                "Type": "STRING",
                 "ArraySize": 1
             },
-            "Unknown2": {
-                "Type": "INT",
-                "ArraySize": 1
-            },
-            "Unknown3": {
-                "Type": "INT",
-                "ArraySize": 1
-            },
-            "ForceDrawMode": {
-                "Type": "COMMENT",
+            "TravelSpeed": {
+                "Type": "FLOAT",
                 "ArraySize": 1
             }
         },
@@ -74,18 +66,16 @@
                         1
                     ]
                 ],
-                "Character": "赤コイン用スイッチ キャラ",
+                "Character": "model_name",
                 "LightCount": 0,
                 "Light{i}": {
                     "ID": 0,
                     "Name": "LightX"
                 },
-                "Model": "RedCoinSwitch",
-                "Timer": 1080,
-                "Unknown1": 255,
-                "Unknown2": 255,
-                "Unknown3": 255,
-                "ForceDrawMode": "Generated from Bin Editor Template by Junior's Toolbox"
+                "Model": "model_name",
+                "MarioRail": "(null)",
+                "CameraDemo": "dummy",
+                "TravelSpeed": 1.0
             }
         }
     }

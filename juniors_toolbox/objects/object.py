@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from io import BytesIO
 import json
 from pathlib import Path
+from sys import stdout
 from typing import Any, BinaryIO, Callable, Dict, Iterable, List, Optional, TextIO, Tuple, Union
 
 from numpy import array
@@ -660,7 +661,7 @@ class GroupObject(A_SceneObject):
                     indentionWidth=indentionWidth
                 )
                 out.write("\n")
-        out.write(indentedStr + "}")
+        out.write(indentedStr + "}\n")
 
     def __contains__(self, other: Union[str, "A_SceneObject"]) -> bool:
         if not self.is_group():
