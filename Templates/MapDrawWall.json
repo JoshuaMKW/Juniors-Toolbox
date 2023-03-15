@@ -1,7 +1,6 @@
 {
     "Camera Wall Eclipse": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -137,6 +137,12 @@ class ToolboxManager(QObject):
         self.sceneLoaded.emit(path)  # type: ignore
         return scene
 
+    def save_scene(self, path: Path) -> bool:
+        if self.__scene is None:
+            return False
+        successful = self.__scene.save_objects(path / "map/scene.bin")
+        return successful
+
     def clear_scene(self) -> None:
         self.__scene = None
         self.__scenePath = None

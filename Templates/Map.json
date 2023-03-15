@@ -1,7 +1,6 @@
 {
     "Map": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "WarpPoint": {
                 "Name": {

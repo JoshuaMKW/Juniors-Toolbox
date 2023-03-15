@@ -1,7 +1,6 @@
 {
     "Flag": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,7 +1,6 @@
 {
     "Stage Warp (Ground Pound)": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,7 +1,6 @@
 {
     "Boo (Looping)": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

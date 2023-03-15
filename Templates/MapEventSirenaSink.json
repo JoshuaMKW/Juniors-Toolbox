@@ -1,7 +1,6 @@
 {
     "Event Handler (Hotel Delfino Sink)": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

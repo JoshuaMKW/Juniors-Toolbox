@@ -564,6 +564,8 @@ class GroupObject(A_SceneObject):
                 if obj is not None:
                     thisObj.add_to_group(obj)
 
+        data.seek(objEndPos)
+
         thisObj._parent = None
         return thisObj
 

@@ -218,6 +218,28 @@ class JuniorsToolbox(QApplication):
         self.scenePath = path
         return True
 
+    @Slot(Path)
+    def save_scene(self, path: Optional[Path] = None) -> bool:
+        if path is None:
+            dialog = QFileDialog(
+                parent=self.gui,
+                caption="Save Scene...",
+                directory=str(
+                    self.scenePath.parent if self.scenePath else Path.home()
+                )
+            )
+            # filter="Gamecube Image (*.iso *.gcm);;All files (*)")
+
+            dialog.setAcceptMode(QFileDialog.AcceptOpen)
+            dialog.setFileMode(QFileDialog.Directory)
+
+            if dialog.exec_() != QFileDialog.Accepted:
+                return False
+
+            path = Path(dialog.selectedFiles()[0]).resolve()
+        self.manager.save_scene(path)
+        return True
+
     @Slot(str)
     def updateDockerTab(self, name: str, checked: bool):
         tab = TabWidgetManager.get_tab_n(name)

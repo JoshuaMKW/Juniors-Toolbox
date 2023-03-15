@@ -1,5 +1,5 @@
 {
-    "Manhole": {
+    "Generic Rail Object": {
         "Enums": {},
         "Structs": {
             "LightInfo": {
@@ -33,6 +33,38 @@
             "Model": {
                 "Type": "STRING",
                 "ArraySize": 1
+            },
+            "Rail": {
+                "Type": "STRING",
+                "ArraySize": 1
+            },
+            "Spin": {
+                "Type": "VEC3F",
+                "ArraySize": 1
+            },
+            "AnimSpeed": {
+                "Type": "FLOAT",
+                "ArraySize": 1
+            },
+            "SoundID": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "SoundSpeed": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "SoundStrength": {
+                "Type": "FLOAT",
+                "ArraySize": 1
+            },
+            "AnimOnContact": {
+                "Type": "INT",
+                "ArraySize": 1
+            },
+            "CullModel": {
+                "Type": "INT",
+                "ArraySize": 1
             }
         },
         "Wizard": {
@@ -54,13 +86,25 @@
                         1
                     ]
                 ],
-                "Character": "manhole キャラ",
+                "Character": "model_name",
                 "LightCount": 0,
                 "Light{i}": {
                     "ID": 0,
                     "Name": "LightX"
                 },
-                "Model": "manhole"
+                "Model": "model_name",
+                "Rail": "(null)",
+                "Spin": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "AnimSpeed": 1.0,
+                "SoundID": -1,
+                "SoundSpeed": 60,
+                "SoundStrength": 1.0,
+                "AnimOnContact": 0,
+                "CullModel": 1
             }
         }
     }
