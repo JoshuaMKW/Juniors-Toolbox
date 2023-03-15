@@ -93,7 +93,7 @@ class SelectedPropertiesWidget(A_DockingInterface):
 
     def populate(self, scene: Optional[SMSScene], *args: VariadicArgs, **kwargs: VariadicKwargs) -> None:
         title: str = kwargs.get("title", "Selected Properties")
-        data: List[A_ValueProperty] = kwargs.get("properties", [])
+        data: list[A_ValueProperty] = kwargs.get("properties", [])
         self.__populate_properties(data)
         self.setTitleText(title)
     
@@ -104,7 +104,7 @@ class SelectedPropertiesWidget(A_DockingInterface):
         self.scrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.setTitleText(self.__defaultTitle)
 
-    def __populate_properties(self, properties: List[A_ValueProperty]) -> None:
+    def __populate_properties(self, properties: list[A_ValueProperty]) -> None:
         self.reset()
         self._form = QFormLayout()
         self._form.setLabelAlignment(Qt.AlignVCenter)

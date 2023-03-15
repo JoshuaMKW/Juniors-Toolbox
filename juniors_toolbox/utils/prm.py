@@ -4,26 +4,26 @@ from io import BytesIO
 import struct
 from pathlib import Path
 from typing import Any, BinaryIO, Iterable, List, Optional, Union
-from juniors_toolbox.utils import A_Serializable, VariadicArgs, VariadicKwargs
+from juniors_toolbox.utils import A_Clonable, A_Serializable, VariadicArgs, VariadicKwargs
 from juniors_toolbox.utils.iohelper import get_likely_encoding, read_string, read_uint16, read_uint32, write_string
 
 from juniors_toolbox.utils.jdrama import NameRef
 from juniors_toolbox.utils.types import RGBA8, RGB8, Vec3f
 
 
-class PrmEntry(A_Serializable):
-    __key: NameRef
-    __value: Any
+class PrmEntry(A_Serializable, A_Clonable):
+    _key: NameRef
+    _value: Any
 
     def __init__(self, key: str | NameRef, value: Any):
         if isinstance(key, NameRef):
-            self.__key = key
+            self._key = key
         else:
-            self.__key = NameRef(key)
-        self.__value = value
+            self._key = NameRef(key)
+        self._value = value
 
     def __str__(self) -> str:
-        return f"[PRM] {self.__key} = {self.__value}"
+        return f"[PRM] {self._key} = {self._value}"
 
     @classmethod
     def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **kwargs: VariadicKwargs) -> Optional["PrmEntry"]:
@@ -57,7 +57,7 @@ class PrmEntry(A_Serializable):
         data += self.key.encode("ascii")
         data += self.valueLen.to_bytes(4, "big", signed=False)
         
-        v = self.__value
+        v = self._value
         if isinstance(v, int):
             data += v.to_bytes(self.valueLen, "big", signed=(v < 0))
         elif isinstance(v, bool):
@@ -79,33 +79,40 @@ class PrmEntry(A_Serializable):
         
         return data
 
+    def copy(self, *, deep: bool = False) -> "PrmEntry":
+        cpy = PrmEntry(
+            self.key.copy(deep=deep),
+            value=self.value
+        )
+        return cpy
+
     @property
     def key(self) -> NameRef:
-        return self.__key
+        return self._key
 
     @key.setter
     def key(self, k: NameRef):
-        self.__key = k
+        self._key = k
 
     @property
     def keyCode(self) -> int:
-        return hash(self.__key)
+        return hash(self._key)
 
     @property
     def keyLen(self) -> int:
-        return len(self.__key)
+        return len(self._key)
 
     @property
     def value(self) -> Any:
-        return self.__value
+        return self._value
 
     @value.setter
     def value(self, v: Any):
-        self.__value = v
+        self._value = v
 
     @property
     def valueLen(self) -> int:
-        _v = self.__value
+        _v = self._value
         if isinstance(_v, int):
             return 4
         elif isinstance(_v, bool):

@@ -62,9 +62,11 @@ class NameRefSelectionDialog(QDialog):
         self.mainLayout = QGridLayout()
         self.nameRefListWidget = QListView()
         self.nameRefListWidget.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        self.nameRefListWidget.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.nameRefListWidget.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarAsNeeded)
         self.nameRefListWidget.clicked.connect(self.nameref_clicked)
-        self.nameRefListWidget.doubleClicked.connect(self.nameref_double_clicked)
+        self.nameRefListWidget.doubleClicked.connect(
+            self.nameref_double_clicked)
         self.mainLayout.addWidget(self.nameRefListWidget, 0, 0, 1, 1)
 
         self.searchLayout = QGridLayout()
@@ -213,7 +215,7 @@ class NameRefHierarchyTreeWidget(InteractiveTreeWidget):
         return
 
     @Slot(list)
-    def duplicate_items(self, items: List[NameRefHierarchyTreeWidgetItem]) -> List[NameRefHierarchyTreeWidgetItem]:
+    def duplicate_items(self, items: list[NameRefHierarchyTreeWidgetItem]) -> list[NameRefHierarchyTreeWidgetItem]:
         """
         Returns the new item
         """
@@ -267,6 +269,7 @@ class NameRefHierarchyTreeWidget(InteractiveTreeWidget):
         newItem.setSelected(True)
         self.itemClicked.emit(newItem, 0)
         item.object.add_to_group(obj)
+
 
 class NameRefHierarchyWidget(A_DockingInterface):
     class UndoCommand(QUndoCommand):
@@ -539,7 +542,7 @@ class NameRefHierarchyWidget(A_DockingInterface):
         self.__selectedObject = sceneObj
         self.__selectedObjectSize = sceneObj.get_simple_data_size()
 
-        properties: List[A_ValueProperty] = []
+        properties: list[A_ValueProperty] = []
 
         self.keyProperty = StringProperty(
             "Key",
@@ -669,7 +672,7 @@ class NameRefHierarchyWidget(A_DockingInterface):
 
         obj.key.set_ref(key)
         objExplicitName = obj.get_explicit_name()
-        
+
         propertiesTab = TabWidgetManager.get_tab(SelectedPropertiesWidget)
         if propertiesTab is not None:
             propertiesTab.setTitleText(
@@ -681,7 +684,6 @@ class NameRefHierarchyWidget(A_DockingInterface):
             dataEditorTab.setTitleText(
                 f"{objExplicitName} Properties"
             )
-
 
     def __set_array_instance(self, prop: ArrayProperty, size: int):
         # TODO: Somehow speed this up, or simply show a waiting dialog?
@@ -710,7 +712,8 @@ class NameRefHierarchyWidget(A_DockingInterface):
             readOnly=member.is_read_only(),
             enumInfo=enumInfo
         )
-        prop.valueChanged.connect(lambda _p, _v: self.__update_data(member, _v))
+        prop.valueChanged.connect(
+            lambda _p, _v: self.__update_data(member, _v))
         if member.is_struct():
             for child in member.get_children(includeArrays=False):
                 arrayRef: int | A_Member

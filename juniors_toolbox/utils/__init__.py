@@ -1,5 +1,10 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
+import array
+import ctypes
+import mmap
+import pickle
+import sys
 from typing import Any, BinaryIO, Callable, Dict, List, Optional, Protocol, Type, TypeAlias, TypeVar, Union
 
 
@@ -32,6 +37,10 @@ class SupportsAllComparisons(SupportsDunderLT, SupportsDunderGT, SupportsDunderL
 
 SupportsRichComparison: TypeAlias = SupportsDunderLT | SupportsDunderGT
 SupportsRichComparisonT = TypeVar("SupportsRichComparisonT", bound=SupportsRichComparison)  # noqa: Y001
+
+ReadOnlyBuffer: TypeAlias = bytes  # stable
+WriteableBuffer: TypeAlias = bytearray | memoryview | mmap.mmap  # stable
+ReadableBuffer: TypeAlias = ReadOnlyBuffer | WriteableBuffer  # stable
 
 VariadicArgs = Any
 VariadicKwargs = Any

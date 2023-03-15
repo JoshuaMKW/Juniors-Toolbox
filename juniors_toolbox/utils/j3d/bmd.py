@@ -5,7 +5,7 @@ class BMD():
     @dataclass
     class INF1():
         vertexCount: int = 0
-        #sceneGraph: List[SceneGraphNode] = field(default_factory=lambda: [])
+        #sceneGraph: list[SceneGraphNode] = field(default_factory=lambda: [])
 
     class VTX1():
         ...

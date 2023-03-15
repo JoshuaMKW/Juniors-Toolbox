@@ -6,7 +6,7 @@ from enum import Enum
 from io import BytesIO
 from multiprocessing.sharedctypes import Value
 from typing import Any, BinaryIO, Callable, Dict, Iterable, List, Optional, overload
-from juniors_toolbox.gui.templates import TemplateEnumType
+from juniors_toolbox.objects.template import TemplateEnumType
 from juniors_toolbox.utils import A_Clonable
 
 from juniors_toolbox.utils.iohelper import (read_bool, read_double, read_float,
@@ -49,11 +49,11 @@ class QualifiedName():
         return self.__scopes[self.__iter]
 
     @overload
-    def __getitem__(self, index: slice) -> List[str]: ...
+    def __getitem__(self, index: slice) -> list[str]: ...
     @overload
     def __getitem__(self, index: int) -> str: ...
 
-    def __getitem__(self, index: int | slice) -> str | List[str]:
+    def __getitem__(self, index: int | slice) -> str | list[str]:
         if isinstance(index, slice):
             return self.__scopes[index.start:index.stop:index.step]
         return self.__scopes[index]
@@ -352,7 +352,8 @@ class A_Member(A_Clonable, ABC):
         chars = ""
         otherIdx = arrayidx
         for i in range(4, -1, -1):
-            chars = "abcdefghijklmnopqrstuvwxyz"[otherIdx % charactersLen] + chars
+            chars = "abcdefghijklmnopqrstuvwxyz"[
+                otherIdx % charactersLen] + chars
             if otherIdx < 26:
                 break
             otherIdx = (otherIdx // 26) - 1
@@ -646,7 +647,7 @@ class MemberValue(A_Member):
 
     def load(self, stream: BinaryIO, endPos: Optional[int] = None) -> None:
         if endPos is None:
-            endPos = 1 << 30 # 1 GB
+            endPos = 1 << 30  # 1 GB
         for i in range(self.get_array_size()):
             if stream.tell() >= endPos:
                 break
@@ -672,6 +673,7 @@ class MemberEnum(MemberValue):
     """
     Class describing an Enum bound member
     """
+
     def __init__(self, name: str, value: Any, type: ValueType, *, readOnly: bool = False, enumInfo: TemplateEnumType) -> None:
         super().__init__(name, value, type, readOnly=readOnly)
         self._enumInfo = enumInfo
@@ -758,7 +760,7 @@ class MemberStruct(A_Member):
 
     def load(self, stream: BinaryIO, endPos: Optional[int] = None) -> None:
         if endPos is None:
-            endPos = 1 << 30 # 1 GB
+            endPos = 1 << 30  # 1 GB
         for i in range(self.get_array_size()):
             if stream.tell() >= endPos:
                 break
