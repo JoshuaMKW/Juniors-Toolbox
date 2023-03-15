@@ -1,7 +1,6 @@
 {
     "Heat Waves": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

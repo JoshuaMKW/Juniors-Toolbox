@@ -1,7 +1,6 @@
 {
     "Cutscene Loading Zone": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

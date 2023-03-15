@@ -1,7 +1,6 @@
 {
     "Mirror Topographic Operator": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

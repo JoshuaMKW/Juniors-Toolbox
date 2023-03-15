@@ -1,7 +1,6 @@
 {
     "Grass": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

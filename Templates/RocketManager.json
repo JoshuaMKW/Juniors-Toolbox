@@ -1,7 +1,6 @@
 {
     "Water Rocket Manager": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

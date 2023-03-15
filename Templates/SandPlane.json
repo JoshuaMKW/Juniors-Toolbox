@@ -1,7 +1,6 @@
 {
     "Generated Sand Plane": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

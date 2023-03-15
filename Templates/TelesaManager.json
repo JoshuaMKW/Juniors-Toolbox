@@ -1,7 +1,6 @@
 {
     "Boo Manager": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

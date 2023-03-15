@@ -1,7 +1,6 @@
 {
     "Mario": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

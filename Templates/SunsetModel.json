@@ -1,7 +1,6 @@
 {
     "Sunset": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

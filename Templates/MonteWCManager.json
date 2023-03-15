@@ -1,7 +1,6 @@
 {
     "Hula Dancer Pianta Manager": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

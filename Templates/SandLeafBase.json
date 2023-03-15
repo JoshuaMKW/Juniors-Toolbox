@@ -1,7 +1,6 @@
 {
     "Dune Leaf Structure": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

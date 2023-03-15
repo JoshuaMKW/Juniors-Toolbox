@@ -1,7 +1,6 @@
 {
     "Red Rail Block": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

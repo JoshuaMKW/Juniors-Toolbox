@@ -1,7 +1,6 @@
 {
     "Viewport": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

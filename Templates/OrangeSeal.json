@@ -1,7 +1,6 @@
 {
     "Juice Generator": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

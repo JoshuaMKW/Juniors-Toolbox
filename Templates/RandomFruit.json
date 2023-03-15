@@ -1,7 +1,6 @@
 {
     "Fruit (Random)": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

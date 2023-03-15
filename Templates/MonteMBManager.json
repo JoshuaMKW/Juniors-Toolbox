@@ -1,7 +1,6 @@
 {
     "Male Pianta (Suit) Manager": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

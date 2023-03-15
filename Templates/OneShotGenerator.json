@@ -1,7 +1,6 @@
 {
     "One Use Generator": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

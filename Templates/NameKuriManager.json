@@ -1,7 +1,6 @@
 {
     "Swoopin' Stu Manager": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

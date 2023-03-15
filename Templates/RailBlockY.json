@@ -1,7 +1,6 @@
 {
     "Yellow Rail Board": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,7 +1,6 @@
 {
     "Wire Trap": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,7 +1,6 @@
 {
     "Secret Stage Spinning Block": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

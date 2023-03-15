@@ -1,7 +1,6 @@
 {
     "Sun Tower": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

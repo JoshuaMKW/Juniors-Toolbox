@@ -1,7 +1,6 @@
 {
     "Waterfall Cork": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

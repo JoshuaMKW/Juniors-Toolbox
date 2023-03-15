@@ -1,7 +1,6 @@
 {
     "Water Spray Effect": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,7 +1,6 @@
 {
     "Mirror Camera": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

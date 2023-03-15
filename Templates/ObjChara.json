@@ -1,7 +1,6 @@
 {
     "Object Character": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

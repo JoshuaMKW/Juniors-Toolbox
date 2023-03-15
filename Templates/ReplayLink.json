@@ -1,7 +1,6 @@
 {
     "EMario Node Linker": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

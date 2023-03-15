@@ -1,7 +1,6 @@
 {
     "Pinna Park Door": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

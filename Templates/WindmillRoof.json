@@ -1,7 +1,6 @@
 {
     "Big Windmill Roof": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

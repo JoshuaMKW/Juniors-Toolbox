@@ -1,7 +1,6 @@
 {
     "Shadow Light Setting": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

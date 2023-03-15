@@ -1,7 +1,6 @@
 {
     "Pinna Park Coaster Cart": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,7 +1,6 @@
 {
     "Fruit (Reset)": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

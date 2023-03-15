@@ -1,7 +1,6 @@
 {
     "Dune Bud Structure": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

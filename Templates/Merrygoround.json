@@ -1,7 +1,6 @@
 {
     "Yoshi-Go-Round": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

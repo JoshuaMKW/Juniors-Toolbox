@@ -1,7 +1,6 @@
 {
     "1-Up Mushroom": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

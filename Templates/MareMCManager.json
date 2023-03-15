@@ -1,7 +1,6 @@
 {
     "Pinna Park Director Manager": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

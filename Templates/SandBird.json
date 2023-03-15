@@ -1,7 +1,6 @@
 {
     "Legendary Sand Bird": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

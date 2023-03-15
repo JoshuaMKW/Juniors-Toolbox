@@ -1,7 +1,6 @@
 {
     "Unknown": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

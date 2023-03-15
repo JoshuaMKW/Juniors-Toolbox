@@ -1,7 +1,6 @@
 {
     "Male Pianta (Tropical Shirt) Manager": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

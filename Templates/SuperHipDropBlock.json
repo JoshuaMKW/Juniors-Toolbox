@@ -1,7 +1,6 @@
 {
     "Super Ground Pound Slab": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

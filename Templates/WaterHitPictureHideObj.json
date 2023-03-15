@@ -1,7 +1,6 @@
 {
     "Graffiti": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

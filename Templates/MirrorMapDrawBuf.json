@@ -1,7 +1,6 @@
 {
     "Mirror Draw Buffer": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

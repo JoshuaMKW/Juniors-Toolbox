@@ -1,7 +1,6 @@
 {
     "Sleeping Wiggler": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

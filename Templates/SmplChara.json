@@ -1,7 +1,6 @@
 {
     "Sample Character": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

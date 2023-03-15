@@ -1,7 +1,6 @@
 {
     "Water Rocket": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,7 +1,6 @@
 {
     "King Boo Arena Wall": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

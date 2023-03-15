@@ -1,7 +1,6 @@
 {
     "Watermelon": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,7 +1,6 @@
 {
     "Mario Return Point Position Object": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "Warp": {
                 "Name": {

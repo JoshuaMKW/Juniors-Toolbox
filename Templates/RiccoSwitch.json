@@ -1,7 +1,6 @@
 {
     "Fruit Tank Switch": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

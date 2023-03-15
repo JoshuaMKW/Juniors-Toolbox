@@ -1,7 +1,6 @@
 {
     "Piranha Plant Roots": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

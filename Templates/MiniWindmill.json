@@ -1,7 +1,6 @@
 {
     "Mini Windmill": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

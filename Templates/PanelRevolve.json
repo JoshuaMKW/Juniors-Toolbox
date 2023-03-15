@@ -1,7 +1,6 @@
 {
     "Revolving Panel": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

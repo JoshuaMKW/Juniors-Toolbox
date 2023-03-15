@@ -1,7 +1,6 @@
 {
     "King Boo's Slot Machine": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

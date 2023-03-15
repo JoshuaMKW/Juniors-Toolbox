@@ -1,7 +1,6 @@
 {
     "Pokey Flower": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

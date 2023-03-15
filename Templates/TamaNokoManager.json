@@ -1,7 +1,6 @@
 {
     "Snooza Koopa Manager": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,7 +1,6 @@
 {
     "Water Recovery Object": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

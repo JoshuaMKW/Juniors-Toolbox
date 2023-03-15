@@ -1,7 +1,6 @@
 {
     "Kug (Typical) Manager": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

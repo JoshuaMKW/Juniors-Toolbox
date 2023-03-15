@@ -1,7 +1,6 @@
 {
     "Fruit Tank Spawn": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

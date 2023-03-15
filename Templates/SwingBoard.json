@@ -1,7 +1,6 @@
 {
     "Swing": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

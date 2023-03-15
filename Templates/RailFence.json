@@ -1,7 +1,6 @@
 {
     "Rail Fence": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

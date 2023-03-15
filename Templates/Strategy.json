@@ -1,7 +1,6 @@
 {
     "Main Object Group": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {
@@ -14,8 +13,7 @@
                 }
             }
         },
-        "Members": {
-        },
+        "Members": {},
         "Wizard": {
             "Default": {}
         }

@@ -1,7 +1,6 @@
 {
     "Pokey Head Manager": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

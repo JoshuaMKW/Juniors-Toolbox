@@ -1,7 +1,6 @@
 {
     "Shine Sprite Fader": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

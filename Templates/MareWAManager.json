@@ -1,7 +1,6 @@
 {
     "Jellyfish Rider Noki (F) Manager": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

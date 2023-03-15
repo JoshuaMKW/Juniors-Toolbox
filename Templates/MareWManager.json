@@ -1,7 +1,6 @@
 {
     "Female Noki Manager": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,7 +1,6 @@
 {
     "Red Coin Switch": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,7 +1,6 @@
 {
     "DUMMY NPC": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

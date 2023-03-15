@@ -1,7 +1,6 @@
 {
     "Stage Event Info": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

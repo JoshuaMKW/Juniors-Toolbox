@@ -1,7 +1,6 @@
 {
     "Push Block": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

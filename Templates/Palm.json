@@ -1,7 +1,6 @@
 {
     "Coconut Palm Tree": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

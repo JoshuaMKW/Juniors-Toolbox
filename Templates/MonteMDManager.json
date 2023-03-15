@@ -1,7 +1,6 @@
 {
     "Male Pianta (Tank Top) Manager": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,7 +1,6 @@
 {
     "Ocean Wave Effect": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

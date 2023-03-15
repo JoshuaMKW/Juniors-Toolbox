@@ -1,7 +1,6 @@
 {
     "Noki Bay Spray Wall Event Point": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

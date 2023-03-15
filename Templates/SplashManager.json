@@ -1,7 +1,6 @@
 {
     "Water Splash Manager": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

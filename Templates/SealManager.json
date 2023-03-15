@@ -1,7 +1,6 @@
 {
     "Juice Generator Manager": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

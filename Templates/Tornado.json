@@ -1,7 +1,6 @@
 {
     "Tornado (Up blow)": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

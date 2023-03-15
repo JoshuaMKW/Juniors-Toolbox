@@ -1,7 +1,6 @@
 {
     "Great Sunflower": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

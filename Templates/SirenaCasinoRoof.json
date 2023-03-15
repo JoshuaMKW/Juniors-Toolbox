@@ -1,7 +1,6 @@
 {
     "Casino Roof Lights": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

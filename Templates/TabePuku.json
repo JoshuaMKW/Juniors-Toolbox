@@ -1,7 +1,6 @@
 {
     "Hungry Cheep-Cheep": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

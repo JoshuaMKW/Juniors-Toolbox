@@ -1,7 +1,6 @@
 {
     "Poink": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

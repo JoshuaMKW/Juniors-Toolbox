@@ -1,7 +1,6 @@
 {
     "Poink Manager": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

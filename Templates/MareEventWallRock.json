@@ -1,7 +1,6 @@
 {
     "Event Handler (Noki Bay Walls Sink)": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

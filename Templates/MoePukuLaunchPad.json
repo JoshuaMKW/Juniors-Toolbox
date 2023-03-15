@@ -1,7 +1,6 @@
 {
     "Jumping Lava Cheep-Cheep": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

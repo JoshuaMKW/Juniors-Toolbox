@@ -1,7 +1,6 @@
 {
     "Noki Jellyfish Manager": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

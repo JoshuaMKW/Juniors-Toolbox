@@ -1,7 +1,6 @@
 {
     "Shell Cup Ride": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

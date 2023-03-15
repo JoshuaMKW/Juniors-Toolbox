@@ -1,7 +1,6 @@
 {
     "Jumping Lava Cheep-Cheep Manager": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {

@@ -1,7 +1,6 @@
 {
     "Swinging Pirate Ship": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {
