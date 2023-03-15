@@ -381,7 +381,7 @@ class BMG(A_Serializable, A_Clonable):
     @dataclass
     class MessageEntry(A_Clonable):
         name: str
-        message: RichMessage = RichMessage()
+        message: RichMessage = field(default_factory=lambda: RichMessage())
         soundID: SoundID = SoundID.NOTHING
         startFrame: int = 0
         endFrame: int = 0

@@ -168,7 +168,7 @@ class NameRefHierarchyTreeWidgetItem(InteractiveTreeWidgetItem):
 class NameRefHierarchyTreeWidget(InteractiveTreeWidget):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
-        self.setEditTriggers(self.NoEditTriggers)
+        self.setEditTriggers(self.EditTrigger.NoEditTriggers)
 
     def get_context_menu(self, point: QPoint) -> Optional[QMenu]:
         # Infos about the node selected.

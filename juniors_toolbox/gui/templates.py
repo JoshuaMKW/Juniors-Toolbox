@@ -65,9 +65,9 @@ class ToolboxTemplates(QObject):
                 continue
             self.__templates[template.get_name()] = template
 
-        console.info(
-            f"Successfully loaded \"{template.get_name()}\""
-        )
+            console.info(
+                f"Successfully loaded \"{template.get_name()}\""
+            )
 
     def load(self, template: Template):
         template.load(self.__templatePath)
