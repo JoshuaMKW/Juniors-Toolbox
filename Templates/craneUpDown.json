@@ -1,7 +1,6 @@
 {
     "Crane (Up/Down)": {
-        "Enums": {
-        },
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {
