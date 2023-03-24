@@ -352,7 +352,7 @@ class A_Member(A_Clonable, ABC):
         chars = ""
         otherIdx = arrayidx
         for i in range(4, -1, -1):
-            chars = "abcdefghijklmnopqrstuvwxyz"[
+            chars = characters[
                 otherIdx % charactersLen] + chars
             if otherIdx < 26:
                 break
@@ -381,6 +381,7 @@ class A_Member(A_Clonable, ABC):
         return self._value
 
     def set_value(self, value: Any):
+        # TODO: Check if value is can be set
         if not self.is_read_only() or True:
             self._value = value
         else:
