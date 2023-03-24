@@ -179,7 +179,7 @@ class JSystemFSModel(QAbstractItemModel):
         def __lt__(self, other: object) -> bool:
             if not isinstance(other, JSystemFSModel._HandleInfo):
                 return False
-            
+
             lname: str = self.path.name.lower()
             rname: str = other.path.name.lower()
 
@@ -344,25 +344,8 @@ class JSystemFSModel(QAbstractItemModel):
 
             archiveIndex = self.get_parent_archive(index)
             if archiveIndex.isValid():
-                archivePath = self.get_path(archiveIndex)
-                archive = self._archives[archivePath]
-
-                if not indexPath.is_relative_to(archivePath):
-                    return False
-
-                virtualPath = indexPath.relative_to(archivePath)
-                handle = archive.get_handle(virtualPath)
-                if handle is None:
-                    return False
-
-                if handle.is_directory():
-                    handleInfo.size = len(handle.get_handles())
-                    return handleInfo.size > 0
-
-                if handle.is_file() and handle.get_extension() == ".arc":
-                    return not ResourceArchive.is_archive_empty(
-                        BytesIO(handle.get_raw_data())
-                    )
+                # Child archives of archives are flagged as not populated to prevent them from being expanded
+                return False
 
             if os.path.isdir(indexPath):
                 for _ in Path(indexPath).glob("*"):
