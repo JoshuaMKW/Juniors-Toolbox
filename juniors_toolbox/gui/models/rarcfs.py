@@ -344,7 +344,8 @@ class JSystemFSModel(QAbstractItemModel):
 
             archiveIndex = self.get_parent_archive(index)
             if archiveIndex.isValid():
-                # Child archives of archives are flagged as not populated to prevent them from being expanded
+                # Child archives of parent archives are flagged
+                # as not populated to prevent them from being expanded
                 return False
 
             if os.path.isdir(indexPath):
