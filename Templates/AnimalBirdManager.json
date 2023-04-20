@@ -1,7 +1,7 @@
 {
     "Bird Manager": {
-        "Enums": {
-        },
+        "Description": "Manager for bird objects.",
+        "Enums": {},
         "Structs": {
             "LightInfo": {
                 "ID": {
@@ -17,15 +17,18 @@
         "Members": {
             "Character": {
                 "Type": "STRING",
-                "ArraySize": 1
+                "ArraySize": 1,
+                "Description": "Character to use for the bird objects."
             },
             "MaxObjs": {
                 "Type": "INT",
-                "ArraySize": 1
+                "ArraySize": 1,
+                "Description": "Maximum number of bird objects to spawn."
             },
             "MActorSets": {
                 "Type": "INT",
-                "ArraySize": 1
+                "ArraySize": 1,
+                "Description": "Maximum number of MActorSets to spawn."
             }
         },
         "Wizard": {

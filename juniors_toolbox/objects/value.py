@@ -4,8 +4,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 from io import BytesIO
-from multiprocessing.sharedctypes import Value
-from typing import Any, BinaryIO, Callable, Dict, Iterable, List, Optional, overload
+from typing import Any, BinaryIO, Callable, Dict, Iterable, Optional, overload
 from juniors_toolbox.objects.template import TemplateEnumType
 from juniors_toolbox.utils import A_Clonable
 
@@ -151,10 +150,10 @@ class ValueType(str, Enum):
 
 
 def __read_bin_string(f: BinaryIO) -> str:
-    len = read_uint16(f)
-    if len == 0:
+    strlen = read_uint16(f)
+    if strlen == 0:
         return ""
-    return read_string(f, maxlen=len-1, encoding="shift-jis")
+    return read_string(f, maxlen=strlen, encoding="shift-jis")
 
 
 def __write_bin_string(f: BinaryIO, val: str):

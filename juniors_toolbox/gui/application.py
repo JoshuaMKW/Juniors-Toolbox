@@ -73,10 +73,10 @@ class JuniorsToolbox(QApplication):
             lambda _: self.reset()
         )  # throw away checked flag
         self.gui.actionOpen.triggered.connect(
-            lambda _: self.open_scene()
+            lambda _: self.open_context()
         )  # throw away checked flag
         self.gui.actionSave.triggered.connect(
-            lambda _: self.save_scene(self.scenePath)
+            lambda _: self.save_context(self.scenePath)
         )  # throw away checked flag
         self.gui.actionSaveAs.triggered.connect(
             lambda _: self.save_scene()
@@ -117,16 +117,34 @@ class JuniorsToolbox(QApplication):
         return manager.get_scene()
 
     @property
+    def contextPath(self) -> Optional[Path]:
+        return self.manager.get_context_path()
+
+    @contextPath.setter
+    def contextPath(self, path: Path):
+        self.manager.load_context(path)
+        projectViewer = TabWidgetManager.get_tab(
+            ProjectViewerWidget)  # type: ignore
+        projectViewer.rootPath = path
+
+    @property
     def scenePath(self) -> Optional[Path]:
         return self.manager.get_scene_path()
 
     @scenePath.setter
     def scenePath(self, path: Path):
-        projectViewer = TabWidgetManager.get_tab(
-            ProjectViewerWidget)  # type: ignore
-        projectViewer.scenePath = path
         self.manager.load_scene(path)
         self.update_elements(self.scene)
+
+    @property
+    def rootPath(self) -> Optional[Path]:
+        return self.manager.get_scene_path()
+
+    @rootPath.setter
+    def rootPath(self, path: Path):
+        projectViewer = TabWidgetManager.get_tab(
+            ProjectViewerWidget)  # type: ignore
+        projectViewer.rootPath = path
 
     # --- GUI --- #
 
@@ -152,7 +170,7 @@ class JuniorsToolbox(QApplication):
         """
         Update the UI theme to the specified theme
         """
-        #from qdarkstyle import load_stylesheet, load
+        # from qdarkstyle import load_stylesheet, load
         from juniors_toolbox.gui.qdarktheme import load_stylesheet, load_palette
         if theme == MainWindow.Theme.LIGHT:
             self.theme = MainWindow.Theme.LIGHT
@@ -195,6 +213,48 @@ class JuniorsToolbox(QApplication):
         self.gui.setCentralWidget(center)
 
     # -- SLOTS -- #
+
+    @Slot(Path)
+    def open_context(self, path: Optional[Path] = None) -> bool:
+        if path is None:
+            dialog = QFileDialog(
+                parent=self.gui,
+                caption="Open Folder...",
+                directory=str(
+                    self.contextPath.parent if self.contextPath else Path.home()
+                )
+            )
+
+            dialog.setAcceptMode(QFileDialog.AcceptOpen)
+            dialog.setFileMode(QFileDialog.Directory)
+
+            if dialog.exec_() != QFileDialog.Accepted:
+                return False
+
+            path = Path(dialog.selectedFiles()[0]).resolve()
+        self.contextPath = path
+        return True
+
+    @Slot(Path)
+    def save_context(self, path: Optional[Path] = None) -> bool:
+        if path is None:
+            dialog = QFileDialog(
+                parent=self.gui,
+                caption="Save Folder...",
+                directory=str(
+                    self.contextPath.parent if self.contextPath else Path.home()
+                )
+            )
+
+            dialog.setAcceptMode(QFileDialog.AcceptOpen)
+            dialog.setFileMode(QFileDialog.Directory)
+
+            if dialog.exec_() != QFileDialog.Accepted:
+                return False
+
+            path = Path(dialog.selectedFiles()[0]).resolve()
+        self.manager.save_context(path)
+        return True
 
     @Slot(Path)
     def open_scene(self, path: Optional[Path] = None) -> bool:

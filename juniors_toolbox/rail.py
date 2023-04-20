@@ -977,6 +977,9 @@ class RalData(A_Serializable):
                 return True
         return False
 
+    def get_rail_count(self) -> int:
+        return len(self._rails)
+
     def _get_node_name(self, index: int, node: RailNode):
         connections = []
         for x in range(node.connectionCount.get_value()):

@@ -6,6 +6,8 @@ import time
 import traceback
 from typing import BinaryIO, Callable, Optional, Type
 from juniors_toolbox.gui.settings import ToolboxSettings
+from juniors_toolbox.gui.tabs import TabWidgetManager
+from juniors_toolbox.gui.tabs.console import ConsoleLogWidget
 from juniors_toolbox.scene import SMSScene
 from juniors_toolbox.utils import A_Serializable
 from juniors_toolbox.utils.filesystem import resource_path
@@ -112,6 +114,7 @@ class ToolboxManager(QObject):
 
         super().__init__()
 
+        self.__contextPath: Optional[Path] = None
         self.__scene: SMSScene | None = None
         self.__scenePath: Optional[Path] = None
         self.__settings: ToolboxSettings = ToolboxSettings()
@@ -127,11 +130,64 @@ class ToolboxManager(QObject):
     def get_scene(self) -> Optional[SMSScene]:
         return self.__scene
 
+    def get_context_path(self) -> Optional[Path]:
+        return self.__contextPath
+
     def get_scene_path(self) -> Optional[Path]:
         return self.__scenePath
 
+    def load_context(self, path: Path) -> bool:
+        consoleLogWidget = TabWidgetManager.get_tab(
+            ConsoleLogWidget)
+
+        if not path.exists():
+            consoleLogWidget.error(f"Failed to load context from path: {path}")
+            return False
+
+        self.__contextPath = path
+        self.clear_scene()
+
+        if not self.load_settings(path):
+            consoleLogWidget.error(
+                f"Failed to load settings for the context: {path}")
+            return False
+
+        if self.__scenePath is not None:
+            self.__scene = SMSScene.from_path(self.__scenePath)
+            if self.__scene is None:
+                consoleLogWidget.error(
+                    f"Failed to load scene for the context: {path}")
+                return False
+
+        return True
+
+    def save_context(self, path: Path) -> bool:
+        consoleLogWidget = TabWidgetManager.get_tab(
+            ConsoleLogWidget)
+
+        if not self.save_settings(path):
+            consoleLogWidget.error(
+                f"Failed to save settings for the context: {path}")
+            return False
+
+        if self.__scenePath is not None:
+            if not self.save_scene(self.__scenePath):
+                consoleLogWidget.error(
+                    f"Failed to save scene for the context: {path}")
+                return False
+
+        return True
+
     def load_scene(self, path: Path) -> Optional[SMSScene]:
         scene = SMSScene.from_path(path)
+
+        consoleLogWidget = TabWidgetManager.get_tab(
+            ConsoleLogWidget)
+
+        if scene is None:
+            consoleLogWidget.error(f"Failed to load scene from path: {path}")
+            return
+
         self.__scene = scene
         self.__scenePath = path
         self.sceneLoaded.emit(path)  # type: ignore
@@ -155,7 +211,7 @@ class ToolboxManager(QObject):
     def get_settings(self) -> ToolboxSettings:
         return self.__settings
 
-    def load_settings(self, settings: Optional[QSettings] = None) -> bool:
+    def load_settings(self, path: Path, settings: Optional[QSettings] = None) -> bool:
         return self.__settings.load(settings)
 
     def save_settings(self, path: Path) -> None:

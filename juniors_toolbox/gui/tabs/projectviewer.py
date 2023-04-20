@@ -400,11 +400,6 @@ class ProjectFolderViewWidget(InteractiveListView):
                 lambda: self._open_index_in_terminal(contextIndex)
             )
 
-        copyPathAction = QAction("Copy Path", self)
-        copyPathAction.triggered.connect(
-            lambda: self._copy_index_paths(selectedIndexes, relative=False)
-        )
-
         if contextIndexValid:
             cutAction = QAction("Cut", self)
             cutAction.triggered.connect(
@@ -416,9 +411,14 @@ class ProjectFolderViewWidget(InteractiveListView):
                 lambda: self._copy_paths(selectedIndexes)
             )
 
+            copyPathAction = QAction("Copy Path", self)
+            copyPathAction.triggered.connect(
+                lambda: self._copy_index_paths(selectedIndexes, relative=False)
+            )
+
             copyRelativePathAction = QAction("Copy Relative Path", self)
             copyRelativePathAction.triggered.connect(
-                lambda: self._copy_index_paths(contextIndex, relative=True)
+                lambda: self._copy_index_paths(selectedIndexes, relative=True)
             )
 
             if singularSelection:
@@ -464,9 +464,9 @@ class ProjectFolderViewWidget(InteractiveListView):
 
         menu.addSeparator()
 
-        menu.addAction(copyPathAction)
 
         if contextIndexValid:
+            menu.addAction(copyPathAction)
             menu.addAction(copyRelativePathAction)
             menu.addSeparator()
             if singularSelection:
@@ -916,7 +916,7 @@ class ProjectTreeViewWidget(InteractiveTreeView):
 class ProjectViewerWidget(A_DockingInterface):
     def __init__(self, *args: VariadicArgs, **kwargs: VariadicKwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.__scenePath: Optional[Path] = None
+        self.__rootPath: Optional[Path] = None
         self._focusedPath = PurePath()
 
         self.fsModelThread = QThread(self)
@@ -983,12 +983,12 @@ class ProjectViewerWidget(A_DockingInterface):
         )
 
     @property
-    def scenePath(self) -> Path:
-        return self.__scenePath if self.__scenePath is not None else Path.cwd()
+    def rootPath(self) -> Path:
+        return self.__rootPath if self.__rootPath is not None else Path.cwd()
 
-    @scenePath.setter
-    def scenePath(self, path: Path) -> None:
-        self.__scenePath = path
+    @rootPath.setter
+    def rootPath(self, path: Path) -> None:
+        self.__rootPath = path
         self.fsModel.rootPath = path
         self.fsTreeWidget.expand(
             self.fsModelDirProxy.index(0, 0, QModelIndex())
@@ -1012,14 +1012,10 @@ class ProjectViewerWidget(A_DockingInterface):
         self.folderViewWidget.set_tracked_root_index(focusedIndex)
 
     def populate(self, scene: Optional[SMSScene], *args: VariadicArgs, **kwargs: VariadicKwargs) -> None:
-        self.scenePath = args[0]
-        self.focusedPath = Path()
-        self.update()
+        ...
 
     @Slot()
     def update(self) -> None:
-        # self.fsTreeWidget.view_project(self.scenePath)
-        # self.focusedViewWidget.view(self.focusedPath)
         ...
 
     @Slot(QModelIndex)

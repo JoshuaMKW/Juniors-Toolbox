@@ -123,6 +123,8 @@ def read_string(
 
     if maxlen is None:
         maxlen = 0
+    else:
+        maxlen -= 1
 
     length = 0
     binary = f.read(1)
@@ -142,7 +144,7 @@ def read_string(
 def write_string(f: BinaryIO, val: str, encoding: Optional[str] = None):
     if encoding is None:
         encoding = get_likely_encoding(val.encode())
-        
+
     f.write(val.encode(encoding) + b"\x00")
 
 

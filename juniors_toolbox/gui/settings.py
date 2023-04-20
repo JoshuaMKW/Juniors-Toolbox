@@ -26,7 +26,7 @@ class ToolboxSettings(QObject):
     def __init__(self, settings: Optional[QSettings] = None, parent: Optional[QObject] = None) -> None:
         if ToolboxSettings.__singleton is not None:
             return
-            
+
         super().__init__(parent)
         self.load(settings)
 
@@ -50,19 +50,7 @@ class ToolboxSettings(QObject):
     def set_updates_enabled(self, enabled: bool) -> None:
         self.settings.setValue("Settings/Update", enabled)
 
-    def save(self) -> bool:
-        from juniors_toolbox.gui.application import JuniorsToolbox
-        window = JuniorsToolbox.get_instance_window()
-
-        if window.actionDarkTheme.isChecked():
-            self.set_theme(self.Themes.DARK)
-        else:
-            self.set_theme(self.Themes.LIGHT)
-        self.settings.setValue("GUI/Geometry", window.saveGeometry())
-        self.settings.setValue("GUI/State", window.saveState())
-        return True
-
-    def load(self, settings: Optional[QSettings] = None) -> bool:
+    def load(self, contextPath: Path = Path.cwd(), settings: Optional[QSettings] = None) -> bool:
         from juniors_toolbox.gui.application import JuniorsToolbox
         from juniors_toolbox.gui.tabs import TabWidgetManager
         window = JuniorsToolbox.get_instance_window()
@@ -71,11 +59,30 @@ class ToolboxSettings(QObject):
             settings = QSettings("JoshuaMK", "Junior's Toolbox")
         self.settings = settings
 
-        geometry = self.settings.value("GUI/Geometry", QByteArray(b""))
-        state = self.settings.value("GUI/State", QByteArray(b""))
+        self.load_layout(contextPath)
+
+        window.actionDarkTheme.blockSignals(True)
+        window.actionDarkTheme.setChecked(self.is_dark_theme())
+        window.actionDarkTheme.blockSignals(False)
+        window.signal_theme(self.is_dark_theme())
+
+        return True
+
+    def save(self, contextPath: Path = Path.cwd()) -> bool:
+        return self.save_layout(contextPath)
+
+    def load_layout(self, contextPath: Path = Path.cwd()) -> bool:
+        from juniors_toolbox.gui.application import JuniorsToolbox
+        from juniors_toolbox.gui.tabs import TabWidgetManager
+        window = JuniorsToolbox.get_instance_window()
+
+        geometry = self.settings.value(
+            f"GUI/Geometry/{contextPath}", QByteArray(b""))
+        state = self.settings.value(
+            f"GUI/State/{contextPath}", QByteArray(b""))
         window.restoreGeometry(geometry)
         window.restoreState(state)
-        
+
         # Update tab checkboxes
         for action in window.tabWidgetActions.values():
             tab = TabWidgetManager.get_tab_n(action.text())
@@ -86,11 +93,20 @@ class ToolboxSettings(QObject):
                 action.setChecked(True)
                 action.blockSignals(False)
 
-        window.actionDarkTheme.blockSignals(True)
-        window.actionDarkTheme.setChecked(self.is_dark_theme())
-        window.actionDarkTheme.blockSignals(False)
-        window.signal_theme(self.is_dark_theme())
+        return True
 
+    def save_layout(self, contextPath: Path = Path.cwd()) -> bool:
+        from juniors_toolbox.gui.application import JuniorsToolbox
+        window = JuniorsToolbox.get_instance_window()
+
+        if window.actionDarkTheme.isChecked():
+            self.set_theme(self.Themes.DARK)
+        else:
+            self.set_theme(self.Themes.LIGHT)
+
+        self.settings.setValue(
+            f"GUI/Geometry/{contextPath}", window.saveGeometry())
+        self.settings.setValue(f"GUI/State/{contextPath}", window.saveState())
         return True
 
     def reset(self):

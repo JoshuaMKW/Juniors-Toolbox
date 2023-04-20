@@ -37,6 +37,7 @@ class NameRef(A_Serializable, A_Clonable):
     """
     Implements the NameRef logic into a str-like object
     """
+
     def __init__(self, nameref: str) -> None:
         self.__data = nameref
 
@@ -68,12 +69,12 @@ class NameRef(A_Serializable, A_Clonable):
 
     def set_ref(self, nameref: str) -> None:
         self.__data = nameref
-        
+
     @classmethod
     def from_bytes(cls, data: BinaryIO, *args: VariadicArgs, **kwargs: VariadicKwargs) -> Optional["NameRef"]:
         keycode = read_uint16(data)
         refLength = read_uint16(data)
-        nameref = cls(read_string(data, maxlen=refLength-1))
+        nameref = cls(read_string(data, maxlen=refLength))
         thisKeycode = hash(nameref)
         if thisKeycode != keycode:
             raise NameRefCorruptedError(

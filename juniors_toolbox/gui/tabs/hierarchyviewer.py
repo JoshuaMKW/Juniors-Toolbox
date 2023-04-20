@@ -471,12 +471,14 @@ class NameRefHierarchyWidget(A_DockingInterface):
         if item.parent() is None:
             metadataProperties = []
             if item.text(0) == self.OBJECT_NODE_NAME:
+                objectHierarchy = scene.get_object_hierarchy()
+
                 title = "Object Hierarchy Properties"
                 metadataProperties.append(
                     PropertyFactory.create_property(
                         name="Object Count",
                         valueType=ValueType.COMMENT,
-                        value=f"=  {scene.get_object_count()}",
+                        value=f"=  {objectHierarchy.get_object_count()}",
                         readOnly=True
                     )
                 )
@@ -484,7 +486,7 @@ class NameRefHierarchyWidget(A_DockingInterface):
                     PropertyFactory.create_property(
                         name="Object Data Size",
                         valueType=ValueType.COMMENT,
-                        value=f"=  0x{sum([obj.get_data_size() for obj in scene.iter_objects()]):X}",
+                        value=f"=  0x{sum([obj.get_data_size() for obj in objectHierarchy.iter_objects()]):X}",
                         readOnly=True
                     )
                 )
@@ -492,7 +494,7 @@ class NameRefHierarchyWidget(A_DockingInterface):
                     name="Unique Objects",
                     readOnly=False
                 )
-                for uniqueRef in scene.get_unique_object_refs(alphanumeric=True):
+                for uniqueRef in objectHierarchy.get_unique_object_refs(alphanumeric=True):
                     uniqueObjList.add_property(
                         PropertyFactory.create_property(
                             name=uniqueRef,
@@ -503,12 +505,14 @@ class NameRefHierarchyWidget(A_DockingInterface):
                     )
                 metadataProperties.append(uniqueObjList)
             else:
+                tableHierarchy = scene.get_table_hierarchy()
+
                 title = "Table Hierarchy Properties"
                 metadataProperties.append(
                     PropertyFactory.create_property(
                         name="Table Count",
                         valueType=ValueType.COMMENT,
-                        value=f"=  {scene.get_table_count()}",
+                        value=f"=  {tableHierarchy.get_object_count()}",
                         readOnly=True
                     )
                 )
@@ -520,11 +524,11 @@ class NameRefHierarchyWidget(A_DockingInterface):
                     PropertyFactory.create_property(
                         name="Table Data Size",
                         valueType=ValueType.COMMENT,
-                        value=f"=  0x{sum([obj.get_data_size() for obj in scene.iter_tables()]):X}",
+                        value=f"=  0x{sum([obj.get_data_size() for obj in tableHierarchy.iter_objects()]):X}",
                         readOnly=True
                     )
                 )
-                for uniqueRef in scene.get_unique_table_refs(alphanumeric=True):
+                for uniqueRef in tableHierarchy.get_unique_object_refs(alphanumeric=True):
                     uniqueTableList.add_property(
                         PropertyFactory.create_property(
                             name=uniqueRef,
